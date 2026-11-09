@@ -132,6 +132,12 @@ describe("xAI X search connector", () => {
     expect(event).toEqual({ type: "error", message: "X search failed (HTTP 500)." });
   });
 
+  it("reports an unreadable answer as a failure, not an empty result", async () => {
+    const response = new Response("{ cut off", { status: 200 });
+    const [event] = await run(connector({ response }).provider, { query: "q" });
+    expect(event?.type).toBe("error");
+  });
+
   it("asks for a reconnect when xAI refuses the token", async () => {
     const response = new Response("denied", { status: 401 });
     const [event] = await run(connector({ response }).provider, { query: "q" });

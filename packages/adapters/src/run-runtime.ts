@@ -40,6 +40,7 @@ import {
 import { reconcilePurchases } from "./purchase-poll.js";
 import { createStrategicInitiativeReconciler } from "./strategic-initiative.js";
 import { createWebProvider } from "./web-provider-factory.js";
+import { XaiXSearchConnector } from "./xai-x-search-connector.js";
 
 /**
  * Settings the run runtime reads. The API passes its parsed env, so its test overrides apply;
@@ -148,6 +149,7 @@ export function createConnectorRuntime(
       .providers()
       .filter((provider) => !composio || provider.describe().id !== "composio"),
     mcp,
+    new XaiXSearchConnector({ prisma, secrets }),
     ...(overrides.connectors ?? []),
   ]);
   integrationSettings.warmDirectories();

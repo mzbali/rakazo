@@ -7,7 +7,7 @@ import type {
   SecretStore,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
-import { findModelCredential } from "@rakazo/db";
+import { findModelCredential, runAsTenant } from "@rakazo/db";
 import { combineSignals } from "./connector-safety.js";
 import { resolveStoredModelAuth } from "./model-credential-refresh.js";
 
@@ -80,7 +80,9 @@ export class XaiXSearchConnector implements ConnectorProvider {
   }
 
   async discoverTools(context: AdapterContext): Promise<ConnectorTool[]> {
-    const credential = await findModelCredential(this.deps.prisma, context, PROVIDER);
+    const credential = await runAsTenant(context, () =>
+      findModelCredential(this.deps.prisma, context, PROVIDER),
+    );
     return credential ? [TOOL] : [];
   }
 
@@ -94,11 +96,12 @@ export class XaiXSearchConnector implements ConnectorProvider {
       yield { type: "error", message: search.error };
       return;
     }
-    const apiKey = await this.apiKey(context).catch(() => undefined);
+    // The run's own account and Space, whatever context the caller set.
+    const apiKey = await runAsTenant(context, () => this.apiKey(context)).catch(() => undefined);
     if (!apiKey) {
       yield {
         type: "error",
-        message: "X search needs a working xAI connection. Reconnect it in model settings.",
+        message: "X search needs a working model connection. Reconnect it in model settings.",
       };
       return;
     }
@@ -117,13 +120,13 @@ export class XaiXSearchConnector implements ConnectorProvider {
         signal: combineSignals(context.signal, AbortSignal.timeout(TIMEOUT_MS)),
       });
     } catch {
-      yield { type: "error", message: "X search could not reach xAI or timed out. Try again." };
+      yield { type: "error", message: "X search could not be reached or timed out. Try again." };
       return;
     }
     if (response.status === 401 || response.status === 403) {
       yield {
         type: "error",
-        message: "xAI refused the connection. Reconnect it in model settings.",
+        message: "The model connection was refused. Reconnect it in model settings.",
       };
       return;
     }
@@ -131,7 +134,14 @@ export class XaiXSearchConnector implements ConnectorProvider {
       yield { type: "error", message: `X search failed (HTTP ${response.status}).` };
       return;
     }
-    const body = (await response.json().catch(() => undefined)) as unknown;
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      // A cut-off or unreadable answer is a failure, not evidence that nothing was found.
+      yield { type: "error", message: "X search returned an unreadable answer. Try again." };
+      return;
+    }
     yield { type: "result", data: xSearchResult(body) };
   }
 

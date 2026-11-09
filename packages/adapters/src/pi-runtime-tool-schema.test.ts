@@ -1,3 +1,4 @@
+import { validateToolArguments } from "@earendil-works/pi-ai";
 import {
   FLEET_TOOL_NAMES,
   TICKET_COMMENT_MAX_LENGTH,
@@ -67,6 +68,50 @@ describe("jsonSchemaParameters", () => {
         parseConnectorToolArgs(schema, { ...base, [field]: "x".repeat(limit + 1) }),
       ).toThrow();
     }
+  });
+
+  it("passes an untyped gateway input through as an object instead of a string", () => {
+    // Shape of a remote gateway's `call` tool: `input` declares no type because it forwards
+    // whatever the inner tool takes.
+    const call = {
+      type: "object",
+      additionalProperties: true,
+      properties: {
+        path: { type: "string" },
+        input: { description: "The tool's input, matching its input type." },
+      },
+      required: ["path", "input"],
+    };
+    const definition = {
+      name: "call",
+      description: "Call a tool by path",
+      inputSchema: {
+        type: "object",
+        additionalProperties: true,
+        properties: { calls: { anyOf: [call, { type: "array", items: call, minItems: 1 }] } },
+        required: ["calls"],
+      },
+    };
+    const parameters = parametersFor(definition);
+    const wire = JSON.parse(JSON.stringify(parameters));
+    expect(wire.properties.calls.anyOf[0].properties.input).toEqual({
+      description: "The tool's input, matching its input type.",
+    });
+    const tool = { name: "call", description: "", parameters };
+    const validate = (args: Parameters<typeof validateToolArguments>[1]["arguments"]) =>
+      validateToolArguments(tool, {
+        type: "toolCall",
+        id: "call_1",
+        name: "call",
+        arguments: args,
+      });
+    const search = {
+      path: "tools.mail.search",
+      input: { query: "invoice", account: "Main", max: 5 },
+    };
+    expect(validate({ calls: search })).toEqual({ calls: search });
+    expect(validate({ calls: [search] })).toEqual({ calls: [search] });
+    expect(() => validate({ calls: { input: {} } })).toThrow();
   });
 
   it("exposes fields from a locally referenced allOf branch", () => {

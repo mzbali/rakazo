@@ -162,7 +162,7 @@ const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
 const appLinks: AppLink[] = [];
 
 /**
- * Lets links open places in desktop apps the host trusts. Any other custom link stays text,
+ * Lets links open places in apps the host trusts. Any other custom link stays text,
  * since it could launch whatever installed app claims its scheme.
  */
 export function allowAppLinks(links: readonly AppLink[]) {

@@ -156,10 +156,16 @@ const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
 applyExplicitLinkRules(plainTextLinkify);
 
 const protocolPattern = /^([a-z][a-z\d+.-]*):/i;
-// Desktop apps a bot's link may open, such as a coding agent's thread. Named one by one: any
-// other custom scheme stays text, since it could launch whatever installed app claims it.
-const appLinkProtocols = ["t3code"];
-const safeProtocols = new Set(["http", "https", "mailto", "tel", ...appLinkProtocols]);
+const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
+const appLinkProtocols = new Set<string>();
+
+/**
+ * Lets links open desktop apps the host trusts, named by URL scheme. Any other custom scheme
+ * stays text, since it could launch whatever installed app claims it.
+ */
+export function allowAppLinkSchemes(schemes: readonly string[]) {
+  for (const scheme of schemes) appLinkProtocols.add(scheme.toLowerCase());
+}
 
 export type PlainTextPart =
   | { type: "text"; value: string }
@@ -226,7 +232,9 @@ export function sanitizeMarkdownUrl(url: string, allowRelative = false): string 
   const value = url.trim();
   const protocol = value.match(protocolPattern)?.[1]?.toLowerCase();
 
-  if (protocol) return safeProtocols.has(protocol) ? value : undefined;
+  if (protocol) {
+    return safeProtocols.has(protocol) || appLinkProtocols.has(protocol) ? value : undefined;
+  }
   if (
     allowRelative &&
     (value.startsWith("/") ||

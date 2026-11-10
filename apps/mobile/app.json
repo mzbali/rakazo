@@ -95,7 +95,8 @@
       "./plugins/with-android-no-gwp-asan",
       "./plugins/with-agent-notifications",
       "./plugins/with-android-r8",
-      "./plugins/with-app-intents"
+      "./plugins/with-app-intents",
+      "./plugins/with-app-link-queries"
     ],
     "locales": {
       "es": "./locales/es.json",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesAppLink } from "./app-links.js";
+import { findAppLink, matchesAppLink } from "./app-links.js";
 
 const links = [{ scheme: "coder", host: "threads" }];
 
@@ -26,5 +26,19 @@ describe("matchesAppLink", () => {
       expect(matchesAppLink(url, links), url).toBe(false);
     }
     expect(matchesAppLink("coder://threads/env-1/thread-1", [])).toBe(false);
+  });
+});
+
+describe("findAppLink", () => {
+  it("returns the place a URL opens, with its icon, under the same rules", () => {
+    const places = [
+      ...links,
+      { scheme: "coder", host: "chats", icon: "https://coder.example.test" },
+    ];
+    expect(findAppLink("coder://chats/env-1/chat-1", places)?.icon).toBe(
+      "https://coder.example.test",
+    );
+    expect(findAppLink("coder://threads/env-1/thread-1", places)).toEqual(links[0]);
+    expect(findAppLink("coder://chats/env-1/chat-1?prompt=run", places)).toBeUndefined();
   });
 });

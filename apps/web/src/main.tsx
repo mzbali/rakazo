@@ -25,7 +25,7 @@ import "./styles.css";
 
 markOnce("rk:renderer:module-evaluated");
 // Coding agents link back to their threads in the T3 Code desktop app.
-allowAppLinks([{ scheme: "t3code", host: "threads" }]);
+allowAppLinks([{ scheme: "t3code", host: "threads", icon: "https://app.t3.codes" }]);
 installPreloadRecovery();
 clientUpdates().install();
 registerServiceWorker();

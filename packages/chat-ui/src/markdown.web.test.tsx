@@ -222,6 +222,22 @@ describe("web markdown website links", () => {
     await view.cleanup();
   });
 
+  it("draws an app link with the icon of the website its host named", async () => {
+    allowAppLinks([
+      { scheme: "coder", host: "chats", icon: "https://coder-web.example.test/home" },
+    ]);
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const href = "coder://chats/env-1/chat-1";
+    const view = await renderLinks(`Done: [Fix sign-in](${href})`, { load });
+    const link = view.container.querySelector("a");
+    expect(link?.getAttribute("href")).toBe(href);
+    expect(link?.getAttribute("class")).toBe("rk-chat-link");
+    expect(link?.querySelector(".rk-chat-link-tile img")?.getAttribute("src")).toBe(ICON);
+    expect(link?.textContent).toBe("Fix sign-in");
+    expect(load).toHaveBeenCalledWith("https://coder-web.example.test");
+    await view.cleanup();
+  });
+
   it("shortens a bare URL to host and path", async () => {
     const view = await renderLinks(
       "See https://www.icon-b.example.test/status/123?s=20 and <https://icon-b.example.test/>",

@@ -932,6 +932,31 @@ describe("native markdown code colours", () => {
 });
 
 describe("app links", () => {
+  it("draws an app link with the icon of the website its host named", async () => {
+    linking.openURL.mockClear();
+    alert.mockClear();
+    allowAppLinks([{ scheme: "coder", host: "chats", icon: "https://coder-native.example.test/" }]);
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const url = "coder://chats/env-1/chat-1";
+    const view = await renderNativeLinks(
+      () => <ChatMarkdown>{`Done: [Fix sign-in](${url})`}</ChatMarkdown>,
+      { load, globe: createElement("rn-globe") },
+    );
+    const [link] = view.links();
+    expect(link?.getAttribute("data-accessibility-label")).toBe("Fix sign-in");
+    expect(link?.textContent).toBe(joined("Fix sign-in"));
+    expect(link?.querySelector("rn-image")).not.toBeNull();
+    expect(load).toHaveBeenCalledWith("https://coder-native.example.test");
+    await act(async () => {
+      link?.click();
+    });
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith(url);
+    });
+    await view.cleanup();
+  });
+
   it("opens an allowed app link without asking", async () => {
     linking.openURL.mockClear();
     alert.mockClear();

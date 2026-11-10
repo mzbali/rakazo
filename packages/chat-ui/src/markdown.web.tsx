@@ -877,7 +877,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
 
 export type { ChatMarkdownProps, LinkFavicons } from "./markdown";
 export {
-  allowAppLinkSchemes,
+  allowAppLinks,
   LinkFaviconsContext,
   RemoteImagesContext,
   useLinkFavicon,

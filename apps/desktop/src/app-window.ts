@@ -17,6 +17,7 @@ import {
   isRendererAssetMiss,
 } from "./renderer-assets.js";
 import {
+  externalAppLinkUrl,
   probeFailureMessage,
   safeExternalUrl,
   serverHeadersFor,
@@ -177,7 +178,8 @@ export function createWindow(url: string, partition: string | null) {
         overrideBrowserWindowOptions: oauthPopupWindowOptions(partition),
       };
     }
-    const external = safeExternalUrl(childUrl);
+    // Chat links open through here; navigations and redirects never hand an app link to the OS.
+    const external = safeExternalUrl(childUrl) ?? externalAppLinkUrl(childUrl);
     if (external !== null) void shell.openExternal(external);
     return { action: "deny" };
   });

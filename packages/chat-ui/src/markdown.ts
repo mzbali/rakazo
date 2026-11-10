@@ -1,6 +1,8 @@
 /// <reference path="./linkify-it.d.ts" />
 
 import type { MessageBlock } from "@rakazo/contracts";
+import type { AppLink } from "@rakazo/core/app-links";
+import { matchesAppLink } from "@rakazo/core/app-links";
 import { urlSite } from "@rakazo/core/egress";
 import LinkifyIt from "linkify-it";
 import type { ReactNode } from "react";
@@ -157,14 +159,14 @@ applyExplicitLinkRules(plainTextLinkify);
 
 const protocolPattern = /^([a-z][a-z\d+.-]*):/i;
 const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
-const appLinkProtocols = new Set<string>();
+const appLinks: AppLink[] = [];
 
 /**
- * Lets links open desktop apps the host trusts, named by URL scheme. Any other custom scheme
- * stays text, since it could launch whatever installed app claims it.
+ * Lets links open places in desktop apps the host trusts. Any other custom link stays text,
+ * since it could launch whatever installed app claims its scheme.
  */
-export function allowAppLinkSchemes(schemes: readonly string[]) {
-  for (const scheme of schemes) appLinkProtocols.add(scheme.toLowerCase());
+export function allowAppLinks(links: readonly AppLink[]) {
+  appLinks.push(...links);
 }
 
 export type PlainTextPart =
@@ -233,7 +235,7 @@ export function sanitizeMarkdownUrl(url: string, allowRelative = false): string 
   const protocol = value.match(protocolPattern)?.[1]?.toLowerCase();
 
   if (protocol) {
-    return safeProtocols.has(protocol) || appLinkProtocols.has(protocol) ? value : undefined;
+    return safeProtocols.has(protocol) || matchesAppLink(value, appLinks) ? value : undefined;
   }
   if (
     allowRelative &&

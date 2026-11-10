@@ -1,6 +1,6 @@
 import "./zod-config";
 import "./monitoring-bootstrap";
-import { allowAppLinkSchemes } from "@rakazo/chat-ui/web";
+import { allowAppLinks } from "@rakazo/chat-ui/web";
 import { BotAvatarActivityProvider, Toaster, TooltipProvider } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode, useEffect, useLayoutEffect, useRef } from "react";
@@ -25,7 +25,7 @@ import "./styles.css";
 
 markOnce("rk:renderer:module-evaluated");
 // Coding agents link back to their threads in the T3 Code desktop app.
-allowAppLinkSchemes(["t3code"]);
+allowAppLinks([{ scheme: "t3code", host: "threads" }]);
 installPreloadRecovery();
 clientUpdates().install();
 registerServiceWorker();

@@ -222,7 +222,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import type { TextProps } from "react-native";
 import { Platform, Pressable, StyleSheet } from "react-native";
-import { allowAppLinkSchemes } from "./markdown";
+import { allowAppLinks } from "./markdown";
 import type { LinkFavicons, MermaidDiagramProps } from "./markdown.native";
 import {
   ChatMarkdown,
@@ -935,7 +935,7 @@ describe("app links", () => {
   it("opens an allowed app link without asking", async () => {
     linking.openURL.mockClear();
     alert.mockClear();
-    allowAppLinkSchemes(["coder"]);
+    allowAppLinks([{ scheme: "coder", host: "threads" }]);
     const url = "coder://threads/env-1/mcp%3Alaunch%3Aabc123";
     const view = await renderNativeLinks(
       () => <ChatMarkdown>{`[one](${url}) and [two](${url})`}</ChatMarkdown>,

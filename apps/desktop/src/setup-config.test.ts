@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  allowExternalAppSchemes,
+  allowExternalAppLinks,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
+  externalAppLinkUrl,
   isRakazoHealth,
   managedLocalOpenUrl,
   maySendDesktopStackToken,
@@ -266,14 +267,21 @@ describe("remote-content isolation", () => {
   it("opens only web URLs outside Electron", () => {
     expect(safeExternalUrl("https://example.com/docs")).toBe("https://example.com/docs");
     expect(safeExternalUrl("http://192.168.1.20:3100/docs")).toBe("http://192.168.1.20:3100/docs");
-    expect(safeExternalUrl("coder://threads/env-1/thread-1")).toBeNull();
-    allowExternalAppSchemes(["coder"]);
-    expect(safeExternalUrl("coder://threads/env-1/mcp%3Alaunch%3Aabc")).toBe(
-      "coder://threads/env-1/mcp%3Alaunch%3Aabc",
-    );
     expect(safeExternalUrl("mailto:person@example.com")).toBeNull();
     expect(safeExternalUrl("file:///etc/passwd")).toBeNull();
     expect(safeExternalUrl("vscode://file/etc/passwd")).toBeNull();
+  });
+});
+
+describe("external app links", () => {
+  it("hands only allowed app places to the OS, never through navigation checks", () => {
+    const url = "coder://threads/env-1/mcp%3Alaunch%3Aabc";
+    expect(externalAppLinkUrl(url)).toBeNull();
+    allowExternalAppLinks([{ scheme: "coder", host: "threads" }]);
+    expect(externalAppLinkUrl(url)).toBe(url);
+    expect(externalAppLinkUrl("coder://new?prompt=run")).toBeNull();
+    expect(externalAppLinkUrl("coder://threads/env-1/thread-1?prompt=run")).toBeNull();
+    expect(safeExternalUrl(url)).toBeNull();
   });
 });
 

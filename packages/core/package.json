@@ -64,6 +64,11 @@
       "development": "./src/node/screen-capability.ts",
       "default": "./src/node/screen-capability.ts"
     },
+    "./app-links": {
+      "types": "./src/app-links.ts",
+      "development": "./src/app-links.ts",
+      "default": "./src/app-links.ts"
+    },
     "./egress": {
       "types": "./src/egress.ts",
       "development": "./src/egress.ts",

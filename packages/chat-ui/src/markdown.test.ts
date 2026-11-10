@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import {
-  allowAppLinkSchemes,
+  allowAppLinks,
   closeUnterminatedFence,
   inlineMarkdownImageSrc,
   linkFaviconOrigin,
@@ -138,8 +138,10 @@ describe("sanitizeMarkdownUrl", () => {
 
   it("opens only the app schemes the host allows", () => {
     expect(sanitizeMarkdownUrl("coder://threads/env/thread")).toBeUndefined();
-    allowAppLinkSchemes(["Coder"]);
+    allowAppLinks([{ scheme: "Coder", host: "threads" }]);
     expect(sanitizeMarkdownUrl("CODER://threads/env/thread")).toBe("CODER://threads/env/thread");
+    expect(sanitizeMarkdownUrl("coder://new?prompt=run")).toBeUndefined();
+    expect(sanitizeMarkdownUrl("coder://threads/env/thread?prompt=run")).toBeUndefined();
     expect(sanitizeMarkdownUrl("coder-evil://threads/env/thread")).toBeUndefined();
     expect(sanitizeMarkdownUrl("vscode://file/etc/passwd")).toBeUndefined();
     expect(sanitizeMarkdownImageUrl("coder://threads/env/thread")).toBeUndefined();

@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { closeUnterminatedFence } from "./markdown";
 import type { LinkFavicons } from "./markdown.web";
 import {
+  allowAppLinkSchemes,
   ChatMarkdown,
   defaultMarkdownCopy,
   LinkFaviconsContext,
@@ -602,9 +603,13 @@ describe("web external link confirmation", () => {
     await view.cleanup();
   });
 
-  it("keeps every coding-app thread link clickable without asking", async () => {
-    const first = "t3code://threads/env-1/thread-1";
-    const second = "t3code://threads/env-1/mcp%3Alaunch%3Aabc123";
+  it("keeps every allowed app link clickable without asking", async () => {
+    const first = "coder://threads/env-1/thread-1";
+    const second = "coder://threads/env-1/mcp%3Alaunch%3Aabc123";
+    const blocked = await render(<ChatMarkdown>{`[one](${first})`}</ChatMarkdown>);
+    expect(blocked.container.querySelector("a")).toBeNull();
+    await blocked.cleanup();
+    allowAppLinkSchemes(["coder"]);
     const view = await render(
       <ChatMarkdown>{`[one](${first}) and [two](${second})\n\n[again](${first})`}</ChatMarkdown>,
     );

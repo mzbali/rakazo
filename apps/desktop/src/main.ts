@@ -74,6 +74,7 @@ import { revealSecondInstanceWindow, secondInstanceWindow } from "./second-insta
 import { installServerHeaders } from "./server-request-headers.js";
 import { installSessionPermissions } from "./session-permissions.js";
 import {
+  allowExternalAppSchemes,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
   isRakazoHealth,
@@ -91,6 +92,8 @@ import { createUserDeviceAccess, deviceName } from "./user-device.js";
 
 process.setSourceMapsEnabled(true);
 installDesktopEarlyErrorReporting();
+// Coding agents link back to their threads in the T3 Code desktop app.
+allowExternalAppSchemes(["t3code"]);
 const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
 /** Test hook: where the app-managed stack answers. Mode `new` still requires loopback. */
 const LOCAL_WEB_URL = process.env.RAKAZO_LOCAL_WEB_URL?.trim() || DEFAULT_LOCAL_WEB_URL;

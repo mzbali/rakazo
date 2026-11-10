@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  allowExternalAppSchemes,
   DEFAULT_LOCAL_WEB_URL,
   desktopStackImageTag,
   isRakazoHealth,
@@ -265,8 +266,10 @@ describe("remote-content isolation", () => {
   it("opens only web URLs outside Electron", () => {
     expect(safeExternalUrl("https://example.com/docs")).toBe("https://example.com/docs");
     expect(safeExternalUrl("http://192.168.1.20:3100/docs")).toBe("http://192.168.1.20:3100/docs");
-    expect(safeExternalUrl("t3code://threads/env-1/mcp%3Alaunch%3Aabc")).toBe(
-      "t3code://threads/env-1/mcp%3Alaunch%3Aabc",
+    expect(safeExternalUrl("coder://threads/env-1/thread-1")).toBeNull();
+    allowExternalAppSchemes(["coder"]);
+    expect(safeExternalUrl("coder://threads/env-1/mcp%3Alaunch%3Aabc")).toBe(
+      "coder://threads/env-1/mcp%3Alaunch%3Aabc",
     );
     expect(safeExternalUrl("mailto:person@example.com")).toBeNull();
     expect(safeExternalUrl("file:///etc/passwd")).toBeNull();

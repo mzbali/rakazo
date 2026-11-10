@@ -5,8 +5,10 @@ const { withAndroidManifest } = require("expo/config-plugins");
 
 function addAppLinkQueries(manifest, schemes) {
   if (schemes.length === 0) return manifest;
-  const queries = (manifest.queries ??= [{}])[0];
-  const intents = (queries.intent ??= []);
+  manifest.queries ??= [{}];
+  const queries = manifest.queries[0];
+  queries.intent ??= [];
+  const intents = queries.intent;
   for (const scheme of schemes) {
     const declared = intents.some((intent) =>
       intent.data?.some((data) => data.$?.["android:scheme"] === scheme),

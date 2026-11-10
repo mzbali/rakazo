@@ -100,6 +100,7 @@ function fixture({
   existingSharedMemory,
   advanceRevisionAfterRead = false,
   fleetManagement = false,
+  openWeb = false,
   fleetBots = [] as { id: string; name: string; thread?: { id: string } }[],
   secondResource = false,
   routines = [] as { name: string; prompt: string }[],
@@ -126,6 +127,8 @@ function fixture({
   secondResource?: boolean;
   /** The switch as the run starts; `liveBot` is what a later read sees. */
   fleetManagement?: boolean;
+  /** The operator switch that skips the new-site check for web_fetch. */
+  openWeb?: boolean;
   /** Other active bots of the same user, found by id or exact name. */
   fleetBots?: { id: string; name: string; thread?: { id: string } }[];
   parallelCalls?: boolean;
@@ -357,6 +360,7 @@ function fixture({
         autoSpeak: false,
         disabledBuiltinTools,
         fleetManagement,
+        openWeb,
         computerId: "computer-1",
         computer: { id: "computer-1", scope: "dedicated" },
       })),
@@ -2716,6 +2720,16 @@ describe("outbound destinations", () => {
     });
     expect(f.pauseRunForInput).not.toHaveBeenCalled();
     expect(f.effects.map((effect) => effect.status)).toEqual(["denied"]);
+  });
+
+  it("fetches any site for an open-web bot, even in a webhook run", async () => {
+    const f = fixture({ builtin: true, trigger: "webhook", openWeb: true });
+    f.setCalls([
+      { name: "web_fetch", args: { url: "https://new.test/page" }, executionId: "call-1" },
+    ]);
+    await f.run();
+    expect(f.fetchedUrls).toEqual(["https://new.test/page"]);
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
   });
 
   it("fetches an always-allowed site in a webhook run", async () => {

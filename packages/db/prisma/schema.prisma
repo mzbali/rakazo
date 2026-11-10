@@ -975,6 +975,8 @@ model Bot {
   crossSpaceCommunication Boolean @default(true)
   dailyCheckIns Boolean @default(true)
   fleetManagement        Boolean @default(true)
+  /// Fetches any site without the new-site check. Operator-set; no UI.
+  openWeb                Boolean @default(false)
   replyMode              String  @default("chat")
   routines          Routine[]
   scratchpadItems   ScratchpadItem[]

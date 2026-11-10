@@ -234,6 +234,7 @@ export async function gateToolCall(
           trusted:
             ctx.trust.searchResultUrls.has(fetchUrl) ||
             (name === "web_fetch" && RAKAZO_DOCS_URLS.includes(fetchUrl)) ||
+            (name === "web_fetch" && ctx.bot.openWeb) ||
             (await ctx.trust.loadTrustedSites()).has(fetchSite),
           rules: await ctx.trust.loadApprovalRules(),
         })

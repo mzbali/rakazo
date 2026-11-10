@@ -602,6 +602,25 @@ describe("web external link confirmation", () => {
     await view.cleanup();
   });
 
+  it("keeps every coding-app thread link clickable without asking", async () => {
+    const first = "t3code://threads/env-1/thread-1";
+    const second = "t3code://threads/env-1/mcp%3Alaunch%3Aabc123";
+    const view = await render(
+      <ChatMarkdown>{`[one](${first}) and [two](${second})\n\n[again](${first})`}</ChatMarkdown>,
+    );
+    const links = [...view.container.querySelectorAll("a")];
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([first, second, first]);
+    expect(links.map((link) => link.textContent)).toEqual(["one", "two", "again"]);
+    for (const link of links) {
+      link.addEventListener("click", (event) => event.preventDefault());
+      await act(async () => {
+        link.click();
+      });
+    }
+    expect(document.querySelector("[role='alertdialog']")).toBeNull();
+    await view.cleanup();
+  });
+
   it("opens the link and trusts its site from the third button", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const trustSite = vi.fn(async () => {

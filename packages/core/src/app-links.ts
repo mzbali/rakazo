@@ -12,16 +12,15 @@ export function matchesAppLink(url: string, links: readonly AppLink[]): boolean 
   const value = url.trim();
   const scheme = value.match(schemePattern)?.[1]?.toLowerCase();
   const candidates = links.filter((link) => link.scheme.toLowerCase() === scheme);
-  if (candidates.length === 0) return false;
+  // An empty query or fragment parses as none, yet still reaches the app, which parses it again.
+  if (candidates.length === 0 || /[?#]/.test(value)) return false;
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
     return false;
   }
-  if (parsed.search || parsed.hash || parsed.port || parsed.username || parsed.password) {
-    return false;
-  }
+  if (parsed.port || parsed.username || parsed.password) return false;
   const host = parsed.hostname.toLowerCase();
   return candidates.some((link) => link.host.toLowerCase() === host);
 }

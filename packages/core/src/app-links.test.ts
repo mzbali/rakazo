@@ -14,6 +14,8 @@ describe("matchesAppLink", () => {
       "coder://new?prompt=delete%20everything",
       "coder://threads/env-1/thread-1?prompt=run",
       "coder://threads/env-1/thread-1#prompt",
+      "coder://threads/env-1/thread-1?",
+      "coder://threads/env-1/thread-1#",
       "coder://user:pass@threads/env-1/thread-1",
       "coder://threads:9/env-1/thread-1",
       "coder-evil://threads/env-1/thread-1",

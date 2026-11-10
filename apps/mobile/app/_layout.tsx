@@ -1,5 +1,6 @@
 import type { LinkFavicons } from "@rakazo/chat-ui/native";
 import {
+  allowAppLinks,
   CodeCopyButtonContext,
   LinkFaviconsContext,
   MarkdownLinkPromptProvider,
@@ -45,6 +46,7 @@ import {
 } from "../lib/api";
 import { loadApiBase } from "../lib/api-server";
 import { clearAppBadge } from "../lib/app-badge";
+import { mobileAppLinks } from "../lib/app-links";
 import { loadAppearancePreference, mobileTokens } from "../lib/appearance";
 import { replaceWithSignIn } from "../lib/auth-routing";
 import { AvatarScreenFocus } from "../lib/avatar-life";
@@ -104,6 +106,7 @@ import { InboxPane } from "./index";
 // Before anything renders: text grows with the iOS text size only up to a fixed maximum.
 capTextScaling();
 configureForegroundNotifications();
+allowAppLinks(mobileAppLinks);
 registerSessionDiskCache(clearSavedChats);
 registerSessionDiskCache(clearQueries);
 registerSessionDiskCache((sameAccount) => {

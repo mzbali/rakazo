@@ -117,7 +117,8 @@
           "NSAllowsLocalNetworking": true
         },
         "UIBackgroundModes": ["voip", "audio", "remote-notification"],
-        "NSUserActivityTypes": ["INSendMessageIntent"]
+        "NSUserActivityTypes": ["INSendMessageIntent"],
+        "LSApplicationQueriesSchemes": ["t3code"]
       },
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true,

@@ -156,7 +156,10 @@ const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
 applyExplicitLinkRules(plainTextLinkify);
 
 const protocolPattern = /^([a-z][a-z\d+.-]*):/i;
-const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
+// Desktop apps a bot's link may open, such as a coding agent's thread. Named one by one: any
+// other custom scheme stays text, since it could launch whatever installed app claims it.
+const appLinkProtocols = ["t3code"];
+const safeProtocols = new Set(["http", "https", "mailto", "tel", ...appLinkProtocols]);
 
 export type PlainTextPart =
   | { type: "text"; value: string }

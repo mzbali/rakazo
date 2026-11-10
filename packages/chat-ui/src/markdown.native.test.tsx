@@ -930,6 +930,28 @@ describe("native markdown code colours", () => {
   });
 });
 
+describe("app links", () => {
+  it("opens a coding-app thread link without asking", async () => {
+    linking.openURL.mockClear();
+    alert.mockClear();
+    const url = "t3code://threads/env-1/mcp%3Alaunch%3Aabc123";
+    const view = await renderNativeLinks(
+      () => <ChatMarkdown>{`[one](${url}) and [two](${url})`}</ChatMarkdown>,
+      { load: async () => ({ icon: null }) },
+    );
+    const links = view.links();
+    expect(links.map((link) => link.textContent)).toEqual(["one", "two"]);
+    await act(async () => {
+      links[1]?.click();
+    });
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith(url);
+    });
+    await view.cleanup();
+  });
+});
+
 describe("user message links", () => {
   it("opens a link tapped inside a user message bubble's long-press pressables", async () => {
     // The mobile thread wraps a user bubble in two long-press Pressables: the

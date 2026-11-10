@@ -190,11 +190,14 @@ export function sessionPartitionForServerUrl(targetUrl: string): string | null {
   }
 }
 
+// Desktop apps a chat link may open, kept in step with the chat renderer's app link schemes.
+const EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "t3code:"]);
+
 /** External pages are opened by the OS, never in a privileged Electron child window. */
 export function safeExternalUrl(targetUrl: string): string | null {
   try {
     const url = new URL(targetUrl);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (!EXTERNAL_PROTOCOLS.has(url.protocol)) return null;
     return url.toString();
   } catch {
     return null;

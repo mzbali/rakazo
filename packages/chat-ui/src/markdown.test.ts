@@ -133,10 +133,13 @@ describe("sanitizeMarkdownUrl", () => {
     expect(sanitizeMarkdownUrl("mailto:hello@example.com")).toBe("mailto:hello@example.com");
     expect(sanitizeMarkdownUrl("/docs", true)).toBe("/docs");
     expect(sanitizeMarkdownUrl("#section", true)).toBe("#section");
+    expect(sanitizeMarkdownUrl("T3Code://threads/env/thread")).toBe("T3Code://threads/env/thread");
   });
 
   it("rejects executable and embedded-data URLs", () => {
     expect(sanitizeMarkdownUrl("javascript:alert(1)", true)).toBeUndefined();
+    expect(sanitizeMarkdownUrl("vscode://file/etc/passwd")).toBeUndefined();
+    expect(sanitizeMarkdownUrl("t3code-evil://threads/env/thread")).toBeUndefined();
     expect(sanitizeMarkdownUrl("data:text/html,<script>alert(1)</script>", true)).toBeUndefined();
     expect(sanitizeMarkdownUrl("/docs")).toBeUndefined();
   });

@@ -2,7 +2,7 @@
 
 import type { MessageBlock } from "@rakazo/contracts";
 import type { AppLink } from "@rakazo/core/app-links";
-import { matchesAppLink } from "@rakazo/core/app-links";
+import { findAppLink, matchesAppLink } from "@rakazo/core/app-links";
 import { urlSite } from "@rakazo/core/egress";
 import LinkifyIt from "linkify-it";
 import type { ReactNode } from "react";
@@ -441,9 +441,15 @@ export function linkLabel(text: string, href: string): string {
   return `${host}${path.slice(0, end)}…`;
 }
 
-/** The origin a link's site icon is looked up by, or undefined for links that get no icon. */
+/**
+ * The origin a link's site icon is looked up by, or undefined for links that get no icon. A link
+ * to an app place shows the icon of the website the host named for that app.
+ */
 export function linkFaviconOrigin(href: string): string | undefined {
-  return httpUrl(href)?.origin;
+  const url = httpUrl(href);
+  if (url) return url.origin;
+  const icon = findAppLink(href, appLinks)?.icon;
+  return icon ? httpUrl(icon)?.origin : undefined;
 }
 
 /**

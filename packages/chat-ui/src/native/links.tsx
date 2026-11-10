@@ -119,7 +119,10 @@ export function linkHost(href: string): string {
   }
 }
 
-/** An inline link to a website, drawn with its site icon. Other links keep the plain link style. */
+/**
+ * An inline link drawn with its site icon: a website, or an app place the host gave an icon.
+ * Other links keep the plain link style.
+ */
 export function isWebsiteLink(node: ASTNode): boolean {
   const href = sanitizeMarkdownUrl(node.attributes.href ?? "");
   return node.type === "link" && Boolean(href && linkFaviconOrigin(href)) && !astHasImage(node);

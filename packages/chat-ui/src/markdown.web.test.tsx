@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { closeUnterminatedFence } from "./markdown";
 import type { LinkFavicons } from "./markdown.web";
 import {
-  allowAppLinkSchemes,
+  allowAppLinks,
   ChatMarkdown,
   defaultMarkdownCopy,
   LinkFaviconsContext,
@@ -609,7 +609,7 @@ describe("web external link confirmation", () => {
     const blocked = await render(<ChatMarkdown>{`[one](${first})`}</ChatMarkdown>);
     expect(blocked.container.querySelector("a")).toBeNull();
     await blocked.cleanup();
-    allowAppLinkSchemes(["coder"]);
+    allowAppLinks([{ scheme: "coder", host: "threads" }]);
     const view = await render(
       <ChatMarkdown>{`[one](${first}) and [two](${second})\n\n[again](${first})`}</ChatMarkdown>,
     );

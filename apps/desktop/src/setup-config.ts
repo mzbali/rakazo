@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import type { DesktopSetup, DesktopStackProbeResponse } from "@rakazo/contracts";
 import { parseServerHeaders } from "@rakazo/contracts";
 import { isLoopbackHost, isPrivateNetworkHost } from "@rakazo/contracts/network-host";
+import type { AppLink } from "@rakazo/core/app-links";
+import { matchesAppLink } from "@rakazo/core/app-links";
 import { t } from "./i18n.js";
 
 /** Managed desktop origin; development keeps its usual web/API ports. */
@@ -190,18 +192,23 @@ export function sessionPartitionForServerUrl(targetUrl: string): string | null {
   }
 }
 
-const externalProtocols = new Set(["http:", "https:"]);
+const externalAppLinks: AppLink[] = [];
 
-/** Lets the OS open links to desktop apps the host trusts, named by URL scheme. */
-export function allowExternalAppSchemes(schemes: readonly string[]) {
-  for (const scheme of schemes) externalProtocols.add(`${scheme.toLowerCase()}:`);
+/** Lets the OS open clicked links to places in desktop apps the host trusts. */
+export function allowExternalAppLinks(links: readonly AppLink[]) {
+  externalAppLinks.push(...links);
+}
+
+/** A link to a trusted desktop app place, for the OS to open, or null. */
+export function externalAppLinkUrl(targetUrl: string): string | null {
+  return matchesAppLink(targetUrl, externalAppLinks) ? targetUrl.trim() : null;
 }
 
 /** External pages are opened by the OS, never in a privileged Electron child window. */
 export function safeExternalUrl(targetUrl: string): string | null {
   try {
     const url = new URL(targetUrl);
-    if (!externalProtocols.has(url.protocol)) return null;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     return url.toString();
   } catch {
     return null;

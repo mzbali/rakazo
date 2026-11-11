@@ -343,3 +343,8 @@ describe("a retired import checklist", () => {
     expect(messageReplyExcerpt([{ kind: "import_setup", items: [item] }], "bot")).toBe("morning");
   });
 });
+
+it("names a visual by its title in a reply preview", () => {
+  const visual: MessageBlock = { kind: "visual", title: "Flow", text: "A to B.", code: "x" };
+  expect(messageReplyPreview([visual], "bot").text).toBe("Flow");
+});

@@ -41,6 +41,13 @@ export function redactBlocks(blocks: MessageBlock[], secrets: string[]): Message
       return { ...block, text: redactSecrets(block.text, secrets) };
     }
     if (block.kind === "page") return { ...block, title: redactSecrets(block.title, secrets) };
+    if (block.kind === "visual") {
+      return {
+        ...block,
+        title: redactSecrets(block.title, secrets),
+        text: redactSecrets(block.text, secrets),
+      };
+    }
     if (block.kind === "steps") {
       return {
         ...block,

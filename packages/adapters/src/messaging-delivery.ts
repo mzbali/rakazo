@@ -905,7 +905,7 @@ function linkedPageIds(messages: readonly { blocks: unknown }[]): Set<string> {
 
 /**
  * The text other channels get. A page card cannot travel, so a page the reply does not name goes
- * as its title.
+ * as its title, and a visual as its title and summary.
  */
 function extractText(blocks: unknown, linkedPages: ReadonlySet<string>): string {
   if (!Array.isArray(blocks)) return "";
@@ -921,6 +921,12 @@ function extractText(blocks: unknown, linkedPages: ReadonlySet<string>): string 
           !linkedPages.has(block.pageId)
         )
           return [block.title];
+        if (
+          block?.kind === "visual" &&
+          typeof block.title === "string" &&
+          typeof block.text === "string"
+        )
+          return [`${block.title}: ${block.text}`];
         return [];
       },
     )

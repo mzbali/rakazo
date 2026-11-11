@@ -352,6 +352,20 @@ describe("deliverMessagingOutbound", () => {
   const sentBodies = (deps: ReturnType<typeof createDeps>) =>
     (deps.sendToThread.mock.calls as unknown as [{ body: string }][]).map(([input]) => input.body);
 
+  it("sends a visual as its title and summary, never its code", async () => {
+    const deps = createDeps({
+      messages: [
+        {
+          id: "m-1",
+          blocks: [{ kind: "visual", title: "Flow", text: "A goes to B.", code: "secretCode()" }],
+        },
+        { id: "m-2", blocks: [{ kind: "text", text: "Done." }] },
+      ],
+    });
+    await deliverMessagingOutbound(deps, { runId: "run-1" }, context);
+    expect(sentBodies(deps)).toEqual(["Flow: A goes to B.", "Done."]);
+  });
+
   it("sends a page card's title when the reply does not name the page, and only once when it does", async () => {
     const card = {
       id: "m-1",

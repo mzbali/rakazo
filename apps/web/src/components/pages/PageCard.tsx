@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveNearView } from "../../lib/live-previews";
 import { formatRelativeTime } from "../../lib/relative-time";
 import { PageFrame } from "./PageFrame";
 import { PageTileIcon } from "./page-icon";
@@ -9,22 +10,9 @@ import { PageTileIcon } from "./page-icon";
 const PREVIEW_SCALE = 0.75;
 const PREVIEW_ASPECT = 630 / 1200;
 
-/** The nearest ancestor that scrolls, so "near view" is measured along the chat, not the window. */
-function scrollParent(element: HTMLElement): HTMLElement | null {
-  for (let at = element.parentElement; at; at = at.parentElement) {
-    if (/auto|scroll/.test(getComputedStyle(at).overflowY)) return at;
-  }
-  return null;
-}
-
-/** Previews kept running after they leave view, so scrolling back shows them drawn. */
-const LIVE_PREVIEWS = 24;
-const livePreviews = new Map<object, { near: boolean; drop: () => void }>();
-
 /**
- * The page's top, drawn live at `width / PREVIEW_SCALE` and scaled down. It mounts once the card
- * scrolls near view and keeps running until newer previews push it out of the live set, so a
- * long chat runs a bounded number of pages.
+ * The page's top, drawn live at `width / PREVIEW_SCALE` and scaled down, while the chat's shared
+ * live budget lets it run.
  */
 function PagePreview({
   document,
@@ -38,9 +26,13 @@ function PagePreview({
   const { t } = useLingui();
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [live, setLive] = useState(false);
+  const live = useLiveNearView(box);
   const [drawn, setDrawn] = useState(false);
   const onDrawn = useCallback(() => setDrawn(true), []);
+  // A preview pushed out of the live set draws again from its placeholder when it returns.
+  useEffect(() => {
+    if (!live) setDrawn(false);
+  }, [live]);
   useEffect(() => {
     const element = box.current;
     if (!element) return;
@@ -48,39 +40,7 @@ function PagePreview({
       setSize({ width: entry?.contentRect.width ?? 0, height: entry?.contentRect.height ?? 0 }),
     );
     resize.observe(element);
-    const key = {};
-    const drop = () => {
-      livePreviews.delete(key);
-      setLive(false);
-      setDrawn(false);
-    };
-    const near = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry) return;
-        if (!entry.isIntersecting) {
-          const preview = livePreviews.get(key);
-          if (preview) preview.near = false;
-          return;
-        }
-        livePreviews.delete(key);
-        livePreviews.set(key, { near: true, drop });
-        setLive(true);
-        let over = livePreviews.size - LIVE_PREVIEWS;
-        for (const [other, preview] of livePreviews) {
-          if (over <= 0) break;
-          if (other === key || preview.near) continue;
-          preview.drop();
-          over--;
-        }
-      },
-      { root: scrollParent(element), rootMargin: "400px 0px" },
-    );
-    near.observe(element);
-    return () => {
-      resize.disconnect();
-      near.disconnect();
-      livePreviews.delete(key);
-    };
+    return () => resize.disconnect();
   }, []);
   return (
     <div

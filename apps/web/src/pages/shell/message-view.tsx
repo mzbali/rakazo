@@ -29,6 +29,7 @@ import {
   ToolSteps,
 } from "../../components/ToolActivityDisclosure";
 import { SkillDraftCard } from "../../components/teach/SkillDraftCard";
+import { VisualCard } from "../../components/visuals/VisualCard";
 import type { ArtifactTarget } from "../../lib/artifact-open";
 import { messageProviderLabel } from "../../lib/messaging";
 import type { PageBlock } from "../../lib/page-cards";
@@ -490,6 +491,7 @@ export const MessageView = memo(function MessageView({
               </div>
             );
           }
+          if (block.kind === "visual") return <VisualCard key={i} block={block} />;
           if (block.kind === "page") {
             return (
               <PageBlockCard

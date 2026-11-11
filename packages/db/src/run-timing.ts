@@ -4,6 +4,7 @@ import type { PrismaClient } from "./client.js";
 const RESPONSE_BLOCK_KINDS = new Set<string>([
   "card",
   "chart",
+  "visual",
   "app",
   "ask",
   "choice",

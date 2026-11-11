@@ -14,7 +14,7 @@ import {
 } from "./components.js";
 import { selfRenderingKitNames, selfRenderingMessage } from "./shadow.js";
 
-export { PAGE_KIT_GUIDE } from "./guide.js";
+export { PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./guide.js";
 
 const MAX_REPORTED_ERRORS = 20;
 

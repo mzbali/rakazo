@@ -226,6 +226,8 @@ export function blocksToAgentHistoryText(blocks: MessageBlock[]): string {
       // without them a later turn cannot tell what it already did.
       if (block.kind === "steps") return toolStepsHistoryText(block.steps);
       if (block.kind === "chart") return `[chart: ${block.name}]`;
+      // The bot sees what a visual says, never its code.
+      if (block.kind === "visual") return `[visual: ${block.title}] ${block.text}`;
       if (block.kind === "app") return `[app: ${block.server} showed ${block.tool}]`;
       if (block.kind === "image") return `[image: ${block.name}]`;
       // The id lets a later turn, or another chat, update this page instead of making a new one.

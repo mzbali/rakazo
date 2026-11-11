@@ -1,6 +1,9 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { AccountSecurity, UsageSummary } from "@rakazo/contracts";
-import { APP_LOCALE_LABELS, accountDisplay, displayName } from "@rakazo/core";
+import { ph } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
+import type { AccountSecurity, PlanLimits, UsageSummary } from "@rakazo/contracts";
+import { modelCreditsUsd } from "@rakazo/contracts";
+import { APP_LOCALE_LABELS, accountDisplay, displayName, formatTimeUntil } from "@rakazo/core";
 import * as Notifications from "expo-notifications";
 import type { Href } from "expo-router";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -54,7 +57,7 @@ import {
   setHapticsEnabled,
   subscribeHaptics,
 } from "../../lib/haptics";
-import { dateLocaleForUi, useI18n } from "../../lib/i18n";
+import { dateLocaleForUi, useUiLocale } from "../../lib/i18n";
 import type { LiveNotificationSettings } from "../../lib/live-notifications";
 import {
   canPostPromotedNotifications,
@@ -107,12 +110,13 @@ let hapticsSaveVersion = 0;
 
 export default function Account() {
   const sideInsets = useSideInsets();
-  const { t, locale } = useI18n();
+  const { t } = useLingui();
+  const locale = useUiLocale();
   const router = useRouter();
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [me, setMe] = useState<MobileMe | null>(null);
   const botStyleRequest = useRef(0);
-  const account = accountDisplay(me ?? {}, t("Your account"));
+  const account = accountDisplay(me ?? {}, t`Your account`);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [namePending, setNamePending] = useState(false);
@@ -127,7 +131,6 @@ export default function Account() {
     saveVersion: nameSaveVersion,
     Platform,
     Alert,
-    t,
     errorText,
     updateAccountName,
     refresh: () => rpc("me"),
@@ -168,7 +171,7 @@ export default function Account() {
       setPasskeys(await listPasskeys());
     } catch (err) {
       setPasskeys((current) => current ?? []);
-      setPasskeyLoadError(errorText(err, t("Could not continue")));
+      setPasskeyLoadError(errorText(err, t`Could not continue`));
     }
   }, [t]);
   const colorScheme = useResolvedAppearance();
@@ -177,6 +180,9 @@ export default function Account() {
   // A list that fails to refresh keeps its last count, so a passing error doesn't hide the row.
   const archivedCounts = useRef({ bots: 0, groups: 0 });
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  // Subscription allowances and a credit balance show only for members who have them.
+  const [plans, setPlans] = useState<PlanLimits[]>([]);
+  const [creditsUsd, setCreditsUsd] = useState<number | null>(null);
   // Messaging appears only on servers that have a chat app connected, as on web.
   const [messagingEnabled, setMessagingEnabled] = useState(false);
   const appearance = getCachedAppearancePreference();
@@ -200,10 +206,10 @@ export default function Account() {
     const isCurrent = () => version === hapticsSaveVersion && getHapticsEnabled() === value;
     void setHapticsEnabled(value).catch(() => {
       if (!isCurrent()) return;
-      Alert.alert(t("Haptics"), t("Could not save"), [
-        { text: t("Cancel"), style: "cancel" },
+      Alert.alert(t`Haptics`, t`Could not save`, [
+        { text: t`Cancel`, style: "cancel" },
         {
-          text: t("Retry"),
+          text: t`Retry`,
           onPress: () => {
             if (isCurrent()) updateHaptics(value);
           },
@@ -212,12 +218,12 @@ export default function Account() {
     });
   }
 
-  const loadRemoteImagesLabel = t("Load web images automatically");
+  const loadRemoteImagesLabel = t`Load web images automatically`;
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const stackOptions = useStackedSettings();
   const styles = useThemedStyles(createAccountStyles);
   const versionInfo = getAppVersionInfo();
-  const updateLabel = formatUpdateLabel(versionInfo.update, t);
+  const updateLabel = formatUpdateLabel(versionInfo.update);
   const versionAccessibility = [versionInfo.nativeLabel, updateLabel].filter(Boolean).join(". ");
   const storeUpdateAvailable = useStoreUpdateAvailable();
   const approvals = useApprovalSettings(ACCOUNT_SETTINGS);
@@ -244,6 +250,12 @@ export default function Account() {
     void rpc("usage/summary")
       .then(setUsage)
       .catch(() => undefined);
+    void rpc("usage/limits")
+      .then(setPlans)
+      .catch(() => undefined);
+    void rpc("billing/status")
+      .then((status) => setCreditsUsd(modelCreditsUsd(status)))
+      .catch(() => undefined);
     if (Platform.OS === "android") {
       void getLiveNotificationSettings()
         .then(setNotifications)
@@ -267,18 +279,44 @@ export default function Account() {
   const usageBlock = (
     <SettingsRow
       accessible
-      title={t("Usage")}
+      title={t`Usage`}
       detail={
         usage
-          ? t("{runs} runs, {tokens} tokens", {
-              runs: count.format(usage.runs),
-              tokens: tokens(usage.totalTokens),
-            })
+          ? t`${ph({ runs: count.format(usage.runs) })} runs, ${ph({ tokens: tokens(usage.totalTokens) })} tokens`
           : undefined
       }
       value={cost(usage?.costUsd)}
     />
   );
+  const creditsRow =
+    creditsUsd !== null ? (
+      <SettingsRow
+        key="credits"
+        accessible
+        title={t`Credits`}
+        value={t`${ph({ amount: usd.format(creditsUsd) })} left`}
+      />
+    ) : null;
+  const period = { session: t`Session`, week: t`Weekly`, month: t`Monthly` };
+  const planGroups = plans.map((plan) => (
+    <SettingsGroup
+      key={plan.credentialId}
+      label={plan.label === plan.name ? plan.name : `${plan.name} · ${plan.label}`}
+    >
+      {plan.windows.map((window) => {
+        const reset = formatTimeUntil(window.resetsAt, dateLocaleForUi(locale));
+        return (
+          <SettingsRow
+            key={window.period}
+            accessible
+            title={period[window.period]}
+            detail={reset ? t`Resets in ${ph({ reset })}` : undefined}
+            value={t`${ph({ used: Math.round(window.usedPercent) })}% used`}
+          />
+        );
+      })}
+    </SettingsGroup>
+  ));
   const usageModels = usage?.models?.length ? (
     <SettingsGroup>
       {usage.models.map((row) => (
@@ -286,10 +324,7 @@ export default function Account() {
           key={`${row.provider}:${row.model}`}
           accessible
           title={row.model}
-          detail={`${row.provider}, ${t("{calls} calls, {tokens} tokens", {
-            calls: count.format(row.modelCalls),
-            tokens: tokens(row.totalTokens),
-          })}`}
+          detail={`${row.provider}, ${t`${ph({ calls: count.format(row.modelCalls) })} calls, ${ph({ tokens: tokens(row.totalTokens) })} tokens`}`}
           value={cost(row.costUsd)}
         />
       ))}
@@ -371,7 +406,7 @@ export default function Account() {
       await signOut();
       replaceWithSignIn();
     } catch (err) {
-      setSignOutError(errorText(err, t("Could not sign out")));
+      setSignOutError(errorText(err, t`Could not sign out`));
       setSigningOut(false);
       signOutStarted.current = false;
     }
@@ -399,8 +434,7 @@ export default function Account() {
         }
         await registerPushToken();
       },
-      onError: (cause) =>
-        setNotificationError(errorText(cause, t("Could not update notifications"))),
+      onError: (cause) => setNotificationError(errorText(cause, t`Could not update notifications`)),
     });
     setNotificationError(null);
     notificationQueue.current.update(next);
@@ -424,7 +458,7 @@ export default function Account() {
       await run();
       await loadPasskeys();
     } catch (err) {
-      setPasskeyError(errorText(err, t("Could not continue")));
+      setPasskeyError(errorText(err, t`Could not continue`));
     } finally {
       setPasskeyPending(false);
     }
@@ -433,17 +467,17 @@ export default function Account() {
   function passkeyMenuAction(passkey: MobilePasskey, name: string, action: string) {
     if (action === "rename") {
       promptSectionName({
-        title: t("Rename"),
-        cancelLabel: t("Cancel"),
-        submitLabel: t("Save"),
+        title: t`Rename`,
+        cancelLabel: t`Cancel`,
+        submitLabel: t`Save`,
         defaultValue: passkey.name ?? undefined,
         onSubmit: (next) => void passkeyAction(() => renamePasskey(passkey.id, next)),
       });
     } else if (action === "delete") {
-      Alert.alert(t("Delete {name}?", { name }), undefined, [
-        { text: t("Cancel"), style: "cancel" },
+      Alert.alert(t`Delete ${name}?`, undefined, [
+        { text: t`Cancel`, style: "cancel" },
         {
-          text: t("Delete"),
+          text: t`Delete`,
           style: "destructive",
           onPress: () => void passkeyAction(() => deletePasskey(passkey.id)),
         },
@@ -453,7 +487,7 @@ export default function Account() {
 
   function removeTrustedSite(site: string) {
     void removeTrustedLinkSite(site).catch((cause: unknown) =>
-      Alert.alert(t("Could not continue"), errorText(cause, t("Try again."))),
+      Alert.alert(t`Could not continue`, errorText(cause, t`Try again.`)),
     );
   }
 
@@ -467,14 +501,18 @@ export default function Account() {
       >
         {focus === "usage" ? (
           <>
-            <SettingsGroup>{usageBlock}</SettingsGroup>
+            <SettingsGroup>
+              {usageBlock}
+              {creditsRow}
+            </SettingsGroup>
+            {planGroups}
             {usageModels}
           </>
         ) : null}
         <SettingsGroup>
           <SettingsRow
             accessibilityRole="button"
-            accessibilityLabel={t("Edit name")}
+            accessibilityLabel={t`Edit name`}
             accessibilityValue={{
               text:
                 me?.email && account.label !== me.email
@@ -490,7 +528,9 @@ export default function Account() {
             onPress={editName}
           />
           {focus !== "usage" ? usageBlock : null}
+          {focus !== "usage" ? creditsRow : null}
         </SettingsGroup>
+        {focus !== "usage" ? planGroups : null}
 
         {organizations ? (
           <SettingsGroup>
@@ -499,7 +539,7 @@ export default function Account() {
               accessibilityRole="button"
               chevron="right"
               onPress={() => router.push("/organization")}
-              title={t("Organization")}
+              title={t`Organization`}
               value={activeOrganization(organizations)?.name}
             />
           </SettingsGroup>
@@ -513,7 +553,7 @@ export default function Account() {
                 chevron="right"
                 disabled={pending}
                 dimmed={pending}
-                title={t("Link SSO")}
+                title={t`Link SSO`}
                 onPress={() =>
                   void securityAction(async () => {
                     if (await continueWithSso("link")) setSecurity(await fetchAccountSecurity());
@@ -526,24 +566,24 @@ export default function Account() {
                 accessibilityRole="button"
                 chevron="right"
                 onPress={() => router.push("/change-password")}
-                title={t("Change password")}
+                title={t`Change password`}
               />
             ) : null}
           </SettingsGroup>
         ) : null}
 
         {passkeys ? (
-          <SettingsGroup accessibilityLabel={t("Passkeys")} label={t("Passkeys")}>
+          <SettingsGroup accessibilityLabel={t`Passkeys`} label={t`Passkeys`}>
             {passkeys.map((passkey) => {
-              const name = passkey.name ?? t("Passkey");
+              const name = passkey.name ?? t`Passkey`;
               const created = passkey.createdAt ? new Date(passkey.createdAt) : null;
               return (
                 <MenuView
                   key={passkey.id}
                   actions={[
                     // Alert.prompt, which renames, exists only on iOS.
-                    ...(Platform.OS === "ios" ? [{ id: "rename", title: t("Rename") }] : []),
-                    { id: "delete", title: t("Delete"), attributes: { destructive: true } },
+                    ...(Platform.OS === "ios" ? [{ id: "rename", title: t`Rename` }] : []),
+                    { id: "delete", title: t`Delete`, attributes: { destructive: true } },
                   ]}
                   colorScheme={colorScheme}
                   onPressAction={(event) =>
@@ -572,7 +612,7 @@ export default function Account() {
               disabled={passkeyPending}
               dimmed={passkeyPending}
               onPress={() => void passkeyAction(addPasskey)}
-              title={t("Add passkey")}
+              title={t`Add passkey`}
             />
             {passkeyLoadError ? (
               <>
@@ -582,7 +622,7 @@ export default function Account() {
                 <SettingsRow
                   accessibilityRole="button"
                   onPress={() => void loadPasskeys()}
-                  title={t("Retry")}
+                  title={t`Retry`}
                 />
               </>
             ) : null}
@@ -595,11 +635,11 @@ export default function Account() {
         ) : null}
 
         {trustedSites.length > 0 ? (
-          <SettingsGroup accessibilityLabel={t("Trusted sites")} label={t("Trusted sites")}>
+          <SettingsGroup accessibilityLabel={t`Trusted sites`} label={t`Trusted sites`}>
             {trustedSites.map((site) => (
               <MenuView
                 key={site}
-                actions={[{ id: "remove", title: t("Remove"), attributes: { destructive: true } }]}
+                actions={[{ id: "remove", title: t`Remove`, attributes: { destructive: true } }]}
                 colorScheme={colorScheme}
                 onPressAction={() => removeTrustedSite(site)}
                 title={site}
@@ -610,26 +650,27 @@ export default function Account() {
           </SettingsGroup>
         ) : null}
 
-        <View accessibilityLabel={t("Appearance")} style={styles.section}>
-          <SettingsLabel>{t("Appearance")}</SettingsLabel>
+        <View accessibilityLabel={t`Appearance`} style={styles.section}>
+          <SettingsLabel>{t`Appearance`}</SettingsLabel>
           <NativeSegmentedControl
-            accessibilityLabel={t("Appearance")}
+            accessibilityLabel={t`Appearance`}
             onChange={(value) => void setAppearancePreference(value)}
             options={[
-              { value: "system", label: t("System") },
-              { value: "light", label: t("Light") },
-              { value: "dark", label: t("Dark") },
+              { value: "system", label: t`System` },
+              { value: "light", label: t`Light` },
+              { value: "dark", label: t`Dark` },
             ]}
             value={appearance}
           />
         </View>
 
-        {me?.botAvatarSet ? (
-          <View accessibilityLabel={t("Bot style")} style={styles.section}>
-            <SettingsLabel>{t("Bot style")}</SettingsLabel>
+        {me ? (
+          <View accessibilityLabel={t`Bot style`} style={styles.section}>
+            <SettingsLabel>{t`Bot style`}</SettingsLabel>
             <NativeSegmentedControl
-              accessibilityLabel={t("Bot style")}
+              accessibilityLabel={t`Bot style`}
               onChange={(botAvatarSet) => {
+                if (!botAvatarSet) return;
                 const previous = me.botAvatarSet;
                 // Only the latest tap's reply may land, so a slower earlier save can't undo it.
                 const request = ++botStyleRequest.current;
@@ -647,14 +688,14 @@ export default function Account() {
                     setMe((current) =>
                       current ? { ...current, botAvatarSet: previous } : current,
                     );
-                    Alert.alert(t("Couldn't update bot style"));
+                    Alert.alert(t`Couldn't update bot style`);
                   });
               }}
               options={[
-                { value: "organic", label: t("Original") },
-                { value: "rakazo", label: t("Rakazo") },
+                { value: "organic", label: t`Original` },
+                { value: "rakazo", label: t`Rakazo` },
               ]}
-              value={me.botAvatarSet}
+              value={me.botAvatarSet ?? ""}
             />
           </View>
         ) : null}
@@ -662,28 +703,28 @@ export default function Account() {
         <SettingsGroup>
           <SettingsRow
             accessibilityRole="button"
-            accessibilityLabel={t("Language")}
+            accessibilityLabel={t`Language`}
             accessibilityValue={{ text: APP_LOCALE_LABELS[locale] }}
             chevron="right"
             onPress={() => router.push("/language")}
-            title={t("Language")}
+            title={t`Language`}
             value={APP_LOCALE_LABELS[locale]}
           />
-          <SettingsSwitch label={t("Haptics")} value={hapticsEnabled} onChange={updateHaptics} />
+          <SettingsSwitch label={t`Haptics`} value={hapticsEnabled} onChange={updateHaptics} />
         </SettingsGroup>
 
         {Platform.OS === "android" ? (
-          <SettingsGroup accessibilityLabel={t("Notifications")} label={t("Notifications")}>
+          <SettingsGroup accessibilityLabel={t`Notifications`} label={t`Notifications`}>
             {notificationPermission === "denied" ? (
               <SettingsRow
                 accessibilityRole="button"
-                detail={t("Android blocked notifications.")}
+                detail={t`Android blocked notifications.`}
                 onPress={() => void openLiveNotificationSettings()}
-                title={t("Notifications")}
+                title={t`Notifications`}
               />
             ) : null}
             <SettingsSwitch
-              label={t("Live working status")}
+              label={t`Live working status`}
               value={notifications.liveConnection}
               disabled={!notificationsReady}
               onChange={(liveConnection) =>
@@ -691,14 +732,14 @@ export default function Account() {
               }
             />
             <SettingsSwitch
-              label={t("Agent messages")}
-              detail={t("Replies and completed work")}
+              label={t`Agent messages`}
+              detail={t`Replies and completed work`}
               value={notifications.messages}
               disabled={!notificationsReady}
               onChange={(messages) => void updateNotifications({ ...notifications, messages })}
             />
             <SettingsSwitch
-              label={t("Scheduled tasks")}
+              label={t`Scheduled tasks`}
               value={notifications.scheduledTasks}
               disabled={!notificationsReady}
               onChange={(scheduledTasks) =>
@@ -706,8 +747,8 @@ export default function Account() {
               }
             />
             <SettingsSwitch
-              label={t("Needs attention")}
-              detail={t("Questions, approvals, takeover")}
+              label={t`Needs attention`}
+              detail={t`Questions, approvals, takeover`}
               value={notifications.needsAttention}
               disabled={!notificationsReady}
               onChange={(needsAttention) =>
@@ -718,13 +759,13 @@ export default function Account() {
               <SettingsRow
                 accessibilityRole="button"
                 onPress={() => void openPromotedNotificationSettings()}
-                title={t("Live update settings")}
+                title={t`Live update settings`}
               />
             ) : null}
             <SettingsRow
               accessibilityRole="button"
               onPress={() => void openLiveNotificationSettings()}
-              title={t("Notification settings")}
+              title={t`Notification settings`}
             />
             {notificationError ? <Text style={styles.error}>{notificationError}</Text> : null}
           </SettingsGroup>
@@ -733,7 +774,7 @@ export default function Account() {
         <SettingsGroup>
           {me?.billingEnabled ? (
             <SettingsRow
-              title={t("Billing")}
+              title={t`Billing`}
               chevron="right"
               onPress={() => router.push("/billing")}
             />
@@ -750,15 +791,15 @@ export default function Account() {
                   params: { spaceId: selectedSpaceId() ?? me.spaceId },
                 })
               }
-              title={t("Members")}
+              title={t`Members`}
             />
           ) : null}
           {(
             [
-              ...(me?.ticketBoardEnabled ? [{ title: t("Board"), href: "/board" } as const] : []),
-              { title: t("Artifacts"), href: "/artifacts" },
-              { title: t("Models"), href: "/models" },
-              { title: t("Voice"), href: "/voice" },
+              ...(me?.ticketBoardEnabled ? [{ title: t`Board`, href: "/board" } as const] : []),
+              { title: t`Artifacts`, href: "/artifacts" },
+              { title: t`Models`, href: "/models" },
+              { title: t`Voice`, href: "/voice" },
             ] as const
           ).map(settingsLink)}
           <ApprovalModeRow key="approvals" approvals={approvals} disabled={pending} />
@@ -775,15 +816,15 @@ export default function Account() {
           ) : null}
           {(
             [
-              { title: t("Vault"), href: "/vault" },
+              { title: t`Vault`, href: "/vault" },
               ...(me?.paymentWalletProvider
-                ? [{ title: t("Wallet"), href: "/wallet" } as const]
+                ? [{ title: t`Wallet`, href: "/wallet" } as const]
                 : []),
-              { title: t("Integrations"), href: "/integrations" },
-              { title: t("Skills"), href: "/skills" },
-              { title: t("Memory"), href: "/memory" },
-              ...(messagingEnabled ? [{ title: t("Messaging"), href: "/messaging" } as const] : []),
-              { title: t("AI data sharing"), href: "/ai-data-sharing" },
+              { title: t`Integrations`, href: "/integrations" },
+              { title: t`Skills`, href: "/skills" },
+              { title: t`Memory`, href: "/memory" },
+              ...(messagingEnabled ? [{ title: t`Messaging`, href: "/messaging" } as const] : []),
+              { title: t`AI data sharing`, href: "/ai-data-sharing" },
             ] as const
           ).map(settingsLink)}
         </SettingsGroup>
@@ -791,15 +832,15 @@ export default function Account() {
         <SettingsGroup>
           <SettingsRow
             accessibilityRole="button"
-            accessibilityLabel={t("Advanced")}
+            accessibilityLabel={t`Advanced`}
             accessibilityState={{ expanded: advancedOpen }}
             chevron={advancedOpen ? "down" : "right"}
             onPress={() => setAdvancedOpen((open) => !open)}
-            title={t("Advanced")}
+            title={t`Advanced`}
           />
           {advancedOpen ? (
             <SettingsSwitch
-              label={t("Stream replies")}
+              label={t`Stream replies`}
               value={streamReplies}
               onChange={(checked) => void setResponseStreamingPreference(checked ? "on" : "off")}
             />
@@ -817,7 +858,7 @@ export default function Account() {
           <NativeActionButton
             disabled={pending}
             fill
-            label={t("Sign out")}
+            label={t`Sign out`}
             onPress={() => void handleSignOut()}
             prominence="secondary"
           />
@@ -836,7 +877,7 @@ export default function Account() {
               accessibilityRole="button"
               chevron="right"
               onPress={() => router.push("/archived-bots")}
-              title={t("Archived")}
+              title={t`Archived`}
               value={String(archivedCount)}
             />
           </SettingsGroup>
@@ -858,7 +899,7 @@ export default function Account() {
           ) : null}
           {storeUpdateAvailable ? (
             <NativeActionButton
-              label={t("Update")}
+              label={t`Update`}
               onPress={openStoreListing}
               prominence="secondary"
               size="compact"
@@ -874,7 +915,7 @@ export default function Account() {
             dimmed={pending}
             disabled={pending}
             onPress={() => void deletion.request()}
-            title={t("Delete account")}
+            title={t`Delete account`}
             trailing={
               pending ? <ActivityIndicator color={mobileTokens().destructive} /> : undefined
             }

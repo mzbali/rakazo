@@ -91,7 +91,7 @@ Gmail, Slack, GitHub, Notion, Linear and thousands more, plus your own MCP serve
 
 ### On every device
 
-Web, desktop, iPhone, and Android, all talking to the same server.
+Web, desktop, iPhone, iPad, and Android, all talking to the same server.
 
 <img src="./docs/screenshots/readme/mobile.png" alt="The bot list and a chat on iPhone" width="100%">
 
@@ -113,7 +113,7 @@ The installer downloads the Compose files, creates `.env` with random secrets, a
 It preserves an existing `.env` when rerun.
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173), create an account, and connect a model.
-Local Docker computers are on by default. Optional remote providers: `e2b`, `novita`, `daytona`, `createos`, `boat`, `boxd`, or `railway`
+Local Docker computers are on by default. Optional remote providers: `e2b`, `novita`, `daytona`, `createos`, `boat`, `boxd`, `instabox`, or `railway`
 with the matching API key.
 
 Default image tag is `edge` (main builds, `linux/amd64` + `linux/arm64`). Details and tags:
@@ -145,8 +145,8 @@ Or [deploy on Railway](https://railway.com/new/template/rakazo-template); see th
 
 ## Local development (source checkout)
 
-You need Node.js 22.22.2 or newer in the 22.x line, Node.js 24.x, or Node.js 26+;
-pnpm 12; and Docker. Node.js 23.x and 25.x are not supported.
+You need Node.js 24.15.0 or newer in the 24.x line, or Node.js 26+; pnpm 12;
+and Docker. Node.js 25.x is not supported.
 
 ```bash
 git clone https://github.com/elie222/rakazo.git

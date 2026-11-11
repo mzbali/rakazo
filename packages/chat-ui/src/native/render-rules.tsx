@@ -31,6 +31,7 @@ import {
   WORD_JOINER,
 } from "./links";
 import { listItemRule } from "./lists";
+import { blockquoteRule } from "./quotes";
 import { layout } from "./styles";
 import { TableCell, TableRow, TableScrollView } from "./table";
 
@@ -38,6 +39,7 @@ import { TableCell, TableRow, TableScrollView } from "./table";
 // outside the text flow and collapses the bubble height, overlapping later messages.
 export const renderRules: RenderRules = {
   list_item: listItemRule,
+  blockquote: blockquoteRule,
   fence: (node, _children, _parents, styleMap, _onCopyCode, colorScheme) => {
     const info = typeof node.sourceInfo === "string" ? node.sourceInfo : "";
     const source = node.content.replace(/\n$/, "");

@@ -14,6 +14,7 @@ import { InlineChipsContext } from "./native/chips";
 import { DiagramSurfaceContext } from "./native/code";
 import { OpenLinkContext, useNativeLinkConfirm } from "./native/links";
 import { markTaskListItems } from "./native/lists";
+import { markQuoteSources } from "./native/quotes";
 import { renderRules } from "./native/render-rules";
 import { layout, markdownStyles } from "./native/styles";
 
@@ -26,6 +27,7 @@ const markdownParser = createMarkdownIt();
 markdownParser.validateLink = keepMarkdownLinkToken;
 linkifyExplicitUrls(markdownParser);
 markTaskListItems(markdownParser);
+markQuoteSources(markdownParser);
 
 /** A node's place in the tree, which stays the same when the same Markdown is parsed again. */
 function markdownNodeKey(node: ASTNode, parents: readonly ASTNode[]): string {
@@ -139,4 +141,5 @@ export { CodeCopyButtonContext, MermaidDiagramContext } from "./native/code";
 export { RemoteMarkdownImage } from "./native/images";
 export { LinkifiedText } from "./native/linkified-text";
 export { useNativeLinkConfirm } from "./native/links";
+export { QuoteMenuContext } from "./native/quotes";
 export { MarkdownLongPressContext } from "./native/sideways-scroll";

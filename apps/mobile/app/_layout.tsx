@@ -8,6 +8,7 @@ import {
   LinkFaviconsContext,
   MarkdownLinkPromptProvider,
   MermaidDiagramContext,
+  QuoteMenuContext,
   RemoteImagesContext,
 } from "@rakazo/chat-ui/native";
 import { analyticsScreen } from "@rakazo/core";
@@ -39,6 +40,7 @@ import { MermaidDiagram } from "../components/mermaid-diagram";
 import { MessageMenuHost } from "../components/message-action-menu";
 import { MessageActionSheetHost } from "../components/message-action-sheet-host";
 import { NativeSymbol } from "../components/native-symbol";
+import { QuoteCopyMenu } from "../components/quote-copy-menu";
 import { VoicePlayerBar } from "../components/voice-player-bar";
 import {
   currentApiBase,
@@ -266,7 +268,10 @@ function ChatContentProviders({
         <LinkFaviconsContext.Provider value={linkFavicons}>
           <MermaidDiagramContext.Provider value={MermaidDiagram}>
             <CodeCopyButtonContext.Provider value={CodeCopyButton}>
-              <OpenPageContext.Provider value={openPage}>{children}</OpenPageContext.Provider>
+              {/* Android keeps its whole-message sheet: its menu has no lifted preview. */}
+              <QuoteMenuContext.Provider value={Platform.OS === "ios" ? QuoteCopyMenu : null}>
+                <OpenPageContext.Provider value={openPage}>{children}</OpenPageContext.Provider>
+              </QuoteMenuContext.Provider>
             </CodeCopyButtonContext.Provider>
           </MermaidDiagramContext.Provider>
         </LinkFaviconsContext.Provider>

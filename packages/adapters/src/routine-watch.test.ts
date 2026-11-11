@@ -1636,6 +1636,32 @@ describe("watch tool guard", () => {
       await expect(checkRoutineWatch(deps, routine)).resolves.toMatchObject({ changed: false });
     }
   });
+
+  it.each([
+    [
+      "accepts an action name that resolves to one account's tool",
+      { name: "drive_list__0a1b2c3d", route: { toolName: "drive_list", connectionId: "c1" } },
+      undefined,
+    ],
+    [
+      "refuses a tool another tool answered for, since its integration is down",
+      { name: "mcp__drive__unavailable", route: { toolName: "__rakazo_unavailable" } },
+      "can't be checked right now",
+    ],
+  ])("at save time %s", async (_label, resolvedTool, refusal) => {
+    const { deps, routine } = setupTool({ name: "other_tool", readOnly: true }, {});
+    const connector = deps.connector as unknown as { resolveCall: ReturnType<typeof vi.fn> };
+    connector.resolveCall = vi.fn(async () => ({
+      call: { tool: "drive_list", args: {}, executionId: "x", route: resolvedTool.route },
+      tool: { ...resolvedTool, description: "", inputSchema: {}, readOnly: true },
+    }));
+    const watch = RoutineWatchSchema.parse({ kind: "tool", tool: "drive_list" });
+
+    const saved = validateRoutineWatch(deps, watch, routine);
+
+    if (refusal) await expect(saved).rejects.toThrow(refusal);
+    else await expect(saved).resolves.toBeUndefined();
+  });
 });
 
 describe("tracked result regressions", () => {

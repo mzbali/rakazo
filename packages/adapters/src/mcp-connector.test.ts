@@ -96,6 +96,8 @@ function mcpFetch(
       annotations?: { readOnlyHint?: boolean };
     }>;
     calls?: string[];
+    /** Answers tool calls with this JSON-RPC error, as a server rejecting the arguments. */
+    callError?: { code: number; message: string };
   },
   expectedUrl = "https://mcp.example.test/mcp",
 ) {
@@ -143,6 +145,8 @@ function mcpFetch(
     }
     if (message.method === "tools/call") {
       if (message.params?.name) state.calls?.push(message.params.name);
+      if (state.callError)
+        return Response.json({ jsonrpc: "2.0", id: message.id, error: state.callError });
       return Response.json({
         jsonrpc: "2.0",
         id: message.id,
@@ -1451,7 +1455,7 @@ describe("MCP connector session cache", () => {
 
   it("keeps a watch checking while its server is down and refuses only a tool it lacks", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
-    const state = {
+    const state: Parameters<typeof mcpFetch>[0] = {
       failNext: false,
       initializations: 0,
       tools: [
@@ -1515,6 +1519,9 @@ describe("MCP connector session cache", () => {
           watch: { ...routine.watch, tool: "mcp__demo__gone" },
         }),
       ).rejects.toBeInstanceOf(RoutineWatchError);
+      // A server that answers but rejects the call needs fixing, not waiting for.
+      state.callError = { code: -32602, message: "Invalid params: limit" };
+      await expect(checkRoutineWatch(deps, watching)).rejects.toBeInstanceOf(RoutineWatchError);
     } finally {
       await mcp.close();
       vi.useRealTimers();
@@ -1527,6 +1534,46 @@ describe("MCP connector session cache", () => {
         botId: "bot-1",
         signal: new AbortController().signal,
       } as never;
+    }
+  });
+
+  it("answers through a down server's stand-in only when no other server could own the tool", async () => {
+    const connector = new McpConnector({} as never, {} as never, { network: TEST_NETWORK });
+    const route = (catalogGroup: string, toolName: string) => ({
+      connectorId: "mcp",
+      resourceId: `server-${catalogGroup}`,
+      toolName,
+      catalogGroup,
+    });
+    // "demo" is down; "demo__archive", a slug that starts with it, is up.
+    vi.spyOn(
+      connector as unknown as { authorizedTools: () => unknown },
+      "authorizedTools",
+    ).mockResolvedValue([
+      {
+        name: "mcp__demo__unavailable",
+        description: "",
+        inputSchema: { type: "object" },
+        readOnly: true,
+        route: route("demo", "__rakazo_unavailable"),
+      },
+      {
+        name: "mcp__demo__archive__kept",
+        description: "",
+        inputSchema: { type: "object" },
+        readOnly: true,
+        route: route("demo__archive", "kept"),
+      },
+    ]);
+    const resolve = (tool: string) =>
+      connector.resolveCall({ tool, args: {}, executionId: "x" }, {} as never);
+    try {
+      await expect(resolve("mcp__demo__list")).resolves.toMatchObject({
+        tool: { name: "mcp__demo__unavailable" },
+      });
+      await expect(resolve("mcp__demo__archive__removed")).rejects.toThrow();
+    } finally {
+      await connector.close();
     }
   });
 

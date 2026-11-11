@@ -722,7 +722,14 @@ type TickRoutine = RoutineWatchTarget & { name: string };
 
 export type RoutineWatchTick =
   | { run: false }
-  | { run: true; state: RoutineWatchState; nextRunAt: Date; note: string };
+  | {
+      run: true;
+      state: RoutineWatchState;
+      nextRunAt: Date;
+      note: string;
+      /** The source answered again after an outage the bot announced; post once the run is claimed. */
+      recovered?: string;
+    };
 
 /** Starts the note a change trigger appends to a routine's prompt; what follows is not the owner's. */
 const ROUTINE_WATCH_NOTE_START = "\n\nThis run was started because something you watch changed (";
@@ -803,22 +810,16 @@ export async function tickRoutineWatch(
     watch,
     new Date(Math.max(now.getTime(), scheduledAt.getTime())),
   );
-  const backAfterOutage = () =>
-    previous?.outageNoticed
-      ? postRoutineWatchMessage(deps, {
-          spaceId: routine.spaceId,
-          ...target,
-          role: "bot",
-          text: `I can reach \`${describeRoutineWatch(watch)}\` again for the **${routine.name}** routine.`,
-        })
-      : Promise.resolve();
+  const recovered = previous?.outageNoticed
+    ? `I can reach \`${describeRoutineWatch(watch)}\` again for the **${routine.name}** routine.`
+    : undefined;
   if (outcome.changed) {
-    await backAfterOutage();
     return {
       run: true,
       state: outcome.state,
       nextRunAt,
       note: `${ROUTINE_WATCH_NOTE_START}${describeRoutineWatch(watch)}).\nWhat changed since the last check:\n${outcome.state.detail ?? "(no detail)"}`,
+      ...(recovered ? { recovered } : {}),
     };
   }
   const claimed = await deps.prisma.routine.updateMany({
@@ -826,7 +827,14 @@ export async function tickRoutineWatch(
     data: { nextRunAt, watchState: outcome.state },
   });
   if (claimed.count !== 1) return { run: false };
-  await backAfterOutage();
+  if (recovered) {
+    await postRoutineWatchMessage(deps, {
+      spaceId: routine.spaceId,
+      ...target,
+      role: "bot",
+      text: recovered,
+    });
+  }
   if (watch.loud) {
     await postRoutineWatchMessage(deps, {
       spaceId: routine.spaceId,

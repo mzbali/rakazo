@@ -536,7 +536,9 @@ describe("tickRoutineWatch", () => {
       if (!tick.run) return;
       expect(tick.note).toContain("Facts/new.md");
       expect(tick.state).not.toHaveProperty("failures");
-      expect(JSON.stringify(messages[0]?.blocks)).toContain("I can reach `brain_changed` again");
+      // The run's claim decides; only the check that wins it posts this.
+      expect(tick.recovered).toContain("I can reach `brain_changed` again");
+      expect(messages).toEqual([]);
     });
 
     it("starts from scratch when it never had a reading, without running on recovery", async () => {

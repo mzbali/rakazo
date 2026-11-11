@@ -710,6 +710,12 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** "5 minutes", "hour", "6 hours": what follows "every" in a message. */
+function interval(minutes: number): string {
+  if (minutes % 60 !== 0) return `${minutes} minutes`;
+  return minutes === 60 ? "hour" : `${minutes / 60} hours`;
+}
+
 function isTimeout(error: unknown): boolean {
   return error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name);
 }
@@ -896,7 +902,7 @@ async function deferUnreachableCheck(
       spaceId: routine.spaceId,
       ...target,
       role: "bot",
-      text: `I can't reach \`${describeRoutineWatch(watch)}\` for the **${routine.name}** routine: ${reason}\n\nI'll keep checking every ${watch.everyMinutes} minutes and say when it's back.`,
+      text: `I can't reach \`${describeRoutineWatch(watch)}\` for the **${routine.name}** routine: ${reason}\n\nI'll keep checking every ${interval(watch.everyMinutes)} and say when it's back.`,
     });
   }
   return { run: false };
@@ -971,6 +977,12 @@ export async function validateRoutineWatch(
       )
     )?.tool;
   if (!tool) throw new RoutineWatchError(`No connected integration has a tool named ${name}.`);
+  // A tool under neither name answered for it: its integration is down, so it can't be checked.
+  if (tool.name !== name && tool.route?.toolName !== name) {
+    throw new RoutineWatchError(
+      `${name} can't be checked right now because its integration isn't answering. Try again once it is back.`,
+    );
+  }
   assertWatchToolReadOnly(name, declaredRead(tool));
 }
 

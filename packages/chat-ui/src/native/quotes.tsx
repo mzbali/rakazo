@@ -135,7 +135,13 @@ function QuoteFrame({
       onLayout={(event) => setWidth(Math.floor(event.nativeEvent.layout.width))}
     >
       {width ? (
-        <Menu text={quotePlainText(node).trim()} markdown={markdown}>
+        // Only blank edges go: a first code line keeps its indentation.
+        <Menu
+          text={quotePlainText(node)
+            .replace(/^\s*\n/, "")
+            .trimEnd()}
+          markdown={markdown}
+        >
           {quote}
         </Menu>
       ) : (

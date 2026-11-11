@@ -2447,6 +2447,14 @@ describe("native markdown quote menus", () => {
     result.done();
   });
 
+  it("keeps the indentation of code that starts a quote", async () => {
+    const result = await renderQuotes(
+      ["> ```", ">     if ready:", ">         ship()", "> ```"].join("\n"),
+    );
+    expect(result.text).toEqual(["    if ready:\n        ship()"]);
+    result.done();
+  });
+
   it("keeps a lazy continuation line in the quote's Markdown", async () => {
     const result = await renderQuotes("> Starts here\nand carries on.");
     expect(result.markdown).toEqual(["> Starts here\nand carries on."]);

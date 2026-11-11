@@ -11,6 +11,15 @@ const READY = "The fixture workspace is ready.";
 const GROUP_READY = "The fixture launch plan is ready.";
 const FILE_NAME = "launch-notes.txt";
 const PAGE_TITLE = "Launch dashboard";
+// A Mermaid diagram in a reply, drawn by the app's WebView.
+const DIAGRAM_REPLY = [
+  "Here is how a message flows.",
+  "",
+  "```mermaid",
+  "flowchart LR",
+  "  A[Your message] --> B[Bot reply]",
+  "```",
+].join("\n");
 const PAGE_SOURCE = [
   "const App = () => (",
   '  <Page title="Launch dashboard" summary="Fixture figures for the screenshot catalog.">',
@@ -317,6 +326,7 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
     });
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
+    await ensureText(db.prisma, group.threadId, "bot", writer.id, DIAGRAM_REPLY);
     await ensurePage(db.prisma, {
       threadId: researcher.threadId,
       botId: researcher.id,

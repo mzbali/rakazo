@@ -25,6 +25,12 @@ const imageLoads = vi.hoisted(
     [] as Array<(event: { nativeEvent: { source: { width: number; height: number } } }) => void>,
 );
 
+// Every rendered View's layout handler, so a test can report the width each one gets.
+const viewLayouts = vi.hoisted(
+  () =>
+    [] as Array<(event: { nativeEvent: { layout: { width: number; height: number } } }) => void>,
+);
+
 type TouchEvent = { nativeEvent: { pageX: number; pageY: number }; persist(): void };
 
 const tableEvents = vi.hoisted(() => ({
@@ -77,6 +83,7 @@ vi.mock("react-native", async () => {
       }
       if (tag === "rn-view" && typeof rest.onLayout === "function") {
         tableEvents.onLayout = rest.onLayout as typeof tableEvents.onLayout;
+        viewLayouts.push(rest.onLayout as (typeof viewLayouts)[number]);
       }
       if (tag === "rn-view" && typeof rest.onStartShouldSetResponder === "function") {
         tableEvents.onStartShouldSetResponder =
@@ -233,6 +240,7 @@ import {
   MarkdownLongPressContext,
   MermaidDiagramContext,
   markdownCodeBlocks,
+  QuoteMenuContext,
   RemoteImagesContext,
   RemoteMarkdownImage,
 } from "./markdown.native";
@@ -2316,5 +2324,138 @@ describe("native markdown page links", () => {
       root.unmount();
     });
     container.remove();
+  });
+});
+
+describe("native markdown quote menus", () => {
+  // Stands in for the app's menu, showing what each quote would copy.
+  function QuoteMenuProbe({
+    text,
+    markdown,
+    children,
+  }: {
+    text: string;
+    markdown: string;
+    children: ReactNode;
+  }) {
+    return createElement(
+      "quote-menu-probe",
+      { "data-text": text, "data-markdown": markdown },
+      children,
+    );
+  }
+
+  async function renderQuotes(markdown: string, width = 240) {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    viewLayouts.length = 0;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <QuoteMenuContext.Provider value={QuoteMenuProbe}>
+          <ChatMarkdown>{markdown}</ChatMarkdown>
+        </QuoteMenuContext.Provider>,
+      );
+    });
+    const before = container.querySelectorAll("quote-menu-probe").length;
+    // A quote moved into its menu mounts its nested quotes again, and they measure again.
+    for (let pass = 0; pass < 3; pass += 1) {
+      const layouts = viewLayouts.splice(0);
+      await act(async () => {
+        for (const layout of layouts) layout({ nativeEvent: { layout: { width, height: 40 } } });
+      });
+    }
+    const probes = [...container.querySelectorAll("quote-menu-probe")];
+    return {
+      before,
+      probes,
+      markdown: probes.map((probe) => probe.getAttribute("data-markdown")),
+      text: probes.map((probe) => probe.getAttribute("data-text")),
+      done: () => {
+        act(() => root.unmount());
+        container.remove();
+      },
+    };
+  }
+
+  it("gives each quote its own menu once its width is known, with its own Markdown", async () => {
+    const result = await renderQuotes(
+      [
+        "Intro.",
+        "",
+        "> First line of **one** quote",
+        "> and its second line.",
+        "",
+        "Between them.",
+        "",
+        "> Another [quote](https://example.test).",
+      ].join("\n"),
+    );
+    // The menu's native host needs a width, so the quotes render plainly until they have one.
+    expect(result.before).toBe(0);
+    expect(result.markdown).toEqual([
+      "> First line of **one** quote\n> and its second line.",
+      "> Another [quote](https://example.test).",
+    ]);
+    // Plain text keeps the quote's line break and drops its markup and link address.
+    expect(result.text).toEqual([
+      "First line of one quote\nand its second line.",
+      "Another quote.",
+    ]);
+    // The quote inside each menu keeps its bar and takes the measured width.
+    const quote = result.probes[0]?.firstElementChild;
+    expect(quote?.getAttribute("data-border-left-width")).toBe("3");
+    expect(quote?.getAttribute("data-width")).toBe("240");
+    expect(result.probes[0]?.parentElement?.getAttribute("data-border-left-width")).toBeNull();
+    result.done();
+  });
+
+  it("copies a nested quote or a quote in a list without the markup around it", async () => {
+    const result = await renderQuotes(
+      [
+        "> Outer line",
+        "> > Inner line",
+        "> > continues",
+        "",
+        "- > Listed quote",
+        "  > second",
+      ].join("\n"),
+    );
+    expect(result.markdown).toEqual([
+      "> Outer line\n> > Inner line\n> > continues",
+      "> Inner line\n> continues",
+      "> Listed quote\n> second",
+    ]);
+    expect(result.text).toEqual([
+      "Outer line\n\nInner line\ncontinues",
+      "Inner line\ncontinues",
+      "Listed quote\nsecond",
+    ]);
+    // The nested quote's menu sits inside its outer quote's, so a press picks the innermost.
+    expect(result.probes[1]?.parentElement?.closest("quote-menu-probe")).toBe(result.probes[0]);
+    result.done();
+  });
+
+  it("copies a quote's paragraphs, list items and code as separate lines of text", async () => {
+    const result = await renderQuotes(
+      ["> Para one", ">", "> - first", "> - second", ">", "> ```", "> const a = 1;", "> ```"].join(
+        "\n",
+      ),
+    );
+    expect(result.text).toEqual(["Para one\n\nfirst\nsecond\n\nconst a = 1;"]);
+    result.done();
+  });
+
+  it("keeps a lazy continuation line in the quote's Markdown", async () => {
+    const result = await renderQuotes("> Starts here\nand carries on.");
+    expect(result.markdown).toEqual(["> Starts here\nand carries on."]);
+    result.done();
+  });
+
+  it("draws quotes without a menu when the app gives none", () => {
+    const html = renderToStaticMarkup(<ChatMarkdown>{"> Quoted."}</ChatMarkdown>);
+    expect(html).not.toContain("quote-menu-probe");
+    expect(html).toMatch(/data-border-left-width="3"/);
   });
 });

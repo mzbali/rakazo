@@ -90,3 +90,19 @@ name: Thread
     timeout: 3000
 - takeScreenshot: 07-quote-actions
 - tapOn: "Copy as Markdown"
+# A visual draws in the chat and opens whole in a sheet.
+- openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
+- extendedWaitUntil:
+    visible: "Open Launch path"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 08-visual
+- tapOn: "Open Launch path"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 09-visual-open
+- tapOn: "Close"

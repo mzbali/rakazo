@@ -538,3 +538,17 @@ describe("tool step history", () => {
     expect(blocksToAgentHistoryText([{ kind: "steps", steps: [] }])).toBe("");
   });
 });
+
+describe("a visual in the bot's history", () => {
+  it("reads as its title and summary, never its code", () => {
+    const visual: MessageBlock = {
+      kind: "visual",
+      title: "Loan comparison",
+      text: "Option B costs less over five years.",
+      code: "drawLoans()",
+    };
+    expect(blocksToAgentHistoryText([visual])).toBe(
+      "[visual: Loan comparison] Option B costs less over five years.",
+    );
+  });
+});

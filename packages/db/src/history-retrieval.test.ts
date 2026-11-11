@@ -358,6 +358,11 @@ describe("local history retrieval", () => {
       ]),
     ).toBe("visible");
   });
+  it("reads a visual as its title and summary, never its code", () => {
+    const blocks = [{ kind: "visual", title: "Flow", text: "A goes to B.", code: "drawFlow()" }];
+    expect(historyMessageText(blocks)).toBe("Flow: A goes to B.");
+    expect(historySearchText(blocks)).not.toContain("drawFlow");
+  });
   it("returns an earlier reply's tool steps to the bot but keeps them out of message text", () => {
     const blocks = [
       {

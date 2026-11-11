@@ -13,6 +13,7 @@ vi.mock("./session", () => ({
 const {
   pageCardState,
   pageMessage,
+  visualHeight,
   pageReadFailure,
   pagePreviewLayout,
   pageShareLink,
@@ -160,5 +161,17 @@ describe("removePage", () => {
     await expect(removePage("p1")).resolves.toEqual({ ok: true });
     vi.mocked(rpc).mockRejectedValueOnce(new Error("offline") as never);
     await expect(removePage("p1")).rejects.toThrow("offline");
+  });
+});
+
+describe("visualHeight", () => {
+  it("reads only a sane height message from a visual", () => {
+    expect(visualHeight(JSON.stringify({ type: "rakazo-page:height", height: 212.4 }))).toBe(213);
+    expect(visualHeight(JSON.stringify({ type: "rakazo-page:height", height: 1e9 }))).toBe(20_000);
+    expect(visualHeight(JSON.stringify({ type: "rakazo-page:height", height: -1 }))).toBeNull();
+    expect(
+      visualHeight(JSON.stringify({ type: "rakazo-page:copy", id: "a", text: "x" })),
+    ).toBeNull();
+    expect(visualHeight("not json")).toBeNull();
   });
 });

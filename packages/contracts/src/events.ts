@@ -4,7 +4,12 @@ import { botSecretDestinationSchema, LoginFieldLabels, OneTimeCodeTarget } from 
 import { Id, ThinkingLevelSchema } from "./ids.js";
 import { McpTransportSchema } from "./mcp.js";
 import { McpAppCspSchema } from "./mcp-app.js";
-import { PAGE_TITLE_MAX_LENGTH } from "./pages.js";
+import {
+  PAGE_TITLE_MAX_LENGTH,
+  pageSourceBytes,
+  VISUAL_CODE_MAX_BYTES,
+  VISUAL_SUMMARY_MAX_LENGTH,
+} from "./pages.js";
 
 export const ProductEventType = z.enum([
   "thread.message.created",
@@ -353,6 +358,19 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     toolResult: z.record(z.string(), z.any()),
     csp: McpAppCspSchema.optional(),
     prefersBorder: z.boolean().optional(),
+  }),
+  z.object({
+    /**
+     * A visual the bot drew in the chat with the page kit, without saving a page. `code` is the
+     * compiled viewer code; `text` is its plain summary, which clients that cannot draw it show.
+     */
+    kind: z.literal("visual"),
+    title: z.string().max(PAGE_TITLE_MAX_LENGTH),
+    text: z.string().max(VISUAL_SUMMARY_MAX_LENGTH),
+    code: z
+      .string()
+      .max(VISUAL_CODE_MAX_BYTES, { abort: true })
+      .refine((code) => pageSourceBytes(code) <= VISUAL_CODE_MAX_BYTES),
   }),
   z.object({
     /** A page the bot saved. Title and version are as sent; read the page for its latest. */

@@ -105,6 +105,17 @@ export function pageMessage(data: string): unknown {
   }
 }
 
+/** The height a visual reports, kept to a sane range whatever it sends. */
+const MAX_REPORTED_HEIGHT = 20_000;
+
+/** A height message from the visual's kit, or null for anything else it posts. */
+export function visualHeight(data: string): number | null {
+  const message = pageMessage(data) as { type?: unknown; height?: unknown } | null;
+  if (message?.type !== "rakazo-page:height" || typeof message.height !== "number") return null;
+  if (!Number.isFinite(message.height) || message.height <= 0) return null;
+  return Math.min(Math.ceil(message.height), MAX_REPORTED_HEIGHT);
+}
+
 type PageShareState = {
   /** Null when a change's answer was lost and the server could not be asked since. */
   visibility: PageVisibility | null;
@@ -242,7 +253,12 @@ export async function pageDocument(
   code: string,
   theme: "light" | "dark",
   errorTitle: string,
-  options: { reply?: boolean } = {},
+  options: {
+    reply?: boolean;
+    /** A visual drawn inside a chat message, on the given surface colour. */
+    inline?: boolean;
+    surface?: string;
+  } = {},
 ): Promise<string> {
   const runtime = await loadPageRuntime(apiBase);
   return pageViewerDocument({

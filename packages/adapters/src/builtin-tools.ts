@@ -722,6 +722,24 @@ export const builtinAgentTools: ConnectorTool[] = [
     },
   },
   {
+    name: "show_visual",
+    description:
+      'Draw a diagram, chart, comparison or small tool in the chat, above your reply, without saving a page. Pass JSX written against the Rakazo page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
+    inputSchema: {
+      type: "object",
+      properties: {
+        help: { type: "boolean", description: "Return the visual guide instead of drawing." },
+        title: { type: "string", description: "A short title shown on the visual." },
+        summary: {
+          type: "string",
+          description:
+            "One or two plain sentences with the visual's point and key figures, shown wherever it cannot be drawn.",
+        },
+        source: { type: "string", description: "The visual as JSX." },
+      },
+    },
+  },
+  {
     name: "add_mcp_server",
     description:
       "Connect a remote MCP tool server to this Space when the user asks you to add one and provides the details (URL, optional token/headers). The server is created immediately and an approval card appears in the chat; its tools reach you once the user approves it there. Do not invent endpoints; only use details the user provided. Local (stdio) servers can only be added by an admin in Settings.",

@@ -6,6 +6,14 @@ export const PAGE_LIST_MAX_LIMIT = 60;
 /** The most UTF-8 a page's source may be, wherever it comes from: a save or an import. */
 export const PAGE_SOURCE_MAX_BYTES = 256 * 1024;
 
+/**
+ * The most UTF-8 a visual's compiled code may be. A visual travels inside its chat message, in
+ * every history page and live event, so it stays small; bigger work belongs in a page.
+ */
+export const VISUAL_CODE_MAX_BYTES = 32 * 1024;
+/** A visual's summary: the plain-text point of it, shown wherever the visual cannot be drawn. */
+export const VISUAL_SUMMARY_MAX_LENGTH = 500;
+
 export function pageSourceBytes(source: string): number {
   return new TextEncoder().encode(source).byteLength;
 }

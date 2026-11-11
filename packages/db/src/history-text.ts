@@ -17,6 +17,8 @@ function toolSteps(block: MessageBlock): Extract<MessageBlock, { kind: "steps" }
 
 function conversationText(block: MessageBlock): string[] {
   if (block.kind === "subagent") return [block.task, block.result ?? ""].filter(Boolean);
+  if (block.kind === "visual" && typeof block.title === "string" && typeof block.text === "string")
+    return [`${block.title}: ${block.text}`];
   return [
     "text",
     "channel_message",

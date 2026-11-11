@@ -410,6 +410,11 @@ export function userTurnInstructions(parts: {
     ),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
+      "show_visual",
+      'When a diagram, chart, comparison or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). It is not saved; use save_page for something the user will keep, share or update.',
+    ),
+    offeredBuiltinClause(
+      parts.disabledBuiltinTools,
       "add_mcp_server",
       "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. When add_mcp_server posts an approval card, end with one short sentence asking the user to approve it. You will be told when they connect it.",
     ),

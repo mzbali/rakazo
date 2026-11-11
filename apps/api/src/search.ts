@@ -421,7 +421,11 @@ function pushMessageHits(
       }
     }
   }
-  if (!messageHit && matchesSearchQuery(ctx.query, JSON.stringify(blocks))) {
+  // A visual's code is not something the user reads, so it never matches.
+  const readable = blocks.map((block) =>
+    block.kind === "visual" ? { kind: block.kind, title: block.title, text: block.text } : block,
+  );
+  if (!messageHit && matchesSearchQuery(ctx.query, JSON.stringify(readable))) {
     ctx.push({
       kind: "message",
       ...destination,

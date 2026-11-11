@@ -255,6 +255,7 @@ const OWN_STATE_RESULT_TOOLS = new Set([
   "save_memory",
   "save_page",
   "save_shared_memory",
+  "show_visual",
   "schedule_cancel",
   "schedule_create",
   "schedule_list",

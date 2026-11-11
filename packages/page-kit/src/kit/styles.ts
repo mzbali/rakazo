@@ -35,6 +35,9 @@ body{font-size:1rem}
 .rk-page{max-width:calc(700px + 6rem);margin:0 auto;padding:2.25rem 3rem calc(2.5rem + var(--rk-bottom-inset,0px));display:flex;flex-direction:column;gap:1rem}
 .rk-page[data-width="wide"]{max-width:calc(1280px + 6rem)}
 .rk-page[data-width="full"]{max-width:none}
+[data-inline] #root{display:flex;flex-direction:column;gap:.75rem;padding:1rem}
+[data-inline] .rk-page{max-width:none;padding:0}
+[data-inline] .rk-diagram svg{min-width:0!important}
 .rk-header{display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.75rem}
 .rk-title{margin:0;font-size:1.875rem;line-height:1.2;font-weight:600;letter-spacing:-0.012em;overflow-wrap:anywhere}
 .rk-summary{margin:0;font-size:1rem;line-height:1.5}

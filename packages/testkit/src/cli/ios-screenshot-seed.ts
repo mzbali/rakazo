@@ -20,6 +20,14 @@ const DIAGRAM_REPLY = [
   "  A[Your message] --> B[Bot reply]",
   "```",
 ].join("\n");
+// A visual the bot drew in the chat with show_visual.
+const VISUAL_SUMMARY = "The launch moves from beta to general availability after the review.";
+const VISUAL_SOURCE = [
+  "const Flow = () => (",
+  '  <Diagram direction="horizontal" nodes={[{ id: "beta", label: "Beta" }, { id: "review", label: "Review" }, { id: "ga", label: "Launch" }]} edges={[{ from: "beta", to: "review" }, { from: "review", to: "ga" }]} />',
+  ");",
+  "export default Flow;",
+].join("\n");
 const PAGE_SOURCE = [
   "const App = () => (",
   '  <Page title="Launch dashboard" summary="Fixture figures for the screenshot catalog.">',
@@ -327,6 +335,7 @@ export async function seedIosScreenshotFixture(input: {
     });
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
     await ensureText(db.prisma, group.threadId, "bot", writer.id, DIAGRAM_REPLY);
+    await ensureVisual(db.prisma, group.threadId, writer.id);
     await ensurePage(db.prisma, {
       threadId: researcher.threadId,
       botId: researcher.id,
@@ -885,6 +894,28 @@ async function ensureWaitingKeyRequest(
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error(`The scripted bot never asked for a key; its run: ${JSON.stringify(last)}`);
+}
+
+async function ensureVisual(
+  prisma: ReturnType<typeof createDb>["prisma"],
+  threadId: string,
+  botId: string,
+) {
+  const messages = await prisma.message.findMany({ where: { threadId }, select: { blocks: true } });
+  if (messages.some((message) => JSON.stringify(message.blocks).includes(VISUAL_SUMMARY))) return;
+  await createThreadMessage(prisma, {
+    threadId,
+    role: "bot",
+    botId,
+    blocks: [
+      {
+        kind: "visual",
+        title: "Launch path",
+        text: VISUAL_SUMMARY,
+        code: pageViewerCode(VISUAL_SOURCE),
+      },
+    ],
+  });
 }
 
 async function ensureText(

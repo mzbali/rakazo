@@ -44,6 +44,8 @@ const CHECK_TIMEOUT_MS = 60_000;
 const PROVISION_TIMEOUT_MS = 5 * 60_000;
 /** A busy or still-booting computer is tried again this soon, not counted as a failure. */
 const RETRY_AFTER_MS = 60_000;
+/** Checks in a row that cannot reach the source before the bot says so; one miss is usually a blip. */
+const OUTAGE_NOTICE_AFTER = 2;
 /** Above this, a files watch keeps only the fingerprint and reports a count. */
 const MAX_TRACKED_ENTRIES = 2_000;
 const MAX_DETAIL = 1_500;
@@ -76,8 +78,19 @@ export type RoutineWatchTarget = {
 /** Thrown when a check cannot be completed; the routine is paused and the bot says why. */
 export class RoutineWatchError extends Error {}
 
-/** Thrown when a check cannot run yet for a passing reason; it is retried shortly, not paused. */
-export class RoutineWatchRetry extends Error {}
+/**
+ * Thrown when a check cannot run yet for a passing reason; it is retried, not paused. With
+ * `unreachable`, the watched source itself did not answer: the check tries again on the watch's
+ * own interval and counts toward telling the bot, instead of retrying within a minute.
+ */
+export class RoutineWatchRetry extends Error {
+  constructor(
+    message?: string,
+    readonly unreachable = false,
+  ) {
+    super(message);
+  }
+}
 
 export type RoutineWatchOutcome = {
   state: RoutineWatchState;
@@ -426,10 +439,7 @@ async function readComputer(
       }),
     );
   } catch (error) {
-    if (
-      error instanceof ComputerBusyError ||
-      (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))
-    ) {
+    if (error instanceof ComputerBusyError || isTimeout(error)) {
       throw new RoutineWatchRetry();
     }
     throw new RoutineWatchError(`Could not start the bot's computer: ${errorText(error)}`);
@@ -580,7 +590,10 @@ async function readTool(
   try {
     tools = await connector.discoverTools(ctx);
   } catch (error) {
-    throw new RoutineWatchError(`Could not list the integration's tools: ${errorText(error)}`);
+    throw new RoutineWatchRetry(
+      `Could not list the integration's tools: ${errorText(error)}`,
+      true,
+    );
   }
   // Discovery waits on every provider; the tool call gets its own full budget.
   ctx.signal = AbortSignal.timeout(CHECK_TIMEOUT_MS);
@@ -608,20 +621,31 @@ async function readTool(
   if (refusal) throw new RoutineWatchError(refusal);
   let data: unknown;
   let failure: string | null = null;
+  // An unreachable integration is tried again; anything it answered with stays a failure.
+  let unreachable = false;
   try {
     for await (const event of connector.execute(resolved.call, ctx)) {
       if (event.type === "result") data = event.data;
-      else if (event.type === "error") failure = event.message;
+      else if (event.type === "error") {
+        failure = event.message;
+        unreachable = event.retryable === true;
+      }
     }
   } catch (error) {
     failure = errorText(error);
+    unreachable = isTimeout(error);
   }
   if (data && typeof data === "object") {
     const result = data as { isError?: boolean; error?: unknown };
-    if (result.isError === true || result.error != null)
+    if (result.isError === true || result.error != null) {
       failure = toolResultText(result.error ?? data);
+      unreachable = false;
+    }
   }
-  if (failure) throw new RoutineWatchError(`${toolName} failed: ${clip(failure)}`);
+  if (failure) {
+    const message = `${toolName} failed: ${clip(failure)}`;
+    throw unreachable ? new RoutineWatchRetry(message, true) : new RoutineWatchError(message);
+  }
   if (watch.track) return readItems(data, watch.track);
   // The fingerprint covers the whole result; only the note the bot reads is unwrapped.
   return {
@@ -686,6 +710,10 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isTimeout(error: unknown): boolean {
+  return error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name);
+}
+
 export type RoutineWatchTickDeps = RoutineWatchDeps & {
   jobs: JobPublisher;
 };
@@ -727,6 +755,15 @@ export async function tickRoutineWatch(
     if (!watch) throw new RoutineWatchError("The change trigger's settings are not valid.");
     outcome = await checkRoutineWatch(deps, routine, now);
   } catch (error) {
+    if (error instanceof RoutineWatchRetry && error.unreachable && watch) {
+      return deferUnreachableCheck(deps, routine, target, {
+        watch,
+        previous,
+        reason: error.message,
+        now,
+        scheduledAt,
+      });
+    }
     if (error instanceof RoutineWatchRetry) {
       const retryAt = new Date(now.getTime() + RETRY_AFTER_MS);
       const deferred = await deps.prisma.routine.updateMany({
@@ -766,7 +803,17 @@ export async function tickRoutineWatch(
     watch,
     new Date(Math.max(now.getTime(), scheduledAt.getTime())),
   );
+  const backAfterOutage = () =>
+    previous?.outageNoticed
+      ? postRoutineWatchMessage(deps, {
+          spaceId: routine.spaceId,
+          ...target,
+          role: "bot",
+          text: `I can reach \`${describeRoutineWatch(watch)}\` again for the **${routine.name}** routine.`,
+        })
+      : Promise.resolve();
   if (outcome.changed) {
+    await backAfterOutage();
     return {
       run: true,
       state: outcome.state,
@@ -779,6 +826,7 @@ export async function tickRoutineWatch(
     data: { nextRunAt, watchState: outcome.state },
   });
   if (claimed.count !== 1) return { run: false };
+  await backAfterOutage();
   if (watch.loud) {
     await postRoutineWatchMessage(deps, {
       spaceId: routine.spaceId,
@@ -791,6 +839,58 @@ export async function tickRoutineWatch(
     });
   }
   await deps.jobs.enqueue(routineWakeupJob(routine.id, nextRunAt));
+  return { run: false };
+}
+
+/**
+ * The watched source did not answer. The routine stays on and checks again on its own interval,
+ * keeping the last good reading so a change made in the meantime is still noticed. After a few
+ * misses in a row the bot says so, once, and says again when the source is back.
+ */
+async function deferUnreachableCheck(
+  deps: RoutineWatchTickDeps,
+  routine: TickRoutine,
+  target: { threadId: string; botId: string },
+  input: {
+    watch: RoutineWatch;
+    previous: RoutineWatchState | null;
+    reason: string;
+    now: Date;
+    scheduledAt: Date;
+  },
+): Promise<RoutineWatchTick> {
+  const { watch, previous, reason, now } = input;
+  const failures = (previous?.failures ?? 0) + 1;
+  const notice = failures >= OUTAGE_NOTICE_AFTER && !previous?.outageNoticed;
+  const watchState = {
+    ...(previous ?? {
+      checkedAt: now.toISOString(),
+      outcome: "failed" as const,
+      fingerprint: null,
+      detail: reason,
+    }),
+    failures,
+    failingSince: previous?.failingSince ?? now.toISOString(),
+    ...(notice || previous?.outageNoticed ? { outageNoticed: true } : {}),
+  } satisfies RoutineWatchState;
+  const retryAt = nextRoutineWatchAt(
+    watch,
+    new Date(Math.max(now.getTime(), input.scheduledAt.getTime())),
+  );
+  const deferred = await deps.prisma.routine.updateMany({
+    where: { id: routine.id, userId: routine.userId, active: true, nextRunAt: input.scheduledAt },
+    data: { nextRunAt: retryAt, watchState },
+  });
+  if (deferred.count !== 1) return { run: false };
+  await deps.jobs.enqueue(routineWakeupJob(routine.id, retryAt));
+  if (notice) {
+    await postRoutineWatchMessage(deps, {
+      spaceId: routine.spaceId,
+      ...target,
+      role: "bot",
+      text: `I can't reach \`${describeRoutineWatch(watch)}\` for the **${routine.name}** routine: ${reason}\n\nI'll keep checking every ${watch.everyMinutes} minutes and say when it's back.`,
+    });
+  }
   return { run: false };
 }
 

@@ -78,5 +78,13 @@ export const RoutineWatchStateSchema = z.object({
   entries: z.record(z.string(), z.string()).optional(),
   /** What changed, or why the check failed, in a sentence or a short list. */
   detail: z.string().nullable(),
+  /**
+   * Checks in a row that could not reach the watched source, since `failingSince`. The reading
+   * above stays the last good one, so nothing that changed meanwhile is missed.
+   */
+  failures: z.number().int().positive().optional(),
+  failingSince: z.string().optional(),
+  /** The bot has said the source is unreachable and will say when it is back. */
+  outageNoticed: z.boolean().optional(),
 });
 export type RoutineWatchState = z.infer<typeof RoutineWatchStateSchema>;

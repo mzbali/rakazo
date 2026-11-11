@@ -434,6 +434,145 @@ describe("tickRoutineWatch", () => {
     expect(messages[0]).toMatchObject({ role: "bot" });
     expect(JSON.stringify(messages[0]?.blocks)).toContain("401 unauthorized");
   });
+
+  describe("when the watched source can't be reached", () => {
+    const unreachable = async function* () {
+      yield {
+        type: "error" as const,
+        message: "MCP server is unavailable: fetch failed",
+        retryable: true,
+      };
+    };
+    const saved = (updateMany: ReturnType<typeof vi.fn>) =>
+      (updateMany.mock.lastCall as unknown as [{ data: Record<string, unknown> }])[0].data;
+
+    async function baselined(result: { data?: unknown } = { data: { changes: [] } }) {
+      const fixture = setup(result);
+      const baseline = await checkRoutineWatch(fixture.deps, fixture.routine);
+      fixture.routine.watchState = baseline.state as typeof fixture.routine.watchState;
+      return fixture;
+    }
+
+    it("stays on and checks again on its own interval, keeping the last good reading", async () => {
+      const { deps, routine, updateMany, messages } = await baselined();
+      const lastGood = routine.watchState;
+      vi.mocked(deps.connector!.execute).mockImplementation(unreachable);
+
+      expect(await tickRoutineWatch(deps, routine, target, scheduledAt)).toEqual({ run: false });
+
+      const data = saved(updateMany);
+      expect(data).not.toHaveProperty("active");
+      expect(data.watchState).toMatchObject({ ...lastGood, failures: 1 });
+      expect((data.nextRunAt as Date).getTime()).toBeGreaterThan(Date.now() + 14 * 60_000);
+      expect(deps.jobs.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "routine.wakeup", availableAt: data.nextRunAt }),
+      );
+      expect(deps.jobs.cancel).not.toHaveBeenCalled();
+      expect(messages).toEqual([]);
+    });
+
+    it.each([
+      [
+        "its tools can't be listed",
+        (deps: RoutineWatchTickDeps) =>
+          vi.mocked(deps.connector!.discoverTools).mockRejectedValue(new Error("ECONNREFUSED")),
+      ],
+      [
+        "the call times out",
+        (deps: RoutineWatchTickDeps) =>
+          vi.mocked(deps.connector!.execute).mockImplementation(async function* () {
+            yield* [];
+            throw Object.assign(new Error("The operation timed out."), { name: "TimeoutError" });
+          }),
+      ],
+    ])("stays on when %s", async (_label, fail) => {
+      const { deps, routine, updateMany } = await baselined();
+      fail(deps);
+
+      expect(await tickRoutineWatch(deps, routine, target, scheduledAt)).toEqual({ run: false });
+      expect(saved(updateMany)).not.toHaveProperty("active");
+      expect(saved(updateMany).watchState).toMatchObject({ failures: 1 });
+    });
+
+    it("says so once after a second miss, then says when it is back", async () => {
+      const { deps, routine, updateMany, messages } = await baselined();
+      const execute = vi.mocked(deps.connector!.execute);
+      const working = execute.getMockImplementation()!;
+      execute.mockImplementation(unreachable);
+      for (let check = 0; check < 3; check++) {
+        await tickRoutineWatch(deps, routine, target, scheduledAt);
+        routine.watchState = saved(updateMany).watchState as typeof routine.watchState;
+      }
+      expect(routine.watchState).toMatchObject({ failures: 3, outageNoticed: true });
+      expect(messages).toHaveLength(1);
+      expect(JSON.stringify(messages[0]?.blocks)).toContain("I can't reach `brain_changed`");
+      expect(JSON.stringify(messages[0]?.blocks)).toContain("fetch failed");
+
+      execute.mockImplementation(working);
+      expect(await tickRoutineWatch(deps, routine, target, scheduledAt)).toEqual({ run: false });
+
+      expect(saved(updateMany).watchState).toMatchObject({ outcome: "unchanged" });
+      expect(saved(updateMany).watchState).not.toHaveProperty("failures");
+      expect(saved(updateMany).watchState).not.toHaveProperty("outageNoticed");
+      expect(messages).toHaveLength(2);
+      expect(JSON.stringify(messages[1]?.blocks)).toContain("I can reach `brain_changed` again");
+    });
+
+    it("reports what changed during the outage once the source is back", async () => {
+      const { deps, routine, messages } = await baselined();
+      routine.watchState = {
+        ...routine.watchState,
+        failures: 2,
+        failingSince: NOW.toISOString(),
+        outageNoticed: true,
+      } as typeof routine.watchState;
+      vi.mocked(deps.connector!.execute).mockImplementation(async function* () {
+        yield { type: "result" as const, data: { changes: [{ path: "Facts/new.md" }] } };
+      });
+
+      const tick = await tickRoutineWatch(deps, routine, target, scheduledAt);
+
+      expect(tick.run).toBe(true);
+      if (!tick.run) return;
+      expect(tick.note).toContain("Facts/new.md");
+      expect(tick.state).not.toHaveProperty("failures");
+      expect(JSON.stringify(messages[0]?.blocks)).toContain("I can reach `brain_changed` again");
+    });
+
+    it("starts from scratch when it never had a reading, without running on recovery", async () => {
+      const { deps, routine, updateMany } = setup({ data: { changes: [] } });
+      routine.watchState = null as unknown as typeof routine.watchState;
+      const execute = vi.mocked(deps.connector!.execute);
+      const working = execute.getMockImplementation()!;
+      execute.mockImplementation(unreachable);
+
+      await tickRoutineWatch(deps, routine, target, scheduledAt);
+      expect(saved(updateMany).watchState).toMatchObject({
+        outcome: "failed",
+        fingerprint: null,
+        failures: 1,
+      });
+
+      routine.watchState = saved(updateMany).watchState as typeof routine.watchState;
+      execute.mockImplementation(working);
+      expect(await tickRoutineWatch(deps, routine, target, scheduledAt)).toEqual({ run: false });
+      expect(saved(updateMany).watchState).toMatchObject({ outcome: "baseline" });
+    });
+
+    it("still pauses when the source answers with an error", async () => {
+      const { deps, routine, updateMany } = await baselined();
+      vi.mocked(deps.connector!.execute).mockImplementation(async function* () {
+        yield {
+          type: "result" as const,
+          data: { isError: true, content: [{ type: "text", text: "Invalid arguments: limit" }] },
+        };
+      });
+
+      await tickRoutineWatch(deps, routine, target, scheduledAt);
+
+      expect(saved(updateMany)).toMatchObject({ active: false, nextRunAt: null });
+    });
+  });
 });
 
 describe("tool results", () => {

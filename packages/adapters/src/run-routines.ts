@@ -45,8 +45,20 @@ export async function deferFutureRoutine(
   return true;
 }
 
-function routineNextRunIsNear(nextRunAt: Date | null, retryAt: number): boolean {
-  return Boolean(nextRunAt && nextRunAt.getTime() - retryAt <= ROUTINE_RETRY_NEXT_RUN_WINDOW_MS);
+/**
+ * Whether the routine's next occurrence comes soon enough to stand in for a retry. A change
+ * trigger's next check runs the routine only if the watched thing changes again, so it never
+ * stands in for a run that failed.
+ */
+function nextRunReplacesRetry(
+  routine: { nextRunAt: Date | null; watch: unknown },
+  retryAt: number,
+): boolean {
+  return Boolean(
+    routine.watch == null &&
+      routine.nextRunAt &&
+      routine.nextRunAt.getTime() - retryAt <= ROUTINE_RETRY_NEXT_RUN_WINDOW_MS,
+  );
 }
 
 /**
@@ -78,7 +90,7 @@ export async function scheduleRoutineRetry(
     const [routine, toolCalls, botMessages] = await Promise.all([
       deps.prisma.routine.findUnique({
         where: { id: run.routineId },
-        select: { nextRunAt: true },
+        select: { nextRunAt: true, watch: true },
       }),
       deps.prisma.event.count({ where: { runId: run.id, type: "agent.tool.called" } }),
       deps.prisma.message.count({
@@ -86,7 +98,7 @@ export async function scheduleRoutineRetry(
       }),
     ]);
     if (!routine || toolCalls > 0 || botMessages > 0) return false;
-    if (routineNextRunIsNear(routine.nextRunAt, retryAt)) return false;
+    if (nextRunReplacesRetry(routine, retryAt)) return false;
     await deps.jobs.enqueue(routineRetryJob(run.id, new Date(retryAt)));
     return true;
   } catch (scheduleError) {
@@ -387,6 +399,7 @@ export async function retryRoutineRun(deps: ExecutorDeps, runId: string) {
       active: true,
       crons: true,
       nextRunAt: true,
+      watch: true,
       userId: true,
       bot: { select: { archivedAt: true } },
       space: { select: { deletingAt: true } },
@@ -400,7 +413,7 @@ export async function retryRoutineRun(deps: ExecutorDeps, runId: string) {
   });
   if (laterRun) return;
   const notifyAbandonedRetry = () => notifyFailedRoutineRun(deps, failed, { retryOnFailure: true });
-  if (routine && routineNextRunIsNear(routine.nextRunAt, Date.now())) {
+  if (routine && nextRunReplacesRetry(routine, Date.now())) {
     await notifyAbandonedRetry();
     return;
   }

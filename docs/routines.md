@@ -39,6 +39,9 @@ when it changed. **What to watch** can be files or folders on the computer, a co
 tool from a connected app. Turn on **Post "No changes" in chat** if you want a note every time. A
 watch can't be combined with a schedule.
 
+If a connected app can't be reached, the watch keeps checking at its interval. The bot says so if two
+checks in a row fail, and again once the app answers. Changes made in the meantime are still noticed.
+
 ### Webhook
 
 Gives you a URL and key. Any service that can send a POST request can start the routine.

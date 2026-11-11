@@ -20,7 +20,12 @@ import type { McpOAuthBroker, OAuthMaterial } from "./mcp-oauth.js";
 import { StoredMcpOAuthProvider } from "./mcp-oauth.js";
 import { McpSession } from "./mcp-transport.js";
 import { InMemoryRealtimeFanout } from "./realtime.js";
-import { checkRoutineWatch, validateRoutineWatch } from "./routine-watch.js";
+import {
+  checkRoutineWatch,
+  RoutineWatchError,
+  RoutineWatchRetry,
+  validateRoutineWatch,
+} from "./routine-watch.js";
 import { migrateSecrets } from "./secret-migration.js";
 import { ComposedSecretStore } from "./secret-store-factory.js";
 import { infisicalFake } from "./secret-store-fake.js";
@@ -1443,6 +1448,87 @@ describe("MCP connector session cache", () => {
       }
     },
   );
+
+  it("keeps a watch checking while its server is down and refuses only a tool it lacks", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const state = {
+      failNext: false,
+      initializations: 0,
+      tools: [
+        {
+          name: "list_threads",
+          inputSchema: { type: "object" },
+          annotations: { readOnlyHint: true },
+        },
+      ],
+    };
+    vi.stubGlobal("fetch", mcpFetch(state));
+    const prisma = {
+      mcpServer: NO_SHARED_SERVERS,
+      botMcpServer: {
+        findMany: vi.fn().mockResolvedValue([ASSIGNMENT]),
+        findFirst: vi.fn().mockResolvedValue(ASSIGNMENT),
+      },
+      connection: { findMany: vi.fn().mockResolvedValue([]) },
+      spaceSettingOverride: { findUnique: vi.fn().mockResolvedValue(null) },
+      actionApprovalRule: { findMany: vi.fn().mockResolvedValue([]) },
+      userActionApprovalRule: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const mcp = new McpConnector(prisma as never, {} as never, { network: TEST_NETWORK });
+    const deps = { prisma, connector: new ConnectorRegistry([mcp]) } as never;
+    const routine = {
+      id: "routine-1",
+      spaceId: "w1",
+      userId: "u1",
+      botId: "bot-1",
+      watch: {
+        kind: "tool" as const,
+        tool: "mcp__demo__list_threads",
+        args: {},
+        everyMinutes: 5,
+        loud: false,
+      },
+      watchState: null,
+    };
+    try {
+      const { state: baseline } = await checkRoutineWatch(deps, routine);
+      const watching = { ...routine, watchState: baseline };
+
+      state.failNext = true;
+      // The live session breaks during the call, then reconnecting fails and leaves the stand-in.
+      for (const _check of ["call", "discovery"]) {
+        const failed = checkRoutineWatch(deps, watching);
+        await expect(failed).rejects.toBeInstanceOf(RoutineWatchRetry);
+        await expect(failed).rejects.toMatchObject({ unreachable: true });
+      }
+      await expect(mcp.discoverTools(context())).resolves.toEqual(unavailableOnly());
+
+      state.failNext = false;
+      vi.setSystemTime(Date.now() + 6 * 60_000);
+      await expect(checkRoutineWatch(deps, watching)).resolves.toMatchObject({
+        changed: false,
+        state: { outcome: "unchanged" },
+      });
+      await expect(
+        checkRoutineWatch(deps, {
+          ...watching,
+          watch: { ...routine.watch, tool: "mcp__demo__gone" },
+        }),
+      ).rejects.toBeInstanceOf(RoutineWatchError);
+    } finally {
+      await mcp.close();
+      vi.useRealTimers();
+    }
+
+    function context() {
+      return {
+        spaceId: "w1",
+        userId: "u1",
+        botId: "bot-1",
+        signal: new AbortController().signal,
+      } as never;
+    }
+  });
 
   it("searches, loads, validates, authorizes, and executes one large-catalog tool", async () => {
     const state = {

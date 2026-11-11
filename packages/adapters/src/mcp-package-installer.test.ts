@@ -163,16 +163,19 @@ describe("ensureMcpPackage", () => {
     const fresh = { ...expired, token: "fresh", expiresAt: Date.now() + 60_000 };
     await writeFile(join(lock, "owner"), JSON.stringify(expired));
     const original = (await vi.importActual<typeof fs>("node:fs/promises")).rename;
+    let restored = false;
     const spy = vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
       if (from === lock) {
         await writeFile(join(lock, "owner"), JSON.stringify(fresh));
       }
-      return original(from, to);
+      await original(from, to);
+      if (to === lock) restored = true;
     });
     const controller = new AbortController();
     const pending = ensureMcpPackage("race-pkg", { ...options(), signal: controller.signal });
     try {
-      await vi.waitFor(() => expect(spy).toHaveBeenCalled(), WAIT);
+      // Reading the fresh owner can race with quarantine; wait until its lock is back.
+      await vi.waitFor(() => expect(restored).toBe(true), WAIT);
       await vi.waitFor(
         async () => expect(JSON.parse(await readFile(join(lock, "owner"), "utf8"))).toEqual(fresh),
         WAIT,

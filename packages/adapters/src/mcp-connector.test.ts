@@ -98,6 +98,8 @@ function mcpFetch(
     calls?: string[];
     /** Answers tool calls with this JSON-RPC error, as a server rejecting the arguments. */
     callError?: { code: number; message: string };
+    /** Fails every request with an error nothing classifies, as an unforeseen bug would. */
+    unexpectedFailure?: boolean;
   },
   expectedUrl = "https://mcp.example.test/mcp",
 ) {
@@ -107,6 +109,7 @@ function mcpFetch(
     if (logicalHref(input, init) !== expectedUrl)
       throw new Error(`Unexpected request: ${logicalHref(input, init)}`);
     if (request.method !== "POST") return new Response(null, { status: 405 });
+    if (state.unexpectedFailure) throw new Error("unforeseen failure");
     if (state.failNext) return new Response("boom", { status: 500 });
     const message = JSON.parse(await request.text()) as {
       id?: number;
@@ -1506,6 +1509,10 @@ describe("MCP connector session cache", () => {
         await expect(failed).rejects.toMatchObject({ unreachable: true });
       }
       await expect(mcp.discoverTools(context())).resolves.toEqual(unavailableOnly());
+      // A watch saved now can't be checked against the real tool, so it is refused for now.
+      await expect(validateRoutineWatch(deps, routine.watch, routine)).rejects.toThrow(
+        "can't be checked right now",
+      );
 
       state.failNext = false;
       vi.setSystemTime(Date.now() + 6 * 60_000);
@@ -1521,6 +1528,11 @@ describe("MCP connector session cache", () => {
       ).rejects.toBeInstanceOf(RoutineWatchError);
       // A server that answers but rejects the call needs fixing, not waiting for.
       state.callError = { code: -32602, message: "Invalid params: limit" };
+      await expect(checkRoutineWatch(deps, watching)).rejects.toBeInstanceOf(RoutineWatchError);
+      // So does a failure nothing recognizes as an outage.
+      state.callError = undefined;
+      state.unexpectedFailure = true;
+      vi.setSystemTime(Date.now() + 6 * 60_000);
       await expect(checkRoutineWatch(deps, watching)).rejects.toBeInstanceOf(RoutineWatchError);
     } finally {
       await mcp.close();

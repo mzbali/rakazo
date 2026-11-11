@@ -366,8 +366,11 @@ export class McpConnector implements ConnectorProvider {
   private readonly sessions = new Map<string, SessionEntry>();
   private readonly connecting = new Map<string, PendingSession>();
   private readonly probes = new Map<string, Promise<McpServerHealthUpdate>>();
-  /** Last discovery failure per session key, returned by the unavailable stand-in tool. */
-  private readonly unavailable = new Map<string, string>();
+  /**
+   * Last discovery failure per session key, returned by the unavailable stand-in tool.
+   * `retryable` when the server was unreachable or needs reconnecting, not set up wrong.
+   */
+  private readonly unavailable = new Map<string, { reason: string; retryable: boolean }>();
   private readonly healthWrites = new Map<string, { value: string; at: number }>();
   /** Servers whose last discovery failed; runs skip them until `until`, per revision. */
   private readonly discoveryBackoff = new Map<
@@ -571,7 +574,10 @@ export class McpConnector implements ConnectorProvider {
             );
           // Cleanup must not turn one server's failure into losing every server's tools.
           await this.evict(key).catch(() => undefined);
-          this.unavailable.set(key, reason);
+          this.unavailable.set(key, {
+            reason,
+            retryable: this.installing.has(key) || expected !== undefined,
+          });
           // A cancelled run says nothing about the server, and an install that outlived the
           // deadline is still on its way.
           if (!context.signal.aborted && !this.installing.has(key)) {
@@ -688,13 +694,14 @@ export class McpConnector implements ConnectorProvider {
         .findFirst({ where: { ...usable, id: call.route.resourceId, allBots: true } })
         .then((server) => (server ? sharedAssignment(server) : null)));
     if (assignment && call.route.toolName === UNAVAILABLE_TOOL) {
-      const reason =
-        this.unavailable.get(this.sessionKey(assignment.server, context)) ??
-        "it could not be started";
+      // No recorded failure means it is still installing, which finishes by itself.
+      const { reason, retryable } = this.unavailable.get(
+        this.sessionKey(assignment.server, context),
+      ) ?? { reason: "it could not be started", retryable: true };
       yield {
         type: "error",
         message: `MCP server "${assignment.server.name}" is unavailable: ${reason}`,
-        retryable: true,
+        retryable,
       };
       return;
     }

@@ -170,7 +170,7 @@ const scheduleTimingSpecs = {
         type: "array",
         items: { type: "string" },
         description:
-          "For JSON: item identity first, then changed fields; others are ignored. For running work, track pending input or approval state alongside run identity and status. Questions can appear on the same run. Polling misses changes that disappear between checks.",
+          "For JSON: item identity, then changed fields; others ignored. For runs, also track pending input or approval; questions can reuse a run. Polling misses brief changes.",
       },
       everyMinutes: { type: "number" },
       loud: {

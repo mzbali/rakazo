@@ -1549,6 +1549,49 @@ describe("MCP connector session cache", () => {
     }
   });
 
+  it("treats a server whose package is installing as coming back, whatever failed before", async () => {
+    const prisma = {
+      mcpServer: NO_SHARED_SERVERS,
+      botMcpServer: {
+        findMany: vi.fn().mockResolvedValue([ASSIGNMENT]),
+        findFirst: vi.fn().mockResolvedValue(ASSIGNMENT),
+      },
+    };
+    const connector = new McpConnector(prisma as never, {} as never, { network: TEST_NETWORK });
+    const context = { spaceId: "w1", userId: "u1", botId: "bot-1" } as never;
+    const internals = connector as unknown as {
+      sessionKey: (server: unknown, context: unknown) => string;
+      installing: Set<string>;
+      unavailable: Map<string, { reason: string; retryable: boolean }>;
+    };
+    const key = internals.sessionKey(SERVER, context);
+    // An unrecognized failure was recorded, then an edit started a fresh install.
+    internals.unavailable.set(key, { reason: "unforeseen failure", retryable: false });
+    internals.installing.add(key);
+    const events: unknown[] = [];
+    try {
+      for await (const event of connector.execute(
+        {
+          tool: "mcp__demo__echo",
+          args: {},
+          executionId: "x",
+          route: { connectorId: "mcp", resourceId: SERVER.id, toolName: "__rakazo_unavailable" },
+        },
+        context,
+      ))
+        events.push(event);
+      expect(events).toEqual([
+        {
+          type: "error",
+          message: expect.stringContaining("still installing its package"),
+          retryable: true,
+        },
+      ]);
+    } finally {
+      await connector.close();
+    }
+  });
+
   it("answers through a down server's stand-in only when no other server could own the tool", async () => {
     const connector = new McpConnector({} as never, {} as never, { network: TEST_NETWORK });
     const route = (catalogGroup: string, toolName: string) => ({

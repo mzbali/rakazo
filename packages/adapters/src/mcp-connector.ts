@@ -212,6 +212,8 @@ function recoveredSince(
 
 /** Route name of the stand-in tool for an assigned server whose discovery failed. */
 const UNAVAILABLE_TOOL = "__rakazo_unavailable";
+const INSTALLING_REASON =
+  "it is still installing its package; its tools will be available on a later turn";
 /** Skip rewriting an unchanged health observation more often than this. */
 const HEALTH_REWRITE_MS = 60_000;
 
@@ -270,6 +272,7 @@ function unavailableTool(server: McpServer, reason: string): ConnectorTool {
     description: `The MCP server "${server.name}" is assigned to you but is unavailable right now, so none of its tools can be used. Reason: ${brief}. Tell the user it failed to start rather than saying it is not assigned. Calling this tool returns the same error.`,
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     readOnly: true,
+    unavailable: true,
     route: {
       connectorId: "mcp",
       resourceId: server.id,
@@ -486,13 +489,7 @@ export class McpConnector implements ConnectorProvider {
         const key = this.sessionKey(server, context);
         const live = this.sessions.get(key)?.revision === server.revision;
         // A package still installing finishes in the background; this run goes on without it.
-        if (!live && this.installing.has(key))
-          return [
-            unavailableTool(
-              server,
-              "it is still installing its package; its tools will be available on a later turn",
-            ),
-          ];
+        if (!live && this.installing.has(key)) return [unavailableTool(server, INSTALLING_REASON)];
         // A server that just failed is not retried on every turn; a live session, a new
         // revision (the user changed it), or a later successful check recorded by any
         // process (e.g. Test connection in the API) ends the wait early.
@@ -555,7 +552,7 @@ export class McpConnector implements ConnectorProvider {
             ...((entry ?? this.sessions.get(key))?.launchSecrets ?? []),
           ];
           const reason = this.installing.has(key)
-            ? "it is still installing its package; its tools will be available on a later turn"
+            ? INSTALLING_REASON
             : sanitizeConnectorError(error, secrets);
           // A single unavailable server must not hide tools from other connectors.
           // A cancelled run says nothing about the server.
@@ -694,10 +691,11 @@ export class McpConnector implements ConnectorProvider {
         .findFirst({ where: { ...usable, id: call.route.resourceId, allBots: true } })
         .then((server) => (server ? sharedAssignment(server) : null)));
     if (assignment && call.route.toolName === UNAVAILABLE_TOOL) {
-      // No recorded failure means it is still installing, which finishes by itself.
-      const { reason, retryable } = this.unavailable.get(
-        this.sessionKey(assignment.server, context),
-      ) ?? { reason: "it could not be started", retryable: true };
+      const key = this.sessionKey(assignment.server, context);
+      // An install in progress finishes by itself, whatever failed before it started.
+      const { reason, retryable } = this.installing.has(key)
+        ? { reason: INSTALLING_REASON, retryable: true }
+        : (this.unavailable.get(key) ?? { reason: "it could not be started", retryable: true });
       yield {
         type: "error",
         message: `MCP server "${assignment.server.name}" is unavailable: ${reason}`,

@@ -590,6 +590,7 @@ async function readTool(
   try {
     tools = await connector.discoverTools(ctx);
   } catch (error) {
+    // Connectors report their own failures in the listing; a throw here is the platform's.
     throw new RoutineWatchRetry(
       `Could not list the integration's tools: ${errorText(error)}`,
       true,
@@ -605,11 +606,18 @@ async function readTool(
   if (!resolved) {
     throw new RoutineWatchError(`No connected integration has a tool named ${toolName}.`);
   }
+  // A stand-in for a down integration runs nothing, so the rules judge the tool that was picked.
+  const standIn = resolved.tool.unavailable === true;
+  const judged = standIn
+    ? toolName
+    : resolved.tool.route?.connectionId
+      ? resolved.tool.route.toolName
+      : resolved.tool.name;
   const refusal = watchToolRefusal({
-    toolName: resolved.tool.route?.connectionId ? resolved.tool.route.toolName : resolved.tool.name,
-    toolAliases: [resolved.tool.name],
+    toolName: judged,
+    toolAliases: [standIn ? toolName : resolved.tool.name],
     connectorKind: connectorKindFromToolName(
-      resolved.tool.route?.connectionId ? resolved.tool.route.toolName : resolved.tool.name,
+      judged,
       ctx.connectedConnections?.map((row) => row.externalId),
     ),
     readOnly: declaredRead(resolved.tool),
@@ -643,8 +651,9 @@ async function readTool(
     }
   }
   if (failure) {
-    const message = `${toolName} failed: ${clip(failure)}`;
-    throw unreachable ? new RoutineWatchRetry(message, true) : new RoutineWatchError(message);
+    // The outage notice names the tool already; a pause message does not.
+    if (unreachable) throw new RoutineWatchRetry(clip(failure), true);
+    throw new RoutineWatchError(`${toolName} failed: ${clip(failure)}`);
   }
   if (watch.track) return readItems(data, watch.track);
   // The fingerprint covers the whole result; only the note the bot reads is unwrapped.
@@ -977,8 +986,8 @@ export async function validateRoutineWatch(
       )
     )?.tool;
   if (!tool) throw new RoutineWatchError(`No connected integration has a tool named ${name}.`);
-  // A tool under neither name answered for it: its integration is down, so it can't be checked.
-  if (tool.name !== name && tool.route?.toolName !== name) {
+  // A stand-in answered because the integration is down, so the real tool can't be checked.
+  if (tool.unavailable) {
     throw new RoutineWatchError(
       `${name} can't be checked right now because its integration isn't answering. Try again once it is back.`,
     );

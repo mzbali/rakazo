@@ -91,7 +91,10 @@ export function MermaidDiagram({ source, palette, colorScheme, fallback }: Merma
           }}
           onError={fail}
           onHttpError={fail}
-          style={[styles.webview, { height: drawn ? diagram.height : 1 }]}
+          style={styles.webview}
+          // The library's container flexes by default, which gives it no height inside a card
+          // sized by its content, so the drawn diagram was clipped to an empty strip.
+          containerStyle={[styles.webviewContainer, { height: drawn ? diagram.height : 1 }]}
           javaScriptEnabled
           allowsLinkPreview={false}
           dataDetectorTypes="none"
@@ -133,5 +136,6 @@ const styles = StyleSheet.create({
     top: 0,
     opacity: 0,
   },
-  webview: { width: "100%", backgroundColor: "transparent" },
+  webviewContainer: { flex: 0, width: "100%" },
+  webview: { backgroundColor: "transparent" },
 });

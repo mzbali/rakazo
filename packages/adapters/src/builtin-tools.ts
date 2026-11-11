@@ -169,7 +169,7 @@ const scheduleTimingSpecs = {
         type: "array",
         items: { type: "string" },
         description:
-          "For a JSON result: the field naming each item, then the fields whose change counts. Everything else is ignored, and the run is told which items are new, updated or gone. For running work, include pending input or approval state as well as run identity and status: a question can appear without a new run or status change. Only changes still visible at the next check can be detected.",
+          "For JSON: item identity first, then changed fields; others are ignored. For running work, track pending input or approval state alongside run identity and status. Questions can appear on the same run. Polling misses changes that disappear between checks.",
       },
       everyMinutes: { type: "number" },
       loud: {

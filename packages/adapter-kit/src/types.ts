@@ -275,6 +275,8 @@ export interface ConnectorTool {
   route?: ConnectorRoute;
   /** The `ui://` resource an MCP server shows this tool's result with (MCP Apps). */
   appResourceUri?: string;
+  /** Stands in for an integration whose tools could not be listed; calling it says why. */
+  unavailable?: boolean;
 }
 
 /**

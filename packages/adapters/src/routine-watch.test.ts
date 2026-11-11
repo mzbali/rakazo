@@ -14,6 +14,7 @@ import {
   describeEntryChanges,
   FILES_SCRIPT,
   parseRoutineWatch,
+  RoutineWatchRetry,
   readItems,
   resolveWatchPath,
   stableStringify,
@@ -507,6 +508,7 @@ describe("tickRoutineWatch", () => {
       expect(messages).toHaveLength(1);
       expect(JSON.stringify(messages[0]?.blocks)).toContain("I can't reach `brain_changed`");
       expect(JSON.stringify(messages[0]?.blocks)).toContain("fetch failed");
+      expect(JSON.stringify(messages[0]?.blocks)).not.toContain("brain_changed failed");
 
       execute.mockImplementation(working);
       expect(await tickRoutineWatch(deps, routine, target, scheduledAt)).toEqual({ run: false });
@@ -1637,6 +1639,40 @@ describe("watch tool guard", () => {
     }
   });
 
+  it("judges the picked tool, not a down integration's stand-in, under the rules", async () => {
+    // Ask for the integration, but always allow the tool the watch picked.
+    const { deps, routine } = setupTool({ name: "other_tool", readOnly: true }, {}, [
+      { effect: "require_approval", matchKind: "connector", matchValue: "mcp" },
+      { effect: "always_allow", matchKind: "tool", matchValue: "mcp__github__list_issues" },
+    ]);
+    routine.watch.tool = "mcp__github__list_issues";
+    const connector = deps.connector as unknown as {
+      resolveCall: ReturnType<typeof vi.fn>;
+      execute: ReturnType<typeof vi.fn>;
+    };
+    const route = { connectorId: "mcp", toolName: "__rakazo_unavailable", catalogGroup: "github" };
+    connector.resolveCall = vi.fn(async () => ({
+      call: { tool: "mcp__github__list_issues", args: {}, executionId: "x", route },
+      tool: {
+        name: "mcp__github__unavailable",
+        description: "",
+        inputSchema: {},
+        readOnly: true,
+        unavailable: true,
+        route,
+      },
+    }));
+    connector.execute.mockImplementation(async function* () {
+      yield {
+        type: "error",
+        message: 'MCP server "GitHub" is unavailable: fetch failed',
+        retryable: true,
+      };
+    });
+
+    await expect(checkRoutineWatch(deps, routine)).rejects.toBeInstanceOf(RoutineWatchRetry);
+  });
+
   it.each([
     [
       "accepts an action name that resolves to one account's tool",
@@ -1644,8 +1680,13 @@ describe("watch tool guard", () => {
       undefined,
     ],
     [
-      "refuses a tool another tool answered for, since its integration is down",
-      { name: "mcp__drive__unavailable", route: { toolName: "__rakazo_unavailable" } },
+      "accepts a catalog call that resolves to the real tool under another name",
+      { name: "drive_files_list", route: { toolName: "files.list" } },
+      undefined,
+    ],
+    [
+      "refuses while a stand-in answers for a down integration",
+      { name: "mcp__drive__unavailable", route: { toolName: "x" }, unavailable: true },
       "can't be checked right now",
     ],
   ])("at save time %s", async (_label, resolvedTool, refusal) => {

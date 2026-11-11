@@ -511,11 +511,6 @@ app.whenReady().then(async () => {
       ? (update) => verifyDownloadedLinuxUpdate(update, (url, signal) => net.fetch(url, { signal }))
       : undefined,
   );
-  try {
-    desktop.hostComputer = await prepareHostComputer(userDataDir);
-  } catch {
-    /* Local access fails closed; Docker remains available. */
-  }
   const screenDriver = screenDriverRelease(process.platform);
   hostScreen =
     screenDriver &&
@@ -545,6 +540,11 @@ app.whenReady().then(async () => {
         return { png: fitted.toPNG(), ...fitted.getSize() };
       },
     });
+  try {
+    desktop.hostComputer = await prepareHostComputer(userDataDir, hostScreen);
+  } catch {
+    /* Local access fails closed; Docker remains available. */
+  }
   desktop.userDevices = createUserDeviceAccess({
     userDataDir,
     cipher: deviceTokenCipher(),

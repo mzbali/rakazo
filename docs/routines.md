@@ -40,7 +40,19 @@ tool from a connected app. Turn on **Post "No changes" in chat** if you want a n
 watch can't be combined with a schedule.
 
 If a connected app can't be reached, the watch keeps checking at its interval. The bot says so if two
-checks in a row fail, and again once the app answers. Changes made in the meantime are still noticed.
+checks in a row fail, and again once the app answers. The next successful check compares against the
+last successful reading. A change that appears and disappears between checks can be missed.
+
+When watching work in another app, include its pending input or approval state among the tracked
+fields, alongside its run identity and status. A question may appear while the same run stays active.
+The bot should read the pending request before reporting what needs an answer; a wake grants no
+approval. Track a request identity or revision when the app exposes one: a count alone cannot detect
+one pending question replacing another between checks.
+
+A change trigger compares snapshots. It does not subscribe to completion events or replay every
+transition after a disconnect. Its saved reading survives a worker restart, but this does not prove
+that the bot acted on a wake: check the routine's run history and result. Work running on another
+computer still needs that computer to be awake and reachable.
 
 ### Webhook
 

@@ -1528,6 +1528,29 @@ describe("readItems", () => {
     expect(first.fingerprint).toBe(again.fingerprint);
   });
 
+  it("detects input arriving on the same active run only when input state is tracked", () => {
+    const first = [{ id: "work-1", status: "running", runId: "run-1", pending: 0 }];
+    const question = [{ ...first[0], pending: 1 }];
+    const completionOnly = ["id", "status", "runId"];
+    expect(readItems(first, completionOnly).fingerprint).toBe(
+      readItems(question, completionOnly).fingerprint,
+    );
+    const track = [...completionOnly, "pending"];
+    const before = readItems(first, track);
+    const previous = {
+      checkedAt: NOW.toISOString(),
+      outcome: "unchanged" as const,
+      fingerprint: before.fingerprint,
+      entries: before.entries,
+      detail: null,
+    };
+    const after = readItems(question, track);
+    const wake = compareReading(previous, after, NOW);
+    expect(wake.changed).toBe(true);
+    expect(compareReading(wake.state, readItems(question, track), NOW).changed).toBe(false);
+    expect(compareReading(wake.state, readItems(first, track), NOW).changed).toBe(true);
+  });
+
   it("names new, updated and gone items by their title", () => {
     const before = readItems(
       [

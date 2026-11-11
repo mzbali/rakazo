@@ -76,3 +76,17 @@ name: Thread
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 06-invite
+# Long-pressing a quote opens a menu for just that quote.
+- openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_BOT_ID}&name=Researcher"
+- extendedWaitUntil:
+    visible: ".*Customers want export.*"
+    timeout: 20000
+- longPressOn:
+    text: ".*Customers want export.*"
+- extendedWaitUntil:
+    visible: "Copy as Markdown"
+    timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 07-quote-actions
+- tapOn: "Copy as Markdown"

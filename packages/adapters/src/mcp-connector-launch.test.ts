@@ -293,6 +293,7 @@ describe("MCP connector managed stdio launch", () => {
         {
           type: "error",
           message: expect.stringMatching(/^MCP server "Mail" is unavailable: .*auth failed for/s),
+          retryable: true,
         },
       ]);
       await vi.waitFor(() =>

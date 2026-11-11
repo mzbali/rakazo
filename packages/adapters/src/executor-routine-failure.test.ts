@@ -28,6 +28,8 @@ vi.mock("@rakazo/db", async (importOriginal) => ({
 const NOW = new Date("2026-03-02T09:00:00.000Z");
 const MINUTE = 60_000;
 
+const WATCH = { kind: "tool", tool: "list_threads", everyMinutes: 5 };
+
 interface Scenario {
   error: Error;
   trigger?: string;
@@ -35,6 +37,7 @@ interface Scenario {
   routineNotify?: boolean;
   notifyOnFinish?: boolean;
   nextRunAt?: Date | null;
+  watch?: unknown;
   toolCalls?: number;
   botMessages?: number;
   retryEnqueueFails?: boolean;
@@ -129,6 +132,7 @@ async function failRun(scenario: Scenario) {
             scenario.nextRunAt === undefined
               ? new Date(NOW.getTime() + 24 * 60 * MINUTE)
               : scenario.nextRunAt,
+          watch: scenario.watch ?? null,
         };
       }),
     },
@@ -490,6 +494,20 @@ describe("retrying a routine run after a transient model failure", () => {
     },
   );
 
+  it("retries a change trigger's run even though its next check is minutes away", async () => {
+    // The next check runs the routine only if the watched thing changes again.
+    const { retries, send } = await failRun({
+      error: overloaded(),
+      nextRunAt: new Date(NOW.getTime() + 5 * MINUTE),
+      watch: WATCH,
+    });
+
+    expect(retries).toEqual([
+      expect.objectContaining({ name: "routine.retry", payload: { runId: "run-1" } }),
+    ]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("notifies when the retry cannot be queued", async () => {
     const { send } = await failRun({ error: overloaded(), retryEnqueueFails: true });
 
@@ -582,6 +600,7 @@ interface RetryScenario {
   oneShot?: boolean;
   archived?: boolean;
   nextRunAt?: Date | null;
+  watch?: unknown;
   laterRun?: boolean;
   laterRunBeforeCreate?: boolean;
   duplicate?: boolean;
@@ -679,6 +698,7 @@ function retryHarness(scenario: RetryScenario = {}) {
                 scenario.nextRunAt === undefined
                   ? new Date(NOW.getTime() + 24 * 60 * MINUTE)
                   : scenario.nextRunAt,
+              watch: scenario.watch ?? null,
               bot: { archivedAt: scenario.archived ? failedAt : null },
             },
       ),
@@ -714,6 +734,7 @@ describe("running a routine retry", () => {
           userId: "user-1",
           crons: ["0 9 * * *"],
           nextRunAt: null,
+          watch: null,
           bot: { archivedAt: null },
         });
         prisma.routine.findUnique.mockRejectedValueOnce(error);
@@ -917,6 +938,29 @@ describe("running a routine retry", () => {
       expect(enqueue).not.toHaveBeenCalled();
     },
   );
+
+  it("runs the retry for a change trigger whose next check is minutes away", async () => {
+    const { executor, tx, enqueue } = retryHarness({
+      nextRunAt: new Date(NOW.getTime() + 5 * MINUTE),
+      watch: WATCH,
+    });
+
+    await executor.retryRoutineRun("run-1");
+
+    expect(tx.run.create).toHaveBeenCalledOnce();
+    expect(enqueue).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ name: "run.continue", payload: { runId: "run-2" } }),
+    );
+  });
+
+  it("still lets a later run of a change trigger stand in for its retry", async () => {
+    const { executor, prisma, enqueue } = retryHarness({ watch: WATCH, laterRun: true });
+
+    await executor.retryRoutineRun("run-1");
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
 
   it("retries a one-time routine, which turns itself off when it fires", async () => {
     const { executor, tx, enqueue } = retryHarness({

@@ -429,9 +429,19 @@ export class McpConnector implements ConnectorProvider {
     context: AdapterContext,
   ): Promise<{ call: ConnectorCall; tool: ConnectorTool } | undefined> {
     if (!call.route && call.tool.startsWith("mcp__")) {
+      const tools = await this.authorizedTools(context);
+      // A server whose tools could not be listed answers for all of them through its stand-in.
+      const standIn = tools.some((tool) => tool.name === call.tool)
+        ? undefined
+        : tools.find(
+            (tool) =>
+              tool.route?.toolName === UNAVAILABLE_TOOL &&
+              call.tool.startsWith(`mcp__${tool.route.catalogGroup}__`),
+          );
+      if (standIn) return { call: { ...call, route: standIn.route }, tool: standIn };
       return resolveCatalogCall(
         { ...call, args: { id: call.tool, arguments: call.args } },
-        catalogEntries(await this.authorizedTools(context)),
+        catalogEntries(tools),
       );
     }
     // Wrappers have no resourceId; real tools always do.
@@ -676,6 +686,7 @@ export class McpConnector implements ConnectorProvider {
       yield {
         type: "error",
         message: `MCP server "${assignment.server.name}" is unavailable: ${reason}`,
+        retryable: true,
       };
       return;
     }
@@ -717,7 +728,7 @@ export class McpConnector implements ConnectorProvider {
       // A thrown call means the transport or auth broke; drop the session so the next call reconnects.
       const secrets = [...(material ? oauthMaterialSecrets(material) : []), ...launchSecrets];
       await this.evict(sessionKey);
-      yield { type: "error", message: sanitizeConnectorError(error, secrets) };
+      yield { type: "error", message: sanitizeConnectorError(error, secrets), retryable: true };
     }
   }
 

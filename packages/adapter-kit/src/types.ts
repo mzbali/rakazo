@@ -327,7 +327,8 @@ export type ConnectorEvent =
   | { type: "result"; data: unknown }
   /** Follows the call's `result` when its tool has an app. */
   | { type: "app"; app: ConnectorApp }
-  | { type: "error"; message: string; logIds?: string[] };
+  /** `retryable`: the integration could not be reached, so the same call may work later. */
+  | { type: "error"; message: string; logIds?: string[]; retryable?: boolean };
 
 export interface ConnectorCapabilities {
   discover: boolean;

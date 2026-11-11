@@ -25,7 +25,12 @@ import { protectedComputerLifecycleRefusal } from "./desktop-command-guard.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { routineRunModelPin } from "./model-selection.js";
 import { findPendingRoutineTick, routineTimerNonce } from "./routine-coalescing.js";
-import { nextRoutineWatchAt, parseRoutineWatch, tickRoutineWatch } from "./routine-watch.js";
+import {
+  nextRoutineWatchAt,
+  parseRoutineWatch,
+  postRoutineWatchMessage,
+  tickRoutineWatch,
+} from "./routine-watch.js";
 import { notifyRun } from "./run-notifications.js";
 import { listAgentSkillRecords } from "./skill-tools.js";
 
@@ -313,6 +318,16 @@ export async function wakeRoutine(deps: ExecutorDeps, routineId: string, schedul
     for (const event of claimed.cancelledEvents) {
       await deps.events.notify(event.threadId, event.seq).catch(() => undefined);
     }
+  }
+  // Only the check that claimed the run says the source is back.
+  if (watchTick?.run && watchTick.recovered) {
+    await postRoutineWatchMessage(deps, {
+      spaceId: routine.spaceId,
+      threadId: thread.id,
+      botId: bot.id,
+      role: "bot",
+      text: watchTick.recovered,
+    });
   }
   // Enqueue continuation first so a thread-signal failure cannot strand the run.
   try {

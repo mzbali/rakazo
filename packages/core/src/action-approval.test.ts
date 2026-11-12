@@ -70,8 +70,8 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("delete_bot", true, false)).toBe(true);
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);
-    // Starting real work needs the owner: another bot's message or an email cannot agree to it.
-    expect(toolRequiresExplicitApproval("cloud_agent_launch")).toBe(true);
+    // Starting real work follows the owner's rules only in their own runs (toolGuardedInNeverAsk).
+    expect(toolRequiresExplicitApproval("cloud_agent_launch")).toBe(false);
     expect(toolGuardedInNeverAsk("cloud_agent_launch")).toBe(true);
     expect(toolGuardedInNeverAsk("cloud_agent_reply")).toBe(false);
     expect(toolRequiresApproval("cloud_agent_report", false)).toBe(false);

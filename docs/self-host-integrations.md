@@ -223,7 +223,7 @@ CURSOR_API_KEY=replace-with-your-key
 
 The key and explicit Space ID are both required. Use a credential whose connected repositories may be accessed by members of that Space. Each created agent is additionally bound to its initiating user; another user cannot inspect, reply to, or cancel it by supplying an agent ID. The deployment key is never a model tool argument.
 
-The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, `cloud_agent_cancel`, and `cloud_agent_report`. Launch always needs a person: in Never ask it runs without a card only in a turn the owner started with no outside content, so another bot's message or an email cannot start work. Reply and cancel follow the existing action-approval rules and auto-review policy.
+The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, `cloud_agent_cancel`, and `cloud_agent_report`. Launch follows the owner's approval rules only in a turn the owner started with no outside content; in any other turn it always asks, and Never ask refuses it, so another bot's message or an email cannot start work. Reply and cancel follow the existing action-approval rules and auto-review policy.
 
 A bot runs at most two cloud agents at once; later launches wait as `queued` and start in order when one finishes. `requestKey` names one agreed request, so launching it again returns the same agent. When another bot's request or question started the turn, the agent records that bot, and `cloud_agent_report` sends it the verdict once. Finishing is not acceptance: only the report records a verdict. A failed wake is retried up to three times.
 

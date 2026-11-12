@@ -73,11 +73,13 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       clientRequestId: "abcdef123456",
       scratch: true,
       modelSelection: { instanceId: "codex", model: "m" },
-      title: "Fix it · abcdef12",
+      title: "Fix it · abcdef123456",
     });
 
     const retried = server({
-      t3_thread_list: () => ({ threads: [{ threadId: "thread:1", title: "Fix it · abcdef12" }] }),
+      t3_thread_list: () => ({
+        threads: [{ threadId: "thread:1", title: "Fix it · abcdef123456" }],
+      }),
       t3_thread_events: () => state(),
     });
     await retried.provider.launch({ idempotencyKey: "abcdef123456", prompt: "Fix it" }, context);
@@ -93,7 +95,8 @@ describe("T3 cloud agent provider (offline conformance)", () => {
         pendingRequests: [{ threadId: "child", requestId: "q1", kind: "user_input" }],
       }),
     ];
-    const t3 = server({ t3_thread_events: () => pages.shift() });
+    // The last page repeats: a finished thread is read twice before it counts as stopped.
+    const t3 = server({ t3_thread_events: () => (pages.length > 1 ? pages.shift() : pages[0]) });
     const snapshot = await t3.provider.get("thread:1", context, undefined, 1);
     expect(snapshot).toMatchObject({
       status: "failed",
@@ -102,7 +105,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       historyGap: false,
       attention: [{ requestId: "q1", kind: "question", threadId: "child" }],
     });
-    expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3]);
+    expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7]);
     expect(t3.calls[0]!.args.retain).toEqual({ key: "hold" });
   });
 

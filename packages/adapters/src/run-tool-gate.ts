@@ -303,16 +303,20 @@ export async function gateToolCall(
       ));
   // A gated read still fails closed when its review errors, and keeps its approval key.
   const gated = requiresApprovalByDefault || connectorReadGated;
+  // Guarded tools follow the owner's rules only in a run the owner started that nothing outside
+  // entered; anywhere else they ask, and Never ask refuses them (see toolGuardedInNeverAsk).
+  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
+  const steered = guardedInNeverAsk
+    ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
+    : false;
   // These ask in every run, whatever started it.
   const mandatoryInAnyRun =
-    paying || commandWatch || scheduleNamesNewSite || toolRequiresExplicitApproval(name);
+    paying || commandWatch || scheduleNamesNewSite || toolRequiresExplicitApproval(name) || steered;
   const requiresMandatoryApproval = mandatoryInAnyRun || requiresUnattendedApproval;
   // No allow rule skips these, and without them the tool needs no approval, so "Always allow"
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
     (commandWatch || scheduleNamesNewSite) && !toolRequiresApproval(name, viaConnector);
-  // Never ask runs everything else (see toolGuardedInNeverAsk).
-  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,
@@ -370,10 +374,7 @@ export async function gateToolCall(
         resolved: approvalResolved,
         mode,
         mandatory: requiresMandatoryApproval,
-        steerable:
-          guardedInNeverAsk && mode === "never"
-            ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
-            : undefined,
+        steerable: guardedInNeverAsk && mode === "never" ? steered : undefined,
         consequential: requiresApprovalByDefault,
         reviewOnly: connectorReadGated,
         checkerConfigured,

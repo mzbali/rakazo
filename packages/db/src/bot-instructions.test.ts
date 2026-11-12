@@ -1,3 +1,4 @@
+import { CorrectedClaimError } from "@rakazo/core";
 import { describe, expect, it, vi } from "vitest";
 import { InstructionConflictError, writeBotInstructions } from "./bot-instructions.js";
 
@@ -161,5 +162,46 @@ describe("instruction history", () => {
         reason: "Undo",
       }),
     ).rejects.toThrow("changed");
+  });
+  it("refuses an added corrected claim and writes nothing", async () => {
+    const { bot, tx } = fixture();
+    await expect(
+      writeBotInstructions(tx as never, {
+        botId: bot.id,
+        instructions: "Draft only. A continuation does not wake on completion.",
+        reason: "Manual edit",
+      }),
+    ).rejects.toBeInstanceOf(CorrectedClaimError);
+    expect(bot.instructions).toBe("Draft only");
+    expect(tx.bot.update).not.toHaveBeenCalled();
+  });
+  it("accepts an unrelated edit to instructions that already hold a corrected claim", async () => {
+    const { bot, tx } = fixture();
+    bot.instructions = "A continuation does not wake on completion.";
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "A continuation does not wake on completion.\nBe brief.",
+      reason: "Manual edit",
+    });
+    expect(bot.instructions).toContain("Be brief.");
+  });
+  it("restores a version that holds a corrected claim", async () => {
+    const { bot, tx } = fixture();
+    bot.instructions = "Newer";
+    bot.instructionHistory = [
+      {
+        id: "old",
+        instructions: "A continuation does not wake on completion.",
+        reason: "Manual edit",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    await writeBotInstructions(tx as never, {
+      botId: bot.id,
+      versionId: "old",
+      expectedInstructions: "Newer",
+      reason: "Restore",
+    });
+    expect(bot.instructions).toBe("A continuation does not wake on completion.");
   });
 });

@@ -153,3 +153,60 @@ Write the notes.
     expect(parsed.frontmatter.notes).toBe("First step\nSecond step\n\n");
   });
 });
+
+describe("corrected claims in the API", () => {
+  const stale = "A continuation does not wake on completion.";
+
+  it("refuses a create that adds one with BAD_REQUEST", async () => {
+    const { service } = setup();
+    await expect(
+      service.create(actor, { name: "Waker", description: "Wake rules", body: stale }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Nothing was saved"),
+    });
+  });
+
+  it("refuses an update that adds one and leaves the row alone", async () => {
+    const rows = [savedSkill("Waker")];
+    const { service, agentSkill } = setup(rows);
+    const before = rows[0]!.content;
+    await expect(service.update(actor, { skillId: "saved-1", body: stale })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect(agentSkill.updateMany).not.toHaveBeenCalled();
+    expect(rows[0]!.content).toBe(before);
+  });
+
+  it("accepts an unrelated edit to a skill that already holds one", async () => {
+    const row = savedSkill("Waker");
+    row.content = buildSkillMd({ name: "Waker", description: "Saved review recipe", body: stale });
+    const { service } = setup([row]);
+    await expect(
+      service.update(actor, { skillId: "saved-1", description: "Reworded" }),
+    ).resolves.toMatchObject({ description: "Reworded" });
+  });
+
+  it("matches the content it read, so a stale read cannot revive a removed phrase", async () => {
+    const row = savedSkill("Waker");
+    const { service, agentSkill } = setup([row]);
+    const read = agentSkill.findFirst.getMockImplementation()!;
+    agentSkill.findFirst.mockImplementationOnce(async (args) => {
+      const found = await read(args);
+      const snapshot = found ? { ...found } : found;
+      row.content = buildSkillMd({
+        name: "Waker",
+        description: "Saved review recipe",
+        body: "Fixed",
+      });
+      return snapshot;
+    });
+    await expect(
+      service.update(actor, { skillId: "saved-1", description: "Reworded" }),
+    ).rejects.toThrow();
+    expect(row.content).toContain("Fixed");
+    expect(agentSkill.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ content: expect.any(String) }) }),
+    );
+  });
+});

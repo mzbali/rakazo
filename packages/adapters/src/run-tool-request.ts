@@ -1,6 +1,6 @@
 import type { ConnectorCall, ConnectorTool } from "@rakazo/adapter-kit";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth } from "@rakazo/contracts";
-import { redactSecrets } from "@rakazo/core";
+import { addedClaimMessage, redactSecrets } from "@rakazo/core";
 import { prepareAgentConnectionResponse } from "./agent-connections.js";
 import type { FleetCardSummary } from "./approval-ask.js";
 import type { TerminatingToolResult } from "./approval-effect.js";
@@ -606,6 +606,8 @@ async function prepareOwnBotUpdate(
     );
   if (redactSecrets(instructions, ctx.secrets) !== instructions)
     return refusal("instructions_contain_credentials", "Instructions cannot contain credentials.");
+  const addedClaim = addedClaimMessage(current?.instructions ?? "", instructions);
+  if (addedClaim) return refusal("instructions_corrected_claim", addedClaim);
   request.args = { ...args, instructions };
   if (unguarded) return undefined;
   if (!["created", "routine"].includes(run.trigger) && !ctx.source.ownerStartedRun)

@@ -61,7 +61,8 @@ function makePrisma(rows: Array<Record<string, unknown>> = []) {
               row.id === where.id &&
               row.spaceId === where.spaceId &&
               row.userId === where.userId &&
-              row.source === where.source,
+              row.source === where.source &&
+              (where.content === undefined || row.content === where.content),
           );
           if (index < 0) return { count: 0 };
           store[index] = { ...store[index], ...data, updatedAt: new Date() };
@@ -370,5 +371,79 @@ describe("skill tools", () => {
         newName: longName,
       }),
     ).toEqual({ error: "Skill name must be at most 80 characters." });
+  });
+
+  describe("corrected claims", () => {
+    const stale = "A continuation does not wake on completion.";
+
+    it("refuses a create that adds one and stores nothing", async () => {
+      const result = await skillCreateFromTool(prisma as never, owner, {
+        name: "Waker",
+        description: "Wake rules",
+        body: stale,
+      });
+      expect(result.error).toContain("Nothing was saved");
+      expect(prisma._store).toHaveLength(0);
+    });
+
+    it("refuses an update that adds one and keeps the old content", async () => {
+      await skillCreateFromTool(prisma as never, owner, {
+        name: "Waker",
+        description: "Wake rules",
+        body: "Fine.",
+      });
+      const before = prisma._store[0]!.content;
+      const result = await skillUpdateFromTool(prisma as never, owner, {
+        name: "Waker",
+        body: stale,
+      });
+      expect(result.error).toContain("Nothing was saved");
+      expect(prisma._store[0]!.content).toBe(before);
+    });
+
+    it("accepts an unrelated edit to a skill that already holds one", async () => {
+      prisma._store.push({
+        id: "skill-x",
+        ...owner,
+        name: "Waker",
+        description: "Wake rules",
+        source: "user",
+        content: buildSkillMd({ name: "Waker", description: "Wake rules", body: stale }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const result = await skillUpdateFromTool(prisma as never, owner, {
+        name: "Waker",
+        description: "Wake rules, reworded",
+      });
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("refuses an update whose baseline went stale instead of reviving a removed phrase", async () => {
+      const row = {
+        id: "skill-x",
+        ...owner,
+        name: "Waker",
+        description: "Wake rules",
+        source: "user",
+        content: buildSkillMd({ name: "Waker", description: "Wake rules", body: stale }),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      prisma._store.push(row);
+      const original = prisma.agentSkill.findMany.getMockImplementation()!;
+      // Another edit removes the phrase after this update has read the row.
+      prisma.agentSkill.findMany.mockImplementationOnce(async (args) => {
+        const rows = await original(args);
+        row.content = buildSkillMd({ name: "Waker", description: "Wake rules", body: "Fixed." });
+        return rows;
+      });
+      const result = await skillUpdateFromTool(prisma as never, owner, {
+        name: "Waker",
+        description: "Reworded",
+      });
+      expect(result.error).toBeDefined();
+      expect(prisma._store[0]!.content).toContain("Fixed.");
+    });
   });
 });

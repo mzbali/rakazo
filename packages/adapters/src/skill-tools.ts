@@ -1,5 +1,6 @@
 import type { SkillRecord, SkillSource } from "@rakazo/core";
 import {
+  addedClaimMessage,
   buildSkillMd,
   findSkillByName,
   isSkillReadOnly,
@@ -199,6 +200,8 @@ export async function skillCreateFromTool(
 
   const existing = await findOwnedSkill(prisma, owner, { name });
   if (existing) return { error: `A skill named "${existing.name}" already exists.` };
+  const addedClaim = addedClaimMessage("", content);
+  if (addedClaim) return { error: addedClaim };
 
   try {
     const row = await prisma.agentSkill.create({
@@ -284,10 +287,15 @@ export async function skillUpdateFromTool(
     }
   }
 
+  const addedClaim = addedClaimMessage(existing.content, nextContent);
+  if (addedClaim) return { error: addedClaim };
+
   try {
     // Re-scope mutate to owner + user source so a stale id cannot cross tenants.
+    // The content just read is part of the match, so an edit that landed since refuses
+    // instead of reviving a phrase it removed.
     const updated = await prisma.agentSkill.updateMany({
-      where: { id: existing.id, ...onlyInSpace(owner), source: "user" },
+      where: { id: existing.id, ...onlyInSpace(owner), source: "user", content: existing.content },
       data: {
         name: nextName,
         description: nextDescription,

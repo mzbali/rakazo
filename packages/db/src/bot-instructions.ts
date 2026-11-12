@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, InstructionVersionSchema } from "@rakazo/contracts";
+import { assertNoAddedClaims } from "@rakazo/core";
 import type { Prisma } from "./client.js";
 
 export class InstructionConflictError extends Error {
@@ -43,6 +44,8 @@ export async function writeBotInstructions(
     throw new InstructionConflictError("Instruction version is unavailable or too large.");
   }
   if (instructions === bot.instructions) return null;
+  // A restore or undo brings back text the owner already had.
+  if (!input.versionId) assertNoAddedClaims(bot.instructions, instructions);
   const version = {
     id: randomUUID(),
     instructions: bot.instructions,

@@ -1364,6 +1364,8 @@ export interface CloudAgentLaunchRequest {
   /** Repeated launches with this key must resolve to the same remote agent. */
   idempotencyKey: string;
   prompt: string;
+  /** A short label; providers that title their agents use it. */
+  title?: string;
   repository?: string;
   images?: CloudAgentImage[];
   openPr?: boolean;
@@ -1387,11 +1389,29 @@ export interface CloudAgentSnapshot {
   branch?: string;
   prUrl?: string;
   latestRunId?: string;
+  /** Providers with an event feed: the cursor this snapshot was read through. */
+  cursor?: number;
+  /** Open questions and approvals; a new requestId wakes the bot once. */
+  attention?: CloudAgentAttention[];
+  /** Events after the previous cursor may be missing; the snapshot is still current. */
+  historyGap?: boolean;
+  /** Why a run ended, when the status alone would mislead (an interrupted run reads as failed). */
+  detail?: string;
+}
+
+export interface CloudAgentAttention {
+  requestId: string;
+  kind: "question" | "approval";
+  threadId?: string;
 }
 
 export interface CloudAgentReplyRequest {
   prompt: string;
   images?: CloudAgentImage[];
+  /** Answer this open question instead of sending a follow-up. */
+  questionId?: string;
+  /** Repeated replies with this key must resolve to the same remote message. */
+  idempotencyKey?: string;
   signal?: AbortSignal;
 }
 

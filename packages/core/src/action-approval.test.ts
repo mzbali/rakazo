@@ -69,6 +69,9 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("delete_bot", true, false)).toBe(true);
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);
+    // Starting real work needs the owner: another bot's message or an email cannot agree to it.
+    expect(toolRequiresExplicitApproval("cloud_agent_launch")).toBe(true);
+    expect(toolRequiresApproval("cloud_agent_report", false)).toBe(false);
     expect(toolRequiresApproval("create_space", false)).toBe(true);
     expect(toolRequiresExplicitApproval("create_space")).toBe(true);
     // The wallet owner approves every purchase on the provider's side.

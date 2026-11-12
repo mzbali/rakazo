@@ -874,6 +874,13 @@ export const builtinAgentTools: ConnectorTool[] = [
           description: "Optional images (data+mimeType or url).",
           items: { type: "object" },
         },
+        requestKey: {
+          type: "string",
+          description:
+            "Your stable name for this agreed request; reusing it returns the same agent.",
+        },
+        agreement: { type: "string", description: "What the user agreed to, in their words." },
+        acceptance: { type: "string", description: "How you will judge the result." },
       },
       required: ["prompt"],
     },
@@ -892,7 +899,8 @@ export const builtinAgentTools: ConnectorTool[] = [
   },
   {
     name: "cloud_agent_reply",
-    description: "Send a follow-up prompt to an existing cloud coding agent.",
+    description:
+      "Send a follow-up prompt to an existing cloud coding agent, or answer its open question.",
     inputSchema: {
       type: "object",
       properties: {
@@ -916,6 +924,20 @@ export const builtinAgentTools: ConnectorTool[] = [
         id: { type: "string", description: "Cloud agent id." },
       },
       required: ["id"],
+    },
+  },
+  {
+    name: "cloud_agent_report",
+    description:
+      "Record your verdict on a finished cloud agent against its acceptance; finishing is not acceptance. Tells the bot that asked for it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Cloud agent id." },
+        verdict: { type: "string", enum: ["accepted", "rejected", "needs_owner"] },
+        summary: { type: "string", description: "What was checked and the result." },
+      },
+      required: ["id", "verdict", "summary"],
     },
   },
   {

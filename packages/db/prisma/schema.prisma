@@ -1362,9 +1362,30 @@ model CloudAgent {
   leaseExpiresAt      DateTime?
   nextPollAt          DateTime? @default(now())
   errorCount          Int      @default(0)
+  /// Waiting for one of its bot's two execution slots; never launched or polled meanwhile.
+  queuedAt            DateTime?
+  /// Open questions or approvals the provider reported, as [{ requestId, kind, threadId? }].
+  attention           Json?
+  /// The provider's event cursor, committed with the state derived from it.
+  remoteCursor        Int?
+  /// When the provider said events after the cursor may be missing.
+  historyGapAt        DateTime?
+  /// The bot's own key for one agreed request, so resubmitting it returns this row.
+  requestKey          String?
+  agreement           String?
+  acceptance          String?
+  /// The bot whose message asked for this request, if another bot asked.
+  originBotId         String?
+  originMessageId     String?
+  verdict             String?
+  verdictSummary      String?
+  /// Wake runs created for the current generation, counting retries of failed ones.
+  wakeAttempts        Int      @default(0)
   createdAt           DateTime @default(now())
 
+  @@unique([spaceId, botId, requestKey])
   @@index([providerKey, nextPollAt])
+  @@index([botId, queuedAt])
   @@index([spaceId, userId, id])
   @@map("cloud_agents")
 }

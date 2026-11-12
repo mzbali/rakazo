@@ -208,15 +208,19 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
   if (special.kind === "cloud_agent") {
     const title = special.title || t`Cloud agent`;
     const statusLabel =
-      special.status === "running"
-        ? t`running`
-        : special.status === "finished"
-          ? t`finished`
-          : special.status === "cancelled"
-            ? t`cancelled`
-            : special.status === "expired"
-              ? t`expired`
-              : t`failed`;
+      special.status === "running" && special.needsInput
+        ? t`needs input`
+        : special.status === "running" && special.queued
+          ? t`queued`
+          : special.status === "running"
+            ? t`running`
+            : special.status === "finished"
+              ? t`finished`
+              : special.status === "cancelled"
+                ? t`cancelled`
+                : special.status === "expired"
+                  ? t`expired`
+                  : t`failed`;
     const running = special.status === "running";
     const failed = special.status !== "running" && special.status !== "finished";
     const prHref = cloudAgentHttpsUrl(special.prUrl);

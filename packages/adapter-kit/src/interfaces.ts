@@ -678,7 +678,13 @@ export interface BrowserProvider {
 export interface CloudAgentProvider {
   describe(): AdapterDescriptor<CloudAgentCapabilities>;
   launch(request: CloudAgentLaunchRequest, context: AdapterContext): Promise<CloudAgentHandle>;
-  get(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
+  /** `cursor` is the last snapshot's, for providers that read an event feed. */
+  get(
+    id: string,
+    context: AdapterContext,
+    runId?: string,
+    cursor?: number,
+  ): Promise<CloudAgentSnapshot>;
   reply(
     id: string,
     request: CloudAgentReplyRequest,

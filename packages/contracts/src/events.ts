@@ -288,6 +288,10 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     branch: z.string().optional(),
     prUrl: z.string().optional(),
     latestRunId: z.string().optional(),
+    /** Waiting for a free slot; still "running" for clients that predate it. */
+    queued: z.boolean().optional(),
+    /** An open question or approval; still "running" for clients that predate it. */
+    needsInput: z.boolean().optional(),
   }),
   z.object({
     kind: z.literal("skill_draft"),

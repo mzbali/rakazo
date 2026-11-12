@@ -189,7 +189,7 @@ async function main() {
     ticketBoardEnabled: env.ticketBoardEnabled,
   });
   // One provider instance so emulator launches and polls share the same Map.
-  const cloudAgent = createCloudAgentConnection();
+  const cloudAgent = createCloudAgentConnection(process.env, connectors.stack.connector);
   const paymentWallet = await createPaymentWalletProvider();
   // One instance: the executor submits videos and background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();

@@ -259,6 +259,20 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     ).toEqual({ error: "Report once the cloud agent has finished." });
     (await t.remote(id)).status = "finished";
     await t.poll(id);
+    // A different member using the same bot cannot set the initiating user's verdict.
+    const otherContext = { ...t.context, userId: randomUUID() };
+    const report = { id, verdict: "accepted", summary: "Tests pass" };
+    expect(
+      await runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, otherContext, t.run, report),
+      ),
+    ).toEqual({ error: "Unknown cloud agent, or another bot launched it." });
+    expect((await t.state(id)).verdict).toBeNull();
+    expect(
+      await asSystem(prisma).message.count({
+        where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
+      }),
+    ).toBe(0);
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await runAsSystem("tool", () =>
         reportCloudAgent(t.deps as never, t.context, t.run, {
@@ -272,6 +286,12 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
     });
     expect(received).toHaveLength(1);
+    // Even an exact replay must pass the same ownership check.
+    expect(
+      await runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, otherContext, t.run, report),
+      ),
+    ).toEqual({ error: "Unknown cloud agent, or another bot launched it." });
     // The delivered verdict is the recorded one: a different one later is refused.
     expect(
       await runAsSystem("tool", () =>

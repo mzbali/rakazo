@@ -415,6 +415,7 @@ export async function reportCloudAgent(
       id: report.id,
       providerKey: connection.key,
       spaceId: context.spaceId,
+      userId: context.userId,
       botId: context.botId,
     },
   });

@@ -18,12 +18,54 @@ it("mounts a page and reports its height where the browser has no ResizeObserver
   const page = (window as unknown as { RakazoPage: { mount: (boot: object) => void } }).RakazoPage;
   await act(async () => {
     page.mount({ code, theme: "light", errorTitle: "This page couldn't be shown." });
+  });
+  // The height is posted after the page is committed, on a timer when there is no ResizeObserver.
+  await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   // jsdom runs no inline scripts, so the page's own code shows its error panel; what matters is
   // that mounting got that far instead of throwing before anything drew.
   expect(document.body.textContent).toContain("This page couldn't be shown.");
   expect(posted).toContainEqual(expect.objectContaining({ type: "rakazo-page:height" }));
+});
+
+it("measures a page after it has drawn, not while its body is still empty", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const observed: string[] = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {
+        observed.push(document.body.textContent ?? "");
+      }
+      disconnect() {}
+    },
+  );
+  await import("./runtime.js");
+  const append = document.head.append.bind(document.head);
+  const appendSpy = vi.spyOn(document.head, "append").mockImplementation((...nodes) => {
+    for (const node of nodes) {
+      if (node instanceof HTMLScriptElement) new Function(node.text)();
+    }
+    append(...nodes);
+  });
+  const checked = checkPageSource("const App = () => <p>Tall page</p>;\nexport default App;\n");
+  if (!checked.ok) throw new Error(checked.errors.join("\n"));
+  document.body.replaceChildren();
+  const page = (window as unknown as { RakazoPage: { mount: (boot: object) => void } }).RakazoPage;
+  try {
+    await act(async () => {
+      page.mount({
+        code: checked.code,
+        theme: "dark",
+        errorTitle: "This page couldn't be shown.",
+      });
+    });
+    expect(document.body.textContent).toContain("Tall page");
+    expect(observed).toEqual([expect.stringContaining("Tall page")]);
+  } finally {
+    appendSpy.mockRestore();
+  }
 });
 
 it("runs a saved page that declares its own component under a kit component's name", async () => {

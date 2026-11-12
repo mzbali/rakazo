@@ -225,6 +225,22 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(await t.wakes()).toHaveLength(7);
   });
 
+  it("keeps the same request key from two members of a group apart", async () => {
+    const t = await setup();
+    const mine = await t.launch(1);
+    const other = await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(
+        t.deps,
+        { ...t.context, userId: randomUUID(), operationId: randomUUID() },
+        t.run,
+        "cloud_agent_launch",
+        { prompt: "Request 1", requestKey: "request-1", agreement: "Owner said yes" },
+      ),
+    );
+    expect(other).toHaveProperty("id");
+    expect((other as { id: string }).id).not.toBe(mine);
+  });
+
   it("starts a queued request after a crash left its slot free", async () => {
     const t = await setup();
     const ids: string[] = [];

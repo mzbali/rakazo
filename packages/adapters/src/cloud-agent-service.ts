@@ -68,15 +68,16 @@ export async function executeCloudAgentTool(
         where: { id: run.threadId, spaceId: context.spaceId },
         data: { nextMessageSeq: { increment: 0 } },
       });
-      // Same-key launches from two chats meet here, so the second finds the first.
+      // Same-key launches from one member's chats meet here, so the second finds the first.
       await lockBotSlots(tx, context.botId);
       const existing =
         (await tx.cloudAgent.findUnique({ where: { operationKey: context.operationId } })) ??
         (request.requestKey
           ? await tx.cloudAgent.findUnique({
               where: {
-                spaceId_botId_requestKey: {
+                spaceId_userId_botId_requestKey: {
                   spaceId: context.spaceId,
+                  userId: context.userId,
                   botId: context.botId,
                   requestKey: request.requestKey,
                 },

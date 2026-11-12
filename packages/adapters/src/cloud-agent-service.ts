@@ -353,19 +353,29 @@ export async function reconcileCloudAgents(
   });
   for (const agent of due) await enqueueCloudAgent(deps, agent.id);
   // A crash between a request finishing and the next one starting leaves a free slot unused.
-  const waiting = await deps.prisma.cloudAgent.findMany({
-    where: {
-      providerKey: deps.cloudAgent.key,
-      status: "running",
-      queuedAt: { not: null },
-    },
-    distinct: ["botId"],
-    select: { botId: true },
-    take: 100,
+  const providerKey = deps.cloudAgent.key;
+  const queued = await deps.prisma.cloudAgent.groupBy({
+    by: ["botId"],
+    where: { providerKey, status: "running", queuedAt: { not: null } },
   });
+  // Bots whose slots are all busy are skipped before the batch limit, so they never hide one
+  // with a free slot.
+  const full = await deps.prisma.cloudAgent.groupBy({
+    by: ["botId"],
+    where: {
+      providerKey,
+      status: "running",
+      queuedAt: null,
+      botId: { in: queued.map((row) => row.botId) },
+    },
+    _count: { _all: true },
+    having: { botId: { _count: { gte: CLOUD_AGENT_ACTIVE_LIMIT } } },
+  });
+  const busy = new Set(full.map((row) => row.botId));
+  const waiting = queued.filter((row) => !busy.has(row.botId)).slice(0, 100);
   for (const { botId } of waiting) {
     const promoted = await deps.prisma.$transaction((tx) =>
-      promoteQueuedCloudAgent(tx, deps.cloudAgent!.key, botId),
+      promoteQueuedCloudAgent(tx, providerKey, botId),
     );
     if (promoted) await enqueueCloudAgent(deps, promoted);
   }

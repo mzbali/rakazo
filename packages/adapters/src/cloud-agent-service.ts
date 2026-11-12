@@ -208,6 +208,8 @@ export async function trackDirectCloudAgent(
       where: { id: run.threadId, spaceId: context.spaceId },
       data: { nextMessageSeq: { increment: 0 } },
     });
+    // Same-thread calls from the bot's other chats meet here, so the second finds the first.
+    await lockBotSlots(tx, context.botId);
     // A replayed call finds the row it made the first time.
     const replayed = await tx.cloudAgent.findUnique({
       where: { operationKey: context.operationId },

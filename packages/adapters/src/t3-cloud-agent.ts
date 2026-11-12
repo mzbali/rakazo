@@ -217,14 +217,16 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       // T3 can end a run and queue its continuation (a restart, a delegated result) in separate
       // writes; only a second idle read of the same run says the thread really stopped.
       await new Promise((resolve) => setTimeout(resolve, IDLE_CONFIRM_MS));
-      const again = eventsSchema.parse(
+      const confirm = eventsSchema.parse(
         await this.call(
           "t3_thread_events",
           { threadId: id, afterSequence: next, limit: 1 },
           context,
         ),
-      ).state;
-      if (!again.idle || again.latestRun?.runId !== state.latestRun.runId)
+      );
+      const again = confirm.state;
+      // New events in the meantime are read by the next poll before the thread can finish.
+      if (confirm.events.length || !again.idle || again.latestRun?.runId !== state.latestRun.runId)
         state = { ...again, idle: false };
     }
     const run = state.latestRun;

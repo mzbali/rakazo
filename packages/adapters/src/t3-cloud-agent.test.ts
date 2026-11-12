@@ -106,8 +106,10 @@ describe("T3 cloud agent provider (offline conformance)", () => {
         events: [request("q0", "expired"), request("q2", "pending"), request("q2", "resolved")],
       },
     ];
-    // The last page repeats: a finished thread is read twice before it counts as stopped.
-    const t3 = server({ t3_thread_events: () => (pages.length > 1 ? pages.shift() : pages[0]) });
+    // The last page's state repeats, with nothing new: a finished thread is read twice before it
+    // counts as stopped.
+    const last = pages.at(-1)!;
+    const t3 = server({ t3_thread_events: () => pages.shift() ?? { ...last, events: [] } });
     const snapshot = await t3.provider.get("thread:1", context, undefined, 1);
     expect(snapshot).toMatchObject({
       status: "failed",
@@ -128,6 +130,21 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       }),
     });
     expect(await backlog.provider.get("thread:1", context, undefined, 1)).toMatchObject({
+      status: "running",
+    });
+    // So does one whose confirming read found new events.
+    const lateEvent = { kind: "request", requestId: "q3", requestStatus: "expired" };
+    let reads = 0;
+    const late = server({
+      t3_thread_events: () => {
+        reads += 1;
+        return {
+          ...state({ idle: true, latestRun: { runId: "run:2", status: "completed" } }),
+          events: reads > 1 ? [lateEvent] : [],
+        };
+      },
+    });
+    expect(await late.provider.get("thread:1", context, undefined, 1)).toMatchObject({
       status: "running",
     });
   });

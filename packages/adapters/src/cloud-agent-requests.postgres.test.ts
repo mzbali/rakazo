@@ -475,6 +475,14 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(id);
     expect(t.provider.replies).toBe(2);
     expect(await t.state(id)).toMatchObject({ followup: null, status: "running" });
+    // Both messages are one piece of work, which wakes the bot once when it ends.
+    remote.status = "finished";
+    await t.poll(id);
+    await t.poll(id);
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-wake-run:${id}:0`,
+      `cloud-agent-wake-run:${id}:1`,
+    ]);
   });
 
   it("does not retry an earlier piece's failed wake once a continuation has finished", async () => {

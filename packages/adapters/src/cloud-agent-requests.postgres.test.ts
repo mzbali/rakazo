@@ -5,6 +5,7 @@ import type {
   CloudAgentAttention,
   CloudAgentProvider,
   CloudAgentSnapshot,
+  ConnectorProvider,
   JobPublisher,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
@@ -18,6 +19,7 @@ import {
   reportCloudAgent,
   trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
+import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
@@ -87,7 +89,8 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await db.pool.end();
   });
 
-  async function setup() {
+  /** `launchedBy` stands in for the scripted provider, to drive a real adapter end to end. */
+  async function setup(launchedBy?: CloudAgentProvider) {
     const id = randomUUID();
     users.push(id);
     const fixture = await runAsSystem("test fixture", async () => {
@@ -138,7 +141,11 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       return { lead, asker, thread, run };
     });
     const provider = new ScriptedProvider();
-    const connection: CloudAgentConnection = { key: `requests:${id}`, spaceId: id, provider };
+    const connection: CloudAgentConnection = {
+      key: `requests:${id}`,
+      spaceId: id,
+      provider: launchedBy ?? provider,
+    };
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
       cancel: async () => undefined,
@@ -360,6 +367,86 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       `cloud-agent-wake-run:${id}:1`,
     ]);
     expect(t.provider.launches).toBe(0);
+  });
+
+  it("starts a launched thread on the named model and modes, and wakes the bot when it ends", async () => {
+    // An offline stand-in for the thread server, reached through the real adapter.
+    const calls: Array<{ tool: string; args: Record<string, unknown> }> = [];
+    let finished = false;
+    const handlers: Record<string, () => unknown> = {
+      t3_thread_list: () => ({ threads: [] }),
+      t3_project_list: () => ({ projects: [{ id: "project:1" }] }),
+      t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
+      t3_thread_events: () => ({
+        contractVersion: 1,
+        nextSequence: 1,
+        hasMore: false,
+        gap: null,
+        events: [],
+        state: {
+          idle: finished,
+          latestRun: { runId: "run:1", status: finished ? "completed" : "running" },
+          pendingRequests: [],
+          link: "https://example.test/thread",
+        },
+      }),
+    };
+    const connector = {
+      resolveCall: async (call: { tool: string; args: Record<string, unknown> }) => ({
+        call,
+        tool: { name: call.tool },
+      }),
+      async *execute(call: { tool: string; args: Record<string, unknown> }) {
+        const tool = call.tool.replace(/^mcp__t3__/, "");
+        calls.push({ tool, args: call.args });
+        yield { type: "result" as const, data: { structuredContent: handlers[tool]!() } };
+      },
+    } as unknown as ConnectorProvider;
+    const t = await setup(new T3CloudAgentProvider({ connector, server: "t3", holdKey: "hold" }));
+    const launchFields = {
+      modelSelection: {
+        provider: "claudeAgent",
+        instanceId: "claude-pool",
+        model: "claude-model",
+        options: [{ id: "effort", value: "high" }],
+      },
+      projectId: "project:1",
+      workspaceStrategy: { type: "worktree", baseRef: "origin/main", startFromOrigin: true },
+      runtimeMode: "full-access",
+      interactionMode: "plan",
+    };
+    const result = await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(t.deps, t.context, t.run, "cloud_agent_launch", {
+        prompt: "Fix the build",
+        requestKey: "fix-build",
+        ...launchFields,
+      }),
+    );
+    if (!("id" in result)) throw new Error(`Launch failed: ${JSON.stringify(result)}`);
+    // Stored with the request, so a launch the worker replays after a crash starts the same way.
+    expect((await t.state(result.id)).launchRequest).toMatchObject(launchFields);
+    await t.poll(result.id);
+    expect(calls.filter((call) => call.tool === "t3_thread_launch")).toEqual([
+      {
+        tool: "t3_thread_launch",
+        args: {
+          title: `Fix the build · ${result.id.slice(0, 13)}`,
+          message: "Fix the build",
+          clientRequestId: result.id,
+          ...launchFields,
+        },
+      },
+    ]);
+    // No model was looked up or set after the launch: the thread started on the named one.
+    expect(calls.map((call) => call.tool)).not.toContain("orchestrator_capabilities");
+    expect(await t.state(result.id)).toMatchObject({ remoteId: "thread:1", status: "running" });
+
+    finished = true;
+    await t.poll(result.id);
+    expect(await t.state(result.id)).toMatchObject({ status: "finished" });
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-wake-run:${result.id}:0`,
+    ]);
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

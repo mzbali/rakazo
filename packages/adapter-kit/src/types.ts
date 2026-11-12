@@ -1369,8 +1369,39 @@ export interface CloudAgentLaunchRequest {
   repository?: string;
   images?: CloudAgentImage[];
   openPr?: boolean;
+  /**
+   * How the agent starts. Each is optional and leaves the provider's default when absent; a
+   * provider that cannot honor one it is given rejects the launch rather than start other work.
+   */
+  modelSelection?: CloudAgentModelSelection;
+  /** The provider's own project id, from its project list. */
+  projectId?: string;
+  workspaceStrategy?: CloudAgentWorkspaceStrategy;
+  runtimeMode?: CloudAgentRuntimeMode;
+  interactionMode?: CloudAgentInteractionMode;
   signal?: AbortSignal;
 }
+
+/** A model named by the provider's own ids, as its model list reports them. */
+export interface CloudAgentModelSelection {
+  model: string;
+  provider?: string;
+  instanceId?: string;
+  options?: Array<{ id: string; value: string | number | boolean }>;
+}
+
+export type CloudAgentWorkspaceStrategy =
+  | { type: "root" }
+  | { type: "worktree"; baseRef?: string; branch?: string; startFromOrigin?: boolean }
+  | { type: "existing_worktree"; worktreePath: string };
+
+export type CloudAgentRuntimeMode =
+  | "approval-required"
+  | "auto-accept-edits"
+  | "auto"
+  | "full-access";
+
+export type CloudAgentInteractionMode = "default" | "plan";
 
 export interface CloudAgentHandle {
   id: string;

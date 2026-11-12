@@ -91,6 +91,95 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(retried.calls.map((call) => call.tool)).not.toContain("t3_thread_launch");
   });
 
+  it("starts the thread on the named model, project, workspace and modes, else on defaults", async () => {
+    const projects = () => ({
+      projects: [
+        {
+          id: "project:1",
+          defaultModelSelection: { instanceId: "codex", model: "project-default" },
+          repositoryIdentity: { webUrl: "https://github.com/example/demo" },
+        },
+        { id: "project:2", repositoryIdentity: { webUrl: "https://github.com/example/other" } },
+      ],
+    });
+    const handlers = {
+      t3_thread_list: () => ({ threads: [] }),
+      t3_project_list: projects,
+      orchestrator_capabilities: () => ({
+        providers: [{ providerInstanceId: "codex", canRunChildTask: true, models: [{ id: "m" }] }],
+      }),
+      t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
+    };
+    const named = server(handlers);
+    const modelSelection = {
+      provider: "claudeAgent",
+      instanceId: "claude-pool",
+      model: "claude-model",
+      options: [{ id: "effort", value: "high" }],
+    };
+    await named.provider.launch(
+      {
+        idempotencyKey: "abcdef123456",
+        prompt: "Fix it",
+        projectId: "project:2",
+        modelSelection,
+        workspaceStrategy: { type: "existing_worktree", worktreePath: "/work/tree" },
+        runtimeMode: "full-access",
+        interactionMode: "plan",
+      },
+      context,
+    );
+    // The model is in the launch itself, not set by a later call, and no default is looked up.
+    expect(named.calls.map((call) => call.tool)).toEqual([
+      "t3_thread_list",
+      "t3_project_list",
+      "t3_thread_launch",
+    ]);
+    expect(named.calls.at(-1)!.args).toEqual({
+      title: "Fix it · abcdef123456",
+      message: "Fix it",
+      clientRequestId: "abcdef123456",
+      modelSelection,
+      projectId: "project:2",
+      workspaceStrategy: { type: "existing_worktree", worktreePath: "/work/tree" },
+      runtimeMode: "full-access",
+      interactionMode: "plan",
+    });
+
+    // Left out, each keeps today's default: the repository's project, its own model, a new worktree.
+    const defaults = server(handlers);
+    await defaults.provider.launch(
+      {
+        idempotencyKey: "abcdef123456",
+        prompt: "Fix it",
+        repository: "https://github.com/example/demo",
+      },
+      context,
+    );
+    expect(defaults.calls.at(-1)!.args).toEqual({
+      title: "Fix it · abcdef123456",
+      message: "Fix it",
+      clientRequestId: "abcdef123456",
+      projectId: "project:1",
+      workspaceStrategy: { type: "worktree", baseRef: "origin/HEAD", startFromOrigin: true },
+    });
+
+    // A workspace without a project, or a project that is not the named repository's, starts nothing.
+    for (const request of [
+      { workspaceStrategy: { type: "root" as const } },
+      { projectId: "project:2", repository: "https://github.com/example/demo" },
+    ]) {
+      const refused = server(handlers);
+      await expect(
+        refused.provider.launch(
+          { idempotencyKey: "abcdef123456", prompt: "Fix it", ...request },
+          context,
+        ),
+      ).rejects.toBeInstanceOf(CloudAgentRequestRejected);
+      expect(refused.calls.map((call) => call.tool)).not.toContain("t3_thread_launch");
+    }
+  });
+
   it("reads status from the thread's state, pages to the end, and holds the cursor", async () => {
     const request = (requestId: string, requestStatus: string) => ({
       kind: "request",

@@ -125,14 +125,15 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     const found = listed.threads.find((thread) => thread.title.endsWith(`· ${tag}`));
     if (found) return this.handle(found.threadId, context);
-    const project = request.repository
-      ? await this.projectFor(request.repository, context)
-      : undefined;
-    const projectId = project?.id;
-    // Scratch threads, and projects without a default, need a model named for them.
-    const modelSelection = project?.defaultModelSelection
-      ? undefined
-      : await this.defaultModel(context);
+    const project =
+      request.projectId || request.repository ? await this.projectFor(request, context) : undefined;
+    // A workspace is a project's checkout; a scratch thread has none.
+    if (request.workspaceStrategy && !project) throw new CloudAgentRequestRejected("invalid");
+    // A named model goes in the launch itself, so the thread's first turn runs on it. Otherwise
+    // scratch threads, and projects without a default, need one named for them.
+    const modelSelection =
+      request.modelSelection ??
+      (project?.defaultModelSelection ? undefined : await this.defaultModel(context));
     const launched = launchSchema.parse(
       await this.call(
         "t3_thread_launch",
@@ -141,16 +142,18 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           message: request.prompt,
           clientRequestId: request.idempotencyKey,
           ...(modelSelection ? { modelSelection } : {}),
-          ...(projectId
+          ...(project
             ? {
-                projectId,
-                workspaceStrategy: {
+                projectId: project.id,
+                workspaceStrategy: request.workspaceStrategy ?? {
                   type: "worktree",
                   baseRef: "origin/HEAD",
                   startFromOrigin: true,
                 },
               }
             : { scratch: true }),
+          ...(request.runtimeMode ? { runtimeMode: request.runtimeMode } : {}),
+          ...(request.interactionMode ? { interactionMode: request.interactionMode } : {}),
         },
         context,
       ),
@@ -351,19 +354,26 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return { instanceId: provider.providerInstanceId, model: provider.models[0]!.id };
   }
 
-  private async projectFor(repository: string, context: AdapterContext) {
-    const wanted = normalizeRepository(repository);
+  /** The named project, or the one for the repository; both named must be the same project. */
+  private async projectFor(
+    request: Pick<CloudAgentLaunchRequest, "projectId" | "repository">,
+    context: AdapterContext,
+  ) {
     const { projects } = projectsSchema.parse(
       await this.call("t3_project_list", { limit: 100 }, context),
     );
-    const match = projects.find((project) => {
+    const wanted = request.repository && normalizeRepository(request.repository);
+    const holds = (project: (typeof projects)[number]) => {
       const identity = project.repositoryIdentity;
-      return (
-        (identity?.webUrl && normalizeRepository(identity.webUrl) === wanted) ||
-        (identity?.canonicalKey && normalizeRepository(identity.canonicalKey) === wanted)
+      return [identity?.webUrl, identity?.canonicalKey].some(
+        (value) => value && normalizeRepository(value) === wanted,
       );
-    });
-    if (!match) throw new CloudAgentRequestRejected("invalid");
+    };
+    const match = projects.find((project) =>
+      request.projectId ? project.id === request.projectId : holds(project),
+    );
+    if (!match || (request.projectId && wanted && !holds(match)))
+      throw new CloudAgentRequestRejected("invalid");
     return match;
   }
 

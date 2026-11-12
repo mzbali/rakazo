@@ -25,7 +25,12 @@ const describePostgres =
 class ScriptedProvider implements CloudAgentProvider {
   readonly agents = new Map<
     string,
-    { status: CloudAgentSnapshot["status"]; attention: CloudAgentAttention[]; cursor: number }
+    {
+      status: CloudAgentSnapshot["status"];
+      attention: CloudAgentAttention[];
+      missed?: CloudAgentAttention[];
+      cursor: number;
+    }
   >();
   launches = 0;
   describe() {
@@ -43,9 +48,18 @@ class ScriptedProvider implements CloudAgentProvider {
     return { id, url: "", title: "", status: "running" as const };
   }
   async get(id: string) {
-    const agent = this.agents.get(id)!;
-    agent.cursor += 1;
-    return { id, url: "", title: "", ...agent, attention: [...agent.attention] };
+    this.agents.get(id)!.cursor += 1;
+    const { missed = [], ...agent } = this.agents.get(id)!;
+    // Closed blockers are events: each is reported once, from the cursor that saw it.
+    delete this.agents.get(id)!.missed;
+    return {
+      id,
+      url: "",
+      title: "",
+      ...agent,
+      attention: [...agent.attention],
+      missedAttention: missed,
+    };
   }
   async reply(id: string) {
     return { id, url: "", title: "", status: "running" as const, latestRunId: randomUUID() };
@@ -227,12 +241,48 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(id);
     expect(await t.wakes()).toHaveLength(2);
     expect((await t.state(id)).remoteCursor).toBe(3);
+    // A question that opened and expired between polls still wakes the bot; one it was already
+    // woken for (q2, now expired too) does not wake it again.
+    agent.missed = [
+      { requestId: "q3", kind: "question" },
+      { requestId: "q2", kind: "approval" },
+    ];
+    await t.poll(id);
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-attention:${id}:q1`,
+      `cloud-agent-attention:${id}:q2`,
+      `cloud-agent-attention:${id}:q3`,
+    ]);
+    // A failed wake for a blocker still open is retried, at most three wakes in all.
+    agent.attention = [{ requestId: "q2", kind: "approval" }];
+    await t.poll(id);
+    const failWake = async (nonce: string) =>
+      asSystem(prisma).run.updateMany({
+        where: { clientNonce: nonce },
+        data: { status: "failed" },
+      });
+    await failWake(`cloud-agent-attention:${id}:q2`);
+    await t.reconcile();
+    await t.reconcile();
+    await failWake(`cloud-agent-attention:${id}:q2:r1`);
+    await t.reconcile();
+    await failWake(`cloud-agent-attention:${id}:q2:r2`);
+    await t.reconcile();
+    expect((await t.wakes()).map((run) => run.clientNonce).slice(3)).toEqual([
+      `cloud-agent-attention:${id}:q2:r1`,
+      `cloud-agent-attention:${id}:q2:r2`,
+    ]);
+    // A failed wake for a blocker that has closed is not retried.
+    await failWake(`cloud-agent-attention:${id}:q1`);
+    await t.reconcile();
+    expect(await t.wakes()).toHaveLength(5);
 
     agent.attention = [];
     agent.status = "finished";
     await t.poll(id);
     await t.poll(id);
     const finished = (await t.wakes()).at(-1)!;
+    expect(await t.wakes()).toHaveLength(6);
     expect(finished.clientNonce).toBe(`cloud-agent-wake-run:${id}:0`);
     await asSystem(prisma).run.update({ where: { id: finished.id }, data: { status: "failed" } });
     await t.reconcile();
@@ -240,7 +290,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect((await t.wakes()).map((run) => run.clientNonce).at(-1)).toBe(
       `cloud-agent-wake-run:${id}:0:r1`,
     );
-    expect(await t.wakes()).toHaveLength(4);
+    expect(await t.wakes()).toHaveLength(7);
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

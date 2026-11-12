@@ -11,7 +11,7 @@ import { getLogger } from "@rakazo/logging";
 import { messageBot } from "./bot-messages.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
-import { createCloudAgentWake } from "./cloud-agent-poll.js";
+import { attentionIds, attentionWakePrompt, createCloudAgentWake } from "./cloud-agent-poll.js";
 import {
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
@@ -311,23 +311,7 @@ async function retryFailedCloudAgentWakes(
       where: { spaceId: agent.spaceId, clientNonce: nonce },
       select: { status: true },
     });
-    if (last?.status !== "failed") continue;
-    // A cleared chat, archived bot or departed owner gets no wake, as a first wake would not.
-    const [card, member, bot] = await Promise.all([
-      deps.prisma.message.findFirst({
-        where: { id: agent.messageId ?? "", threadId: agent.threadId },
-        select: { id: true },
-      }),
-      deps.prisma.spaceMember.findUnique({
-        where: { spaceId_userId: { spaceId: agent.spaceId, userId: agent.userId } },
-        select: { id: true },
-      }),
-      deps.prisma.bot.findFirst({
-        where: { id: agent.botId, spaceId: agent.spaceId, archivedAt: null },
-        select: { id: true },
-      }),
-    ]);
-    if (!card || !member || !bot) continue;
+    if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
     const runId = await deps.prisma.$transaction(async (tx) => {
       const claimed = await tx.cloudAgent.updateMany({
         where: { id: agent.id, wakeAttempts: agent.wakeAttempts },
@@ -344,6 +328,66 @@ async function retryFailedCloudAgentWakes(
     });
     if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
   }
+  await retryFailedAttentionWakes(deps);
+}
+
+/**
+ * A question or approval's wake can fail the same way. Retry while it is still open, up to three
+ * wakes in all; each retry's key is the last one's plus a count, so a retry is made only once.
+ */
+async function retryFailedAttentionWakes(
+  deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
+) {
+  const failed = await deps.prisma.run.findMany({
+    where: {
+      trigger: "cloud_agent",
+      status: "failed",
+      clientNonce: { startsWith: "cloud-agent-attention:" },
+      updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
+    },
+    select: { clientNonce: true, spaceId: true },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+  });
+  for (const run of failed) {
+    const [, agentId, ...rest] = run.clientNonce!.split(":");
+    const retry = /:r(\d+)$/.exec(run.clientNonce!);
+    const attempt = retry ? Number(retry[1]) + 1 : 1;
+    if (attempt >= CLOUD_AGENT_WAKE_ATTEMPTS) continue;
+    const requestId = rest.join(":").replace(/:r\d+$/, "");
+    const agent = await deps.prisma.cloudAgent.findFirst({
+      where: { id: agentId, providerKey: deps.cloudAgent!.key, status: "running" },
+    });
+    if (!agent || !attentionIds(agent.attention).includes(requestId)) continue;
+    const nonce = `cloud-agent-attention:${agent.id}:${requestId}:r${attempt}`;
+    if (!(await canWake(deps, agent))) continue;
+    const runId = await deps.prisma
+      .$transaction((tx) =>
+        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce),
+      )
+      // A concurrent reconciler made the same retry; the nonce is unique per space.
+      .catch(() => []);
+    for (const id of runId) await deps.jobs.enqueue(runContinueJob(id)).catch(() => undefined);
+  }
+}
+
+/** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */
+async function canWake(deps: Pick<CloudAgentDeps, "prisma">, agent: CloudAgent) {
+  const [card, member, bot] = await Promise.all([
+    deps.prisma.message.findFirst({
+      where: { id: agent.messageId ?? "", threadId: agent.threadId },
+      select: { id: true },
+    }),
+    deps.prisma.spaceMember.findUnique({
+      where: { spaceId_userId: { spaceId: agent.spaceId, userId: agent.userId } },
+      select: { id: true },
+    }),
+    deps.prisma.bot.findFirst({
+      where: { id: agent.botId, spaceId: agent.spaceId, archivedAt: null },
+      select: { id: true },
+    }),
+  ]);
+  return Boolean(card && member && bot);
 }
 
 /** The first open question, which a reply answers. Approvals stay with the owner on the provider. */

@@ -1393,6 +1393,8 @@ export interface CloudAgentSnapshot {
   cursor?: number;
   /** Open questions and approvals; a new requestId wakes the bot once. */
   attention?: CloudAgentAttention[];
+  /** Questions and approvals that closed unanswered (expired, cancelled) since the cursor. */
+  missedAttention?: CloudAgentAttention[];
   /** Events after the previous cursor may be missing; the snapshot is still current. */
   historyGap?: boolean;
 }

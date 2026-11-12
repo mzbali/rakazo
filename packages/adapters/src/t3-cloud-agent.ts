@@ -64,6 +64,14 @@ const eventsSchema = z.object({
   nextSequence: z.number(),
   hasMore: z.boolean(),
   gap: z.object({ reason: z.string() }).nullable(),
+  events: z.array(
+    z.object({
+      kind: z.string(),
+      requestId: z.string().optional(),
+      requestKind: z.string().optional(),
+      requestStatus: z.string().optional(),
+    }),
+  ),
   state: z.object({
     idle: z.boolean(),
     latestRun: z.object({ runId: z.string(), status: z.string() }).nullable(),
@@ -174,6 +182,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     let next = cursor;
     let historyGap = false;
     let page: z.infer<typeof eventsSchema> | undefined;
+    // The last status each request reached in this window, so one that opened and closed between
+    // polls is still seen.
+    const requests = new Map<string, { kind: string; status: string }>();
     for (let read = 0; read < MAX_EVENT_PAGES; read += 1) {
       page = eventsSchema.parse(
         await this.call(
@@ -189,6 +200,13 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       );
       if (page.contractVersion !== EVENTS_CONTRACT_VERSION) throw new CloudAgentRequestRejected();
       historyGap ||= page.gap !== null;
+      for (const event of page.events) {
+        if (event.kind === "request" && event.requestId && event.requestStatus)
+          requests.set(event.requestId, {
+            kind: event.requestKind ?? "",
+            status: event.requestStatus,
+          });
+      }
       next = page.nextSequence;
       if (!page.hasMore) break;
     }
@@ -208,6 +226,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         state = { ...again, idle: false };
     }
     const run = state.latestRun;
+    const pending = new Set(state.pendingRequests.map((request) => request.requestId));
+    const missedAttention = [...requests]
+      .filter(
+        ([requestId, request]) =>
+          !pending.has(requestId) &&
+          (request.status === "expired" || request.status === "cancelled"),
+      )
+      .map(([requestId, request]) => attentionOf(requestId, request.kind));
     const status: CloudAgentStatus = !state.idle || !run ? "running" : terminalStatus(run.status);
     return {
       id,
@@ -216,13 +242,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status,
       ...(run ? { latestRunId: run.runId } : {}),
       cursor: next,
-      attention: state.pendingRequests.map(
-        (request): CloudAgentAttention => ({
-          requestId: request.requestId,
-          kind: request.kind === "user_input" ? "question" : "approval",
-          ...(request.threadId !== id ? { threadId: request.threadId } : {}),
-        }),
+      attention: state.pendingRequests.map((request) =>
+        attentionOf(
+          request.requestId,
+          request.kind,
+          request.threadId !== id ? request.threadId : undefined,
+        ),
       ),
+      missedAttention,
       historyGap,
     };
   }
@@ -233,6 +260,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     const {
       cursor: _cursor,
       historyGap: _gap,
+      missedAttention: _missed,
       ...snapshot
     } = await this.read(id, context, Number.MAX_SAFE_INTEGER, false);
     return snapshot;
@@ -359,6 +387,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     }
     return result.structuredContent ?? data;
   }
+}
+
+function attentionOf(requestId: string, kind: string, threadId?: string): CloudAgentAttention {
+  return {
+    requestId,
+    kind: kind === "user_input" ? "question" : "approval",
+    ...(threadId ? { threadId } : {}),
+  };
 }
 
 function terminalStatus(status: string): CloudAgentStatus {

@@ -1,4 +1,5 @@
 import { BotSettingsValuesSchema } from "@rakazo/contracts";
+import { CorrectedClaimError } from "@rakazo/core";
 import {
   appendEventInTransaction,
   commitBotUpdate,
@@ -113,6 +114,7 @@ async function commitOwnInstructions(
         expectedInstructions: previousInstructions,
       });
     } catch (error) {
+      if (error instanceof CorrectedClaimError) return { error: error.message };
       if (!(error instanceof InstructionConflictError)) throw error;
       // Re-reading cannot rebase this attempt, so point the model at a fresh run.
       return { error: OWN_INSTRUCTIONS_CHANGED_ERROR };

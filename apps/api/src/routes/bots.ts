@@ -30,7 +30,12 @@ import type {
   VaultPutInput,
 } from "@rakazo/contracts";
 import { BotSecretAuth, resolveBotAvatarSet } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, COMPUTER_USING_RUNS, displayName } from "@rakazo/core";
+import {
+  ACTIVE_RUN_STATUSES,
+  COMPUTER_USING_RUNS,
+  CorrectedClaimError,
+  displayName,
+} from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
 import {
   BotSectionNameConflictError,
@@ -56,6 +61,7 @@ import { botEmailAddress, botEmailAddresses, claimBotEmailAddress } from "../bot
 import { loadBotForRemoval } from "../bot-removal.js";
 import { changedBotSettings } from "../bot-setting-analytics.js";
 import { createBotFromTemplate, listBotTemplates } from "../bot-templates.js";
+import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import { requireIdentityConfirmation } from "../identity-confirmation.js";
 import { managedAppCatalog } from "../onboarding.js";
 import type { RouterDeps } from "../router.js";
@@ -310,6 +316,7 @@ export function botsRoutes(ctx: RouterContext) {
         return found;
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
+        assertNoAddedClaimsOrBadRequest("", input.instructions ?? "");
         let bot: Bot;
         try {
           // Older apps always send Original, which would pin every new bot to it.
@@ -488,6 +495,8 @@ export function botsRoutes(ctx: RouterContext) {
             throw new ORPCError("CONFLICT", {
               message: "Settings changed; review the current settings first.",
             });
+          if (error instanceof CorrectedClaimError)
+            throw new ORPCError("BAD_REQUEST", { message: error.message });
           if (!(error instanceof InstructionConflictError)) throw error;
           throw new ORPCError("CONFLICT", { message: error.message });
         });

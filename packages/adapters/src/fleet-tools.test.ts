@@ -1353,6 +1353,16 @@ describe("prepareFleetRequest set_child_instructions", () => {
     });
   });
 
+  it("refuses text that adds a corrected claim before any card is shown", async () => {
+    const { deps } = fakeFleet({ bots });
+    expect(
+      await prepareFleetRequest(deps, run, "set_child_instructions", {
+        ...edit,
+        instructions: "A continuation does not wake on completion.",
+      }),
+    ).toEqual({ ok: false, error: expect.stringContaining("Nothing was saved") });
+  });
+
   it("refuses an edit made against an older version", async () => {
     const { deps } = fakeFleet({ bots });
     expect(

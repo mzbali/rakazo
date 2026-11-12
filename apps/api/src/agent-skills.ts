@@ -18,6 +18,7 @@ import {
   spaceAvailability,
 } from "@rakazo/db";
 import { assertNameFreeWhereAvailable, userAddedAvailability } from "./availability.js";
+import { assertNoAddedClaimsOrBadRequest } from "./corrected-claim-guard.js";
 
 type AgentSkillRow = {
   id: string;
@@ -193,6 +194,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       if (builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
+      assertNoAddedClaimsOrBadRequest("", resolved.content);
       try {
         const row = await prisma.$transaction(async (tx) => {
           await assertNameFreeWhereAvailable(
@@ -245,7 +247,9 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       ) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
+      assertNoAddedClaimsOrBadRequest(existing.content, resolved.content);
       // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
+      // The content just read is part of the match, so a stale read cannot revive a removed phrase.
       try {
         const updated = await prisma.$transaction(async (tx) => {
           if (renamed)
@@ -258,7 +262,12 @@ export function createAgentSkillsService(prisma: PrismaClient) {
               existing.id,
             );
           return tx.agentSkill.updateMany({
-            where: { id: existing.id, ...availableInSpace(actor), source: "user" },
+            where: {
+              id: existing.id,
+              ...availableInSpace(actor),
+              source: "user",
+              content: existing.content,
+            },
             data: {
               name: resolved.name,
               description: resolved.description,

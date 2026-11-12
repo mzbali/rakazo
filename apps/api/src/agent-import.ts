@@ -45,6 +45,7 @@ import {
   isUniqueViolation,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { assertNoAddedClaimsOrBadRequest } from "./corrected-claim-guard.js";
 
 type Reader = Pick<Prisma.TransactionClient, "memoryDocument" | "agentSkill" | "mcpServer">;
 type Stored = Awaited<ReturnType<SecretStore["put"]>> | null;
@@ -312,11 +313,28 @@ export async function createImportedBot<PreparedKey>(
     {
       ...input,
       digest: requestDigest(request),
-      build: () => buildPlan(services as AgentImportServices, actor, input),
+      build: async () => {
+        const built = await buildPlan(services as AgentImportServices, actor, input);
+        refuseAddedClaims(built.plan, input.selection);
+        return built;
+      },
     },
     signal,
   );
   return written.bot;
+}
+
+/** Imported text is new to the bot, so any corrected claim in what was picked is an addition. */
+function refuseAddedClaims(plan: AgentImportPlan, choice: AgentImportCreateInput["selection"]) {
+  const picked = [
+    ...selected(plan.instructions, choice.instructions),
+    ...selected(
+      plan.memory,
+      choice.memory.map((item) => item.id),
+    ),
+    ...selected(plan.skills, choice.skills),
+  ];
+  for (const item of picked) assertNoAddedClaimsOrBadRequest("", item.content);
 }
 
 /** A bot to create from a plan: an import's files or a template build it. */

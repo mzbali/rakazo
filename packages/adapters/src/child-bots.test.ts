@@ -182,7 +182,30 @@ describe("spawned bot creation", () => {
     });
     createReposSpy.mockRestore();
   });
+
+  it("refuses instructions that add a corrected claim and creates nothing", async () => {
+    const enqueue = vi.fn();
+    const prisma = {
+      $transaction: vi.fn(),
+      bot: { findUnique: vi.fn() },
+    } as unknown as PrismaClient;
+    const result = await spawnBot(
+      { prisma, jobs: { enqueue } as unknown as JobPublisher },
+      {
+        spawnedBy: { id: "parent-1", name: "Chief", spaceId: "workspace-1", userId: "user-1" },
+        runId: "run-1",
+        spawnKey: "tool-call-1",
+        name: "Scout",
+        instructions: "A continuation does not wake on completion.",
+        prompt: "Go",
+      },
+    );
+    expect(result).toEqual({ error: expect.stringContaining("Nothing was saved") });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
+  });
 });
+
 describe("spawned bot archival", () => {
   it("scopes management to the space without requiring a creator", () => {
     expect(managedBotsWhere({ spaceId: "space-1" })).toEqual({ spaceId: "space-1" });

@@ -148,4 +148,19 @@ describe("editMemory", () => {
     const oversized = `${"a".repeat(40)}\n${"b".repeat(40)}\n`;
     expect(editMemory(oversized, "", "bbb", 32)).toEqual({ content: `${"a".repeat(40)}\n` });
   });
+
+  it("refuses an edit that adds a corrected claim and returns the entries", () => {
+    expect(editMemory("Be brief.\n", "A continuation does not wake on completion.")).toEqual({
+      error: expect.stringContaining("Nothing was saved"),
+      entries: ["Be brief."],
+    });
+    expect(
+      editMemory("Be brief.\n", "A continuation does not wake on completion.", "brief"),
+    ).toEqual({ error: expect.stringContaining("Nothing was saved"), entries: ["Be brief."] });
+  });
+
+  it("lets an unrelated edit through memory that already holds a corrected claim", () => {
+    const stale = "A continuation does not wake on completion.\n";
+    expect(editMemory(stale, "Be brief.")).toEqual({ content: `${stale}Be brief.\n` });
+  });
 });

@@ -253,3 +253,39 @@ describe("portable avatar appearance on import", () => {
     },
   );
 });
+
+describe("corrected claims in an import", () => {
+  const stale = "A continuation does not wake on completion.\n";
+
+  it("refuses picked instructions that carry one and creates no bot", async () => {
+    const createBot = vi.fn();
+    const withStale = AgentImportCreateInput.parse({
+      ...input,
+      files: [{ path: ".hermes/SOUL.md", content: stale }],
+      includeSecrets: false,
+      selection: { ...input.selection, routines: [], apiKeys: [] },
+    });
+    await expect(
+      createImportedBot(services({ createBot }), actor, withStale),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Nothing was saved"),
+    });
+    expect(createBot).not.toHaveBeenCalled();
+  });
+
+  it("ignores a stale file the owner did not pick", async () => {
+    const createBot = vi.fn(async () => bot);
+    const unpicked = AgentImportCreateInput.parse({
+      ...input,
+      files: [
+        { path: ".hermes/SOUL.md", content: "Direct.\n" },
+        { path: ".hermes/MEMORY.md", content: stale },
+      ],
+      includeSecrets: false,
+      selection: { ...input.selection, routines: [], apiKeys: [], memory: [] },
+    });
+    await createImportedBot(services({ createBot }), actor, unpicked);
+    expect(createBot).toHaveBeenCalled();
+  });
+});

@@ -79,6 +79,34 @@ describe("prepareToolRequest: update_bot owner settings after outside content", 
   });
 });
 
+describe("prepareToolRequest: update_bot instructions that add a corrected claim", () => {
+  const stale = "A continuation does not wake on completion.";
+
+  function call(args: Record<string, unknown>, current = "Be brief.") {
+    const { ctx, request } = ownBotUpdateCall();
+    ctx.state.tainted = false;
+    ctx.deps.prisma.bot.findUnique = async () =>
+      ({ name: "Old", instructions: current, modelProvider: "openrouter", modelId: "m" }) as never;
+    const req = request();
+    req.args = args;
+    return { ctx, req };
+  }
+
+  it("refuses the whole call, so a name change in it saves nothing", async () => {
+    const { ctx, req } = call({ name: "New", instructions: stale });
+    await expect(prepareToolRequest(ctx as never, req)).resolves.toEqual({
+      error: expect.stringContaining("Nothing was saved"),
+    });
+    expect(req.heldForApproval).toBe(false);
+  });
+
+  it("accepts text that only keeps a claim the bot already had", async () => {
+    const { ctx, req } = call({ instructions: `${stale}\nBe brief.` }, stale);
+    const result = await prepareToolRequest(ctx as never, req);
+    expect(result).not.toEqual({ error: expect.stringContaining("Nothing was saved") });
+  });
+});
+
 describe("private task tools after shared-channel messages", () => {
   it.each([
     "schedule_create",

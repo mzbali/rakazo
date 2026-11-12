@@ -187,10 +187,14 @@ export const memoryTools: ToolHandlers = {
   async save_memory(ctx, call) {
     const { bot, context } = ctx;
     const { args } = call;
+    const content = String(args.content ?? "");
+    // Each save is a new fact that later runs recall into their prompt.
+    const addedClaim = addedClaimMessage("", content);
+    if (addedClaim) return call.finish({ error: addedClaim });
     return call.finish(
       await ctx.memory.semantic!.save(
         {
-          content: String(args.content ?? ""),
+          content,
           scope: ctx.memory.scope!,
           botId: bot.id,
           source: { kind: "durable" },

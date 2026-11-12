@@ -68,6 +68,8 @@ export async function executeCloudAgentTool(
         where: { id: run.threadId, spaceId: context.spaceId },
         data: { nextMessageSeq: { increment: 0 } },
       });
+      // Same-key launches from two chats meet here, so the second finds the first.
+      await lockBotSlots(tx, context.botId);
       const existing =
         (await tx.cloudAgent.findUnique({ where: { operationKey: context.operationId } })) ??
         (request.requestKey
@@ -92,8 +94,6 @@ export async function executeCloudAgentTool(
         return { agent: existing };
       }
       const { requestKey, agreement, acceptance, ...launchRequest } = request;
-      // Serialize slot counting per bot, as promotion does (see promoteQueuedCloudAgent).
-      await lockBotSlots(tx, context.botId);
       const queued =
         (await activeCloudAgentCount(tx, connection.key, context.botId)) >=
         CLOUD_AGENT_ACTIVE_LIMIT;
@@ -389,10 +389,13 @@ export async function reportCloudAgent(
   });
   if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
   if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
-  await deps.prisma.cloudAgent.update({
-    where: { id: agent.id },
+  // A follow-up accepted meanwhile starts new work, which this verdict is not about.
+  const recorded = await deps.prisma.cloudAgent.updateMany({
+    where: { id: agent.id, generation: agent.generation, status: { not: "running" } },
     data: { verdict: report.verdict, verdictSummary: report.summary },
   });
+  if (!recorded.count)
+    return { error: "The cloud agent changed; check its status and report again." };
   let delivered: boolean | undefined;
   if (agent.originBotId && agent.originBotId !== agent.botId) {
     const sent = await messageBot(

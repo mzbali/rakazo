@@ -34,6 +34,7 @@ export const T3_CLOUD_AGENT_TOOLS = [
 ] as const;
 
 const EVENTS_CONTRACT_VERSION = 1;
+const IDLE_CONFIRM_MS = 1_000;
 const MAX_EVENT_PAGES = 10;
 
 const failureSchema = z.object({ code: z.string(), message: z.string().optional() });
@@ -101,7 +102,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentLaunchRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
-    const tag = request.idempotencyKey.slice(0, 8);
+    const tag = request.idempotencyKey.slice(0, 13);
     const label = (request.title ?? request.prompt.split(/\r?\n/, 1)[0] ?? "").slice(0, 80);
     const title = `${label} · ${tag}`;
     // The retry key only replays within one MCP sign-in, so look for an accepted launch first.
@@ -113,7 +114,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ),
     );
     const found = listed.threads.find((thread) => thread.title.endsWith(`· ${tag}`));
-    if (found) return this.get(found.threadId, context);
+    if (found) return this.peek(found.threadId, context);
     const project = request.repository
       ? await this.projectFor(request.repository, context)
       : undefined;
@@ -159,6 +160,15 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     _runId?: string,
     cursor = 0,
   ): Promise<CloudAgentSnapshot> {
+    return this.read(id, context, cursor, true);
+  }
+
+  private async read(
+    id: string,
+    context: AdapterContext,
+    cursor: number,
+    hold: boolean,
+  ): Promise<CloudAgentSnapshot> {
     let next = cursor;
     let historyGap = false;
     let page: z.infer<typeof eventsSchema> | undefined;
@@ -166,7 +176,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       page = eventsSchema.parse(
         await this.call(
           "t3_thread_events",
-          { threadId: id, afterSequence: next, limit: 200, retain: { key: this.options.holdKey } },
+          {
+            threadId: id,
+            afterSequence: next,
+            limit: 200,
+            ...(hold ? { retain: { key: this.options.holdKey } } : {}),
+          },
           context,
         ),
       );
@@ -175,7 +190,21 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       next = page.nextSequence;
       if (!page.hasMore) break;
     }
-    const { state } = page!;
+    let { state } = page!;
+    if (state.idle && state.latestRun) {
+      // T3 can end a run and queue its continuation (a restart, a delegated result) in separate
+      // writes; only a second idle read of the same run says the thread really stopped.
+      await new Promise((resolve) => setTimeout(resolve, IDLE_CONFIRM_MS));
+      const again = eventsSchema.parse(
+        await this.call(
+          "t3_thread_events",
+          { threadId: id, afterSequence: next, limit: 1 },
+          context,
+        ),
+      ).state;
+      if (!again.idle || again.latestRun?.runId !== state.latestRun.runId)
+        state = { ...again, idle: false };
+    }
     const run = state.latestRun;
     const status: CloudAgentStatus = !state.idle || !run ? "running" : terminalStatus(run.status);
     return {
@@ -194,6 +223,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ),
       historyGap,
     };
+  }
+
+  /** The current state without moving the poller's cursor or hold. */
+  private async peek(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
+    // Past the head and without the hold: only `state` is read, and the poller's cursor stays put.
+    const {
+      cursor: _cursor,
+      historyGap: _gap,
+      ...snapshot
+    } = await this.read(id, context, Number.MAX_SAFE_INTEGER, false);
+    return snapshot;
   }
 
   async reply(
@@ -224,11 +264,11 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       } catch (error) {
         // An answer accepted before a lost response leaves nothing to answer; that is success.
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
-        const snapshot = await this.get(id, context);
+        const snapshot = await this.peek(id, context);
         if (snapshot.attention?.some((item) => item.requestId === request.questionId)) throw error;
         return snapshot;
       }
-      return this.get(id, context);
+      return this.peek(id, context);
     }
     const sent = sendSchema.parse(
       await this.call(
@@ -252,7 +292,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
       },
     );
-    const snapshot = await this.get(id, context);
+    const snapshot = await this.peek(id, context);
     return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
   }
 

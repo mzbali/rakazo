@@ -4269,3 +4269,23 @@ it("does not blame the webhook on cards every run shows", async () => {
   expect(connection.pauseRunForInput).toHaveBeenCalledOnce();
   expect(askDetail(connection)).toBe("Telegram: fake");
 });
+
+it("asks before a launch another bot's message started, even with an allow rule", async () => {
+  const rules = [
+    { effect: "always_allow", matchKind: "tool", matchValue: "cloud_agent_launch" },
+  ] as ActionApprovalRule[];
+  const owner = fixture({ name: "cloud_agent_launch", builtin: true, rules });
+  owner.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  await owner.run();
+  expect(owner.pauseRunForInput).not.toHaveBeenCalled();
+
+  const relayed = fixture({
+    name: "cloud_agent_launch",
+    builtin: true,
+    rules,
+    trigger: "bot_message",
+  });
+  relayed.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  await relayed.run();
+  expect(relayed.pauseRunForInput).toHaveBeenCalledOnce();
+});

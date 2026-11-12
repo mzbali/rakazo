@@ -163,7 +163,12 @@ export async function pollCloudAgent(
     if (agent.followup) {
       if (dispatchedAt) {
         // Follow-ups have no idempotency key: resend only once the run list has settled.
-        const snapshot = await provider.get(agent.remoteId, context);
+        const snapshot = await provider.get(
+          agent.remoteId,
+          context,
+          undefined,
+          agent.remoteCursor ?? undefined,
+        );
         // An answer keeps its run; the question leaving the open list says it was accepted.
         const question = openQuestion(agent);
         const answered =
@@ -184,8 +189,8 @@ export async function pollCloudAgent(
           data: { followupDispatchedAt: new Date() },
         });
         if (!marked.count) return;
+        const question = openQuestion(agent);
         try {
-          const question = openQuestion(agent);
           const snapshot = await provider.reply(
             agent.remoteId,
             {
@@ -212,8 +217,9 @@ export async function pollCloudAgent(
             return;
           }
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
+          // A refused answer (the owner answered first, say) leaves the work running.
           await finishPoll(deps, agent, {
-            status: rejectedStatus(error),
+            ...(question ? {} : { status: rejectedStatus(error) }),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });

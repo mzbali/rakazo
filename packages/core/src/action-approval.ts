@@ -42,6 +42,7 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "forget_memory",
   // Permanent, and only for mail the bot received; its owner may still want it.
   "delete_email",
+  "cloud_agent_launch",
   "cloud_agent_reply",
   "cloud_agent_cancel",
   "user_computer_shell",
@@ -54,8 +55,6 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "send_email",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
-  // Starts real work on the owner's behalf: a message or another bot's request cannot agree to it.
-  "cloud_agent_launch",
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
   "respond_agent_connection",
@@ -204,9 +203,9 @@ export function toolRequiresExplicitApproval(toolName: string): boolean {
 }
 
 /**
- * Tools Never ask still refuses in a run the owner did not start, or one outside content entered:
- * another owner's connection, and starting coding work, which a bot's message or an email must
- * not be able to agree to on the owner's behalf.
+ * Tools that follow the owner's rules only in a run the owner started with no outside content:
+ * elsewhere they always ask, and Never ask refuses them. Another owner's connection, and starting
+ * coding work, which a bot's message or an email must not agree to on the owner's behalf.
  */
 export function toolGuardedInNeverAsk(toolName: string): boolean {
   return toolName === "respond_agent_connection" || toolName === "cloud_agent_launch";

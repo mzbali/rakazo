@@ -20,9 +20,9 @@
     ]
   },
   {
-    "id": "t3-thread-send-continuation-wakes",
+    "id": "continuation-wakes",
     "since": "2026-11-12",
-    "evidence": "rakazo@69c139e38 PR #18, a bot's own t3_thread_send continuation is tracked and wakes it on completion",
+    "evidence": "rakazo@69c139e38 PR #18, a bot's own thread continuation is tracked and wakes it on completion",
     "forbid": [
       "continuation does not wake on completion",
       "continuation doesn't wake on completion",
@@ -36,7 +36,7 @@
     "examples": [
       "A continuation does not wake on completion.",
       "A **continuation** doesn't wake on\ncompletion.",
-      "Your t3_thread_send continuations don’t wake this bot.",
+      "Your thread continuations don’t wake this bot.",
       "Continuations do not wake this bot when the thread finishes."
     ],
     "nonExamples": [

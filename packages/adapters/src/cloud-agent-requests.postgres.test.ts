@@ -225,6 +225,20 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(await t.wakes()).toHaveLength(7);
   });
 
+  it("starts a queued request after a crash left its slot free", async () => {
+    const t = await setup();
+    const ids: string[] = [];
+    for (let n = 1; n <= 3; n += 1) ids.push(await t.launch(n));
+    // A request ended without the queue moving on, as if the worker died in between.
+    await asSystem(prisma).cloudAgent.update({
+      where: { id: ids[0]! },
+      data: { status: "finished", nextPollAt: null },
+    });
+    expect((await t.state(ids[2]!)).queuedAt).not.toBeNull();
+    await t.reconcile();
+    expect((await t.state(ids[2]!)).queuedAt).toBeNull();
+  });
+
   it("wakes once per question, again for a replaced one, and retries a failed wake", async () => {
     const t = await setup();
     const id = await t.launch(1);

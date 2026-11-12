@@ -30,6 +30,7 @@ export const T3_CLOUD_AGENT_TOOLS = [
   "t3_thread_interrupt",
   "t3_pending_request",
   "t3_project_list",
+  "orchestrator_capabilities",
 ] as const;
 
 const EVENTS_CONTRACT_VERSION = 1;
@@ -50,6 +51,7 @@ const projectsSchema = z.object({
   projects: z.array(
     z.object({
       id: z.string(),
+      defaultModelSelection: z.record(z.string(), z.unknown()).nullish(),
       repositoryIdentity: z
         .object({ webUrl: z.string().optional(), canonicalKey: z.string().optional() })
         .nullish(),
@@ -71,6 +73,15 @@ const eventsSchema = z.object({
   }),
 });
 const sendSchema = z.object({ runId: z.string() });
+const capabilitiesSchema = z.object({
+  providers: z.array(
+    z.object({
+      providerInstanceId: z.string(),
+      canRunChildTask: z.boolean(),
+      models: z.array(z.object({ id: z.string() })),
+    }),
+  ),
+});
 const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
 
 /** Thread ids are the agent id; the title tag finds a launch a lost response hid. */
@@ -103,9 +114,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     const found = listed.threads.find((thread) => thread.title.endsWith(`· ${tag}`));
     if (found) return this.get(found.threadId, context);
-    const projectId = request.repository
+    const project = request.repository
       ? await this.projectFor(request.repository, context)
       : undefined;
+    const projectId = project?.id;
+    // Scratch threads, and projects without a default, need a model named for them.
+    const modelSelection = project?.defaultModelSelection
+      ? undefined
+      : await this.defaultModel(context);
     const launched = launchSchema.parse(
       await this.call(
         "t3_thread_launch",
@@ -113,6 +129,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           title,
           message: request.prompt,
           clientRequestId: request.idempotencyKey,
+          ...(modelSelection ? { modelSelection } : {}),
           ...(projectId
             ? {
                 projectId,
@@ -176,9 +193,6 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         }),
       ),
       historyGap,
-      ...(status !== "running" && run && run.status !== "completed"
-        ? { detail: `The last run ended ${run.status.replace("_", " ")}.` }
-        : {}),
     };
   }
 
@@ -223,11 +237,28 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   }
 
   async cancel(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
-    await this.call("t3_thread_interrupt", { threadId: id, stop: true }, context);
-    return this.get(id, context);
+    // A thread already stopped refuses another stop; its state still says it ended.
+    await this.call("t3_thread_interrupt", { threadId: id, stop: true }, context).catch(
+      (error: unknown) => {
+        if (!(error instanceof CloudAgentRequestRejected)) throw error;
+      },
+    );
+    const snapshot = await this.get(id, context);
+    return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
   }
 
-  private async projectFor(repository: string, context: AdapterContext): Promise<string> {
+  private async defaultModel(context: AdapterContext) {
+    const { providers } = capabilitiesSchema.parse(
+      await this.call("orchestrator_capabilities", {}, context),
+    );
+    const provider = providers.find(
+      (candidate) => candidate.canRunChildTask && candidate.models[0],
+    );
+    if (!provider) throw new CloudAgentRetryLater("unavailable");
+    return { instanceId: provider.providerInstanceId, model: provider.models[0]!.id };
+  }
+
+  private async projectFor(repository: string, context: AdapterContext) {
     const wanted = normalizeRepository(repository);
     const { projects } = projectsSchema.parse(
       await this.call("t3_project_list", { limit: 100 }, context),
@@ -240,7 +271,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       );
     });
     if (!match) throw new CloudAgentRequestRejected("invalid");
-    return match.id;
+    return match;
   }
 
   /** One tool call through the connector, so bot assignment, sign-in and outages apply. */

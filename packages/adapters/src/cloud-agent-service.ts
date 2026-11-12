@@ -397,17 +397,7 @@ async function retryFailedCloudAgentWakes(
   deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
 ) {
   // Start from failed wake runs, so finished requests still awaiting a verdict never crowd them out.
-  const failed = await deps.prisma.run.findMany({
-    where: {
-      trigger: "cloud_agent",
-      status: "failed",
-      clientNonce: { startsWith: "cloud-agent-wake-run:" },
-      updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
-    },
-    select: { clientNonce: true },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  });
+  const failed = await recentFailedWakes(deps, "cloud-agent-wake-run:");
   const ids = [...new Set(failed.map((run) => run.clientNonce!.split(":")[1]!))];
   const candidates = await deps.prisma.cloudAgent.findMany({
     where: {
@@ -453,28 +443,36 @@ async function retryFailedCloudAgentWakes(
 async function retryFailedAttentionWakes(
   deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
 ) {
-  const failed = await deps.prisma.run.findMany({
-    where: {
-      trigger: "cloud_agent",
-      status: "failed",
-      clientNonce: { startsWith: "cloud-agent-attention:" },
-      updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
-    },
-    select: { clientNonce: true, spaceId: true },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  });
-  for (const run of failed) {
+  const retries = (await recentFailedWakes(deps, "cloud-agent-attention:")).flatMap((run) => {
     const [, agentId, ...rest] = run.clientNonce!.split(":");
     const retry = /:r(\d+)$/.exec(run.clientNonce!);
     const attempt = retry ? Number(retry[1]) + 1 : 1;
-    if (attempt >= CLOUD_AGENT_WAKE_ATTEMPTS) continue;
+    if (attempt >= CLOUD_AGENT_WAKE_ATTEMPTS) return [];
     const requestId = rest.join(":").replace(/:r\d+$/, "");
-    const agent = await deps.prisma.cloudAgent.findFirst({
-      where: { id: agentId, providerKey: deps.cloudAgent!.key, status: "running" },
-    });
-    if (!agent || !attentionIds(agent.attention).includes(requestId)) continue;
-    const nonce = `cloud-agent-attention:${agent.id}:${requestId}:r${attempt}`;
+    const nonce = `cloud-agent-attention:${agentId}:${requestId}:r${attempt}`;
+    return [{ agentId: agentId!, requestId, nonce }];
+  });
+  if (!retries.length) return;
+  // Retries already made and blockers no longer open are dropped here, before any per-wake work.
+  const [made, agents] = await Promise.all([
+    deps.prisma.run.findMany({
+      where: { clientNonce: { in: retries.map((retry) => retry.nonce) } },
+      select: { clientNonce: true },
+    }),
+    deps.prisma.cloudAgent.findMany({
+      where: {
+        id: { in: retries.map((retry) => retry.agentId) },
+        providerKey: deps.cloudAgent!.key,
+        status: "running",
+      },
+    }),
+  ]);
+  const madeNonces = new Set(made.map((run) => run.clientNonce));
+  const byId = new Map(agents.map((agent) => [agent.id, agent]));
+  for (const { agentId, requestId, nonce } of retries) {
+    const agent = byId.get(agentId);
+    if (madeNonces.has(nonce) || !agent || !attentionIds(agent.attention).includes(requestId))
+      continue;
     if (!(await canWake(deps, agent))) continue;
     const runId = await deps.prisma
       .$transaction((tx) =>
@@ -484,6 +482,22 @@ async function retryFailedAttentionWakes(
       .catch(() => []);
     for (const id of runId) await deps.jobs.enqueue(runContinueJob(id)).catch(() => undefined);
   }
+}
+
+/**
+ * Every wake run that failed within the retry window. Read in full, not a recent batch, since
+ * failures already retried or past their last attempt would otherwise fill the batch each pass.
+ */
+function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
+  return deps.prisma.run.findMany({
+    where: {
+      trigger: "cloud_agent",
+      status: "failed",
+      clientNonce: { startsWith: prefix },
+      updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
+    },
+    select: { clientNonce: true },
+  });
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */

@@ -272,6 +272,16 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
     });
     expect(received).toHaveLength(1);
+    // The delivered verdict is the recorded one: a different one later is refused.
+    expect(
+      await runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, t.context, t.run, {
+          id,
+          verdict: "rejected",
+          summary: "Changed my mind",
+        }),
+      ),
+    ).toEqual({ error: "Already reported accepted for this work." });
     expect((await t.state(id)).verdict).toBe("accepted");
   });
 });

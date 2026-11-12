@@ -312,6 +312,22 @@ async function retryFailedCloudAgentWakes(
       select: { status: true },
     });
     if (last?.status !== "failed") continue;
+    // A cleared chat, archived bot or departed owner gets no wake, as a first wake would not.
+    const [card, member, bot] = await Promise.all([
+      deps.prisma.message.findFirst({
+        where: { id: agent.messageId ?? "", threadId: agent.threadId },
+        select: { id: true },
+      }),
+      deps.prisma.spaceMember.findUnique({
+        where: { spaceId_userId: { spaceId: agent.spaceId, userId: agent.userId } },
+        select: { id: true },
+      }),
+      deps.prisma.bot.findFirst({
+        where: { id: agent.botId, spaceId: agent.spaceId, archivedAt: null },
+        select: { id: true },
+      }),
+    ]);
+    if (!card || !member || !bot) continue;
     const runId = await deps.prisma.$transaction(async (tx) => {
       const claimed = await tx.cloudAgent.updateMany({
         where: { id: agent.id, wakeAttempts: agent.wakeAttempts },
@@ -404,13 +420,24 @@ export async function reportCloudAgent(
   });
   if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
   if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
+  // One verdict per piece of work, so the asking bot never holds a different one than the record.
   // A follow-up accepted meanwhile starts new work, which this verdict is not about.
   const recorded = await deps.prisma.cloudAgent.updateMany({
-    where: { id: agent.id, generation: agent.generation, status: { not: "running" } },
+    where: {
+      id: agent.id,
+      generation: agent.generation,
+      status: { not: "running" },
+      verdict: null,
+    },
     data: { verdict: report.verdict, verdictSummary: report.summary },
   });
-  if (!recorded.count)
-    return { error: "The cloud agent changed; check its status and report again." };
+  if (!recorded.count) {
+    const current = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
+    if (current.generation !== agent.generation || current.status === "running")
+      return { error: "The cloud agent changed; check its status and report again." };
+    if (current.verdict !== report.verdict || current.verdictSummary !== report.summary)
+      return { error: `Already reported ${current.verdict} for this work.` };
+  }
   let delivered: boolean | undefined;
   if (agent.originBotId && agent.originBotId !== agent.botId) {
     const sent = await messageBot(

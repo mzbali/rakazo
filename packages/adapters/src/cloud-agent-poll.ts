@@ -127,7 +127,9 @@ export async function pollCloudAgent(
     const unsent =
       dispatchedAt !== null && Date.now() - dispatchedAt.getTime() >= FOLLOWUP_SETTLE_MS;
     if (abandoned || agent.cancelRequested) {
-      if (agent.followup && !dispatchedAt) {
+      // An unsent follow-up to finished work can just be dropped; an unsent answer belongs to
+      // work still running remotely, which the cancel below must stop.
+      if (agent.followup && !dispatchedAt && !openQuestion(agent)) {
         await finishPoll(
           deps,
           agent,

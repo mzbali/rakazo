@@ -406,6 +406,8 @@ export async function reportCloudAgent(
         threadId: run.threadId,
         botId: agent.botId,
         userId: agent.userId,
+        // The asking bot's message, so the verdict reads as the reply to its request.
+        sourceMessageId: agent.originMessageId,
       },
       { id: agent.botId, name: context.botName ?? "" },
       {

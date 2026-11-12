@@ -144,7 +144,9 @@ export async function pollCloudAgent(
         context,
         dispatchedAt ? undefined : (agent.latestRunId ?? undefined),
       );
-      const pending = dispatchedAt !== null && snapshot.latestRunId === agent.latestRunId;
+      // Only a follow-up starts a new run that may still appear; an answer continues the current one.
+      const pending =
+        dispatchedAt !== null && !openQuestion(agent) && snapshot.latestRunId === agent.latestRunId;
       if (pending && !unsent) {
         // An old terminal run cannot confirm cancellation of a run that may still appear.
         await retryPoll(deps, agent);

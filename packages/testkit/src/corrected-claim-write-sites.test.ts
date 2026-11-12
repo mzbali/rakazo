@@ -46,8 +46,9 @@ const WRITES = [
  */
 const CALLERS: Record<string, string> = {
   "packages/adapters/src/run-tools-memory.ts":
-    "checked: remember (editMemory) and save_shared_memory",
+    "checked: remember (editMemory), save_shared_memory and save_memory",
   "packages/adapters/src/run-turn.ts": "exempt: scripted test turns",
+  "apps/api/src/routes/memory.ts": "exempt: the owner's own memory editor",
   "apps/api/src/routes/bots.ts": "checked: app create; duplicate copies saved text (exempt)",
   "packages/db/src/messaging.ts":
     "exempt: a fixed built-in instruction for the first messaging bot",
@@ -55,7 +56,7 @@ const CALLERS: Record<string, string> = {
     "checked in createImportedBot for imports; templates are scanned below",
 };
 
-const CALLS = [/\bmemory\.commit\(/, /\.createBot\(/];
+const CALLS = [/\bmemory\s*\.\s*commit\(/, /\.\s*createBot\(/];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

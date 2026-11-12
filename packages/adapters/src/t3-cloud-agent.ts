@@ -426,6 +426,8 @@ export function t3DirectThread(
   // A refused call, from the server or the connector, changed nothing to track.
   if (!data || data.isError || data.error !== undefined) return undefined;
   const text = (value: unknown) => (typeof value === "string" ? value : "");
+  // Compacting tidies the thread's context between pieces of work; it has no result to judge.
+  if (text(args.message).trim() === "/compact") return undefined;
   const title = text(args.title) || (text(args.message).split(/\r?\n/, 1)[0] ?? "");
   const remoteId =
     tool === `mcp__${server}__t3_thread_launch`

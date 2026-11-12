@@ -402,8 +402,9 @@ export function t3DirectThread(
   args: Record<string, unknown>,
   result: unknown,
 ): { remoteId: string; title: string } | undefined {
-  const data = result as { isError?: boolean; structuredContent?: unknown } | null;
-  if (!data || data.isError) return undefined;
+  const data = result as { isError?: boolean; error?: unknown; structuredContent?: unknown } | null;
+  // A refused call, from the server or the connector, changed nothing to track.
+  if (!data || data.isError || data.error !== undefined) return undefined;
   const text = (value: unknown) => (typeof value === "string" ? value : "");
   const title = text(args.title) || (text(args.message).split(/\r?\n/, 1)[0] ?? "");
   const remoteId =

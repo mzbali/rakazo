@@ -219,8 +219,14 @@ export async function pollCloudAgent(
           });
         } catch (error) {
           if (error instanceof CloudAgentRetryLater) {
-            // A refused request was never accepted, so the next poll resends it.
-            await retryPoll(deps, agent, error.retryAfterMs, { followupDispatchedAt: null });
+            // A refused request was never accepted, so the next poll resends it. That stays true
+            // when a message sent meanwhile moved the version, so only our lease guards it: a
+            // marker left behind would let that message's run pass for this one's.
+            await deps.prisma.cloudAgent.updateMany({
+              where: { id: agent.id, leaseToken: agent.leaseToken },
+              data: { followupDispatchedAt: null },
+            });
+            await retryPoll(deps, agent, error.retryAfterMs);
             return;
           }
           if (!(error instanceof CloudAgentRequestRejected)) throw error;

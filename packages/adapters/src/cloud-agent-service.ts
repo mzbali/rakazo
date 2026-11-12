@@ -427,7 +427,15 @@ async function retryFailedCloudAgentWakes(
     if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
     const runId = await deps.prisma.$transaction(async (tx) => {
       const claimed = await tx.cloudAgent.updateMany({
-        where: { id: agent.id, wakeAttempts: agent.wakeAttempts },
+        // The same finished piece: a continuation since then has its own wake and attempts.
+        where: {
+          id: agent.id,
+          wakeAttempts: agent.wakeAttempts,
+          generation: agent.generation,
+          wakeGeneration: agent.generation,
+          status: agent.status,
+          verdict: null,
+        },
         data: { wakeAttempts: { increment: 1 } },
       });
       if (!claimed.count) return undefined;

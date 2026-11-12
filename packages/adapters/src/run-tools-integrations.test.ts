@@ -32,6 +32,7 @@ function setup(events: ConnectorEvent[], artifacts: unknown = {}, secrets: strin
     bot: { id: "bot-1" },
     thread: { id: "thread-1", groupId: null },
     context: {},
+    providers: { cloudAgent: null },
     secrets,
   } as unknown as RunContext;
   const call = {

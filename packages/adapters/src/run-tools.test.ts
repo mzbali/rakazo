@@ -61,6 +61,7 @@ function dispatchContext(tainted: boolean) {
       connector: new Map(),
     },
     context: { signal: new AbortController().signal },
+    providers: { cloudAgent: null },
     secrets: [],
   };
 }

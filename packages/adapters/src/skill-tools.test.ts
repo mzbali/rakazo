@@ -69,6 +69,16 @@ function makePrisma(rows: Array<Record<string, unknown>> = []) {
           return { count: 1 };
         },
       ),
+      count: vi.fn(
+        async ({ where }: { where: Record<string, string> }) =>
+          store.filter(
+            (row) =>
+              row.id === where.id &&
+              row.spaceId === where.spaceId &&
+              row.userId === where.userId &&
+              row.source === where.source,
+          ).length,
+      ),
       delete: vi.fn(async ({ where }: { where: { id: string } }) => {
         const index = store.findIndex((row) => row.id === where.id);
         if (index < 0) throw new Error("missing");
@@ -442,7 +452,9 @@ describe("skill tools", () => {
         name: "Waker",
         description: "Reworded",
       });
-      expect(result.error).toBeDefined();
+      expect(result.error).toBe(
+        "This skill changed since it was read; read it again before updating.",
+      );
       expect(prisma._store[0]!.content).toContain("Fixed.");
     });
   });

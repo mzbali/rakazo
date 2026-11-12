@@ -875,6 +875,33 @@ describe("connector read-only metadata and approval enforcement", () => {
     expect(f.results.at(-1)).toEqual({ ok: true, path: "MEMORY.md", revision: 2 });
   });
 
+  it("refuses shared memory that adds a corrected claim, which every bot would read", async () => {
+    const f = fixture({
+      name: "save_shared_memory",
+      builtin: true,
+      existingSharedMemory: "Old rule",
+    });
+    f.setCalls([
+      {
+        args: { path: "MEMORY.md", content: "Old rule\nContinuations don't wake this bot." },
+        executionId: "call-1",
+      },
+    ]);
+    await f.run();
+    expect(f.commit).not.toHaveBeenCalled();
+    expect(f.results.at(-1)).toEqual({ error: expect.stringContaining("Nothing was saved") });
+  });
+
+  it("lets shared memory that already holds a corrected claim take an unrelated edit", async () => {
+    const stale = "Continuations don't wake this bot.";
+    const f = fixture({ name: "save_shared_memory", builtin: true, existingSharedMemory: stale });
+    f.setCalls([
+      { args: { path: "MEMORY.md", content: `${stale}\nNew rule` }, executionId: "call-1" },
+    ]);
+    await f.run();
+    expect(f.commit).toHaveBeenCalledOnce();
+  });
+
   it("does not overwrite shared memory that changed after it was read", async () => {
     const f = fixture({
       name: "save_shared_memory",

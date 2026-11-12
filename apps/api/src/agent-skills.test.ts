@@ -40,6 +40,9 @@ function setup(rows: ReturnType<typeof savedSkill>[] = []) {
     findFirst: vi.fn(async ({ where }: { where: Where }) =>
       rows.find((row) => matches(row, where)),
     ),
+    count: vi.fn(
+      async ({ where }: { where: Where }) => rows.filter((row) => matches(row, where)).length,
+    ),
     updateMany: vi.fn(async ({ where, data }: { where: Where; data: object }) => {
       const row = rows.find((row) => matches(row, where));
       if (!row) return { count: 0 };
@@ -203,7 +206,10 @@ describe("corrected claims in the API", () => {
     });
     await expect(
       service.update(actor, { skillId: "saved-1", description: "Reworded" }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "This skill changed since it was read. Reload it and try again.",
+    });
     expect(row.content).toContain("Fixed");
     expect(agentSkill.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ content: expect.any(String) }) }),

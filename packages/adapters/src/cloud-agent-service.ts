@@ -201,7 +201,7 @@ export async function trackDirectCloudAgent(
     botId: context.botId,
     remoteId: direct.remoteId,
   };
-  const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard | undefined> => {
+  const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
     // Serialize with clearThread and other calls from this chat before reading or writing.
     await tx.thread.update({
       where: { id: run.threadId, spaceId: context.spaceId },
@@ -212,48 +212,52 @@ export async function trackDirectCloudAgent(
       where: { operationKey: context.operationId },
     });
     if (replayed) return { agent: replayed };
-    const existing = await tx.cloudAgent.findFirst({ where });
-    if (!existing) {
-      const created = await tx.cloudAgent.create({
+    // The poller fences on version and may commit between this read and the write, so a lost
+    // fence reads the row again rather than leaving the work untracked.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const existing = await tx.cloudAgent.findFirst({ where });
+      if (!existing) {
+        const created = await tx.cloudAgent.create({
+          data: {
+            ...where,
+            operationKey: context.operationId,
+            threadId: run.threadId,
+            title: direct.title.slice(0, 80),
+            launchRequest: {},
+            launchDispatched: true,
+          },
+        });
+        return postCloudAgentCard(tx, deps, context, run, created);
+      }
+      const card = existing.messageId
+        ? await tx.message.findFirst({
+            where: { id: existing.messageId, threadId: existing.threadId },
+            select: { threadId: true },
+          })
+        : null;
+      const running = existing.status === "running";
+      // Running work keeps waking the chat that already follows it.
+      if (running && card) return { agent: existing };
+      const moved = card?.threadId !== run.threadId;
+      const updated = await tx.cloudAgent.updateMany({
+        where: { id: existing.id, version: existing.version },
         data: {
-          ...where,
-          operationKey: context.operationId,
+          ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+          status: "running",
           threadId: run.threadId,
-          title: direct.title.slice(0, 80),
-          launchRequest: {},
-          launchDispatched: true,
+          ...(moved ? { messageId: null } : {}),
+          cancelRequested: false,
+          version: { increment: 1 },
+          nextPollAt: new Date(),
+          errorCount: 0,
         },
       });
-      return postCloudAgentCard(tx, deps, context, run, created);
+      if (!updated.count) continue;
+      const revived = await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } });
+      return moved ? postCloudAgentCard(tx, deps, context, run, revived) : { agent: revived };
     }
-    const card = existing.messageId
-      ? await tx.message.findFirst({
-          where: { id: existing.messageId, threadId: existing.threadId },
-          select: { threadId: true },
-        })
-      : null;
-    const running = existing.status === "running";
-    if (running && card) return { agent: existing };
-    const moved = card?.threadId !== run.threadId;
-    // The poller fences on version, so whichever writes second sees the other's change.
-    const updated = await tx.cloudAgent.updateMany({
-      where: { id: existing.id, version: existing.version },
-      data: {
-        ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
-        status: "running",
-        threadId: run.threadId,
-        ...(moved ? { messageId: null } : {}),
-        cancelRequested: false,
-        version: { increment: 1 },
-        nextPollAt: new Date(),
-        errorCount: 0,
-      },
-    });
-    if (!updated.count) return { agent: existing };
-    const revived = await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } });
-    return moved ? postCloudAgentCard(tx, deps, context, run, revived) : { agent: revived };
+    throw new Error("Cloud agent kept changing while it was being tracked.");
   }, THREAD_LOCK_TRANSACTION_OPTIONS);
-  if (!result) return;
   if (result.seq !== undefined)
     await deps.events
       .notify(run.threadId, result.seq, result.firstResponseRunId)

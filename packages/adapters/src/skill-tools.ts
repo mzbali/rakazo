@@ -96,6 +96,8 @@ function onlyInSpace(owner: SkillOwner) {
   };
 }
 
+const SKILL_CHANGED_ERROR = "This skill changed since it was read; read it again before updating.";
+
 const SHARED_SKILL_ERROR =
   "Could not change this skill. A skill available in other spaces can only be changed by the user.";
 
@@ -302,7 +304,13 @@ export async function skillUpdateFromTool(
         content: nextContent,
       },
     });
-    if (updated.count !== 1) return { error: SHARED_SKILL_ERROR };
+    if (updated.count !== 1) {
+      // The row is still here, so what moved is its content, not where it is available.
+      const still = await prisma.agentSkill.count({
+        where: { id: existing.id, ...onlyInSpace(owner), source: "user" },
+      });
+      return { error: still ? SKILL_CHANGED_ERROR : SHARED_SKILL_ERROR };
+    }
     return { ok: true, id: existing.id, name: nextName, description: nextDescription };
   } catch {
     return { error: "Could not update skill." };

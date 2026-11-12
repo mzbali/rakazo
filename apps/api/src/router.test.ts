@@ -7243,7 +7243,15 @@ describe("bot model auth on save", () => {
     }));
     const tx = {
       $queryRaw: vi.fn(async () => []),
-      bot: { update: botUpdate },
+      bot: {
+        update: botUpdate,
+        // What writeBotInstructions reads under its lock before an instruction change.
+        findUniqueOrThrow: vi.fn(async () => ({
+          ...bot,
+          instructions: "",
+          instructionHistory: [],
+        })),
+      },
       thread: { update: vi.fn(async () => ({ nextEventSeq: 2 })) },
       event: { create: vi.fn(async () => ({ seq: 1 })) },
     };
@@ -7350,6 +7358,24 @@ describe("bot model auth on save", () => {
         }),
       }),
     );
+  });
+
+  it("answers instructions that add a corrected claim with 400 and the reason", async () => {
+    const { botUpdate, handler } = saveDeps({ modelId: luna, preferences: () => null });
+
+    const response = await call(handler, "bots/update", {
+      botId: "bot-1",
+      instructions: "A continuation does not wake on completion.",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      json: expect.objectContaining({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("Nothing was saved"),
+      }),
+    });
+    expect(botUpdate).not.toHaveBeenCalled();
   });
 
   it("accepts Spark when the preference that owns that model is an API key", async () => {

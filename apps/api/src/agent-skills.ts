@@ -275,9 +275,19 @@ export function createAgentSkillsService(prisma: PrismaClient) {
             },
           });
         });
-        if (updated.count !== 1) throw new IsolationError();
+        if (updated.count !== 1) {
+          // The row is still here, so another edit changed its content since it was read.
+          const still = await prisma.agentSkill.count({
+            where: { id: existing.id, ...availableInSpace(actor), source: "user" },
+          });
+          if (still)
+            throw new ORPCError("CONFLICT", {
+              message: "This skill changed since it was read. Reload it and try again.",
+            });
+          throw new IsolationError();
+        }
       } catch (error) {
-        if (error instanceof IsolationError) throw error;
+        if (error instanceof IsolationError || error instanceof ORPCError) throw error;
         if (isUniqueViolation(error)) {
           throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
         }

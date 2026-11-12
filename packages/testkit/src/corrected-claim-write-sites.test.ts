@@ -28,13 +28,34 @@ const WRITERS: Record<string, string> = {
   "apps/api/src/availability.ts": "exempt: changes where a skill is available, not its text",
   "apps/api/src/plugin-installs.ts": "exempt: third-party, read-only plugin skills",
   "packages/db/src/spaces.ts": "exempt: moves or copies rows that are already saved",
+  "packages/adapters/src/child-bots.ts":
+    "exempt: archiving a bot moves its saved memory to the space (raw SQL); spawnBot is checked",
   "packages/testkit/src/cli/ios-screenshot-seed.ts": "exempt: screenshot fixture",
 };
 
 const WRITES = [
-  /\b(?:agentSkill|memoryDocument)\.(?:create|createMany|update|updateMany|upsert)\b/,
-  /\bbot\.(?:create|createMany|update|updateMany|upsert)\(\s*\{[\s\S]{0,1500}?\binstructions\b/,
+  /\b(?:agentSkill|memoryDocument)\.(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\b/,
+  /\bbot\.(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\(\s*\{[\s\S]{0,1500}?\binstructions\b/,
+  /\$(?:executeRaw|queryRaw)(?:Unsafe)?[\s\S]{0,200}?\b(?:UPDATE|INSERT INTO)\s+"?(?:bots|agent_skills|memory_documents)\b/i,
 ];
+
+/**
+ * Callers of the shared writers above, each of which stands for many callers: a new caller of
+ * memory.commit or createBot is a new way in and must be classified too. Instruction edits
+ * through commitBotUpdate always reach writeBotInstructions, so they need no list.
+ */
+const CALLERS: Record<string, string> = {
+  "packages/adapters/src/run-tools-memory.ts":
+    "checked: remember (editMemory) and save_shared_memory",
+  "packages/adapters/src/run-turn.ts": "exempt: scripted test turns",
+  "apps/api/src/routes/bots.ts": "checked: app create; duplicate copies saved text (exempt)",
+  "packages/db/src/messaging.ts":
+    "exempt: a fixed built-in instruction for the first messaging bot",
+  "apps/api/src/agent-import-services.ts":
+    "checked in createImportedBot for imports; templates are scanned below",
+};
+
+const CALLS = [/\bmemory\.commit\(/, /\.createBot\(/];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -46,22 +67,20 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("corrected-claim write sites", () => {
-  const found = ["packages", "apps"]
-    .flatMap((group) =>
-      readdirSync(path.join(root, group)).flatMap((name) => {
-        const src = path.join(root, group, name, "src");
-        try {
-          return sourceFiles(src);
-        } catch {
-          return [];
-        }
-      }),
-    )
-    .filter((file) => {
-      const text = readFileSync(file, "utf8");
-      return WRITES.some((pattern) => pattern.test(text));
-    })
-    .map((file) => path.relative(root, file).split(path.sep).join("/"))
+  const relative = (file: string) => path.relative(root, file).split(path.sep).join("/");
+  const sources = ["packages", "apps"].flatMap((group) =>
+    readdirSync(path.join(root, group)).flatMap((name) => {
+      const src = path.join(root, group, name, "src");
+      try {
+        return sourceFiles(src);
+      } catch {
+        return [];
+      }
+    }),
+  );
+  const found = sources
+    .filter((file) => WRITES.some((pattern) => pattern.test(readFileSync(file, "utf8"))))
+    .map(relative)
     .sort();
 
   it("classifies every file that writes instructions, skills or memory", () => {
@@ -70,6 +89,20 @@ describe("corrected-claim write sites", () => {
 
   it("lists no file that stopped writing them", () => {
     expect(Object.keys(WRITERS).filter((file) => !found.includes(file))).toEqual([]);
+  });
+
+  const calling = sources
+    .filter((file) => CALLS.some((pattern) => pattern.test(readFileSync(file, "utf8"))))
+    .map(relative)
+    .filter((file) => !(file in WRITERS))
+    .sort();
+
+  it("classifies every caller of the shared memory and bot writers", () => {
+    expect(calling.filter((file) => !(file in CALLERS))).toEqual([]);
+  });
+
+  it("lists no caller that stopped calling them", () => {
+    expect(Object.keys(CALLERS).filter((file) => !calling.includes(file))).toEqual([]);
   });
 });
 

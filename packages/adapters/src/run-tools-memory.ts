@@ -4,6 +4,7 @@ import {
   HistorySearchInputSchema,
   MEMORY_INDEX_PATH,
 } from "@rakazo/contracts";
+import { addedClaimMessage } from "@rakazo/core";
 import { readHistory, searchHistory } from "@rakazo/db";
 import { sharedMemorySaveError } from "./builtin-tools.js";
 import { redactConnectorPayload } from "./connector-safety.js";
@@ -142,12 +143,16 @@ export const memoryTools: ToolHandlers = {
     // concurrent edit is rejected instead of overwritten.
     const snapshot = await deps.memory.read({ scope: "user", path }, context);
     const expectedRevision = snapshot.documents[0]?.revision ?? 0;
+    const content = String(args.content ?? "");
+    // Every bot in the space reads shared memory, so a corrected claim may not come in here either.
+    const addedClaim = addedClaimMessage(snapshot.documents[0]?.content ?? "", content);
+    if (addedClaim) return call.finish({ error: addedClaim });
     try {
       const saved = await deps.memory.commit(
         {
           scope: "user",
           path,
-          content: String(args.content ?? ""),
+          content,
           expectedRevision,
           sourceRunId: runId,
           sourceThreadId: thread.id,

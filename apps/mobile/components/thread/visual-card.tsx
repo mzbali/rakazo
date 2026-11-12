@@ -109,8 +109,13 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         presentationStyle="pageSheet"
         onRequestClose={() => setOpen(false)}
       >
-        {open && sheet ? (
-          <VisualSheet title={block.title} document={sheet} onClose={() => setOpen(false)} />
+        {open ? (
+          <VisualSheet
+            title={block.title}
+            summary={block.text}
+            document={failed ? null : sheet}
+            onClose={() => setOpen(false)}
+          />
         ) : null}
       </Modal>
     </>
@@ -120,11 +125,14 @@ export function VisualCard({ block }: { block: VisualBlock }) {
 /** The visual whole, interactive, as an opened page is: one tap, one copy or link. */
 function VisualSheet({
   title,
+  summary,
   document,
   onClose,
 }: {
   title: string;
-  document: string;
+  summary: string;
+  /** Null while it builds or when it can't; the summary stands in. */
+  document: string | null;
   onClose: () => void;
 }) {
   const { t } = useLingui();
@@ -150,24 +158,28 @@ function VisualSheet({
           tapStart.current = null;
         }}
       >
-        <SandboxedHtmlPreview
-          html={document}
-          background={tokens.background}
-          onMessage={(data, answer) => {
-            if (!pageActionAllowed(tappedAt.current, Date.now())) return;
-            const message = pageMessage(data);
-            const url = pageLinkRequest(message);
-            const copy = pageCopyRequest(message);
-            if (!url && !copy) return;
-            tappedAt.current = null;
-            if (url) openLink(url);
-            else if (copy) {
-              void Clipboard.setStringAsync(copy.text)
-                .catch(() => false)
-                .then((ok) => answer(pageCopyResult(copy.id, ok !== false)));
-            }
-          }}
-        />
+        {document ? (
+          <SandboxedHtmlPreview
+            html={document}
+            background={tokens.background}
+            onMessage={(data, answer) => {
+              if (!pageActionAllowed(tappedAt.current, Date.now())) return;
+              const message = pageMessage(data);
+              const url = pageLinkRequest(message);
+              const copy = pageCopyRequest(message);
+              if (!url && !copy) return;
+              tappedAt.current = null;
+              if (url) openLink(url);
+              else if (copy) {
+                void Clipboard.setStringAsync(copy.text)
+                  .catch(() => false)
+                  .then((ok) => answer(pageCopyResult(copy.id, ok !== false)));
+              }
+            }}
+          />
+        ) : (
+          <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{summary}</Text>
+        )}
       </View>
       <View pointerEvents="box-none" style={styles.controls}>
         <NativeActionButton
@@ -201,6 +213,7 @@ const styles = StyleSheet.create({
   },
   summary: { fontSize: 15, lineHeight: 20 },
   sheet: { flex: 1 },
+  sheetSummary: { fontSize: 17, lineHeight: 24, padding: 20 },
   // A page sheet starts below the status bar, so the close button sits at its top.
   controls: {
     position: "absolute",

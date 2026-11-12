@@ -10,51 +10,80 @@ function scrollParent(element: HTMLElement): HTMLElement | null {
 }
 
 /**
- * Sandboxed frames in the chat (page previews and visuals) kept running after they leave view,
- * so scrolling back shows them drawn. They share one budget, so a long chat runs a bounded number.
+ * Sandboxed frames in the chat (page previews and visuals) share one budget, so a long chat runs
+ * a bounded number. A frame keeps running after it leaves view, so scrolling back shows it drawn,
+ * until a frame near view needs its place.
  */
-const LIVE_FRAMES = 24;
-const liveFrames = new Map<object, { near: boolean; drop: () => void }>();
+export const LIVE_FRAMES = 24;
 
-/**
- * Whether the element's frame may run: it starts once the element scrolls near view and keeps
- * running until newer frames push it out of the shared live set.
- */
+type Frame = { near: boolean; live: boolean; setLive: (live: boolean) => void };
+
+/** Insertion order is age: a frame moves to the end each time it comes near view. */
+const frames = new Map<object, Frame>();
+
+function liveCount() {
+  let count = 0;
+  for (const frame of frames.values()) if (frame.live) count++;
+  return count;
+}
+
+function setLive(frame: Frame, live: boolean) {
+  if (frame.live === live) return;
+  frame.live = live;
+  frame.setLive(live);
+}
+
+/** Starts frames near view, oldest first, ending frames out of view to make room; never past the budget. */
+function rebalance() {
+  for (const frame of frames.values()) {
+    if (!frame.near || frame.live) continue;
+    if (liveCount() >= LIVE_FRAMES) {
+      const idle = [...frames.values()].find((other) => other.live && !other.near);
+      if (!idle) return;
+      setLive(idle, false);
+    }
+    setLive(frame, true);
+  }
+}
+
+/** Tracks one frame; `near` reports whether it is near view, `remove` forgets it. */
+export function trackLiveFrame(onChange: (live: boolean) => void) {
+  const key = {};
+  const frame: Frame = { near: false, live: false, setLive: onChange };
+  frames.set(key, frame);
+  return {
+    near(near: boolean) {
+      frame.near = near;
+      if (near) {
+        frames.delete(key);
+        frames.set(key, frame);
+      }
+      rebalance();
+    },
+    remove() {
+      frames.delete(key);
+      rebalance();
+    },
+  };
+}
+
+/** Whether the element's frame may run: near view and within the chat's shared budget. */
 export function useLiveNearView(box: RefObject<HTMLElement | null>): boolean {
   const [live, setLive] = useState(false);
   useEffect(() => {
     const element = box.current;
     if (!element) return;
-    const key = {};
-    const drop = () => {
-      liveFrames.delete(key);
-      setLive(false);
-    };
+    const tracked = trackLiveFrame(setLive);
     const near = new IntersectionObserver(
       ([entry]) => {
-        if (!entry) return;
-        if (!entry.isIntersecting) {
-          const frame = liveFrames.get(key);
-          if (frame) frame.near = false;
-          return;
-        }
-        liveFrames.delete(key);
-        liveFrames.set(key, { near: true, drop });
-        setLive(true);
-        let over = liveFrames.size - LIVE_FRAMES;
-        for (const [other, frame] of liveFrames) {
-          if (over <= 0) break;
-          if (other === key || frame.near) continue;
-          frame.drop();
-          over--;
-        }
+        if (entry) tracked.near(entry.isIntersecting);
       },
       { root: scrollParent(element), rootMargin: "400px 0px" },
     );
     near.observe(element);
     return () => {
       near.disconnect();
-      liveFrames.delete(key);
+      tracked.remove();
     };
   }, [box]);
   return live;

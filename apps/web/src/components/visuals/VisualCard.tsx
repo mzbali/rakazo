@@ -104,7 +104,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           <div className="min-h-0 flex-1">
             {viewer.document !== null ? (
               <PageFrame document={viewer.document} title={block.title} interactive />
-            ) : null}
+            ) : (
+              <p className="p-5 text-body text-muted-foreground">{block.text}</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

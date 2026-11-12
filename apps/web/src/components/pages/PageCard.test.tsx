@@ -16,7 +16,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-it("runs a page from when its card nears view until newer previews push it out", async () => {
+it("runs a page from when its card nears view until a preview near view needs its place", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const observers: { margin: string; root: unknown; report: (inView: boolean) => void }[] = [];
   vi.stubGlobal(
@@ -91,10 +91,14 @@ it("runs a page from when its card nears view until newer previews push it out",
   expect(live()[0]).toBe(false);
   expect(placeholder(0)).not.toBeNull();
   expect(live().slice(1)).toEqual(titles.slice(1).map(() => true));
-  // Previews still near view stay even past the limit.
+  // Never past the limit: with every running preview near view, card 0 waits for a place.
   for (let index = 2; index < 24; index++) observers[index]!.report(true);
   observers[0]!.report(true);
-  expect(live()).toEqual(titles.map(() => true));
+  expect(live()[0]).toBe(false);
+  expect(live().filter(Boolean)).toHaveLength(24);
+  observers[1]!.report(false);
+  expect(live()[0]).toBe(true);
+  expect(live()[1]).toBe(false);
   act(() => root.unmount());
 });
 

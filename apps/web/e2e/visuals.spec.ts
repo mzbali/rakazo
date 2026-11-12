@@ -44,7 +44,7 @@ test("a bot's visual draws inside the chat, only draws there, and opens whole", 
     page.getByTestId("message-bot-bubble").getByText("That is the whole loop."),
   ).toBeVisible();
   // Drawn in the chat, sized to its content.
-  await expect(visualFrame(card, title).getByText("Bot reply")).toBeAttached();
+  await expect(visualFrame(card, title).getByText("Bot reply", { exact: true })).toBeAttached();
   await expect
     .poll(async () => (await card.boundingBox())?.height ?? 0, { timeout: 15_000 })
     .toBeGreaterThan(100);
@@ -56,7 +56,7 @@ test("a bot's visual draws inside the chat, only draws there, and opens whole", 
   await card.getByRole("button", { name: `Open ${title}` }).click();
   const dialog = page.getByRole("dialog", { name: title });
   await expect(dialog).toBeVisible();
-  await expect(visualFrame(dialog, title).getByText("Your message")).toBeVisible();
+  await expect(visualFrame(dialog, title).getByText("Your message", { exact: true })).toBeVisible();
   await captureScreenshot(page, testInfo, "visual-open");
   await dialog.getByRole("button", { name: "Close preview" }).click();
   await expect(dialog).toBeHidden();

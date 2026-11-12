@@ -396,7 +396,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     const dropped = new Set<string>();
     for (;;) {
       try {
-        return await this.call("t3_thread_launch", { ...fields }, context, { modeEscalation: true });
+        return await this.call("t3_thread_launch", { ...fields }, context, {
+          modeEscalation: true,
+        });
       } catch (error) {
         const denied = error instanceof ModeEscalationDenied ? error : undefined;
         if (!denied || dropped.has(denied.field) || !(denied.field in fields)) {

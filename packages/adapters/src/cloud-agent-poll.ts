@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   AdapterContext,
   BackgroundJobPayloads,
+  CloudAgentAttention,
   CloudAgentSnapshot,
 } from "@rakazo/adapter-kit";
 import {
@@ -180,11 +181,13 @@ export async function pollCloudAgent(
           await retryPoll(deps, agent, undefined, unsent ? { followupDispatchedAt: null } : {});
           return;
         }
-        await finishPoll(deps, agent, {
-          ...snapshotData(snapshot),
-          followup: Prisma.DbNull,
-          followupDispatchedAt: null,
-        });
+        await finishPoll(
+          deps,
+          agent,
+          { ...snapshotData(snapshot), followup: Prisma.DbNull, followupDispatchedAt: null },
+          false,
+          snapshot.missedAttention,
+        );
       } else {
         const marked = await deps.prisma.cloudAgent.updateMany({
           where: fence(agent),
@@ -236,7 +239,7 @@ export async function pollCloudAgent(
       agent.latestRunId ?? undefined,
       agent.remoteCursor ?? undefined,
     );
-    await finishPoll(deps, agent, snapshotData(snapshot));
+    await finishPoll(deps, agent, snapshotData(snapshot), false, snapshot.missedAttention);
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
       // The remote agent or run is gone. Polling it again can never succeed.
@@ -326,6 +329,7 @@ async function finishPoll(
   agent: CloudAgent,
   data: Prisma.CloudAgentUpdateManyMutationInput,
   abandoned = false,
+  missed: CloudAgentAttention[] = [],
 ) {
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat: thread first, then message/run changes.
@@ -415,7 +419,19 @@ async function finishPoll(
           ...(await createCloudAgentWake(
             tx,
             saved,
-            `Cloud agent ${agent.id} needs input (${requestId}). Use cloud_agent_status; answer a question with cloud_agent_reply, or ask the owner to decide an approval where the agent runs.`,
+            attentionWakePrompt(agent.id, requestId),
+            `cloud-agent-attention:${agent.id}:${requestId}`,
+          )),
+        );
+      }
+      // One that closed unanswered between polls still tells the bot, under the same key, so a
+      // blocker it was already woken for is not repeated.
+      for (const { requestId } of missed) {
+        wakeRunIds.push(
+          ...(await createCloudAgentWake(
+            tx,
+            saved,
+            `Cloud agent ${agent.id} had a question or approval (${requestId}) that closed unanswered. Use cloud_agent_status to check whether it is still working.`,
             `cloud-agent-attention:${agent.id}:${requestId}`,
           )),
         );
@@ -442,7 +458,11 @@ async function finishPoll(
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];
 
-function attentionIds(value: unknown): string[] {
+export function attentionWakePrompt(agentId: string, requestId: string) {
+  return `Cloud agent ${agentId} needs input (${requestId}). Use cloud_agent_status; answer a question with cloud_agent_reply, or ask the owner to decide an approval where the agent runs.`;
+}
+
+export function attentionIds(value: unknown): string[] {
   return Array.isArray(value)
     ? value.flatMap((item) =>
         typeof item?.requestId === "string" ? [item.requestId as string] : [],

@@ -46,6 +46,7 @@ const state = (overrides: Record<string, unknown> = {}) => ({
   nextSequence: 7,
   hasMore: false,
   gap: null,
+  events: [] as unknown[],
   state: {
     idle: false,
     latestRun: { runId: "run:1", status: "running" },
@@ -87,13 +88,23 @@ describe("T3 cloud agent provider (offline conformance)", () => {
   });
 
   it("reads status from the thread's state, pages to the end, and holds the cursor", async () => {
+    const request = (requestId: string, requestStatus: string) => ({
+      kind: "request",
+      requestId,
+      requestKind: "user_input",
+      requestStatus,
+    });
     const pages = [
-      { ...state(), hasMore: true, nextSequence: 3 },
-      state({
-        idle: true,
-        latestRun: { runId: "run:2", status: "interrupted" },
-        pendingRequests: [{ threadId: "child", requestId: "q1", kind: "user_input" }],
-      }),
+      { ...state(), hasMore: true, nextSequence: 3, events: [request("q0", "pending")] },
+      {
+        ...state({
+          idle: true,
+          latestRun: { runId: "run:2", status: "interrupted" },
+          pendingRequests: [{ threadId: "child", requestId: "q1", kind: "user_input" }],
+        }),
+        // A question that opened and expired between polls is still reported.
+        events: [request("q0", "expired"), request("q2", "pending"), request("q2", "resolved")],
+      },
     ];
     // The last page repeats: a finished thread is read twice before it counts as stopped.
     const t3 = server({ t3_thread_events: () => (pages.length > 1 ? pages.shift() : pages[0]) });
@@ -104,6 +115,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       cursor: 7,
       historyGap: false,
       attention: [{ requestId: "q1", kind: "question", threadId: "child" }],
+      missedAttention: [{ requestId: "q0", kind: "question" }],
     });
     expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7]);
     expect(t3.calls[0]!.args.retain).toEqual({ key: "hold" });

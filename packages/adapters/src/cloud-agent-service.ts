@@ -239,8 +239,16 @@ export async function trackDirectCloudAgent(
           })
         : null;
       const running = existing.status === "running";
-      // Running work keeps waking the chat that already follows it.
-      if (running && card) return { agent: existing };
+      if (running && card) {
+        // Running work keeps waking the chat that already follows it. The version still moves,
+        // so a poll that read the thread before this message cannot commit it as finished.
+        const fenced = await tx.cloudAgent.updateMany({
+          where: { id: existing.id, version: existing.version },
+          data: { version: { increment: 1 }, nextPollAt: new Date() },
+        });
+        if (!fenced.count) continue;
+        return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
+      }
       const moved = card?.threadId !== run.threadId;
       const updated = await tx.cloudAgent.updateMany({
         where: { id: existing.id, version: existing.version },

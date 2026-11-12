@@ -36,6 +36,8 @@ class ScriptedProvider implements CloudAgentProvider {
     }
   >();
   launches = 0;
+  /** Holds a read after it is taken, as a slow poll would, until the test lets it return. */
+  stall?: Promise<void>;
   describe() {
     return {
       id: "scripted",
@@ -55,12 +57,13 @@ class ScriptedProvider implements CloudAgentProvider {
     const { missed = [], ...agent } = this.agents.get(id)!;
     // Closed blockers are events: each is reported once, from the cursor that saw it.
     delete this.agents.get(id)!.missed;
+    const read = { ...agent, attention: [...agent.attention] };
+    await this.stall;
     return {
       id,
       url: "",
       title: "",
-      ...agent,
-      attention: [...agent.attention],
+      ...read,
       missedAttention: missed,
     };
   }
@@ -367,6 +370,55 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       `cloud-agent-wake-run:${id}:1`,
     ]);
     expect(t.provider.launches).toBe(0);
+  });
+
+  it("wakes once per continuation, even one sent while a poll is reading", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:sent", { status: "running", attention: [], cursor: 0 });
+    const remote = t.provider.agents.get("remote:sent")!;
+    const send = () =>
+      runAsSystem("agent run tool call", () =>
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+          remoteId: "remote:sent",
+          title: "Existing thread",
+        }),
+      );
+    await send();
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    // The poll reads the first run finished; the next message lands before it commits.
+    remote.status = "finished";
+    let release!: () => void;
+    t.provider.stall = new Promise((resolve) => {
+      release = resolve;
+    });
+    const stale = t.poll(id);
+    await vi.waitFor(() => expect(remote.cursor).toBe(1));
+    remote.status = "running";
+    await send();
+    release();
+    await stale;
+    t.provider.stall = undefined;
+    expect(await t.state(id)).toMatchObject({ status: "running", generation: 0 });
+    expect(await t.wakes()).toHaveLength(0);
+    await t.poll(id);
+    remote.status = "finished";
+    await t.poll(id);
+    // Messaged again once finished: the next piece wakes once more, and replays add nothing.
+    await send();
+    remote.status = "running";
+    await t.poll(id);
+    remote.status = "finished";
+    await t.poll(id);
+    await t.poll(id);
+    await t.reconcile();
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-wake-run:${id}:0`,
+      `cloud-agent-wake-run:${id}:1`,
+    ]);
+    expect(await t.state(id)).toMatchObject({ status: "finished", nextPollAt: null });
   });
 
   it("starts a launched thread on the named model and modes, and wakes the bot when it ends", async () => {

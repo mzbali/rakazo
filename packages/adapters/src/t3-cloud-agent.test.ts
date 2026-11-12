@@ -298,7 +298,25 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old", message: "Go on" }, {}),
     ).toEqual({ remoteId: "t-old", title: "Go on" });
-    // A failed call, another server or a read starts nothing.
+    // Every way of sending is followed; the bot's arguments reach T3 untouched.
+    for (const extra of [{ mode: "steer" }, { mode: "restart" }, { freshContext: true }])
+      expect(
+        t3DirectThread(
+          "t3",
+          "mcp__t3__t3_thread_send",
+          { threadId: "t-old", message: "Go on", ...extra },
+          {},
+        ),
+      ).toEqual({ remoteId: "t-old", title: "Go on" });
+    // A failed call, another server, a read or a compaction starts no work.
+    expect(
+      t3DirectThread(
+        "t3",
+        "mcp__t3__t3_thread_send",
+        { threadId: "t-old", message: " /compact" },
+        {},
+      ),
+    ).toBeUndefined();
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old" }, { isError: true }),
     ).toBeUndefined();

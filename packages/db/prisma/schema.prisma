@@ -1383,7 +1383,7 @@ model CloudAgent {
   wakeAttempts        Int      @default(0)
   createdAt           DateTime @default(now())
 
-  @@unique([spaceId, botId, requestKey])
+  @@unique([spaceId, userId, botId, requestKey])
   @@index([providerKey, nextPollAt])
   @@index([botId, queuedAt])
   @@index([spaceId, userId, id])

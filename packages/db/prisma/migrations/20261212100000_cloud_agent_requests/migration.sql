@@ -13,6 +13,6 @@ ALTER TABLE "cloud_agents"
   ADD COLUMN "verdictSummary" TEXT,
   ADD COLUMN "wakeAttempts" INTEGER NOT NULL DEFAULT 0;
 
-CREATE UNIQUE INDEX "cloud_agents_spaceId_botId_requestKey_key"
-  ON "cloud_agents"("spaceId", "botId", "requestKey");
+CREATE UNIQUE INDEX "cloud_agents_spaceId_userId_botId_requestKey_key"
+  ON "cloud_agents"("spaceId", "userId", "botId", "requestKey");
 CREATE INDEX "cloud_agents_botId_queuedAt_idx" ON "cloud_agents"("botId", "queuedAt");

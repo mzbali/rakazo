@@ -81,9 +81,13 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       t3_thread_list: () => ({
         threads: [{ threadId: "thread:1", title: "Fix it · abcdef123456" }],
       }),
-      t3_thread_events: () => state(),
+      t3_thread_events: () =>
+        state({ idle: true, latestRun: { runId: "run:1", status: "completed" } }),
     });
-    await retried.provider.launch({ idempotencyKey: "abcdef123456", prompt: "Fix it" }, context);
+    // Already finished, it still reads as running until a poll has read its events.
+    expect(
+      await retried.provider.launch({ idempotencyKey: "abcdef123456", prompt: "Fix it" }, context),
+    ).toMatchObject({ id: "thread:1", status: "running" });
     expect(retried.calls.map((call) => call.tool)).not.toContain("t3_thread_launch");
   });
 

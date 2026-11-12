@@ -124,7 +124,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ),
     );
     const found = listed.threads.find((thread) => thread.title.endsWith(`· ${tag}`));
-    if (found) return this.peek(found.threadId, context);
+    if (found) return this.handle(found.threadId, context);
     const project = request.repository
       ? await this.projectFor(request.repository, context)
       : undefined;
@@ -271,6 +271,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return snapshot;
   }
 
+  /**
+   * The current state for a launch or answer. Running until a cursor read has seen the events a
+   * peek skips, which may hold a question that closed and still owes a wake.
+   */
+  private async handle(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
+    return { ...(await this.peek(id, context)), status: "running" };
+  }
+
   async reply(
     id: string,
     request: CloudAgentReplyRequest,
@@ -302,9 +310,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
         const snapshot = await this.peek(id, context);
         if (snapshot.attention?.some((item) => item.requestId === request.questionId)) throw error;
-        return snapshot;
+        return { ...snapshot, status: "running" };
       }
-      return this.peek(id, context);
+      return this.handle(id, context);
     }
     const sent = sendSchema.parse(
       await this.call(

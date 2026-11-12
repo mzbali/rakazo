@@ -211,7 +211,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       if (!page.hasMore) break;
     }
     let { state } = page!;
-    if (state.idle && state.latestRun) {
+    // Unread events may hold a question that closed, so the thread is not finished until they are read.
+    const drained = !page!.hasMore;
+    if (drained && state.idle && state.latestRun) {
       // T3 can end a run and queue its continuation (a restart, a delegated result) in separate
       // writes; only a second idle read of the same run says the thread really stopped.
       await new Promise((resolve) => setTimeout(resolve, IDLE_CONFIRM_MS));
@@ -234,7 +236,8 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           (request.status === "expired" || request.status === "cancelled"),
       )
       .map(([requestId, request]) => attentionOf(requestId, request.kind));
-    const status: CloudAgentStatus = !state.idle || !run ? "running" : terminalStatus(run.status);
+    const status: CloudAgentStatus =
+      !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
     return {
       id,
       url: state.link,

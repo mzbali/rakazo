@@ -119,6 +119,17 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     });
     expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7]);
     expect(t3.calls[0]!.args.retain).toEqual({ key: "hold" });
+
+    // A finished thread with more events than one poll reads stays running until they are read.
+    const backlog = server({
+      t3_thread_events: () => ({
+        ...state({ idle: true, latestRun: { runId: "run:2", status: "completed" } }),
+        hasMore: true,
+      }),
+    });
+    expect(await backlog.provider.get("thread:1", context, undefined, 1)).toMatchObject({
+      status: "running",
+    });
   });
 
   it("answers a subagent's question in its own thread, and accepts one already answered", async () => {

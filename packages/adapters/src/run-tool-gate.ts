@@ -23,6 +23,7 @@ import {
   repeatsDeniedAction,
   resolveActionApprovalForTools,
   SITE_SENDING_TOOLS,
+  toolGuardedInNeverAsk,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
   unattendedTriggerToolRequiresApproval,
@@ -310,8 +311,8 @@ export async function gateToolCall(
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
     (commandWatch || scheduleNamesNewSite) && !toolRequiresApproval(name, viaConnector);
-  // Never ask runs everything else: only another owner's connection could have been steered into it.
-  const guardedInNeverAsk = name === "respond_agent_connection";
+  // Never ask runs everything else (see toolGuardedInNeverAsk).
+  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,

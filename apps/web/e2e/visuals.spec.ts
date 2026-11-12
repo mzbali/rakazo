@@ -40,7 +40,9 @@ test("a bot's visual draws inside the chat, only draws there, and opens whole", 
 
   const card = page.getByTestId("visual-card");
   await expect(card).toHaveCount(1, { timeout: 30_000 });
-  await expect(page.getByText("That is the whole loop.")).toBeVisible();
+  await expect(
+    page.getByTestId("message-bot-bubble").getByText("That is the whole loop."),
+  ).toBeVisible();
   // Drawn in the chat, sized to its content.
   await expect(visualFrame(card, title).getByText("Bot reply")).toBeAttached();
   await expect

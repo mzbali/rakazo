@@ -62,6 +62,15 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentLaunchRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
+    // Dropping these silently would start different work than agreed.
+    if (
+      request.modelSelection ||
+      request.projectId ||
+      request.workspaceStrategy ||
+      request.runtimeMode ||
+      request.interactionMode
+    )
+      throw new CloudAgentRequestRejected("invalid");
     // Cursor's client-supplied id makes create replay safe after a lost response.
     const id = cursorAgentId(request.idempotencyKey);
     const response = await this.request(

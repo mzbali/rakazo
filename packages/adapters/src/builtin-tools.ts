@@ -892,6 +892,51 @@ export const builtinAgentTools: ConnectorTool[] = [
           description: "Optional images (data+mimeType or url).",
           items: { type: "object" },
         },
+        modelSelection: {
+          type: "object",
+          description:
+            "Model the agent starts on, by the provider's own ids; omit for its default.",
+          properties: {
+            model: { type: "string" },
+            provider: { type: "string" },
+            instanceId: { type: "string" },
+            options: {
+              type: "array",
+              description: "For example [{ id: 'effort', value: 'high' }].",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  value: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] },
+                },
+                required: ["id", "value"],
+              },
+            },
+          },
+          required: ["model"],
+        },
+        projectId: {
+          type: "string",
+          description: "The provider's project id; omit to find it from repository.",
+        },
+        workspaceStrategy: {
+          type: "object",
+          description:
+            "root: the project checkout. worktree: a new checkout from baseRef (default). existing_worktree: worktreePath.",
+          properties: {
+            type: { type: "string", enum: ["root", "worktree", "existing_worktree"] },
+            baseRef: { type: "string" },
+            branch: { type: "string" },
+            startFromOrigin: { type: "boolean" },
+            worktreePath: { type: "string" },
+          },
+          required: ["type"],
+        },
+        runtimeMode: {
+          type: "string",
+          enum: ["approval-required", "auto-accept-edits", "auto", "full-access"],
+        },
+        interactionMode: { type: "string", enum: ["default", "plan"] },
         requestKey: {
           type: "string",
           description:

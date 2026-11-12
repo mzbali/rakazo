@@ -20,6 +20,7 @@ const image = z.union([
     })
     .strict(),
 ]);
+const id = z.string().trim().min(1).max(200);
 export const cloudAgentPromptSchema = z
   .object({
     prompt: z.string().trim().min(1).max(100_000),
@@ -33,6 +34,43 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .refine((value) => Boolean(cloudAgentHttpsUrl(value)))
     .optional(),
   openPr: z.boolean().optional(),
+  /** How the agent starts; each one left out keeps the provider's default. */
+  modelSelection: z
+    .object({
+      model: id,
+      provider: id.optional(),
+      instanceId: id.optional(),
+      options: z
+        .array(
+          z.object({ id, value: z.union([z.string().max(200), z.number(), z.boolean()]) }).strict(),
+        )
+        .max(20)
+        .optional(),
+    })
+    .strict()
+    .optional(),
+  projectId: id.optional(),
+  workspaceStrategy: z
+    .discriminatedUnion("type", [
+      z.object({ type: z.literal("root") }).strict(),
+      z
+        .object({
+          type: z.literal("worktree"),
+          baseRef: id.optional(),
+          branch: id.optional(),
+          startFromOrigin: z.boolean().optional(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal("existing_worktree"),
+          worktreePath: z.string().trim().min(1).max(1_000),
+        })
+        .strict(),
+    ])
+    .optional(),
+  runtimeMode: z.enum(["approval-required", "auto-accept-edits", "auto", "full-access"]).optional(),
+  interactionMode: z.enum(["default", "plan"]).optional(),
   /** The bot's own name for one agreed request; launching it again returns the same agent. */
   requestKey: z.string().trim().min(1).max(120).optional(),
   /** What the owner agreed to, in their words, and how the result will be judged. */

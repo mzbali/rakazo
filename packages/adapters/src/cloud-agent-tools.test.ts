@@ -25,10 +25,28 @@ describe("cloud agent tool boundary", () => {
       { prompt: "Task", openPr: "false" },
       { prompt: "Task", images: [{ url: "http://example.test/image.png" }] },
       { prompt: "Task", images: [{ url: "https://user:password@example.test/image.png" }] },
+      { prompt: "Task", modelSelection: { instanceId: "codex" } },
+      { prompt: "Task", modelSelection: { model: "m", options: [{ id: "x", value: {} }] } },
+      { prompt: "Task", workspaceStrategy: { type: "existing_worktree" } },
+      { prompt: "Task", runtimeMode: "anything" },
     ]) {
       expect(validCloudAgentArgs("cloud_agent_launch", args)).toBe(false);
     }
     expect(validCloudAgentArgs("cloud_agent_launch", { prompt: "Task", openPr: false })).toBe(true);
+    expect(
+      validCloudAgentArgs("cloud_agent_launch", {
+        prompt: "Task",
+        modelSelection: {
+          model: "m",
+          instanceId: "codex",
+          options: [{ id: "effort", value: "high" }],
+        },
+        projectId: "project",
+        workspaceStrategy: { type: "worktree", baseRef: "origin/main", startFromOrigin: true },
+        runtimeMode: "full-access",
+        interactionMode: "plan",
+      }),
+    ).toBe(true);
     expect(validCloudAgentArgs("cloud_agent_reply", { id: "agent", prompt: "Tests" })).toBe(true);
     expect(validCloudAgentArgs("cloud_agent_cancel", { id: "" })).toBe(false);
   });

@@ -733,7 +733,7 @@ export const builtinAgentTools: ConnectorTool[] = [
         summary: {
           type: "string",
           description:
-            "One or two plain sentences with the visual's point and key figures, shown wherever it cannot be drawn.",
+            "One or two plain sentences (up to 500 characters) with the visual's point and key figures, shown wherever it cannot be drawn.",
         },
         source: { type: "string", description: "The visual as JSX." },
       },

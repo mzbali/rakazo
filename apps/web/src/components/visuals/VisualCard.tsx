@@ -23,13 +23,15 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const box = useRef<HTMLDivElement>(null);
   const live = useLiveNearView(box);
-  const viewer = usePageDocument(block.code, "card", false, 0, true);
+  const viewer = usePageDocument(block.code, "card", false, 0, "card");
+  const [open, setOpen] = useState(false);
+  // Built only once opened: each document carries the whole page runtime.
+  const opened = usePageDocument(open ? block.code : undefined, "card", false, 0, "full");
   const summaryId = useId();
   // The last height the visual reported; kept while it is out of the live set, so the chat
   // does not jump when it scrolls back and draws again.
   const [height, setHeight] = useState<number | null>(null);
   const [drawn, setDrawn] = useState(false);
-  const [open, setOpen] = useState(false);
   const onHeight = useCallback((next: number) => {
     if (next <= 0) return;
     setHeight(next);
@@ -53,7 +55,8 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           style={{ height: shown }}
         >
           {live && viewer.document !== null ? (
-            <div inert className="absolute inset-x-0 top-0" style={{ height: height ?? shown }}>
+            // Never taller than the card shows: the reported height is the content's, not the frame's.
+            <div inert className="absolute inset-x-0 top-0" style={{ height: shown }}>
               <PageFrame document={viewer.document} title={block.title} onHeight={onHeight} />
             </div>
           ) : null}
@@ -102,8 +105,8 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             </DialogClose>
           </header>
           <div className="min-h-0 flex-1">
-            {viewer.document !== null ? (
-              <PageFrame document={viewer.document} title={block.title} interactive />
+            {opened.document !== null ? (
+              <PageFrame document={opened.document} title={block.title} interactive />
             ) : (
               <p className="p-5 text-body text-muted-foreground">{block.text}</p>
             )}

@@ -10,7 +10,8 @@ import { textMobileArtifact } from "../../lib/artifact-open";
 import { offerComposerText } from "../../lib/composer-offer";
 import { useUiLocale } from "../../lib/i18n";
 import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
-import { pageActionAllowed, pageMessage, pageTapStart } from "../../lib/pages";
+import { usePageTapGate } from "../../lib/page-tap-gate";
+import { pageMessage } from "../../lib/pages";
 import { SandboxedHtmlPreview } from "../sandboxed-html-preview";
 
 type AppBlock = Extract<MessageBlock, { kind: "app" }>;
@@ -43,8 +44,7 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: MobileA
   const [failed, setFailed] = useState(false);
   const [started, setStarted] = useState(false);
   const [height, setHeight] = useState(0);
-  const tapStart = useRef<ReturnType<typeof pageTapStart>>(null);
-  const tappedAt = useRef<number | null>(null);
+  const gate = usePageTapGate();
   const answer = useRef<((message: object) => void) | null>(null);
   const threadKey = "botId" in target ? target.botId : target.groupId;
 
@@ -94,8 +94,8 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: MobileA
         send: (message) => answer.current?.({ type: "rakazo-app:host", message }),
         // One tap, one action.
         allowAction: () => {
-          if (!pageActionAllowed(tappedAt.current, Date.now())) return false;
-          tappedAt.current = null;
+          if (!gate.allowed()) return false;
+          gate.consume();
           return true;
         },
         openLink,
@@ -122,19 +122,7 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: MobileA
           { height: started && height ? height : MIN_HEIGHT * 2 },
           bordered && { borderColor: tokens.border, backgroundColor: tokens.card, borderWidth: 1 },
         ]}
-        onTouchStart={({ nativeEvent }) => {
-          const { pageX, pageY, touches } = nativeEvent;
-          tapStart.current = touches.length === 1 ? { pageX, pageY } : null;
-        }}
-        onTouchMove={({ nativeEvent }) => {
-          tapStart.current = pageTapStart(tapStart.current, nativeEvent);
-        }}
-        onTouchEnd={({ nativeEvent }) => {
-          if (pageTapStart(tapStart.current, nativeEvent)) tappedAt.current = Date.now();
-        }}
-        onTouchCancel={() => {
-          tapStart.current = null;
-        }}
+        {...gate.touch}
       >
         {shell ? (
           <SandboxedHtmlPreview

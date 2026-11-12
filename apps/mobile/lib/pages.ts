@@ -255,8 +255,8 @@ export async function pageDocument(
   errorTitle: string,
   options: {
     reply?: boolean;
-    /** A visual drawn inside a chat message, on the given surface colour. */
-    inline?: boolean;
+    /** A visual rather than a page, drawn in a chat card or opened whole, on `surface`. */
+    inline?: "card" | "full";
     surface?: string;
   } = {},
 ): Promise<string> {

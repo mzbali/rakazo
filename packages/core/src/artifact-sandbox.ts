@@ -45,8 +45,11 @@ export function pageViewerDocument(input: {
   bottomInset?: number;
   /** The reader's app language, for the kit's own words when the page does not set `lang`. */
   lang?: string;
-  /** A visual drawn inside a chat message: no page margins, sized to its content. */
-  inline?: boolean;
+  /**
+   * A visual rather than a page: no page margins. `card` draws it in a chat message, fitted to the
+   * card's width; `full` opens it whole.
+   */
+  inline?: "card" | "full";
 }): string {
   const boot = JSON.stringify({
     code: input.code,
@@ -59,7 +62,7 @@ export function pageViewerDocument(input: {
       ? `<style>:root{--rk-bottom-inset:${Math.round(input.bottomInset)}px}</style>`
       : "";
   return [
-    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.inline ? " data-inline" : ""}><head><meta charset="utf-8">`,
+    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.inline === "card" || input.inline === "full" ? ` data-inline="${input.inline}"` : ""}><head><meta charset="utf-8">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<script>${input.runtime}</script>`,
     input.surface !== undefined && HEX_COLOR.test(input.surface)

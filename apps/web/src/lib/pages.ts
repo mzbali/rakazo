@@ -70,8 +70,8 @@ export function usePageDocument(
   reply = false,
   /** Pixels a composer docked over the page's bottom covers. */
   bottomInset = 0,
-  /** A visual drawn inside a chat message rather than a page. */
-  inline = false,
+  /** A visual rather than a page, drawn in a chat card or opened whole. */
+  inline?: "card" | "full",
 ): { document: string | null; failed: boolean; retry: () => void } {
   const { t, i18n } = useLingui();
   const theme = useAppTheme();

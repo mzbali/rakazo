@@ -54,9 +54,9 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
     };
   }
   const block: MessageBlock = { kind: "visual", title: title.data, text: summary, code };
-  // A background run's chat messages are not shown, so there is nowhere to draw it.
+  // A background run posts nothing to the chat, and a cancelled run's message does not commit.
   if (!(await publishMessage(ctx.deps, ctx.run, "bot", [block]))) {
-    return { error: "This run has no chat to show a visual in; nothing was shown." };
+    return { error: "The visual was not posted to the chat; nothing was shown." };
   }
   return {
     shown: true,

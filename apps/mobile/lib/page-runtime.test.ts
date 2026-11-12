@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadPageRuntime } from "./page-runtime";
+import { loadPageRuntime, PAGE_RUNTIME_TIMEOUT_MS } from "./page-runtime";
 
 describe("loadPageRuntime", () => {
   it("shares one fetch per server at a time and retries after a failed fetch", async () => {
@@ -38,5 +38,25 @@ describe("loadPageRuntime", () => {
       { "if-none-match": '"v1"' },
       { "if-none-match": '"v1"' },
     ]);
+  });
+
+  it("fails a request that never answers, and asks again next time", async () => {
+    vi.useFakeTimers();
+    const base = "https://stall.example.test";
+    let signal: AbortSignal | undefined;
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementationOnce((_, init) => {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>(() => {});
+      })
+      .mockResolvedValueOnce(new Response("kit"));
+    const stalled = loadPageRuntime(base, fetcher);
+    const failed = expect(stalled).rejects.toThrow("timed out");
+    await vi.advanceTimersByTimeAsync(PAGE_RUNTIME_TIMEOUT_MS);
+    await failed;
+    expect(signal?.aborted).toBe(true);
+    vi.useRealTimers();
+    await expect(loadPageRuntime(base, fetcher)).resolves.toBe("kit");
   });
 });

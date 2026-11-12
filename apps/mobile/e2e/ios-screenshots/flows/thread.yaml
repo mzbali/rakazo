@@ -102,6 +102,10 @@ name: Thread
 - extendedWaitUntil:
     visible: "Close"
     timeout: 10000
+# The sheet shows the summary until its full-size document draws.
+- extendedWaitUntil:
+    notVisible: ".*general availability after the review.*"
+    timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 09-visual-open

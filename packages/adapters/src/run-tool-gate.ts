@@ -303,16 +303,6 @@ export async function gateToolCall(
       ));
   // A gated read still fails closed when its review errors, and keeps its approval key.
   const gated = requiresApprovalByDefault || connectorReadGated;
-  // Guarded tools follow the owner's rules only in a run the owner started that nothing outside
-  // entered; anywhere else they ask, and Never ask refuses them (see toolGuardedInNeverAsk).
-  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
-  const steered = guardedInNeverAsk
-    ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
-    : false;
-  // These ask in every run, whatever started it.
-  const mandatoryInAnyRun =
-    paying || commandWatch || scheduleNamesNewSite || toolRequiresExplicitApproval(name) || steered;
-  const requiresMandatoryApproval = mandatoryInAnyRun || requiresUnattendedApproval;
   // No allow rule skips these, and without them the tool needs no approval, so "Always allow"
   // on their card would save a rule that never takes effect.
   const asksEveryTime =
@@ -335,6 +325,19 @@ export async function gateToolCall(
     unidentifiedAction && resolvedRules.decision === "allow"
       ? { ...resolvedRules, decision: "ask" as const }
       : resolvedRules;
+  // Guarded tools ask when the owner did not start the run, or outside content entered it,
+  // and Never ask refuses them (see toolGuardedInNeverAsk). A saved Allow for the tool is
+  // applied first: it matches the tool name, not the arguments, so a wake or a run that
+  // already read something does not post another card.
+  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
+  const steered =
+    guardedInNeverAsk && approvalResolved.source !== "always_allow"
+      ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
+      : false;
+  // These ask in every run, whatever started it.
+  const mandatoryInAnyRun =
+    paying || commandWatch || scheduleNamesNewSite || toolRequiresExplicitApproval(name) || steered;
+  const requiresMandatoryApproval = mandatoryInAnyRun || requiresUnattendedApproval;
   const mode = approvalModeFromPreference(await ctx.trust.loadAutoReviewPreference());
   const reviewable = mode === "auto" && !requiresMandatoryApproval;
   const injectedReview = reviewable ? deps.autoReview : undefined;

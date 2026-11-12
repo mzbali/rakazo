@@ -202,23 +202,32 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
     if (request.questionId) {
-      const { questions } = questionSchema.parse(
+      const threadId = request.questionThreadId ?? id;
+      try {
+        const { questions } = questionSchema.parse(
+          await this.call(
+            "t3_pending_request",
+            { action: "read", threadId, requestId: request.questionId },
+            context,
+          ),
+        );
         await this.call(
           "t3_pending_request",
-          { action: "read", threadId: id, requestId: request.questionId },
+          {
+            action: "respond",
+            threadId,
+            requestId: request.questionId,
+            answers: Object.fromEntries(questions.map((question) => [question.id, request.prompt])),
+          },
           context,
-        ),
-      );
-      await this.call(
-        "t3_pending_request",
-        {
-          action: "respond",
-          threadId: id,
-          requestId: request.questionId,
-          answers: Object.fromEntries(questions.map((question) => [question.id, request.prompt])),
-        },
-        context,
-      );
+        );
+      } catch (error) {
+        // An answer accepted before a lost response leaves nothing to answer; that is success.
+        if (!(error instanceof CloudAgentRequestRejected)) throw error;
+        const snapshot = await this.get(id, context);
+        if (snapshot.attention?.some((item) => item.requestId === request.questionId)) throw error;
+        return snapshot;
+      }
       return this.get(id, context);
     }
     const sent = sendSchema.parse(

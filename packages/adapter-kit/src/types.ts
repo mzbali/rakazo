@@ -1408,6 +1408,8 @@ export interface CloudAgentReplyRequest {
   images?: CloudAgentImage[];
   /** Answer this open question instead of sending a follow-up. */
   questionId?: string;
+  /** The provider thread that asked it, when not the agent's own (a subagent). */
+  questionThreadId?: string;
   /** Repeated replies with this key must resolve to the same remote message. */
   idempotencyKey?: string;
   signal?: AbortSignal;

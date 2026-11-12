@@ -36,8 +36,13 @@ export async function pollCloudAgent(
   const stored = await deps.prisma.cloudAgent.findFirst({
     where: { id: payload.agentId, providerKey: connection.key },
   });
-  // A queued request waits for a slot (promoteQueuedCloudAgent), so it is never launched early.
-  if (!stored?.nextPollAt || stored.queuedAt || !cloudAgentsEnabled(connection, stored.spaceId))
+  // A queued request waits for a slot (promoteQueuedCloudAgent), so it is never launched early;
+  // cancelling one goes ahead, since a never-launched request is cancelled locally below.
+  if (
+    !stored?.nextPollAt ||
+    (stored.queuedAt && !stored.cancelRequested) ||
+    !cloudAgentsEnabled(connection, stored.spaceId)
+  )
     return;
   const token = randomUUID();
   const claimed = await deps.prisma.cloudAgent.updateMany({
@@ -159,7 +164,12 @@ export async function pollCloudAgent(
       if (dispatchedAt) {
         // Follow-ups have no idempotency key: resend only once the run list has settled.
         const snapshot = await provider.get(agent.remoteId, context);
-        if (snapshot.latestRunId === agent.latestRunId) {
+        // An answer keeps its run; the question leaving the open list says it was accepted.
+        const question = openQuestion(agent);
+        const answered =
+          question !== undefined &&
+          !snapshot.attention?.some((item) => item.requestId === question.requestId);
+        if (!answered && snapshot.latestRunId === agent.latestRunId) {
           await retryPoll(deps, agent, undefined, unsent ? { followupDispatchedAt: null } : {});
           return;
         }
@@ -175,18 +185,20 @@ export async function pollCloudAgent(
         });
         if (!marked.count) return;
         try {
-          const questionId = openQuestion(agent);
+          const question = openQuestion(agent);
           const snapshot = await provider.reply(
             agent.remoteId,
             {
               ...cloudAgentPromptSchema.parse(agent.followup),
-              ...(questionId ? { questionId } : {}),
+              ...(question
+                ? { questionId: question.requestId, questionThreadId: question.threadId }
+                : {}),
               idempotencyKey: `${agent.id}:${agent.generation}`,
             },
             context,
           );
           // An answer continues the current run; only a follow-up must start a new one.
-          if (!questionId && (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId))
+          if (!question && (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId))
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
             ...snapshotData(snapshot),
@@ -346,6 +358,8 @@ async function finishPoll(
         ...data,
         cancelRequested,
         nextPollAt,
+        // A queued request cancelled before it started ends here, off the queue.
+        ...(terminal ? { queuedAt: null } : {}),
         errorCount: 0,
         leaseToken: null,
         leaseExpiresAt: null,

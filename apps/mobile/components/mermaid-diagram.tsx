@@ -75,7 +75,9 @@ export function MermaidDiagram({ source, palette, colorScheme, fallback }: Merma
         accessibilityLabel={t`Diagram`}
       >
         <WebView
-          key={page}
+          // Mount the visible view at its measured height, instead of revealing the
+          // one-point measuring view whose native backing layer may remain unpainted.
+          key={`${page}:${drawn ? "shown" : "measure"}`}
           source={{ html, baseUrl: "about:blank" }}
           injectedJavaScript={boot}
           onMessage={(event) => {

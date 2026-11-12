@@ -15,7 +15,7 @@ import {
 
 type DiagramState =
   | { status: "drawing" }
-  | { status: "drawn"; height: number }
+  | { status: "measured" | "drawn"; height: number }
   | { status: "failed" };
 
 function isDiagramDocument(url: string): boolean {
@@ -57,13 +57,16 @@ export function MermaidDiagram({ source, palette, colorScheme, fallback }: Merma
   }, [page]);
 
   if (diagram.status === "failed") return fallback;
-  const drawn = diagram.status === "drawn";
+  const drawn = diagram.status !== "drawing";
+  const ready = diagram.status === "drawn";
   const fail = () => setState({ page, diagram: { status: "failed" } });
 
   return (
     <View style={styles.wrap}>
-      {drawn ? null : fallback}
+      {ready ? null : fallback}
       <View
+        // Replace the hidden native container too, so its opacity and layout cannot persist.
+        key={`${page}:${drawn ? "shown" : "measure"}`}
         style={
           drawn
             ? [styles.card, { backgroundColor: palette.background, borderColor: palette.border }]
@@ -75,20 +78,23 @@ export function MermaidDiagram({ source, palette, colorScheme, fallback }: Merma
         accessibilityLabel={t`Diagram`}
       >
         <WebView
-          // Mount the visible view at its measured height, instead of revealing the
-          // one-point measuring view whose native backing layer may remain unpainted.
-          key={`${page}:${drawn ? "shown" : "measure"}`}
           source={{ html, baseUrl: "about:blank" }}
           injectedJavaScript={boot}
           onMessage={(event) => {
             const message = parseDiagramMessage(event.nativeEvent.data);
             if (!message) return;
-            setState({
-              page,
-              diagram:
-                message.type === "drawn"
-                  ? { status: "drawn", height: message.height }
-                  : { status: "failed" },
+            setState((current) => {
+              // Ignore queued reports from the measuring view after its replacement mounts.
+              if (!drawn && current.page === page && current.diagram.status !== "drawing") {
+                return current;
+              }
+              return {
+                page,
+                diagram:
+                  message.type === "drawn"
+                    ? { status: drawn ? "drawn" : "measured", height: message.height }
+                    : { status: "failed" },
+              };
             });
           }}
           onError={fail}

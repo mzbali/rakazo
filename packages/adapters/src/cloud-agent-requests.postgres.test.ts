@@ -16,6 +16,7 @@ import {
   executeCloudAgentTool,
   reconcileCloudAgents,
   reportCloudAgent,
+  trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
 
 const describePostgres =
@@ -291,6 +292,40 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       `cloud-agent-wake-run:${id}:0:r1`,
     );
     expect(await t.wakes()).toHaveLength(7);
+  });
+
+  it("wakes for work the bot started or messaged with the provider's own tools", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:direct", { status: "running", attention: [], cursor: 0 });
+    const remote = t.provider.agents.get("remote:direct")!;
+    const track = () =>
+      runAsSystem("agent run tool call", () =>
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+          remoteId: "remote:direct",
+          title: "Owner's thread",
+        }),
+      );
+    await track();
+    // Another message while it runs is the same piece of work.
+    await track();
+    const rows = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    expect(rows).toHaveLength(1);
+    const id = rows[0]!.id;
+    remote.status = "finished";
+    await t.poll(id);
+    // Messaging it after it finished starts its next piece, which wakes the bot again.
+    remote.status = "running";
+    await track();
+    await t.poll(id);
+    remote.status = "finished";
+    await t.poll(id);
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-wake-run:${id}:0`,
+      `cloud-agent-wake-run:${id}:1`,
+    ]);
+    expect(t.provider.launches).toBe(0);
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

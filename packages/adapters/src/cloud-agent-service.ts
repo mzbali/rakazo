@@ -62,7 +62,7 @@ export async function executeCloudAgentTool(
   let agent: CloudAgent;
   if (name === "cloud_agent_launch") {
     const request = cloudAgentLaunchSchema.parse(args);
-    const result = await deps.prisma.$transaction(async (tx) => {
+    const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
       // Serialize with clearThread before creating either the intent or its card.
       await tx.thread.update({
         where: { id: run.threadId, spaceId: context.spaceId },
@@ -115,33 +115,7 @@ export async function executeCloudAgentTool(
           ...(queued ? { queuedAt: new Date(), nextPollAt: null } : {}),
         },
       });
-      const blocks = [cloudAgentBlock(created)];
-      const message = await createThreadMessageInTransaction(tx, {
-        threadId: run.threadId,
-        botId: context.botId,
-        runId: run.id,
-        role: "bot",
-        blocks,
-        lease: runLeaseFor(deps, run.id),
-      });
-      const saved = await tx.cloudAgent.update({
-        where: { id: created.id },
-        data: { messageId: message.id },
-      });
-      const event = await appendEventInTransaction(tx, {
-        spaceId: context.spaceId,
-        threadId: run.threadId,
-        botId: context.botId,
-        runId: run.id,
-        lease: runLeaseFor(deps, run.id),
-        type: "thread.message.created",
-        payload: { messageId: message.id, role: "bot", blocks },
-      });
-      return {
-        agent: saved,
-        seq: event.seq,
-        firstResponseRunId: event.firstResponse ? run.id : undefined,
-      };
+      return postCloudAgentCard(tx, deps, context, run, created);
     }, THREAD_LOCK_TRANSACTION_OPTIONS);
     agent = result.agent;
     if (result.seq !== undefined)
@@ -204,6 +178,118 @@ export async function executeCloudAgentTool(
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
   return cloudAgentStatusResult(agent);
+}
+
+/**
+ * Tracks remote work the bot started or messaged with the provider's own tools, so its result
+ * wakes the bot as a launch's does. Work the row already follows is left as it is; finished work
+ * the bot messaged again starts its next piece.
+ */
+export async function trackDirectCloudAgent(
+  deps: CloudAgentDeps,
+  context: AdapterContext & { botId: string },
+  run: { id: string; threadId: string },
+  direct: { remoteId: string; title: string },
+) {
+  const connection = deps.cloudAgent;
+  if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) return;
+  const where = {
+    providerKey: connection.key,
+    spaceId: context.spaceId,
+    userId: context.userId,
+    botId: context.botId,
+    remoteId: direct.remoteId,
+  };
+  const existing = await deps.prisma.cloudAgent.findFirst({ where });
+  if (existing?.status === "running") return;
+  let agentId = existing?.id;
+  if (existing) {
+    await deps.prisma.cloudAgent.update({
+      where: { id: existing.id },
+      data: {
+        status: "running",
+        generation: { increment: 1 },
+        wakeAttempts: 0,
+        verdict: null,
+        version: { increment: 1 },
+        nextPollAt: new Date(),
+        errorCount: 0,
+      },
+    });
+  } else {
+    const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
+      // Serialize with clearThread before creating either the row or its card.
+      await tx.thread.update({
+        where: { id: run.threadId, spaceId: context.spaceId },
+        data: { nextMessageSeq: { increment: 0 } },
+      });
+      // A replayed call finds the row it made the first time.
+      const replayed = await tx.cloudAgent.findUnique({
+        where: { operationKey: context.operationId },
+      });
+      if (replayed) return { agent: replayed };
+      const created = await tx.cloudAgent.create({
+        data: {
+          ...where,
+          operationKey: context.operationId,
+          threadId: run.threadId,
+          title: direct.title.slice(0, 80),
+          launchRequest: {},
+          launchDispatched: true,
+        },
+      });
+      return postCloudAgentCard(tx, deps, context, run, created);
+    }, THREAD_LOCK_TRANSACTION_OPTIONS);
+    agentId = result.agent.id;
+    if (result.seq !== undefined)
+      await deps.events
+        .notify(run.threadId, result.seq, result.firstResponseRunId)
+        .catch(() => undefined);
+  }
+  if (agentId) await enqueueCloudAgent(deps, agentId);
+}
+
+interface PostedCard {
+  agent: CloudAgent;
+  seq?: number;
+  firstResponseRunId?: string;
+}
+
+/** The agent's card in the chat; a row without one reads as a cleared chat and is cancelled. */
+async function postCloudAgentCard(
+  tx: Tx,
+  deps: CloudAgentDeps,
+  context: AdapterContext & { botId: string },
+  run: { id: string; threadId: string },
+  created: CloudAgent,
+): Promise<PostedCard> {
+  const blocks = [cloudAgentBlock(created)];
+  const message = await createThreadMessageInTransaction(tx, {
+    threadId: run.threadId,
+    botId: context.botId,
+    runId: run.id,
+    role: "bot",
+    blocks,
+    lease: runLeaseFor(deps, run.id),
+  });
+  const saved = await tx.cloudAgent.update({
+    where: { id: created.id },
+    data: { messageId: message.id },
+  });
+  const event = await appendEventInTransaction(tx, {
+    spaceId: context.spaceId,
+    threadId: run.threadId,
+    botId: context.botId,
+    runId: run.id,
+    lease: runLeaseFor(deps, run.id),
+    type: "thread.message.created",
+    payload: { messageId: message.id, role: "bot", blocks },
+  });
+  return {
+    agent: saved,
+    seq: event.seq,
+    firstResponseRunId: event.firstResponse ? run.id : undefined,
+  };
 }
 
 export function cloudAgentStatusResult(agent: CloudAgent) {

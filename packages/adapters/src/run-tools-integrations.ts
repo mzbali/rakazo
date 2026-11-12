@@ -2,7 +2,11 @@ import type { ConnectorApp } from "@rakazo/adapter-kit";
 import { isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
-import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
+import {
+  executeCloudAgentTool,
+  reportCloudAgent,
+  trackDirectCloudAgent,
+} from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
@@ -77,6 +81,20 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
           });
         }
       }
+    }
+    const direct = ctx.providers.cloudAgent?.directThread?.(name, args, result);
+    if (direct) {
+      const scoped = { ...context, operationId: effectKey, botId: bot.id };
+      await trackDirectCloudAgent(
+        { ...deps, cloudAgent: ctx.providers.cloudAgent },
+        scoped,
+        run,
+        direct,
+      ).catch((error) =>
+        getLogger().warn("cloud_agent.direct_track_failed", {
+          error: sanitizeConnectorError(error),
+        }),
+      );
     }
     return call.finish(result);
   }

@@ -4270,12 +4270,19 @@ it("does not blame the webhook on cards every run shows", async () => {
   expect(askDetail(connection)).toBe("Telegram: fake");
 });
 
-it("asks before a launch another bot's message started, even with an allow rule", async () => {
+it("applies a saved Allow for cloud_agent_launch before posting a card", async () => {
   const rules = [
     { effect: "always_allow", matchKind: "tool", matchValue: "cloud_agent_launch" },
   ] as ActionApprovalRule[];
+  // The rule matches the tool name. requestKey, project and runtime mode are not part of it.
+  const args = {
+    prompt: "Trace the quota reset",
+    requestKey: "quota-reset-cliproxy-20261112",
+    projectId: "mcp:9dadece5-4f7b-4a4e-90c0-4dc45011c8d8",
+    runtimeMode: "full-access",
+  };
   const owner = fixture({ name: "cloud_agent_launch", builtin: true, rules });
-  owner.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  owner.setCalls([{ args, executionId: "call-1" }]);
   await owner.run();
   expect(owner.pauseRunForInput).not.toHaveBeenCalled();
 
@@ -4285,7 +4292,22 @@ it("asks before a launch another bot's message started, even with an allow rule"
     rules,
     trigger: "bot_message",
   });
-  relayed.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  relayed.setCalls([{ args, executionId: "call-1" }]);
   await relayed.run();
-  expect(relayed.pauseRunForInput).toHaveBeenCalledOnce();
+  expect(relayed.pauseRunForInput).not.toHaveBeenCalled();
+
+  const tainted = fixture({ name: "cloud_agent_launch", builtin: true, rules });
+  tainted.prisma.attempt.count.mockResolvedValue(2);
+  tainted.setCalls([{ args, executionId: "call-1" }]);
+  await tainted.run();
+  expect(tainted.pauseRunForInput).not.toHaveBeenCalled();
+
+  const unruled = fixture({
+    name: "cloud_agent_launch",
+    builtin: true,
+    trigger: "bot_message",
+  });
+  unruled.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  await unruled.run();
+  expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
 });

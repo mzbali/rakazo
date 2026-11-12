@@ -208,6 +208,8 @@ export function cloudAgentStatusResult(agent: CloudAgent) {
     ...(agent.agreement ? { agreement: agent.agreement } : {}),
     ...(agent.acceptance ? { acceptance: agent.acceptance } : {}),
     ...(agent.originBotId ? { originBotId: agent.originBotId } : {}),
+    // The provider's own id, for reading its questions and result with that provider's tools.
+    ...(agent.remoteId ? { remoteId: agent.remoteId } : {}),
     ...(agent.cancelRequested ? { cancellationPending: true } : {}),
     ...(agent.followupDispatchedAt ? { followupPending: true } : {}),
   };

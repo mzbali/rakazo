@@ -204,6 +204,15 @@ export function toolRequiresExplicitApproval(toolName: string): boolean {
 }
 
 /**
+ * Tools Never ask still refuses in a run the owner did not start, or one outside content entered:
+ * another owner's connection, and starting coding work, which a bot's message or an email must
+ * not be able to agree to on the owner's behalf.
+ */
+export function toolGuardedInNeverAsk(toolName: string): boolean {
+  return toolName === "respond_agent_connection" || toolName === "cloud_agent_launch";
+}
+
+/**
  * A run the owner started: their own message, a follow-up they wrote, or the close of their call.
  * Bot messages, channels, spawns, tickets, webhooks and routines are not, nor is anything new.
  */

@@ -315,10 +315,14 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const id = rows[0]!.id;
     remote.status = "finished";
     await t.poll(id);
-    // Messaging it after it finished starts its next piece, which wakes the bot again.
+    // Messaging it after it finished starts its next piece, which wakes the bot again, even
+    // after its card was cleared: it gets a new one rather than being cancelled as abandoned.
+    await asSystem(prisma).message.delete({ where: { id: rows[0]!.messageId! } });
     remote.status = "running";
     await track();
     await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "running", cancelRequested: false });
+    expect((await t.state(id)).messageId).not.toBe(rows[0]!.messageId);
     remote.status = "finished";
     await t.poll(id);
     expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([

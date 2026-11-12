@@ -85,16 +85,23 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
     const direct = ctx.providers.cloudAgent?.directThread?.(name, args, result);
     if (direct) {
       const scoped = { ...context, operationId: effectKey, botId: bot.id };
-      await trackDirectCloudAgent(
-        { ...deps, cloudAgent: ctx.providers.cloudAgent },
-        scoped,
-        run,
-        direct,
-      ).catch((error) =>
+      try {
+        await trackDirectCloudAgent(
+          { ...deps, cloudAgent: ctx.providers.cloudAgent },
+          scoped,
+          run,
+          direct,
+        );
+      } catch (error) {
         getLogger().warn("cloud_agent.direct_track_failed", {
           error: sanitizeConnectorError(error),
-        }),
-      );
+        });
+        // The remote call happened, so the result stands; the bot learns no wake will follow.
+        return call.finish({
+          result,
+          notice: "This thread is not tracked, so its result will not wake you.",
+        });
+      }
     }
     return call.finish(result);
   }

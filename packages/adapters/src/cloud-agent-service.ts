@@ -183,7 +183,8 @@ export async function executeCloudAgentTool(
 /**
  * Tracks remote work the bot started or messaged with the provider's own tools, so its result
  * wakes the bot as a launch's does. Work the row already follows is left as it is; finished work
- * the bot messaged again starts its next piece.
+ * the bot messaged again starts its next piece, and work whose card is gone or in another chat
+ * moves to this chat with a new card, since a row without one is cancelled.
  */
 export async function trackDirectCloudAgent(
   deps: CloudAgentDeps,
@@ -200,34 +201,19 @@ export async function trackDirectCloudAgent(
     botId: context.botId,
     remoteId: direct.remoteId,
   };
-  const existing = await deps.prisma.cloudAgent.findFirst({ where });
-  if (existing?.status === "running") return;
-  let agentId = existing?.id;
-  if (existing) {
-    await deps.prisma.cloudAgent.update({
-      where: { id: existing.id },
-      data: {
-        status: "running",
-        generation: { increment: 1 },
-        wakeAttempts: 0,
-        verdict: null,
-        version: { increment: 1 },
-        nextPollAt: new Date(),
-        errorCount: 0,
-      },
+  const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard | undefined> => {
+    // Serialize with clearThread and other calls from this chat before reading or writing.
+    await tx.thread.update({
+      where: { id: run.threadId, spaceId: context.spaceId },
+      data: { nextMessageSeq: { increment: 0 } },
     });
-  } else {
-    const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
-      // Serialize with clearThread before creating either the row or its card.
-      await tx.thread.update({
-        where: { id: run.threadId, spaceId: context.spaceId },
-        data: { nextMessageSeq: { increment: 0 } },
-      });
-      // A replayed call finds the row it made the first time.
-      const replayed = await tx.cloudAgent.findUnique({
-        where: { operationKey: context.operationId },
-      });
-      if (replayed) return { agent: replayed };
+    // A replayed call finds the row it made the first time.
+    const replayed = await tx.cloudAgent.findUnique({
+      where: { operationKey: context.operationId },
+    });
+    if (replayed) return { agent: replayed };
+    const existing = await tx.cloudAgent.findFirst({ where });
+    if (!existing) {
       const created = await tx.cloudAgent.create({
         data: {
           ...where,
@@ -239,14 +225,40 @@ export async function trackDirectCloudAgent(
         },
       });
       return postCloudAgentCard(tx, deps, context, run, created);
-    }, THREAD_LOCK_TRANSACTION_OPTIONS);
-    agentId = result.agent.id;
-    if (result.seq !== undefined)
-      await deps.events
-        .notify(run.threadId, result.seq, result.firstResponseRunId)
-        .catch(() => undefined);
-  }
-  if (agentId) await enqueueCloudAgent(deps, agentId);
+    }
+    const card = existing.messageId
+      ? await tx.message.findFirst({
+          where: { id: existing.messageId, threadId: existing.threadId },
+          select: { threadId: true },
+        })
+      : null;
+    const running = existing.status === "running";
+    if (running && card) return { agent: existing };
+    const moved = card?.threadId !== run.threadId;
+    // The poller fences on version, so whichever writes second sees the other's change.
+    const updated = await tx.cloudAgent.updateMany({
+      where: { id: existing.id, version: existing.version },
+      data: {
+        ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+        status: "running",
+        threadId: run.threadId,
+        ...(moved ? { messageId: null } : {}),
+        cancelRequested: false,
+        version: { increment: 1 },
+        nextPollAt: new Date(),
+        errorCount: 0,
+      },
+    });
+    if (!updated.count) return { agent: existing };
+    const revived = await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } });
+    return moved ? postCloudAgentCard(tx, deps, context, run, revived) : { agent: revived };
+  }, THREAD_LOCK_TRANSACTION_OPTIONS);
+  if (!result) return;
+  if (result.seq !== undefined)
+    await deps.events
+      .notify(run.threadId, result.seq, result.firstResponseRunId)
+      .catch(() => undefined);
+  await enqueueCloudAgent(deps, result.agent.id);
 }
 
 interface PostedCard {

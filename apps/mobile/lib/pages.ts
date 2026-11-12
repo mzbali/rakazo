@@ -260,7 +260,17 @@ export async function pageDocument(
     surface?: string;
   } = {},
 ): Promise<string> {
-  const runtime = await loadPageRuntime(apiBase);
+  return pageDocumentWith(await loadPageRuntime(apiBase), code, theme, errorTitle, options);
+}
+
+/** `pageDocument` with a runtime already loaded. */
+export function pageDocumentWith(
+  runtime: string,
+  code: string,
+  theme: "light" | "dark",
+  errorTitle: string,
+  options: Parameters<typeof pageDocument>[4] = {},
+): string {
   return pageViewerDocument({
     runtime,
     code,

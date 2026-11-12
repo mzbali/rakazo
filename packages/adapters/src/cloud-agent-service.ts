@@ -271,6 +271,8 @@ export async function reconcileCloudAgents(
 }
 
 const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
+// Retries happen within a few reconciler passes; an older failure has already told the owner.
+const WAKE_RETRY_WINDOW_MS = 24 * 60 * 60_000;
 
 /**
  * A finished request's wake run can fail (a model outage) before the bot ever reads the result.
@@ -279,14 +281,27 @@ const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
 async function retryFailedCloudAgentWakes(
   deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
 ) {
+  // Start from failed wake runs, so finished requests still awaiting a verdict never crowd them out.
+  const failed = await deps.prisma.run.findMany({
+    where: {
+      trigger: "cloud_agent",
+      status: "failed",
+      clientNonce: { startsWith: "cloud-agent-wake-run:" },
+      updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
+    },
+    select: { clientNonce: true },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+  });
+  const ids = [...new Set(failed.map((run) => run.clientNonce!.split(":")[1]!))];
   const candidates = await deps.prisma.cloudAgent.findMany({
     where: {
+      id: { in: ids },
       providerKey: deps.cloudAgent!.key,
       status: { not: "running" },
       wakeAttempts: { gte: 1, lt: CLOUD_AGENT_WAKE_ATTEMPTS },
       verdict: null,
     },
-    take: 100,
   });
   for (const agent of candidates) {
     if (agent.wakeGeneration !== agent.generation) continue;

@@ -42,7 +42,6 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "forget_memory",
   // Permanent, and only for mail the bot received; its owner may still want it.
   "delete_email",
-  "cloud_agent_launch",
   "cloud_agent_reply",
   "cloud_agent_cancel",
   "user_computer_shell",
@@ -55,6 +54,8 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "send_email",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
+  // Starts real work on the owner's behalf: a message or another bot's request cannot agree to it.
+  "cloud_agent_launch",
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
   "respond_agent_connection",

@@ -8,6 +8,11 @@ export function resolveCloudAgentProvider(source: NodeJS.ProcessEnv = process.en
   const requested = (configured?.trim() || "none").toLowerCase();
   if (requested === "none" || requested === "") return "none";
   if (requested === "emulator" || requested === "fake") return "emulator";
+  if (requested === "t3") {
+    return optional(source.CLOUD_AGENT_MCP_SERVER) && optional(source.CLOUD_AGENT_SPACE_ID)
+      ? "t3"
+      : "none";
+  }
   if (requested === "cursor") {
     return optional(source.CURSOR_API_KEY) && optional(source.CLOUD_AGENT_SPACE_ID)
       ? "cursor"

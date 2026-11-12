@@ -1274,7 +1274,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             mediaImagesEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.images),
             mediaVideoEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.video),
             paidServicesEnabled: Boolean(paidServices),
-            cloudAgentEnabled: cloudAgentsEnabled(cloudAgent, run.spaceId),
+            cloudAgentEnabled:
+              cloudAgentsEnabled(cloudAgent, run.spaceId) &&
+              ((await cloudAgent?.enabledForBot?.(deps.prisma, run.spaceId, bot.id)) ?? true),
             paymentWalletEnabled,
             messagingChannelRun: nonOwnerChatRun,
             voiceCall,

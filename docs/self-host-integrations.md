@@ -223,9 +223,23 @@ CURSOR_API_KEY=replace-with-your-key
 
 The key and explicit Space ID are both required. Use a credential whose connected repositories may be accessed by members of that Space. Each created agent is additionally bound to its initiating user; another user cannot inspect, reply to, or cancel it by supplying an agent ID. The deployment key is never a model tool argument.
 
-The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, and `cloud_agent_cancel`. All three mutations participate in the existing action-approval rules and auto-review policy. As with other consequential tools, an empty rule set and disabled auto-review permit execution by default.
+The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, `cloud_agent_cancel`, and `cloud_agent_report`. Launch always needs a person: in Never ask it runs without a card only in a turn the owner started with no outside content, so another bot's message or an email cannot start work. Reply and cancel follow the existing action-approval rules and auto-review policy.
+
+A bot runs at most two cloud agents at once; later launches wait as `queued` and start in order when one finishes. `requestKey` names one agreed request, so launching it again returns the same agent. When another bot's request or question started the turn, the agent records that bot, and `cloud_agent_report` sends it the verdict once. Finishing is not acceptance: only the report records a verdict. A failed wake is retried up to three times.
 
 Launch accepts a prompt, optional repository, images, and `openPr`. Raw environment variables are intentionally unsupported: passing secrets through model-generated tool arguments would persist them in ordinary history. Configure remote environment secrets directly with the provider.
+
+### Enable T3 Code
+
+T3 Code threads can be cloud agents through the T3 MCP server a Space already connects to. Configure the API and worker with:
+
+```dotenv
+CLOUD_AGENT_PROVIDER=t3
+CLOUD_AGENT_SPACE_ID=example-space-id
+CLOUD_AGENT_MCP_SERVER=t3
+```
+
+`CLOUD_AGENT_MCP_SERVER` is the connection's slug. The tools are offered only to bots whose assignment to that server allows its thread tools, and every call goes through that bot's connection. It needs a T3 Code server with `t3_thread_events`, which reports run and question status, holds unread events through pruning, and says when history is missing. A question or approval shows the agent as needing input and wakes the bot once per request; the bot answers questions with `cloud_agent_reply`, and approvals stay with the owner in T3. Only agents launched this way are tracked; threads started in T3 directly are not.
 
 ### Recovery
 

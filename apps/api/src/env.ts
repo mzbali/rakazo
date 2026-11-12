@@ -92,6 +92,7 @@ export interface AppEnv {
   sandboxProvider: string;
   cloudAgentProvider: string;
   cloudAgentSpaceId: string | undefined;
+  cloudAgentMcpServer: string | undefined;
   cursorApiKey: string | undefined;
   /** Raw PAYMENT_WALLET_* values; createPaymentWalletProvider resolves them. */
   paymentWalletProvider: string | undefined;
@@ -283,6 +284,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     sandboxProvider,
     cloudAgentProvider,
     cloudAgentSpaceId: optional(source.CLOUD_AGENT_SPACE_ID),
+    cloudAgentMcpServer: optional(source.CLOUD_AGENT_MCP_SERVER),
     cursorApiKey: optional(source.CURSOR_API_KEY),
     paymentWalletProvider: optional(source.PAYMENT_WALLET_PROVIDER),
     paymentWalletClientId: optional(source.PAYMENT_WALLET_CLIENT_ID),

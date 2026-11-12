@@ -594,11 +594,15 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       if (!shutdown.signal.aborted) getLogger().error("mcp server arguments move failed", error);
     });
   // One provider instance so emulator launches and polls share the same Map.
-  const cloudAgent = createCloudAgentConnection({
-    CLOUD_AGENT_PROVIDER: env.cloudAgentProvider,
-    CURSOR_API_KEY: env.cursorApiKey,
-    CLOUD_AGENT_SPACE_ID: env.cloudAgentSpaceId,
-  });
+  const cloudAgent = createCloudAgentConnection(
+    {
+      CLOUD_AGENT_PROVIDER: env.cloudAgentProvider,
+      CURSOR_API_KEY: env.cursorApiKey,
+      CLOUD_AGENT_SPACE_ID: env.cloudAgentSpaceId,
+      CLOUD_AGENT_MCP_SERVER: env.cloudAgentMcpServer,
+    },
+    connectors.stack.connector,
+  );
   const paymentWallet = await createPaymentWalletProvider({
     PAYMENT_WALLET_PROVIDER: env.paymentWalletProvider,
     PAYMENT_WALLET_CLIENT_ID: env.paymentWalletClientId,

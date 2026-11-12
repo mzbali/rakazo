@@ -2,7 +2,7 @@ import type { ConnectorApp } from "@rakazo/adapter-kit";
 import { isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
-import { executeCloudAgentTool } from "./cloud-agent-service.js";
+import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
 import { collectLogIds } from "./composio-connector.js";
 import { connectApp } from "./connect-app.js";
 import { redactConnectorPayload, sanitizeConnectorError } from "./connector-safety.js";
@@ -21,15 +21,18 @@ import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
 export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, context } = ctx;
   const { name, args, effectKey } = call;
-  return call.finish(
-    await executeCloudAgentTool(
-      { ...deps, cloudAgent: ctx.providers.cloudAgent },
-      { ...context, operationId: effectKey, botId: bot.id },
-      run,
-      name,
-      args,
-    ),
-  );
+  const scoped = { ...context, operationId: effectKey, botId: bot.id, botName: bot.name };
+  const cloudDeps = { ...deps, cloudAgent: ctx.providers.cloudAgent };
+  if (name === "cloud_agent_report") {
+    return call.finish(await reportCloudAgent(cloudDeps, scoped, run, args));
+  }
+  // Only a request or question from another bot makes it that bot's request.
+  const peer = ctx.source.peerMessage;
+  const origin =
+    peer && run.sourceMessageId && (peer.intent === "request" || peer.intent === "question")
+      ? { botId: peer.fromBotId, messageId: run.sourceMessageId }
+      : undefined;
+  return call.finish(await executeCloudAgentTool(cloudDeps, scoped, run, name, args, origin));
 }
 
 export async function connectorTool(ctx: RunContext, call: ToolCall) {

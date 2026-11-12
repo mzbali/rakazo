@@ -33,8 +33,20 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .refine((value) => Boolean(cloudAgentHttpsUrl(value)))
     .optional(),
   openPr: z.boolean().optional(),
+  /** The bot's own name for one agreed request; launching it again returns the same agent. */
+  requestKey: z.string().trim().min(1).max(120).optional(),
+  /** What the owner agreed to, in their words, and how the result will be judged. */
+  agreement: z.string().trim().min(1).max(4_000).optional(),
+  acceptance: z.string().trim().min(1).max(4_000).optional(),
 });
 const idSchema = z.object({ id: z.string().trim().min(1) }).strict();
+export const cloudAgentReportSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    verdict: z.enum(["accepted", "rejected", "needs_owner"]),
+    summary: z.string().trim().min(1).max(4_000),
+  })
+  .strict();
 export const cloudAgentReplySchema = cloudAgentPromptSchema.extend({
   id: z.string().trim().min(1),
 });
@@ -46,6 +58,8 @@ export function validCloudAgentArgs(name: string, args: unknown): boolean {
       ? cloudAgentLaunchSchema
       : name === "cloud_agent_reply"
         ? cloudAgentReplySchema
-        : idSchema;
+        : name === "cloud_agent_report"
+          ? cloudAgentReportSchema
+          : idSchema;
   return schema.safeParse(args).success;
 }

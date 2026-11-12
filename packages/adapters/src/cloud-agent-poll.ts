@@ -16,7 +16,12 @@ import { appendEventInTransaction, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
-import { cloudAgentBlock, enqueueCloudAgent } from "./cloud-agent-service.js";
+import {
+  cloudAgentBlock,
+  enqueueCloudAgent,
+  openQuestion,
+  promoteQueuedCloudAgent,
+} from "./cloud-agent-service.js";
 import { cloudAgentLaunchSchema, cloudAgentPromptSchema } from "./cloud-agent-tools.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
@@ -31,7 +36,9 @@ export async function pollCloudAgent(
   const stored = await deps.prisma.cloudAgent.findFirst({
     where: { id: payload.agentId, providerKey: connection.key },
   });
-  if (!stored?.nextPollAt || !cloudAgentsEnabled(connection, stored.spaceId)) return;
+  // A queued request waits for a slot (promoteQueuedCloudAgent), so it is never launched early.
+  if (!stored?.nextPollAt || stored.queuedAt || !cloudAgentsEnabled(connection, stored.spaceId))
+    return;
   const token = randomUUID();
   const claimed = await deps.prisma.cloudAgent.updateMany({
     where: {
@@ -168,12 +175,18 @@ export async function pollCloudAgent(
         });
         if (!marked.count) return;
         try {
+          const questionId = openQuestion(agent);
           const snapshot = await provider.reply(
             agent.remoteId,
-            cloudAgentPromptSchema.parse(agent.followup),
+            {
+              ...cloudAgentPromptSchema.parse(agent.followup),
+              ...(questionId ? { questionId } : {}),
+              idempotencyKey: `${agent.id}:${agent.generation}`,
+            },
             context,
           );
-          if (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId)
+          // An answer continues the current run; only a follow-up must start a new one.
+          if (!questionId && (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId))
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
             ...snapshotData(snapshot),
@@ -197,7 +210,12 @@ export async function pollCloudAgent(
       return;
     }
     // A specific run cannot regress to stale agent-level metadata after a follow-up.
-    const snapshot = await provider.get(agent.remoteId, context, agent.latestRunId ?? undefined);
+    const snapshot = await provider.get(
+      agent.remoteId,
+      context,
+      agent.latestRunId ?? undefined,
+      agent.remoteCursor ?? undefined,
+    );
     await finishPoll(deps, agent, snapshotData(snapshot));
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
@@ -237,12 +255,21 @@ function fence(agent: CloudAgent) {
 
 function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateManyMutationInput {
   return {
-    title: snapshot.title,
+    ...(snapshot.title ? { title: snapshot.title } : {}),
     status: snapshot.status,
     url: cloudAgentHttpsUrl(snapshot.url) ?? "",
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
     latestRunId: snapshot.latestRunId,
+    ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
+    ...(snapshot.attention !== undefined
+      ? {
+          attention: snapshot.attention.length
+            ? (snapshot.attention as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+        }
+      : {}),
+    ...(snapshot.historyGap ? { historyGapAt: new Date() } : {}),
   };
 }
 
@@ -328,7 +355,7 @@ async function finishPoll(
     if (!updated.count) return null;
     const saved = await tx.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
     let seq: number | undefined;
-    let wakeRunId: string | undefined;
+    const wakeRunIds: string[] = [];
     if (message && !detached) {
       const nextBlock = cloudAgentBlock(saved);
       const blocks = (message.blocks as MessageBlock[]).map((block) =>
@@ -347,46 +374,101 @@ async function finishPoll(
       }
       if (terminal && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
-        const summary = `Cloud agent ${agent.id} is ${status}. Use cloud_agent_status to inspect its result.`;
-        const task = await tx.task.create({
-          data: {
-            spaceId: agent.spaceId,
-            botId: agent.botId,
-            threadId: agent.threadId,
-            userId: agent.userId,
-            prompt: summary,
-            status: "queued",
-          },
-        });
-        const run = await tx.run.create({
-          data: {
-            spaceId: agent.spaceId,
-            botId: agent.botId,
-            threadId: agent.threadId,
-            userId: agent.userId,
-            taskId: task.id,
-            status: "queued",
-            trigger: "cloud_agent",
-            clientNonce: `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
-          },
-        });
+        wakeRunIds.push(
+          ...(await createCloudAgentWake(
+            tx,
+            saved,
+            `Cloud agent ${agent.id} is ${status}. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+            `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
+          )),
+        );
         await tx.cloudAgent.update({
           where: { id: agent.id },
-          data: { wakeGeneration: saved.generation },
+          data: { wakeGeneration: saved.generation, wakeAttempts: 1 },
         });
-        wakeRunId = run.id;
+      }
+      // Each new question or approval wakes the bot once; the request id is the dedupe key.
+      for (const requestId of newAttention(agent.attention, saved.attention)) {
+        wakeRunIds.push(
+          ...(await createCloudAgentWake(
+            tx,
+            saved,
+            `Cloud agent ${agent.id} needs input (${requestId}). Use cloud_agent_status; answer a question with cloud_agent_reply, or ask the owner to decide an approval where the agent runs.`,
+            `cloud-agent-attention:${agent.id}:${requestId}`,
+          )),
+        );
       }
     }
-    return { seq, wakeRunId, nextPollAt };
+    const promotedId =
+      terminal && agent.status === "running"
+        ? await promoteQueuedCloudAgent(tx, agent.providerKey, agent.botId)
+        : undefined;
+    return { seq, wakeRunIds, nextPollAt, promotedId };
   });
   if (!committed) return;
+  if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
   if (committed.seq !== undefined)
     await deps.events.notify(agent.threadId, committed.seq).catch(() => undefined);
-  if (committed.wakeRunId) {
+  for (const wakeRunId of committed.wakeRunIds) {
     // The existing run reconciler recovers a queued wake after an enqueue failure.
-    await deps.jobs.enqueue(runContinueJob(committed.wakeRunId)).catch(() => {
+    await deps.jobs.enqueue(runContinueJob(wakeRunId)).catch(() => {
       getLogger().warn("cloud agent wake deferred to reconciliation");
     });
   }
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
+}
+
+type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];
+
+function attentionIds(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) =>
+        typeof item?.requestId === "string" ? [item.requestId as string] : [],
+      )
+    : [];
+}
+
+function newAttention(before: unknown, after: unknown): string[] {
+  const seen = new Set(attentionIds(before));
+  return attentionIds(after).filter((id) => !seen.has(id));
+}
+
+/**
+ * Queue one wake run in the agent's thread. Runs are unique by nonce in a space, so a replayed
+ * poll finds the earlier wake instead of failing the whole transaction on the constraint.
+ */
+export async function createCloudAgentWake(
+  tx: Tx,
+  agent: CloudAgent,
+  prompt: string,
+  clientNonce: string,
+): Promise<string[]> {
+  const existing = await tx.run.findFirst({
+    where: { spaceId: agent.spaceId, clientNonce },
+    select: { id: true },
+  });
+  if (existing) return [];
+  const task = await tx.task.create({
+    data: {
+      spaceId: agent.spaceId,
+      botId: agent.botId,
+      threadId: agent.threadId,
+      userId: agent.userId,
+      prompt,
+      status: "queued",
+    },
+  });
+  const run = await tx.run.create({
+    data: {
+      spaceId: agent.spaceId,
+      botId: agent.botId,
+      threadId: agent.threadId,
+      userId: agent.userId,
+      taskId: task.id,
+      status: "queued",
+      trigger: "cloud_agent",
+      clientNonce,
+    },
+  });
+  return [run.id];
 }

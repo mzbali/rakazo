@@ -5,6 +5,7 @@ export const CLOUD_AGENT_TOOL_NAMES = new Set([
   "cloud_agent_status",
   "cloud_agent_reply",
   "cloud_agent_cancel",
+  "cloud_agent_report",
 ]);
 
 /** Drop cloud-agent tools when no provider is configured. */

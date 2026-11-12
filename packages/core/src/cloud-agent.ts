@@ -26,5 +26,7 @@ export function cloudAgentBlockFromPayload(
     ...(payload.branch ? { branch: String(payload.branch) } : {}),
     ...(cloudAgentHttpsUrl(String(payload.prUrl ?? "")) ? { prUrl: String(payload.prUrl) } : {}),
     ...(payload.latestRunId ? { latestRunId: String(payload.latestRunId) } : {}),
+    ...(payload.queued === true ? { queued: true } : {}),
+    ...(payload.needsInput === true ? { needsInput: true } : {}),
   };
 }

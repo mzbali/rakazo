@@ -1,5 +1,5 @@
 import type { AdapterContext, JobPublisher } from "@rakazo/adapter-kit";
-import { cloudAgentPollJob } from "@rakazo/adapter-kit";
+import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
@@ -8,9 +8,15 @@ import {
   THREAD_LOCK_TRANSACTION_OPTIONS,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { messageBot } from "./bot-messages.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
-import { cloudAgentLaunchSchema, cloudAgentReplySchema } from "./cloud-agent-tools.js";
+import { createCloudAgentWake } from "./cloud-agent-poll.js";
+import {
+  cloudAgentLaunchSchema,
+  cloudAgentReplySchema,
+  cloudAgentReportSchema,
+} from "./cloud-agent-tools.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
 
@@ -22,17 +28,32 @@ export interface CloudAgentDeps {
   runLease?: ExecutorDeps["runLease"];
 }
 
+/** A bot runs at most this many requests at once; later ones wait their turn in order. */
+export const CLOUD_AGENT_ACTIVE_LIMIT = 2;
+
 export function cloudAgentBlock(agent: CloudAgent) {
-  return cloudAgentBlockFromPayload({ ...agent, agentId: agent.id });
+  return cloudAgentBlockFromPayload({
+    ...agent,
+    agentId: agent.id,
+    queued: agent.queuedAt !== null,
+    needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
+  });
+}
+
+/** The bot whose request this is, when another bot's message started the run. */
+export interface CloudAgentOrigin {
+  botId: string;
+  messageId: string;
 }
 
 /** Queue an intent only after scope and owner checks. The worker owns remote I/O. */
 export async function executeCloudAgentTool(
   deps: CloudAgentDeps,
-  context: AdapterContext & { botId: string },
-  run: { id: string; threadId: string },
+  context: AdapterContext & { botId: string; botName?: string },
+  run: { id: string; threadId: string; spaceId?: string; userId?: string },
   name: string,
   args: Record<string, unknown>,
+  origin?: CloudAgentOrigin,
 ) {
   const connection = deps.cloudAgent;
   if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) {
@@ -47,9 +68,19 @@ export async function executeCloudAgentTool(
         where: { id: run.threadId, spaceId: context.spaceId },
         data: { nextMessageSeq: { increment: 0 } },
       });
-      const existing = await tx.cloudAgent.findUnique({
-        where: { operationKey: context.operationId },
-      });
+      const existing =
+        (await tx.cloudAgent.findUnique({ where: { operationKey: context.operationId } })) ??
+        (request.requestKey
+          ? await tx.cloudAgent.findUnique({
+              where: {
+                spaceId_botId_requestKey: {
+                  spaceId: context.spaceId,
+                  botId: context.botId,
+                  requestKey: request.requestKey,
+                },
+              },
+            })
+          : null);
       if (existing) {
         if (
           existing.spaceId !== context.spaceId ||
@@ -60,6 +91,12 @@ export async function executeCloudAgentTool(
         }
         return { agent: existing };
       }
+      const { requestKey, agreement, acceptance, ...launchRequest } = request;
+      // Serialize slot counting per bot, as promotion does (see promoteQueuedCloudAgent).
+      await lockBotSlots(tx, context.botId);
+      const queued =
+        (await activeCloudAgentCount(tx, connection.key, context.botId)) >=
+        CLOUD_AGENT_ACTIVE_LIMIT;
       const created = await tx.cloudAgent.create({
         data: {
           operationKey: context.operationId,
@@ -69,7 +106,13 @@ export async function executeCloudAgentTool(
           botId: context.botId,
           threadId: run.threadId,
           title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
-          launchRequest: request,
+          launchRequest,
+          requestKey,
+          agreement,
+          acceptance,
+          originBotId: origin?.botId,
+          originMessageId: origin?.messageId,
+          ...(queued ? { queuedAt: new Date(), nextPollAt: null } : {}),
         },
       });
       const blocks = [cloudAgentBlock(created)];
@@ -117,8 +160,10 @@ export async function executeCloudAgentTool(
     if (!owned) return { error: "Unknown cloud agent." };
     agent = owned;
     if (name === "cloud_agent_reply") {
+      // A blocked agent is still running; answering its question is the way forward.
+      const blocked = openQuestion(agent) !== undefined;
       if (
-        agent.status === "running" ||
+        (agent.status === "running" && !blocked) ||
         agent.followup ||
         agent.cancelRequested ||
         !agent.remoteId
@@ -132,7 +177,8 @@ export async function executeCloudAgentTool(
           followup,
           followupDispatchedAt: null,
           status: "running",
-          generation: { increment: 1 },
+          // An answer continues the same piece of work; a follow-up starts the next one.
+          ...(blocked ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
           version: { increment: 1 },
           nextPollAt: new Date(),
           errorCount: 0,
@@ -148,10 +194,20 @@ export async function executeCloudAgentTool(
     agent = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
+  return cloudAgentStatusResult(agent);
+}
+
+export function cloudAgentStatusResult(agent: CloudAgent) {
   const { kind: _kind, agentId, ...snapshot } = cloudAgentBlock(agent);
   return {
     id: agentId,
     ...snapshot,
+    ...(agent.attention ? { attention: agent.attention } : {}),
+    ...(agent.historyGapAt ? { historyGap: true } : {}),
+    ...(agent.verdict ? { verdict: agent.verdict } : {}),
+    ...(agent.agreement ? { agreement: agent.agreement } : {}),
+    ...(agent.acceptance ? { acceptance: agent.acceptance } : {}),
+    ...(agent.originBotId ? { originBotId: agent.originBotId } : {}),
     ...(agent.cancelRequested ? { cancellationPending: true } : {}),
     ...(agent.followupDispatchedAt ? { followupPending: true } : {}),
   };
@@ -183,4 +239,164 @@ export async function reconcileCloudAgents(
     select: { id: true },
   });
   for (const agent of due) await enqueueCloudAgent(deps, agent.id);
+  // A crash between a request finishing and the next one starting leaves a free slot unused.
+  const waiting = await deps.prisma.cloudAgent.findMany({
+    where: {
+      providerKey: deps.cloudAgent.key,
+      status: "running",
+      queuedAt: { not: null },
+    },
+    distinct: ["botId"],
+    select: { botId: true },
+    take: 100,
+  });
+  for (const { botId } of waiting) {
+    const promoted = await deps.prisma.$transaction((tx) =>
+      promoteQueuedCloudAgent(tx, deps.cloudAgent!.key, botId),
+    );
+    if (promoted) await enqueueCloudAgent(deps, promoted);
+  }
+  await retryFailedCloudAgentWakes(deps);
+}
+
+const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
+
+/**
+ * A finished request's wake run can fail (a model outage) before the bot ever reads the result.
+ * Queue another, up to three in all; the failure notice of the last one tells the owner.
+ */
+async function retryFailedCloudAgentWakes(
+  deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
+) {
+  const candidates = await deps.prisma.cloudAgent.findMany({
+    where: {
+      providerKey: deps.cloudAgent!.key,
+      status: { not: "running" },
+      wakeAttempts: { gte: 1, lt: CLOUD_AGENT_WAKE_ATTEMPTS },
+      verdict: null,
+    },
+    take: 100,
+  });
+  for (const agent of candidates) {
+    if (agent.wakeGeneration !== agent.generation) continue;
+    const base = `cloud-agent-wake-run:${agent.id}:${agent.generation}`;
+    const nonce = agent.wakeAttempts === 1 ? base : `${base}:r${agent.wakeAttempts - 1}`;
+    const last = await deps.prisma.run.findFirst({
+      where: { spaceId: agent.spaceId, clientNonce: nonce },
+      select: { status: true },
+    });
+    if (last?.status !== "failed") continue;
+    const runId = await deps.prisma.$transaction(async (tx) => {
+      const claimed = await tx.cloudAgent.updateMany({
+        where: { id: agent.id, wakeAttempts: agent.wakeAttempts },
+        data: { wakeAttempts: { increment: 1 } },
+      });
+      if (!claimed.count) return undefined;
+      const [created] = await createCloudAgentWake(
+        tx,
+        agent,
+        `Cloud agent ${agent.id} is ${agent.status}. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+        `${base}:r${agent.wakeAttempts}`,
+      );
+      return created;
+    });
+    if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+  }
+}
+
+/** The first open question, which a reply answers. Approvals stay with the owner on the provider. */
+export function openQuestion(agent: Pick<CloudAgent, "attention">): string | undefined {
+  const attention = Array.isArray(agent.attention)
+    ? (agent.attention as Array<{ requestId?: unknown; kind?: unknown }>)
+    : [];
+  const question = attention.find((item) => item.kind === "question");
+  return typeof question?.requestId === "string" ? question.requestId : undefined;
+}
+
+type Tx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
+
+export async function lockBotSlots(tx: Tx, botId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`cloud-agent-slots:${botId}`}))`;
+}
+
+/** Rows holding a slot: running and launched or launching, including blocked ones. */
+export async function activeCloudAgentCount(
+  tx: Tx,
+  providerKey: string,
+  botId: string,
+): Promise<number> {
+  return tx.cloudAgent.count({
+    where: { providerKey, botId, status: "running", queuedAt: null },
+  });
+}
+
+/** Start the oldest queued request of a bot with a free slot. Caller enqueues the returned id. */
+export async function promoteQueuedCloudAgent(tx: Tx, providerKey: string, botId: string) {
+  await lockBotSlots(tx, botId);
+  if ((await activeCloudAgentCount(tx, providerKey, botId)) >= CLOUD_AGENT_ACTIVE_LIMIT) return;
+  const next = await tx.cloudAgent.findFirst({
+    where: { providerKey, botId, status: "running", queuedAt: { not: null } },
+    orderBy: [{ queuedAt: "asc" }, { id: "asc" }],
+  });
+  if (!next) return;
+  await tx.cloudAgent.update({
+    where: { id: next.id },
+    data: { queuedAt: null, nextPollAt: new Date(), version: { increment: 1 } },
+  });
+  return next.id;
+}
+
+/**
+ * The bot's verdict on a finished request. Finishing is not acceptance: only this records it,
+ * and a request another bot asked for sends that bot the verdict once per piece of work.
+ */
+export async function reportCloudAgent(
+  deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs" | "runLease"> &
+    Pick<CloudAgentDeps, "cloudAgent">,
+  context: AdapterContext & { botId: string; botName?: string },
+  run: { id: string; threadId: string },
+  args: Record<string, unknown>,
+) {
+  const connection = deps.cloudAgent;
+  if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) {
+    return { error: "Cloud agents are not configured for this space." };
+  }
+  const report = cloudAgentReportSchema.parse(args);
+  const agent = await deps.prisma.cloudAgent.findFirst({
+    where: {
+      id: report.id,
+      providerKey: connection.key,
+      spaceId: context.spaceId,
+      botId: context.botId,
+    },
+  });
+  if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
+  if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
+  await deps.prisma.cloudAgent.update({
+    where: { id: agent.id },
+    data: { verdict: report.verdict, verdictSummary: report.summary },
+  });
+  let delivered: boolean | undefined;
+  if (agent.originBotId && agent.originBotId !== agent.botId) {
+    const sent = await messageBot(
+      deps,
+      {
+        id: run.id,
+        spaceId: agent.spaceId,
+        threadId: run.threadId,
+        botId: agent.botId,
+        userId: agent.userId,
+      },
+      { id: agent.botId, name: context.botName ?? "" },
+      {
+        bot_id: agent.originBotId,
+        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}`,
+        intent: "result",
+        deliveryKey: `cloud-agent-report:${agent.id}:${agent.generation}`,
+      },
+    );
+    delivered = sent.ok;
+    if (!sent.ok) return { error: `Recorded, but not delivered: ${sent.error}` };
+  }
+  return { id: agent.id, verdict: report.verdict, ...(delivered ? { delivered } : {}) };
 }

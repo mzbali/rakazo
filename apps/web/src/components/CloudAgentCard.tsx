@@ -28,7 +28,11 @@ export function CloudAgentCard({
                   : "text-muted-foreground"
             }
           >
-            {block.status === "running" ? (
+            {block.status === "running" && block.needsInput ? (
+              <Trans>needs input</Trans>
+            ) : block.status === "running" && block.queued ? (
+              <Trans>queued</Trans>
+            ) : block.status === "running" ? (
               <Trans>running</Trans>
             ) : block.status === "finished" ? (
               <Trans>finished</Trans>

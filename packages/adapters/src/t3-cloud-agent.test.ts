@@ -192,6 +192,9 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old" }, { isError: true }),
     ).toBeUndefined();
+    expect(
+      t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old" }, { error: "Refused" }),
+    ).toBeUndefined();
     expect(t3DirectThread("t3", "mcp__other__t3_thread_launch", {}, launched)).toBeUndefined();
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_read", { threadId: "t-old" }, {}),

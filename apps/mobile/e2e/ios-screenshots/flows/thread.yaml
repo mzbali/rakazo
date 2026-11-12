@@ -90,15 +90,20 @@ name: Thread
     timeout: 3000
 - takeScreenshot: 07-quote-actions
 - tapOn: "Copy as Markdown"
-# A visual draws in the chat and opens whole in a sheet.
+# A visual that fits works in the chat; only its Expand button opens it whole in a sheet.
 - openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
 - extendedWaitUntil:
-    visible: "Open Launch path"
+    visible: "Expand Launch path"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 08-visual
-- tapOn: "Open Launch path"
+# A tap on its copy button acts in place and opens no sheet.
+- tapOn: "Copy steps"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertNotVisible: "Close"
+- tapOn: "Expand Launch path"
 - extendedWaitUntil:
     visible: "Close"
     timeout: 10000
@@ -109,8 +114,4 @@ name: Thread
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 09-visual-open
-# Its controls work once opened: a tap on its copy button reaches the clipboard.
-- tapOn: "Copy steps"
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn: "Close"

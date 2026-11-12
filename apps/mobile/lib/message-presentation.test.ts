@@ -271,5 +271,10 @@ describe("messageHasInlineControls", () => {
         { kind: "app_connect", provider: "github" } as unknown as MessageBlock,
       ]),
     ).toBe(true);
+    expect(
+      messageHasInlineControls([
+        { kind: "visual", title: "Counter", text: "A counter.", code: "" } as MessageBlock,
+      ]),
+    ).toBe(true);
   });
 });

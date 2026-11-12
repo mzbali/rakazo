@@ -1,7 +1,7 @@
 import type { AdapterContext, ConnectorProvider } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
+import { T3CloudAgentProvider, t3DirectThread } from "./t3-cloud-agent.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -167,5 +167,23 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     await expect(stopped.provider.cancel("thread:1", context)).resolves.toMatchObject({
       status: "cancelled",
     });
+  });
+
+  it("finds the thread a bot launched or messaged with T3's own tools", () => {
+    const launched = { structuredContent: { threadId: "t-new", runId: null } };
+    expect(
+      t3DirectThread("t3", "mcp__t3__t3_thread_launch", { title: "Fix login" }, launched),
+    ).toEqual({ remoteId: "t-new", title: "Fix login" });
+    expect(
+      t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old", message: "Go on" }, {}),
+    ).toEqual({ remoteId: "t-old", title: "Go on" });
+    // A failed call, another server or a read starts nothing.
+    expect(
+      t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old" }, { isError: true }),
+    ).toBeUndefined();
+    expect(t3DirectThread("t3", "mcp__other__t3_thread_launch", {}, launched)).toBeUndefined();
+    expect(
+      t3DirectThread("t3", "mcp__t3__t3_thread_read", { threadId: "t-old" }, {}),
+    ).toBeUndefined();
   });
 });

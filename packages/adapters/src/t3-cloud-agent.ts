@@ -389,6 +389,29 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   }
 }
 
+/**
+ * The thread a bot launched or messaged by calling T3's own tools, so the same completion wake
+ * covers it as a tracked launch. A failed call started nothing.
+ */
+export function t3DirectThread(
+  server: string,
+  tool: string,
+  args: Record<string, unknown>,
+  result: unknown,
+): { remoteId: string; title: string } | undefined {
+  const data = result as { isError?: boolean; structuredContent?: unknown } | null;
+  if (!data || data.isError) return undefined;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const title = text(args.title) || (text(args.message).split(/\r?\n/, 1)[0] ?? "");
+  const remoteId =
+    tool === `mcp__${server}__t3_thread_launch`
+      ? launchSchema.safeParse(data.structuredContent).data?.threadId
+      : tool === `mcp__${server}__t3_thread_send`
+        ? text(args.threadId)
+        : undefined;
+  return remoteId ? { remoteId, title } : undefined;
+}
+
 function attentionOf(requestId: string, kind: string, threadId?: string): CloudAgentAttention {
   return {
     requestId,

@@ -4,7 +4,7 @@ import type { PrismaClient } from "@rakazo/db";
 import { EmulatorCloudAgentProvider } from "./cloud-agent-emulator.js";
 import { resolveCloudAgentProvider } from "./cloud-agent-provider-env.js";
 import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
-import { T3_CLOUD_AGENT_TOOLS, T3CloudAgentProvider } from "./t3-cloud-agent.js";
+import { T3_CLOUD_AGENT_TOOLS, T3CloudAgentProvider, t3DirectThread } from "./t3-cloud-agent.js";
 
 /** The composition root binds a credential to exactly one authorized Space. */
 export interface CloudAgentConnection {
@@ -15,6 +15,12 @@ export interface CloudAgentConnection {
   spaceId?: string;
   /** Providers reached through a bot's own connection offer the tools only to bots that have it. */
   enabledForBot?: (prisma: PrismaClient, spaceId: string, botId: string) => Promise<boolean>;
+  /** The remote work a bot started or messaged with the provider's own tools, if this call did. */
+  directThread?: (
+    tool: string,
+    args: Record<string, unknown>,
+    result: unknown,
+  ) => { remoteId: string; title: string } | undefined;
 }
 
 export function cloudAgentsEnabled(
@@ -47,6 +53,7 @@ export function createCloudAgentConnection(
       spaceId,
       enabledForBot: (prisma, botSpaceId, botId) =>
         botHasServerTools(prisma, botSpaceId, botId, server, T3_CLOUD_AGENT_TOOLS),
+      directThread: (tool, args, result) => t3DirectThread(server, tool, args, result),
     };
   }
   if (kind !== "cursor") return null;

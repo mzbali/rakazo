@@ -1395,8 +1395,6 @@ export interface CloudAgentSnapshot {
   attention?: CloudAgentAttention[];
   /** Events after the previous cursor may be missing; the snapshot is still current. */
   historyGap?: boolean;
-  /** Why a run ended, when the status alone would mislead (an interrupted run reads as failed). */
-  detail?: string;
 }
 
 export interface CloudAgentAttention {

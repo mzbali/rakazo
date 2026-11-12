@@ -31,7 +31,10 @@ const show = (args: Record<string, unknown>, secrets?: string[]) =>
   visualTools.show_visual!(context(secrets), call(args)) as Promise<Record<string, unknown>>;
 
 describe("show_visual", () => {
-  beforeEach(() => publishMessage.mockReset());
+  beforeEach(() => {
+    publishMessage.mockReset();
+    publishMessage.mockResolvedValue({ id: "message-1" });
+  });
 
   it("posts the checked, compiled visual with its summary as its own message", async () => {
     const result = await show({
@@ -53,6 +56,13 @@ describe("show_visual", () => {
     ]);
     // What clients receive parses as a message block.
     expect(MessageBlock.safeParse(blocks[0]).success).toBe(true);
+  });
+
+  it("says nothing was shown when the run's messages are not published", async () => {
+    publishMessage.mockResolvedValueOnce(null);
+    const result = await show({ title: "Flow", summary: "A to B.", source: FLOW });
+    expect(result.shown).toBeUndefined();
+    expect(result.error).toMatch(/nothing was shown/);
   });
 
   it("returns the guide for help without posting anything", async () => {

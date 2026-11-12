@@ -54,7 +54,10 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
     };
   }
   const block: MessageBlock = { kind: "visual", title: title.data, text: summary, code };
-  await publishMessage(ctx.deps, ctx.run, "bot", [block]);
+  // A background run's chat messages are not shown, so there is nowhere to draw it.
+  if (!(await publishMessage(ctx.deps, ctx.run, "bot", [block]))) {
+    return { error: "This run has no chat to show a visual in; nothing was shown." };
+  }
   return {
     shown: true,
     note: "The visual is in the chat above your reply. Do not repeat what it shows or paste its source.",

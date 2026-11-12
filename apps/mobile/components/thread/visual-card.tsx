@@ -3,18 +3,13 @@ import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import { pageCopyRequest, pageCopyResult, pageLinkRequest } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { currentApiBase } from "../../lib/api";
 import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
 import { HEADER_CONTROL_SIZE } from "../../lib/native-controls";
-import {
-  pageActionAllowed,
-  pageDocument,
-  pageMessage,
-  pageTapStart,
-  visualHeight,
-} from "../../lib/pages";
+import { usePageTapGate } from "../../lib/page-tap-gate";
+import { pageDocument, pageMessage, visualHeight } from "../../lib/pages";
 import { NativeActionButton } from "../native-action-button";
 import { SandboxedHtmlPreview } from "../sandboxed-html-preview";
 
@@ -24,6 +19,31 @@ type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 const MAX_INLINE_HEIGHT = 560;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
+
+/** The visual's document on `surface`, rebuilt when its code or the theme changes. */
+function useVisualDocument(code: string | null, inline: "card" | "full", surface: string) {
+  const { t } = useLingui();
+  const theme = useResolvedAppearance();
+  const errorTitle = t`This page couldn't be shown.`;
+  const [document, setDocument] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (code === null) return;
+    let active = true;
+    void pageDocument(currentApiBase(), code, theme, errorTitle, { inline, surface })
+      .then((html) => {
+        if (!active) return;
+        setDocument(html);
+        setFailed(false);
+      })
+      .catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [code, inline, theme, errorTitle, surface]);
+  return { document: failed ? null : document, failed };
+}
+
 /**
  * A visual the bot drew in the chat. In the chat it only draws: the WebView takes no touches,
  * so its code cannot act there. Tapping opens it in a sheet, where its controls work and a copy
@@ -32,30 +52,9 @@ const PLACEHOLDER_HEIGHT = 140;
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const tokens = useMobileTokens();
-  const theme = useResolvedAppearance();
-  const [inline, setInline] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const inline = useVisualDocument(block.code, "card", tokens.card);
   const [height, setHeight] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
-  const errorTitle = t`This page couldn't be shown.`;
-
-  useEffect(() => {
-    let active = true;
-    const build = (surface: string) =>
-      pageDocument(currentApiBase(), block.code, theme, errorTitle, { inline: true, surface });
-    void Promise.all([build(tokens.card), build(tokens.background)])
-      .then(([card, full]) => {
-        if (!active) return;
-        setInline(card);
-        setSheet(full);
-        setFailed(false);
-      })
-      .catch(() => active && setFailed(true));
-    return () => {
-      active = false;
-    };
-  }, [block.code, theme, errorTitle, tokens.card, tokens.background]);
 
   const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
   return (
@@ -81,10 +80,11 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           accessibilityElementsHidden
           style={{ height: shown, overflow: "hidden" }}
         >
-          {inline && !failed ? (
-            <View style={{ height: height ?? shown }}>
+          {inline.document ? (
+            // Never taller than the card shows: the reported height is the content's, not the frame's.
+            <View style={{ height: shown }}>
               <SandboxedHtmlPreview
-                html={inline}
+                html={inline.document}
                 background={tokens.card}
                 scrollEnabled={false}
                 onMessage={(data) => {
@@ -109,66 +109,33 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         presentationStyle="pageSheet"
         onRequestClose={() => setOpen(false)}
       >
-        {open ? (
-          <VisualSheet
-            title={block.title}
-            summary={block.text}
-            document={failed ? null : sheet}
-            onClose={() => setOpen(false)}
-          />
-        ) : null}
+        {open ? <VisualSheet block={block} onClose={() => setOpen(false)} /> : null}
       </Modal>
     </>
   );
 }
 
 /** The visual whole, interactive, as an opened page is: one tap, one copy or link. */
-function VisualSheet({
-  title,
-  summary,
-  document,
-  onClose,
-}: {
-  title: string;
-  summary: string;
-  /** Null while it builds or when it can't; the summary stands in. */
-  document: string | null;
-  onClose: () => void;
-}) {
+function VisualSheet({ block, onClose }: { block: VisualBlock; onClose: () => void }) {
   const { t } = useLingui();
   const tokens = useMobileTokens();
   const openLink = useNativeLinkConfirm();
-  const tapStart = useRef<ReturnType<typeof pageTapStart>>(null);
-  const tappedAt = useRef<number | null>(null);
+  const gate = usePageTapGate();
+  const { document } = useVisualDocument(block.code, "full", tokens.background);
   return (
     <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
-      <View
-        style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]}
-        onTouchStart={({ nativeEvent }) => {
-          const { pageX, pageY, touches } = nativeEvent;
-          tapStart.current = touches.length === 1 ? { pageX, pageY } : null;
-        }}
-        onTouchMove={({ nativeEvent }) => {
-          tapStart.current = pageTapStart(tapStart.current, nativeEvent);
-        }}
-        onTouchEnd={({ nativeEvent }) => {
-          if (pageTapStart(tapStart.current, nativeEvent)) tappedAt.current = Date.now();
-        }}
-        onTouchCancel={() => {
-          tapStart.current = null;
-        }}
-      >
+      <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...gate.touch}>
         {document ? (
           <SandboxedHtmlPreview
             html={document}
             background={tokens.background}
             onMessage={(data, answer) => {
-              if (!pageActionAllowed(tappedAt.current, Date.now())) return;
+              if (!gate.allowed()) return;
               const message = pageMessage(data);
               const url = pageLinkRequest(message);
               const copy = pageCopyRequest(message);
               if (!url && !copy) return;
-              tappedAt.current = null;
+              gate.consume();
               if (url) openLink(url);
               else if (copy) {
                 void Clipboard.setStringAsync(copy.text)
@@ -178,7 +145,7 @@ function VisualSheet({
             }}
           />
         ) : (
-          <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{summary}</Text>
+          <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>
         )}
       </View>
       <View pointerEvents="box-none" style={styles.controls}>
@@ -193,7 +160,7 @@ function VisualSheet({
           accessibilityRole="header"
           style={[styles.sheetTitle, { color: tokens.foreground }]}
         >
-          {title}
+          {block.title}
         </Text>
       </View>
     </View>

@@ -5,7 +5,7 @@ import { pageCopyRequest, pageCopyResult, pageLinkRequest, pageReplyText } from 
 import { webTokensForAppearance } from "@rakazo/ui-tokens";
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeActionButton } from "../components/native-action-button";
@@ -14,15 +14,8 @@ import { SandboxedHtmlPreview } from "../components/sandboxed-html-preview";
 import { currentApiBase } from "../lib/api";
 import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import { HEADER_CONTROL_SIZE } from "../lib/native-controls";
-import {
-  getLatestPage,
-  offerPageReply,
-  pageActionAllowed,
-  pageChat,
-  pageDocument,
-  pageMessage,
-  pageTapStart,
-} from "../lib/pages";
+import { usePageTapGate } from "../lib/page-tap-gate";
+import { getLatestPage, offerPageReply, pageChat, pageDocument, pageMessage } from "../lib/pages";
 
 type Loaded =
   | { status: "loading" }
@@ -42,6 +35,7 @@ export default function PageScreen() {
   const pageBackground = webTokensForAppearance(theme).background;
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const gate = usePageTapGate();
   // iOS keeps the native glass button as it is; Android's bordered button becomes a card circle.
   const round =
     Platform.OS === "ios" ? undefined : [styles.round, { backgroundColor: tokens.card }];
@@ -49,7 +43,7 @@ export default function PageScreen() {
   useEffect(() => {
     let active = true;
     // A tap on the page before it reloads is not one on the new page.
-    tappedAt.current = null;
+    gate.consume();
     setLoaded({ status: "loading" });
     void getLatestPage(pageId, { refresh: true })
       .then(async (page) => {
@@ -69,16 +63,12 @@ export default function PageScreen() {
     return () => {
       active = false;
     };
-  }, [pageId, theme, t, attempt]);
+  }, [pageId, theme, t, attempt, gate]);
 
   const openLink = useNativeLinkConfirm();
-  // The app sees every touch on the WebView too (React Native's root handler, on iOS and Android),
-  // and the page can't fake one.
-  const tapStart = useRef<ReturnType<typeof pageTapStart>>(null);
-  const tappedAt = useRef<number | null>(null);
   const receive = useCallback(
     (data: string, answer: (message: object) => void) => {
-      if (!pageActionAllowed(tappedAt.current, Date.now())) return;
+      if (!gate.allowed()) return;
       const message = pageMessage(data) as { type?: unknown; text?: unknown } | null;
       const reply = message?.type === "rakazo-page:reply" ? pageReplyText(message.text) : null;
       const page = loaded.status === "ready" ? loaded.page : null;
@@ -86,8 +76,7 @@ export default function PageScreen() {
       const url = pageLinkRequest(message);
       const copy = pageCopyRequest(message);
       if (!(reply && page && chat) && !url && !copy) return;
-      // One tap, one action: anything else the page asks for after it waits for the next tap.
-      tappedAt.current = null;
+      gate.consume();
       if (reply && page && chat) {
         // Into the page's chat, as on the web: back to it when it is right under the page.
         offerPageReply(chat.threadKey, { text: reply, page: { id: page.id, title: page.title } });
@@ -107,7 +96,7 @@ export default function PageScreen() {
           .then((ok) => answer(pageCopyResult(copy.id, ok !== false)));
       }
     },
-    [openLink, loaded, navigation, router],
+    [openLink, loaded, navigation, router, gate],
   );
 
   return (
@@ -116,20 +105,7 @@ export default function PageScreen() {
         // The page starts below the round buttons; its own top padding keeps the title clear.
         <View
           style={[styles.screen, { paddingTop: insets.top + HEADER_CONTROL_SIZE }]}
-          onTouchStart={({ nativeEvent }) => {
-            // A second finger makes it a pinch.
-            const { pageX, pageY, touches } = nativeEvent;
-            tapStart.current = touches.length === 1 ? { pageX, pageY } : null;
-          }}
-          onTouchMove={({ nativeEvent }) => {
-            tapStart.current = pageTapStart(tapStart.current, nativeEvent);
-          }}
-          onTouchEnd={({ nativeEvent }) => {
-            if (pageTapStart(tapStart.current, nativeEvent)) tappedAt.current = Date.now();
-          }}
-          onTouchCancel={() => {
-            tapStart.current = null;
-          }}
+          {...gate.touch}
         >
           <SandboxedHtmlPreview
             html={loaded.document}

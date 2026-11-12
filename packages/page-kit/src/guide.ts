@@ -154,7 +154,7 @@ A visual is a small piece of page-kit JSX drawn inside the chat, above your repl
 
 - Call show_visual {title, summary, source}. summary is one or two plain sentences with the visual's point and key figures: it is what the user reads where the visual cannot be drawn, and what you see of it later.
 - The chat shows it at the width of a message (about 360 to 720 pixels) and at most about 560 pixels tall; tapping it opens it full size, where its controls work. Keep it to one idea: a Diagram, one chart, a short Table or a few Metrics. A phone shows about 340 pixels across, so a Diagram of more than two steps reads better vertical.
-- Skip the Page wrapper: the card around the visual already shows its title. Size custom SVG with a viewBox and width "100%". Never use vh units: the frame grows to fit its content.
+- Skip the Page wrapper; give it a Section heading if it needs a title. Size custom SVG with a viewBox and width "100%". Never use vh units: the frame grows to fit its content.
 - The compiled visual must stay under 32 KB; put larger work in a page.
 
 ${PAGE_KIT_GUIDE.replace(/^# Pages\n/, "")}`;

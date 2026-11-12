@@ -24,7 +24,10 @@ const DIAGRAM_REPLY = [
 const VISUAL_SUMMARY = "The launch moves from beta to general availability after the review.";
 const VISUAL_SOURCE = [
   "const Flow = () => (",
-  '  <Diagram direction="horizontal" nodes={[{ id: "beta", label: "Beta" }, { id: "review", label: "Review" }, { id: "ga", label: "Launch" }]} edges={[{ from: "beta", to: "review" }, { from: "review", to: "ga" }]} />',
+  "  <>",
+  '    <Diagram direction="horizontal" nodes={[{ id: "beta", label: "Beta" }, { id: "review", label: "Review" }, { id: "ga", label: "Launch" }]} edges={[{ from: "beta", to: "review" }, { from: "review", to: "ga" }]} />',
+  '    <CopyButton label="Copy steps" text="Beta, Review, Launch" />',
+  "  </>",
   ");",
   "export default Flow;",
 ].join("\n");

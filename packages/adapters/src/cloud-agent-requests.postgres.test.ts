@@ -8,6 +8,7 @@ import type {
   ConnectorProvider,
   JobPublisher,
 } from "@rakazo/adapter-kit";
+import { CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -33,6 +34,7 @@ class ScriptedProvider implements CloudAgentProvider {
       attention: CloudAgentAttention[];
       missed?: CloudAgentAttention[];
       cursor: number;
+      latestRunId?: string;
     }
   >();
   launches = 0;
@@ -67,7 +69,17 @@ class ScriptedProvider implements CloudAgentProvider {
       missedAttention: missed,
     };
   }
+  replies = 0;
+  /** Makes the next reply wait for the test, then refuse as a busy provider would. */
+  refuseReply?: Promise<void>;
   async reply(id: string) {
+    this.replies += 1;
+    if (this.refuseReply) {
+      const refusal = this.refuseReply;
+      this.refuseReply = undefined;
+      await refusal;
+      throw new CloudAgentRetryLater("unavailable");
+    }
     return { id, url: "", title: "", status: "running" as const, latestRunId: randomUUID() };
   }
   async cancel(id: string) {
@@ -419,6 +431,92 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       `cloud-agent-wake-run:${id}:1`,
     ]);
     expect(await t.state(id)).toMatchObject({ status: "finished", nextPollAt: null });
+  });
+
+  it("resends a refused follow-up even when a message sent meanwhile started a run", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:busy", { status: "running", attention: [], cursor: 0 });
+    const remote = t.provider.agents.get("remote:busy")!;
+    const send = () =>
+      runAsSystem("agent run tool call", () =>
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+          remoteId: "remote:busy",
+          title: "Existing thread",
+        }),
+      );
+    await send();
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    remote.status = "finished";
+    await t.poll(id);
+    await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(
+        t.deps,
+        { ...t.context, operationId: randomUUID() },
+        t.run,
+        "cloud_agent_reply",
+        { id, prompt: "Add tests" },
+      ),
+    );
+    let release!: () => void;
+    t.provider.refuseReply = new Promise((resolve) => {
+      release = resolve;
+    });
+    const refused = t.poll(id);
+    await vi.waitFor(() => expect(t.provider.replies).toBe(1));
+    // The bot's own message starts a run while the provider is refusing the follow-up.
+    remote.status = "running";
+    remote.latestRunId = "run:direct";
+    await send();
+    release();
+    await refused;
+    await t.poll(id);
+    expect(t.provider.replies).toBe(2);
+    expect(await t.state(id)).toMatchObject({ followup: null, status: "running" });
+  });
+
+  it("does not retry an earlier piece's failed wake once a continuation has finished", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:again", { status: "running", attention: [], cursor: 0 });
+    const remote = t.provider.agents.get("remote:again")!;
+    const send = () =>
+      runAsSystem("agent run tool call", () =>
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+          remoteId: "remote:again",
+          title: "Existing thread",
+        }),
+      );
+    await send();
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    remote.status = "finished";
+    await t.poll(id);
+    await asSystem(prisma).run.updateMany({
+      where: { clientNonce: `cloud-agent-wake-run:${id}:0` },
+      data: { status: "failed" },
+    });
+    // The reconciler has read the first piece as due for a retry when the next piece finishes.
+    const findFirst = prisma.run.findFirst.bind(prisma.run);
+    const spy = vi.spyOn(prisma.run, "findFirst").mockImplementationOnce((async (args: unknown) => {
+      await send();
+      remote.status = "running";
+      await t.poll(id);
+      remote.status = "finished";
+      await t.poll(id);
+      return findFirst(args as never);
+    }) as never);
+    await t.reconcile();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+      `cloud-agent-wake-run:${id}:0`,
+      `cloud-agent-wake-run:${id}:1`,
+    ]);
+    expect(await t.state(id)).toMatchObject({ generation: 1, wakeAttempts: 1 });
   });
 
   it("starts a launched thread on the named model and modes, and wakes the bot when it ends", async () => {

@@ -102,6 +102,8 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentLaunchRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
+    // T3 threads take text; dropping images silently would start different work than agreed.
+    if (request.images?.length) throw new CloudAgentRequestRejected("invalid");
     const tag = request.idempotencyKey.slice(0, 13);
     const label = (request.title ?? request.prompt.split(/\r?\n/, 1)[0] ?? "").slice(0, 80);
     const title = `${label} · ${tag}`;
@@ -241,6 +243,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentReplyRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
+    if (request.images?.length) throw new CloudAgentRequestRejected("invalid");
     if (request.questionId) {
       const threadId = request.questionThreadId ?? id;
       try {

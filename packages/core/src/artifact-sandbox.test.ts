@@ -6,6 +6,7 @@ import {
   pageReplyText,
   pageViewerDocument,
   SANDBOXED_ARTIFACT_CSP,
+  visualFit,
   withSandboxedArtifactCsp,
 } from "./artifact-sandbox.js";
 
@@ -149,5 +150,23 @@ describe("pageLinkRequest", () => {
     }
     expect(pageLinkRequest(ask("https://example.com", "rakazo-page:other"))).toBeNull();
     expect(pageLinkRequest(null)).toBeNull();
+  });
+});
+
+describe("visualFit", () => {
+  it("works in the chat when it fits and previews when it is taller", () => {
+    expect(visualFit("drawing", 320, 560)).toBe("inline");
+    expect(visualFit("drawing", 560, 560)).toBe("inline");
+    expect(visualFit("drawing", 1400, 560)).toBe("preview");
+  });
+
+  it("waits for a real height", () => {
+    expect(visualFit("drawing", 0, 560)).toBe("drawing");
+    expect(visualFit("drawing", Number.NaN, 560)).toBe("drawing");
+  });
+
+  it("keeps the first fit when the visual grows or shrinks later", () => {
+    expect(visualFit("inline", 1400, 560)).toBe("inline");
+    expect(visualFit("preview", 200, 560)).toBe("preview");
   });
 });

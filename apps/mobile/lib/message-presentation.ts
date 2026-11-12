@@ -12,14 +12,18 @@ export function isCenteredAgentEvent(blocks: readonly MessageBlock[]): boolean {
   );
 }
 
-/** Cards with a text field, buttons or links own the taps that land inside them. */
+/**
+ * Cards with a text field, buttons or links own the taps that land inside them. A visual may be
+ * one: its controls work in the chat when it fits there.
+ */
 export function messageHasInlineControls(blocks: readonly MessageBlock[]): boolean {
   return blocks.some(
     (block) =>
       block.kind === "ask" ||
       block.kind === "app_connect" ||
       block.kind === "mcp_approval" ||
-      block.kind === "import_setup",
+      block.kind === "import_setup" ||
+      block.kind === "visual",
   );
 }
 

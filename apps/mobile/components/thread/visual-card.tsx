@@ -1,7 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
 import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
-import { pageCopyRequest, pageCopyResult, pageLinkRequest } from "@rakazo/core";
+import type { VisualFit } from "@rakazo/core";
+import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -16,7 +17,7 @@ import { SandboxedHtmlPreview } from "../sandboxed-html-preview";
 
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 
-/** The tallest a visual draws in the chat; taller ones fade out and open whole. */
+/** The tallest a visual works in the chat; taller ones show their top and open whole. */
 const MAX_INLINE_HEIGHT = 560;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
@@ -38,9 +39,32 @@ function usePageRuntime() {
 }
 
 /**
- * A visual the bot drew in the chat. In the chat it only draws: the WebView takes no touches,
- * so its code cannot act there. Tapping opens it in a sheet, where its controls work and a copy
- * or a link needs a tap on it first, as on an opened page.
+ * A copy or a link the visual asked for, honoured only right after a tap on it, one per tap, as
+ * on an opened page. Spread `touch` on the view around the WebView and pass messages to `act`.
+ */
+function useVisualActions() {
+  const openLink = useNativeLinkConfirm();
+  const gate = usePageTapGate();
+  const act = (data: string, answer: (message: object) => void) => {
+    if (!gate.allowed()) return;
+    const message = pageMessage(data);
+    const url = pageLinkRequest(message);
+    const copy = pageCopyRequest(message);
+    if (!url && !copy) return;
+    gate.consume();
+    if (url) openLink(url);
+    else if (copy) {
+      void Clipboard.setStringAsync(copy.text)
+        .catch(() => false)
+        .then((ok) => answer(pageCopyResult(copy.id, ok !== false)));
+    }
+  };
+  return { touch: gate.touch, act };
+}
+
+/**
+ * A visual the bot drew in the chat. One that fits works in place, and opens in a sheet only from
+ * its Expand button. A taller one draws its top without taking touches and opens on a tap.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
@@ -49,7 +73,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const errorTitle = t`This page couldn't be shown.`;
   const { runtime, failed } = usePageRuntime();
   const [height, setHeight] = useState<number | null>(null);
+  const [fit, setFit] = useState<VisualFit>("drawing");
   const [open, setOpen] = useState(false);
+  const actions = useVisualActions();
   const inline = useMemo(
     () =>
       runtime &&
@@ -72,52 +98,82 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   );
 
   const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const live = fit === "inline";
+  const frame = (
+    <View
+      pointerEvents={live ? "auto" : "none"}
+      importantForAccessibility={live ? "auto" : "no-hide-descendants"}
+      accessibilityElementsHidden={!live}
+      style={{ height: shown, overflow: "hidden" }}
+      {...(live ? actions.touch : null)}
+    >
+      {inline ? (
+        // Never taller than the card shows: the reported height is the content's, not the frame's.
+        <View style={{ height: shown }}>
+          <SandboxedHtmlPreview
+            html={inline}
+            background={tokens.card}
+            // An inline visual that grew past the card scrolls in place.
+            scrollEnabled={live && height !== null && height > MAX_INLINE_HEIGHT}
+            onMessage={(data, answer) => {
+              const next = visualHeight(data);
+              if (next === null) {
+                if (live) actions.act(data, answer);
+                return;
+              }
+              setHeight(next);
+              setFit((current) => visualFit(current, next, MAX_INLINE_HEIGHT));
+            }}
+          />
+        </View>
+      ) : null}
+      {height === null ? (
+        <View style={[styles.placeholder, { backgroundColor: tokens.card }]}>
+          <Text numberOfLines={4} style={[styles.summary, { color: tokens.mutedForeground }]}>
+            {block.text}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t`Open ${block.title}`}
-        accessibilityHint={block.text}
+      <View
         testID="visual-card"
-        onPress={() => setOpen(true)}
-        style={({ pressed }) => [
+        style={[
           styles.card,
-          {
-            backgroundColor: tokens.card,
-            borderColor: `${tokens.foreground}1F`,
-            opacity: pressed ? 0.85 : 1,
-          },
+          { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` },
         ]}
       >
-        <View
-          pointerEvents="none"
-          importantForAccessibility="no-hide-descendants"
-          accessibilityElementsHidden
-          style={{ height: shown, overflow: "hidden" }}
-        >
-          {inline ? (
-            // Never taller than the card shows: the reported height is the content's, not the frame's.
-            <View style={{ height: shown }}>
-              <SandboxedHtmlPreview
-                html={inline}
-                background={tokens.card}
-                scrollEnabled={false}
-                onMessage={(data) => {
-                  const next = visualHeight(data);
-                  if (next !== null) setHeight(next);
-                }}
-              />
-            </View>
-          ) : null}
-          {height === null ? (
-            <View style={[styles.placeholder, { backgroundColor: tokens.card }]}>
-              <Text numberOfLines={4} style={[styles.summary, { color: tokens.mutedForeground }]}>
-                {block.text}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </Pressable>
+        {frame}
+        {live ? (
+          <View style={styles.expand}>
+            <NativeActionButton
+              accessibilityLabel={t`Expand ${block.title}`}
+              icon={{
+                ios: "arrow.up.left.and.arrow.down.right",
+                android: "expand-outline",
+                size: 15,
+              }}
+              prominence="secondary"
+              size="compact"
+              onPress={() => setOpen(true)}
+            />
+          </View>
+        ) : (
+          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t`Open ${block.title}`}
+            accessibilityHint={block.text}
+            onPress={() => setOpen(true)}
+            style={({ pressed }) => [
+              StyleSheet.absoluteFill,
+              pressed ? { backgroundColor: `${tokens.foreground}14` } : null,
+            ]}
+          />
+        )}
+      </View>
       <Modal
         visible={open}
         animationType="slide"
@@ -149,29 +205,15 @@ function VisualSheet({
 }) {
   const { t } = useLingui();
   const tokens = useMobileTokens();
-  const openLink = useNativeLinkConfirm();
-  const gate = usePageTapGate();
+  const actions = useVisualActions();
   return (
     <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
-      <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...gate.touch}>
+      <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...actions.touch}>
         {document ? (
           <SandboxedHtmlPreview
             html={document}
             background={tokens.background}
-            onMessage={(data, answer) => {
-              if (!gate.allowed()) return;
-              const message = pageMessage(data);
-              const url = pageLinkRequest(message);
-              const copy = pageCopyRequest(message);
-              if (!url && !copy) return;
-              gate.consume();
-              if (url) openLink(url);
-              else if (copy) {
-                void Clipboard.setStringAsync(copy.text)
-                  .catch(() => false)
-                  .then((ok) => answer(pageCopyResult(copy.id, ok !== false)));
-              }
-            }}
+            onMessage={actions.act}
           />
         ) : (
           <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>
@@ -208,6 +250,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   summary: { fontSize: 15, lineHeight: 20 },
+  expand: { position: "absolute", top: 10, right: 10 },
   sheet: { flex: 1 },
   sheetSummary: { fontSize: 17, lineHeight: 24, padding: 20 },
   // A page sheet starts below the status bar, so the close button sits at its top.

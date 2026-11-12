@@ -184,6 +184,14 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(await queued()).toEqual([false, false, true, true, true, true]);
     for (const id of ids) await t.poll(id);
     expect(t.provider.launches).toBe(2);
+    // Cancelling a request still in the queue ends it there, without waiting for a slot.
+    const extra = await t.launch(7);
+    await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(t.deps, t.context, t.run, "cloud_agent_cancel", { id: extra }),
+    );
+    await t.poll(extra);
+    expect(await t.state(extra)).toMatchObject({ status: "cancelled", queuedAt: null });
+    expect(t.provider.launches).toBe(2);
 
     for (let done = 0; done < ids.length; done += 1) {
       (await t.remote(ids[done]!)).status = "finished";
@@ -199,7 +207,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       Array(6).fill("finished"),
     );
     expect(t.provider.launches).toBe(6);
-    expect(await t.wakes()).toHaveLength(6);
+    expect(await t.wakes()).toHaveLength(7);
   });
 
   it("wakes once per question, again for a replaced one, and retries a failed wake", async () => {

@@ -171,18 +171,27 @@ export async function executeCloudAgentTool(
         return { error: "Wait for the current cloud agent operation to finish." };
       }
       const { id: _id, ...followup } = cloudAgentReplySchema.parse(args);
-      const updated = await deps.prisma.cloudAgent.updateMany({
-        where: { id: agent.id, version: agent.version },
-        data: {
-          followup,
-          followupDispatchedAt: null,
-          status: "running",
-          // An answer continues the same piece of work; a follow-up starts the next one.
-          ...(blocked ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
-          version: { increment: 1 },
-          nextPollAt: new Date(),
-          errorCount: 0,
-        },
+      const current = agent;
+      const updated = await deps.prisma.$transaction(async (tx) => {
+        // A follow-up restarts finished work, so it takes a slot like a launch; an answer keeps its own.
+        await lockBotSlots(tx, current.botId);
+        const queued =
+          !blocked &&
+          (await activeCloudAgentCount(tx, current.providerKey, current.botId)) >=
+            CLOUD_AGENT_ACTIVE_LIMIT;
+        return tx.cloudAgent.updateMany({
+          where: { id: current.id, version: current.version },
+          data: {
+            followup,
+            followupDispatchedAt: null,
+            status: "running",
+            // An answer continues the same piece of work; a follow-up starts the next one.
+            ...(blocked ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+            version: { increment: 1 },
+            ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
+            errorCount: 0,
+          },
+        });
       });
       if (!updated.count) return { error: "Cloud agent changed; check its status and try again." };
     } else if (name === "cloud_agent_cancel") {
@@ -307,12 +316,18 @@ async function retryFailedCloudAgentWakes(
 }
 
 /** The first open question, which a reply answers. Approvals stay with the owner on the provider. */
-export function openQuestion(agent: Pick<CloudAgent, "attention">): string | undefined {
+export function openQuestion(
+  agent: Pick<CloudAgent, "attention">,
+): { requestId: string; threadId?: string } | undefined {
   const attention = Array.isArray(agent.attention)
-    ? (agent.attention as Array<{ requestId?: unknown; kind?: unknown }>)
+    ? (agent.attention as Array<{ requestId?: unknown; kind?: unknown; threadId?: unknown }>)
     : [];
   const question = attention.find((item) => item.kind === "question");
-  return typeof question?.requestId === "string" ? question.requestId : undefined;
+  if (typeof question?.requestId !== "string") return undefined;
+  return {
+    requestId: question.requestId,
+    ...(typeof question.threadId === "string" ? { threadId: question.threadId } : {}),
+  };
 }
 
 type Tx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];

@@ -23,6 +23,7 @@ import {
 import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
 import { createRunExecutor } from "./executor.js";
 import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
+import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
@@ -831,6 +832,25 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(result.id);
     expect(await t.state(result.id)).toMatchObject({ status: "finished" });
     expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${result.id}:0`]);
+  });
+
+  it("wakes the bot once a thread on the T3 emulator ends, and not before", async () => {
+    const emulator = new T3ThreadEventsEmulator();
+    const t = await setup(t3EmulatedProvider(emulator));
+    const id = await t.launch(1);
+    await t.poll(id);
+    const { remoteId } = await t.state(id);
+    expect(emulator.threads.has(remoteId!)).toBe(true);
+    expect(await t.state(id)).toMatchObject({ status: "running" });
+    expect(await t.wakeNonces()).toEqual([]);
+
+    emulator.complete(remoteId!);
+    await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "finished" });
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
+    // Polling a finished agent again does not wake the bot a second time.
+    await t.poll(id);
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

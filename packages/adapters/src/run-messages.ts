@@ -126,9 +126,22 @@ export async function publishMessage(
           remoteId: { not: null },
         },
       });
+      const text = blocks.filter((block) => block.kind === "text").map((block) => block.text);
+      const connections = new Map<string, Awaited<ReturnType<typeof cloudAgentFor>>>();
       for (const agent of agents) {
-        if (!agent.remoteId || !agent.url) continue;
-        const connection = await cloudAgentFor(deps, agent);
+        if (
+          !agent.remoteId ||
+          !agent.url ||
+          !text.some(
+            (part) =>
+              part.includes(agent.remoteId!) || part.includes(encodeURIComponent(agent.remoteId!)),
+          )
+        )
+          continue;
+        if (!connections.has(agent.providerKey)) {
+          connections.set(agent.providerKey, await cloudAgentFor(deps, agent));
+        }
+        const connection = connections.get(agent.providerKey);
         const rewrite = connection?.provider.canonicalizeLinks;
         if (!rewrite) continue;
         blocks = blocks.map((block) =>

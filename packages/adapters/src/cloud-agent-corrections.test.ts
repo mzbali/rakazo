@@ -129,4 +129,47 @@ describe("cloud agent corrections", () => {
       { kind: "text", text: `[known](${url}) [unknown](t3-thread://v2/env/other)` },
     ]);
   });
+
+  it("resolves only connections for referenced agents, once per connection", async () => {
+    const provider = new T3CloudAgentProvider({
+      connector: {} as ConnectorProvider,
+      server: "t3",
+      holdKey: "test",
+    });
+    const agents = ["thread:1", "thread:2", "unrelated"].map((remoteId) => ({
+      providerKey: "mcp:connection",
+      spaceId: "space",
+      userId: "user",
+      botId: "bot",
+      remoteId,
+      url: `t3code://threads/env/${encodeURIComponent(remoteId)}`,
+    }));
+    const forKey = vi.fn(async () => ({ key: "mcp:connection", provider }));
+    const deps = {
+      userCloudAgents: { forKey },
+      prisma: {
+        run: { findUnique: async () => ({ userId: "user" }) },
+        cloudAgent: { findMany: async () => agents },
+        $transaction: async (fn: (tx: unknown) => unknown) => fn({}),
+      },
+      events: { notify: vi.fn(async () => undefined) },
+    };
+    await publishMessage(deps as never, run, "bot", [
+      { kind: "text", text: "See https://example.test/docs" },
+    ]);
+    expect(forKey).not.toHaveBeenCalled();
+    const result = await publishMessage(deps as never, run, "bot", [
+      {
+        kind: "text",
+        text: "[one](t3-thread://v2/env/thread%3A1) [two](t3-thread://v2/env/thread:2)",
+      },
+    ]);
+    expect(forKey).toHaveBeenCalledTimes(1);
+    expect(result?.blocks).toEqual([
+      {
+        kind: "text",
+        text: "[one](t3code://threads/env/thread%3A1) [two](t3code://threads/env/thread%3A2)",
+      },
+    ]);
+  });
 });

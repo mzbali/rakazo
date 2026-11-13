@@ -463,5 +463,7 @@ describe("thread links", () => {
     expect(provider.canonicalizeLinks(text, "thread:1", url)).toBe(
       `[one](${url}) [two](${url}) [other](t3-thread://v2/env-1/other)`,
     );
+    const webLink = "https://app.t3.codes/threads/project/thread%3A1";
+    expect(provider.canonicalizeLinks(webLink, "thread:1", url)).toBe(webLink);
   });
 });

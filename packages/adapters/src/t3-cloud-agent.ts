@@ -158,18 +158,15 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     } catch {
       return text;
     }
-    return text.replace(
-      /(?:t3-thread:\/\/v2\/|t3code:\/\/threads\/|https:\/\/app\.t3\.codes\/threads\/)[^\s<>()]+/g,
-      (link) => {
-        const match = /^(.*?)([.,!?;]*)$/.exec(link)!;
-        const target = match[1]!;
-        try {
-          return decodeURIComponent(target.split("/").at(-1)!) === id ? url + match[2] : link;
-        } catch {
-          return link;
-        }
-      },
-    );
+    return text.replace(/(?:t3-thread:\/\/v2\/|t3code:\/\/threads\/)[^\s<>()]+/g, (link) => {
+      const match = /^(.*?)([.,!?;]*)$/.exec(link)!;
+      const target = match[1]!;
+      try {
+        return decodeURIComponent(target.split("/").at(-1)!) === id ? url + match[2] : link;
+      } catch {
+        return link;
+      }
+    });
   }
 
   async launch(

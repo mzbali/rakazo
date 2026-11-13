@@ -50,3 +50,15 @@ it("composes the actual runtime with full documents and no tools", async () => {
   vi.doUnmock("./deployment-model.js");
   vi.doUnmock("./pi-runtime.js");
 });
+
+it("reads the opt-in when called, so an environment loaded after import still applies", async () => {
+  const { assessCorrectedClaims, configureCorrectedClaimJudge } = await import("@rakazo/core");
+  const { configureCorrectedClaimsFromEnv } = await import("./corrected-claims.js");
+  configureCorrectedClaimsFromEnv({});
+  expect((await assessCorrectedClaims("", "x")).reason).toBe("Fact checking is not configured.");
+  configureCorrectedClaimsFromEnv({ RAKAZO_CORRECTED_CLAIMS_ENABLED: "true" });
+  expect((await assessCorrectedClaims("", "x")).reason).not.toBe(
+    "Fact checking is not configured.",
+  );
+  configureCorrectedClaimJudge(undefined);
+});

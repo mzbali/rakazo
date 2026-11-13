@@ -10446,3 +10446,50 @@ describe("quarantined computer stop", () => {
     },
   );
 });
+
+describe("manual memory edits", () => {
+  const actor = {
+    spaceId: "workspace-1",
+    userId: "user-1",
+    email: "user@rakazo.test",
+    isDeploymentOwner: true,
+  } satisfies Actor;
+
+  function memoryClient() {
+    const doc = { id: "doc-1", scope: "bot", botId: "bot-1", path: "notes.md", content: "Old" };
+    const commit = vi.fn(async (input: { content: string }) => ({
+      id: doc.id,
+      path: doc.path,
+      content: input.content,
+      revision: 2,
+    }));
+    const deps = {
+      prisma: { memoryDocument: { findFirst: vi.fn(async () => doc) } },
+      memory: { commit },
+    } as unknown as RouterDeps;
+    const client = createRouterClient(createRouter(deps), { context: { actor } as never });
+    return { client, commit };
+  }
+
+  it("refuses an edit the fact checker rejects and saves nothing", async () => {
+    const judge = vi.fn(async () => ({ status: "rejected" as const, reason: "Scripted" }));
+    configureCorrectedClaimJudge(judge);
+    const { client, commit } = memoryClient();
+
+    await expect(
+      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 1 }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Nothing") });
+    expect(judge).toHaveBeenCalledWith({ before: "Old", after: "New" });
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it("saves an edit the fact checker accepts", async () => {
+    configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Scripted" }));
+    const { client, commit } = memoryClient();
+
+    await expect(
+      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 1 }),
+    ).resolves.toMatchObject({ content: "New" });
+    expect(commit).toHaveBeenCalledOnce();
+  });
+});

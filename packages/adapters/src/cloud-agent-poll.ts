@@ -11,7 +11,7 @@ import {
   runContinueJob,
 } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl } from "@rakazo/core";
+import { cloudAgentHttpsUrl, cloudAgentUrl } from "@rakazo/core";
 import type { CloudAgent } from "@rakazo/db";
 import { appendEventInTransaction, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -283,7 +283,7 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     ...(snapshot.title ? { title: snapshot.title } : {}),
     status: snapshot.status,
     failureReason: null,
-    url: cloudAgentHttpsUrl(snapshot.url) ?? "",
+    ...(snapshot.url ? { url: cloudAgentUrl(snapshot.url) ?? "" } : {}),
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
     latestRunId: snapshot.latestRunId,

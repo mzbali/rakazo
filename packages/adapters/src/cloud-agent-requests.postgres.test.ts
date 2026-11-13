@@ -752,7 +752,11 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const handlers: Record<string, () => unknown> = {
       t3_thread_list: () => ({ threads: [] }),
       t3_project_list: () => ({ projects: [{ id: "project:1" }] }),
-      t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
+      t3_thread_launch: () => ({
+        threadId: "thread:1",
+        runId: "run:1",
+        link: "<t3-thread://v2/env/thread%3A1>",
+      }),
       t3_thread_events: () => ({
         contractVersion: 1,
         nextSequence: 1,
@@ -763,7 +767,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           idle: finished,
           latestRun: { runId: "run:1", status: finished ? "completed" : "running" },
           pendingRequests: [],
-          link: "https://example.test/thread",
+          link: "<t3-thread://v2/env/thread%3A1>",
         },
       }),
     };
@@ -799,8 +803,10 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       }),
     );
     if (!("id" in result)) throw new Error(`Launch failed: ${JSON.stringify(result)}`);
-    // Stored with the request, so a launch the worker replays after a crash starts the same way.
-    expect((await t.state(result.id)).launchRequest).toMatchObject(launchFields);
+    expect(result.note).toBe("Runtime mode clamped to auto.");
+    const clampedFields = { ...launchFields, runtimeMode: "auto" };
+    // Stored with the request, so a replay starts with the same ceiling.
+    expect((await t.state(result.id)).launchRequest).toMatchObject(clampedFields);
     await t.poll(result.id);
     expect(calls.filter((call) => call.tool === "t3_thread_launch")).toEqual([
       {
@@ -809,13 +815,17 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           title: `Fix the build · ${result.id.slice(0, 13)}`,
           message: "Fix the build",
           clientRequestId: result.id,
-          ...launchFields,
+          ...clampedFields,
         },
       },
     ]);
     // No model was looked up or set after the launch: the thread started on the named one.
     expect(calls.map((call) => call.tool)).not.toContain("orchestrator_capabilities");
-    expect(await t.state(result.id)).toMatchObject({ remoteId: "thread:1", status: "running" });
+    expect(await t.state(result.id)).toMatchObject({
+      remoteId: "thread:1",
+      status: "running",
+      url: "t3code://threads/env/thread%3A1",
+    });
 
     finished = true;
     await t.poll(result.id);

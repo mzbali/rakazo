@@ -119,6 +119,20 @@ const capabilitiesSchema = z.object({
 });
 const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
 
+/** The provider link is Markdown or an autolink and contains the environment identity. */
+export function t3CanonicalLink(link: string, id: string): string {
+  const match = /t3-thread:\/\/v2\/([^/\s)>]+)\/([^\s)>]+)/.exec(link);
+  if (!match) return "";
+  try {
+    if (decodeURIComponent(match[2]!) !== id) return "";
+    const environment = decodeURIComponent(match[1]!);
+    if (!environment) return "";
+    return `t3code://threads/${encodeURIComponent(environment)}/${encodeURIComponent(id)}`;
+  } catch {
+    return "";
+  }
+}
+
 /** Thread ids are the agent id; the title tag finds a launch a lost response hid. */
 export class T3CloudAgentProvider implements CloudAgentProvider {
   constructor(private readonly options: T3CloudAgentOptions) {}
@@ -130,6 +144,29 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       adapterVersion: "0.1.0",
       capabilities: { launch: true, reply: true, cancel: true, offline: false },
     };
+  }
+
+  canonicalizeLinks(text: string, id: string, url: string): string {
+    try {
+      const canonical = new URL(url);
+      if (
+        canonical.protocol !== "t3code:" ||
+        canonical.hostname !== "threads" ||
+        decodeURIComponent(canonical.pathname.split("/").at(-1) ?? "") !== id
+      )
+        return text;
+    } catch {
+      return text;
+    }
+    return text.replace(/(?:t3-thread:\/\/v2\/|t3code:\/\/threads\/)[^\s<>()]+/g, (link) => {
+      const match = /^(.*?)([.,!?;]*)$/.exec(link)!;
+      const target = match[1]!;
+      try {
+        return decodeURIComponent(target.split("/").at(-1)!) === id ? url + match[2] : link;
+      } catch {
+        return link;
+      }
+    });
   }
 
   async launch(
@@ -185,7 +222,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     return {
       id: launched.threadId,
-      url: launched.link ?? "",
+      url: t3CanonicalLink(launched.link ?? "", launched.threadId),
       title,
       status: "running",
       ...(launched.runId ? { latestRunId: launched.runId } : {}),
@@ -270,7 +307,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
     return {
       id,
-      url: state.link,
+      url: t3CanonicalLink(state.link, id),
       title: "",
       status,
       ...(run ? { latestRunId: run.runId } : {}),

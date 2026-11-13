@@ -712,6 +712,8 @@ export interface BrowserProvider {
  */
 export interface CloudAgentProvider {
   describe(): AdapterDescriptor<CloudAgentCapabilities>;
+  /** Replace recognized links to a tracked agent with its canonical link. */
+  canonicalizeLinks?(text: string, id: string, url: string): string;
   launch(request: CloudAgentLaunchRequest, context: AdapterContext): Promise<CloudAgentHandle>;
   /** `cursor` is the last snapshot's, for providers that read an event feed. */
   get(

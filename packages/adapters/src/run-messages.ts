@@ -13,6 +13,7 @@ import {
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { cloudAgentFor } from "./cloud-agent-service.js";
 import { redactConnectorPayload } from "./connector-safety.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 
@@ -106,6 +107,53 @@ export async function publishMessage(
   if (isBackgroundRunTrigger(run.trigger)) {
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0 && !stoppedHelper) return null;
+  }
+  if (
+    role === "bot" &&
+    (deps.cloudAgent || deps.userCloudAgents) &&
+    blocks.some((block) => block.kind === "text" && block.text.includes("://"))
+  ) {
+    const owner = await deps.prisma.run.findUnique({
+      where: { id: run.id },
+      select: { userId: true },
+    });
+    if (owner) {
+      const agents = await deps.prisma.cloudAgent.findMany({
+        where: {
+          spaceId: run.spaceId,
+          userId: owner.userId,
+          botId: run.botId,
+          remoteId: { not: null },
+        },
+      });
+      const text = blocks.filter((block) => block.kind === "text").map((block) => block.text);
+      const connections = new Map<string, Awaited<ReturnType<typeof cloudAgentFor>>>();
+      for (const agent of agents) {
+        if (
+          !agent.remoteId ||
+          !agent.url ||
+          !text.some(
+            (part) =>
+              part.includes(agent.remoteId!) || part.includes(encodeURIComponent(agent.remoteId!)),
+          )
+        )
+          continue;
+        if (!connections.has(agent.providerKey)) {
+          connections.set(agent.providerKey, await cloudAgentFor(deps, agent));
+        }
+        const connection = connections.get(agent.providerKey);
+        const rewrite = connection?.provider.canonicalizeLinks;
+        if (!rewrite) continue;
+        blocks = blocks.map((block) =>
+          block.kind === "text"
+            ? {
+                ...block,
+                text: rewrite.call(connection.provider, block.text, agent.remoteId!, agent.url),
+              }
+            : block,
+        );
+      }
+    }
   }
   const lease = runLeaseFor(deps, run.id);
   // Concurrent runs in one thread contend for its sequence counters; Postgres aborts a

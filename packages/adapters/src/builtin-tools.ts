@@ -1767,7 +1767,7 @@ export const builtinAgentTools: ConnectorTool[] = [
           type: "array",
           items: { type: "string" },
           maxItems: 12,
-          description: "Tool names to list directly.",
+          description: "Tool names to list; MCP bare or full.",
         },
         notifyOnFinish: {
           type: "boolean",

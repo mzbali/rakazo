@@ -119,6 +119,7 @@ import { usesNativeShell } from "./native-shell.js";
 import { createPaidServiceProvider } from "./paid-services-factory.js";
 import { paymentWalletConnected } from "./payment-wallets.js";
 import { restoreComputerModels } from "./pi-runtime-computer-mode.js";
+import { isPinnedTool } from "./pinned-tools.js";
 import { promptVersion } from "./prompt-version.js";
 import { loadPurchaseRedactions } from "./purchase-service.js";
 import {
@@ -1440,7 +1441,8 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             ? strategicBuiltins
             : [...strategicBuiltins, ...strategicConnectorTools];
         for (const [index, tool] of tools.entries()) {
-          if (context.pinnedTools.includes(tool.name)) tools[index] = { ...tool, pinned: true };
+          if (isPinnedTool(context.pinnedTools, tool.name))
+            tools[index] = { ...tool, pinned: true };
         }
         const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
           ? TASK_CATALOG_GUIDANCE

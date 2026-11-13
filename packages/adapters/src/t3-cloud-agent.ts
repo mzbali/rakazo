@@ -64,10 +64,19 @@ class ModeEscalationDenied extends Error {
     super(field);
   }
 }
+const startedModelSchema = z.object({
+  model: z.string(),
+  instanceId: z.string().optional(),
+  provider: z.string().optional(),
+});
 const launchSchema = z.object({
   threadId: z.string().min(1),
   link: z.string().optional(),
   runId: z.string().nullable(),
+  modelSelection: startedModelSchema.nullish(),
+});
+const threadReadSchema = z.object({
+  thread: z.object({ modelSelection: startedModelSchema.nullish() }),
 });
 const listSchema = z.object({
   threads: z.array(
@@ -133,6 +142,31 @@ export function t3CanonicalLink(link: string, id: string): string {
   }
 }
 
+type RequestedModel = NonNullable<CloudAgentLaunchRequest["modelSelection"]>;
+
+/** T3 names the provider kind in `provider` and the instance in `instanceId`; a bare instance name goes in the latter. */
+export function instanceSelection(selection: RequestedModel) {
+  if (selection.instanceId || !selection.provider) return selection;
+  const { provider, ...rest } = selection;
+  return { ...rest, instanceId: provider };
+}
+
+/** What the thread actually runs on, worded for the bot; says so when it is not what was asked. */
+export function startedNote(
+  requested: RequestedModel | undefined,
+  started: z.infer<typeof startedModelSchema>,
+): string {
+  const instance = started.instanceId ? ` on ${started.instanceId}` : "";
+  const asked = requested && instanceSelection(requested);
+  if (!asked) return `Started ${started.model}${instance}.`;
+  if (
+    asked.model === started.model &&
+    (!asked.instanceId || asked.instanceId === started.instanceId)
+  )
+    return `Started ${started.model}${instance}.`;
+  return `Requested ${asked.model}${asked.instanceId ? ` on ${asked.instanceId}` : ""}, T3 started ${started.model}${instance}.`;
+}
+
 /** Thread ids are the agent id; the title tag finds a launch a lost response hid. */
 export class T3CloudAgentProvider implements CloudAgentProvider {
   constructor(private readonly options: T3CloudAgentOptions) {}
@@ -195,7 +229,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     // A named model goes in the launch itself, so the thread's first turn runs on it. Otherwise
     // scratch threads, and projects without a default, need one named for them.
     const modelSelection =
-      request.modelSelection ??
+      (request.modelSelection && instanceSelection(request.modelSelection)) ??
       (project?.defaultModelSelection ? undefined : await this.defaultModel(context));
     const launched = launchSchema.parse(
       await this.launchWithinCeiling(
@@ -220,12 +254,18 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         context,
       ),
     );
+    // A named model is checked against what T3 started; one left out keeps T3's default unreported.
+    const started = request.modelSelection
+      ? (launched.modelSelection ?? (await this.startedModel(launched.threadId, context)))
+      : undefined;
+    const launchNote = started && startedNote(request.modelSelection, started);
     return {
       id: launched.threadId,
       url: t3CanonicalLink(launched.link ?? "", launched.threadId),
       title,
       status: "running",
       ...(launched.runId ? { latestRunId: launched.runId } : {}),
+      ...(launchNote ? { launchNote } : {}),
     };
   }
 
@@ -403,6 +443,18 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     const snapshot = await this.peek(id, context);
     return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
+  }
+
+  /** One read of the new thread, when T3 does not say its model in the launch response. */
+  private async startedModel(id: string, context: AdapterContext) {
+    try {
+      const read = threadReadSchema.parse(
+        await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
+      );
+      return read.thread.modelSelection ?? undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   private async defaultModel(context: AdapterContext) {

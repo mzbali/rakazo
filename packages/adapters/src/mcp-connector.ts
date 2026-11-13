@@ -69,6 +69,7 @@ import type { McpServerHealthUpdate } from "./mcp-server-health.js";
 import { needsMcpOAuthClient, recordMcpServerHealth } from "./mcp-server-health.js";
 import { mcpToolAllowed } from "./mcp-tool-permissions.js";
 import { McpSession, mcpStdioRefusal } from "./mcp-transport.js";
+import { isPinnedTool } from "./pinned-tools.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { ConnectorRedirectError, isMcpSessionGoneError, mcpToolFields } from "./remote-mcp.js";
 import { appendToolCompletionAudit } from "./tool-completion-audit.js";
@@ -447,7 +448,7 @@ export class McpConnector implements ConnectorProvider {
     if (tools.length <= DIRECT_TOOL_LIMIT) return tools;
     // Keep wrappers off "mcp_": see lazyCatalogTools.
     return [
-      ...tools.filter((tool) => !tool.unavailable && context.pinnedTools?.includes(tool.name)),
+      ...tools.filter((tool) => !tool.unavailable && isPinnedTool(context.pinnedTools, tool.name)),
       ...lazyCatalogTools(catalogToolPrefix("mcp"), "mcp", "MCP", catalogEntries(tools)),
     ];
   }

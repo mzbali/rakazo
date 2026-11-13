@@ -28,7 +28,8 @@ suite("durable scoped continuation", () => {
     await db?.prisma.$disconnect();
     await db?.pool.end();
   });
-  async function fixture() {
+  /** `pinDeploy: false` leaves the deploy requirement's assertions silent about the revision. */
+  async function fixture({ pinDeploy = true } = {}) {
     return runAsSystem("isolated goal fixture", async () => {
       const p = db.prisma;
       const id = randomUUID();
@@ -75,7 +76,9 @@ suite("durable scoped continuation", () => {
           tool: "observe_release",
           request: { gate, revision: "revision-1" },
           assertions: [
-            { path: ["revision"], equals: "revision-1" },
+            ...(gate === "deploy" && !pinDeploy
+              ? []
+              : [{ path: ["revision"], equals: "revision-1" }]),
             { path: ["passed"], equals: true },
           ],
         })),
@@ -363,6 +366,46 @@ suite("durable scoped continuation", () => {
       });
       await reconcileScopedGoals(t.deps);
       expect((await t.goal()).attempt).toBe(1);
+    }));
+
+  it("refuses a reported deploy that pins no revision when the merged commit is unknown", async () =>
+    runAsSystem("goal unpinned deploy", async () => {
+      const t = await fixture({ pinDeploy: false });
+      await t.authorize();
+      await reconcileScopedGoals(t.deps);
+      const g = await t.goal();
+      const observations = [];
+      for (const requirement of t.scope.requirements) {
+        const proof = await t.p.externalEffect.create({
+          data: {
+            spaceId: t.owner.spaceId,
+            runId: g.activeRunId!,
+            kind: requirement.tool,
+            idempotencyKey: randomUUID(),
+            status: "completed",
+            request: requirement.request,
+            // The deploy names another revision, and nothing approved says which is right.
+            result: {
+              revision: requirement.gate === "deploy" ? "other" : "revision-1",
+              passed: true,
+            },
+          },
+        });
+        observations.push({ requirementId: requirement.id, effectId: proof.id });
+      }
+      await scopedGoalTool(
+        t.deps,
+        t.owner,
+        "scoped_goal_report",
+        { id: g.id, version: g.version, observations },
+        "report",
+      );
+      const after = await t.goal();
+      expect(after).toMatchObject({ status: "blocked", gate: "deploy" });
+      expect(JSON.stringify(after.blocker)).toContain("pins no revision");
+      expect(
+        (after.evidence as Array<{ requirementId: string }>).map((e) => e.requirementId),
+      ).toEqual(["merge", "health"]);
     }));
 
   it("persists long cooldowns without spending continuation attempts", async () =>

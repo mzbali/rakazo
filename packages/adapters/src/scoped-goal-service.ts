@@ -7,6 +7,7 @@ import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   Prisma as DbPrisma,
+  runAsSystem,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
@@ -122,13 +123,21 @@ const sameRevision = (a: string, b: string) => {
   return Math.min(x.length, y.length) >= 7 && (x.startsWith(y) || y.startsWith(x));
 };
 
-/** A deploy observation has to name the commit that was merged. */
+/** Without a merged commit, deploy evidence counts only on a revision the owner approved. */
+const pinsRevision = (r: Requirement) =>
+  r.revisionCheck || r.assertions.some((a) => a.path.length === 1 && a.path[0] === "revision");
+
+/** A deploy observation has to name the commit that was merged, or an approved revision. */
 function revisionProblem(
   requirement: Requirement,
   result: ObservedResult,
   sha: string | undefined,
 ) {
-  if (requirement.gate !== "deploy" || !sha) return undefined;
+  if (requirement.gate !== "deploy") return undefined;
+  if (!sha)
+    return pinsRevision(requirement)
+      ? undefined
+      : "Deploy evidence names no merged commit and the approved requirement pins no revision.";
   const revision = typeof result.revision === "string" ? result.revision : undefined;
   if (!revision) return `Deploy evidence names no revision; the merged commit is ${sha}.`;
   if (!sameRevision(revision, sha))
@@ -148,10 +157,6 @@ function staleDeploys(
     return reason ? [{ id: r.id, reason }] : [];
   });
 }
-
-/** Without a merged commit, deploy passes in code only on a revision the owner approved. */
-const pinsRevision = (r: Requirement) =>
-  r.revisionCheck || r.assertions.some((a) => a.path.length === 1 && a.path[0] === "revision");
 
 /** The evidence a live goal still lacks, for refusing a "done" the evidence does not back. */
 export async function missingGoalEvidence(prisma: PrismaClient, agentId: string) {
@@ -512,6 +517,37 @@ export async function reconcileScopedGoals(deps: Pick<Deps, "prisma" | "jobs">, 
     await enqueueScopedGoal(deps, goalId);
 }
 
+/** The backup job fires if the process that committed a due goal never gets to advance it. */
+const GOAL_BACKUP_MS = 2 * 60_000;
+/** Goals one process advances at once; any beyond wait for their backup job or the sweep. */
+const MAX_DIRECT_GOALS = 32;
+const advancing = new Map<string, Promise<void>>();
+
+/** Records the backup job in the transaction that makes the goal due. */
+export function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, goalId: string) {
+  return deps.jobs.enqueueIn(
+    tx,
+    scopedGoalAdvanceJob({ goalId }, new Date(Date.now() + GOAL_BACKUP_MS)),
+  );
+}
+
+/**
+ * Advances a goal from this process right after the commit that made it due, never behind the
+ * queue's shared slots. The goal's version claim keeps this and its backup job from both acting.
+ */
+export function startScopedGoal(deps: Deps, goalId: string) {
+  if (advancing.has(goalId) || advancing.size >= MAX_DIRECT_GOALS) return;
+  const started = runAsSystem("advance scoped goal", () => advanceScopedGoal(deps, goalId))
+    .catch((error: unknown) => getLogger().error("scoped goal direct start", error))
+    .finally(() => advancing.delete(goalId));
+  advancing.set(goalId, started);
+}
+
+/** Resolves once the goals this process started directly have finished their pass. */
+export async function settleScopedGoalStarts() {
+  await Promise.all(advancing.values());
+}
+
 export async function enqueueScopedGoal(deps: Pick<Deps, "jobs">, goalId: string) {
   await deps.jobs.enqueue(scopedGoalAdvanceJob({ goalId })).catch(() => {
     getLogger().warn("scoped goal advance deferred to reconciliation");
@@ -777,8 +813,7 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
     if (!observationMatches(requirement, result)) break;
     const sha = mergedSha(scope, await evidenceResults(deps.prisma, evidence));
     mismatch = revisionProblem(requirement, result, sha);
-    // Without a merged commit, only a revision the owner approved can pass the deploy gate.
-    if (mismatch || (requirement.gate === "deploy" && !sha && !pinsRevision(requirement))) break;
+    if (mismatch) break;
     const added = [
       ...evidence,
       {
@@ -900,7 +935,7 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
               },
               { action: "followup_deferred", source: "code", gate: current.gate, reason },
             );
-          return false;
+          return "uncertain" as const;
         }
         await transition(
           tx,
@@ -922,9 +957,13 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
         return false;
       });
     goal = await deps.prisma.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
-    if (!queued) return wait();
-    await enqueueCloudAgent(deps, fresh.id);
-    return wait();
+    if (queued === false) return wait();
+    // A write that stays unreconciled holds the follow-up back, not the goal: past the stuck
+    // window the checks below hand it to a continuation that reconciles the effect.
+    if (queued === true) {
+      await enqueueCloudAgent(deps, fresh.id);
+      return wait();
+    }
   }
   if (fresh.status === "failed") return proceed();
   const since = [...history].find(

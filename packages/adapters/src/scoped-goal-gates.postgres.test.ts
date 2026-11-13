@@ -13,6 +13,7 @@ import {
   dueScopedGoalIds,
   reconcileScopedGoals,
   scopedGoalTool,
+  settleScopedGoalStarts,
 } from "./scoped-goal-service.js";
 import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
@@ -122,7 +123,7 @@ suite("scoped goal gates advance in code", () => {
     });
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
-      enqueueIn: async () => undefined,
+      enqueueIn: vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined),
       cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
@@ -154,7 +155,11 @@ suite("scoped goal gates advance in code", () => {
       ),
     );
     const agentId = (launched as { id: string }).id;
-    const poll = () => runAsSystem("poll", () => pollCloudAgent(deps, { agentId }));
+    // A goal the poll finds due is advanced from the poll's process; tests wait for that pass.
+    const poll = async () => {
+      await runAsSystem("poll", () => pollCloudAgent(deps, { agentId }));
+      await settleScopedGoalStarts();
+    };
     await poll();
     const agent = () => p.cloudAgent.findUniqueOrThrow({ where: { id: agentId } });
     const threadId = (await agent()).remoteId!;
@@ -464,7 +469,7 @@ suite("scoped goal gates advance in code", () => {
       expect(await slow.goal()).toMatchObject({ gate: "deploy", status: "active" });
     }));
 
-  it("nudges only the goal of the agent that finished", async () =>
+  it("advances only the goal of the agent that finished, without the queue", async () =>
     runAsSystem("goal nudge", async () => {
       const a = await fixture();
       const b = await fixture();
@@ -474,16 +479,44 @@ suite("scoped goal gates advance in code", () => {
           where: { id: (await t.goal()).id },
           data: { nextAttemptAt: later },
         });
+      // Every queue slot is taken: a goal that waited on the queue could not move.
+      vi.mocked(a.deps.jobs.enqueue).mockImplementation((job) =>
+        job.name === "scoped_goal.advance" ? new Promise(() => undefined) : Promise.resolve(),
+      );
+      a.emulator.openPullRequest(a.threadId, PR);
+      a.emulator.landPullRequest(a.threadId);
       await a.finish();
-      const advances = (t: typeof a) =>
-        vi
-          .mocked(t.deps.jobs.enqueue)
-          .mock.calls.filter(([job]) => job.name === "scoped_goal.advance")
-          .map(([job]) => (job.payload as { goalId: string }).goalId);
-      expect(advances(a)).toEqual([(await a.goal()).id]);
-      expect((await a.goal()).nextAttemptAt!.getTime()).toBeLessThanOrEqual(Date.now());
+
+      const goalId = (await a.goal()).id;
+      expect(await a.goal()).toMatchObject({ gate: "deploy", status: "active" });
+      expect((await a.history()).filter((h) => h.action === "gate_passed")).toHaveLength(1);
+      expect(
+        vi.mocked(a.deps.jobs.enqueue).mock.calls.filter(([j]) => j.name === "scoped_goal.advance"),
+      ).toEqual([]);
+      // The backup job was recorded by the poll's own transaction, to fire after the attempt's time.
+      const backups = vi
+        .mocked(a.deps.jobs.enqueueIn)
+        .mock.calls.map(([, job]) => job)
+        .filter((job) => job.name === "scoped_goal.advance");
+      expect(backups).toEqual([
+        expect.objectContaining({
+          payload: { goalId },
+          replaceKey: `scoped_goal.advance:${goalId}`,
+          availableAt: expect.any(Date),
+        }),
+      ]);
+      expect(backups[0]!.availableAt!.getTime()).toBeGreaterThan(Date.now());
+
+      // When the backup fires after the direct start did the work, it changes nothing.
+      const before = (await a.history()).length;
+      await runAsSystem("backup", () =>
+        advanceScopedGoal(a.deps, goalId, backups[0]!.availableAt!),
+      );
+      expect((await a.history()).length).toBe(before);
+      expect(await a.continuations()).toBe(0);
+
       expect((await b.goal()).nextAttemptAt).toEqual(later);
-      expect(advances(b)).toEqual([]);
+      expect(vi.mocked(b.deps.jobs.enqueueIn)).not.toHaveBeenCalled();
     }));
 
   it("holds the automatic follow-up while an earlier write is uncertain, then sends it", async () =>
@@ -519,6 +552,47 @@ suite("scoped goal gates advance in code", () => {
       expect((await t.agent()).followup).toMatchObject({ goalGate: "deploy" });
       expect(await t.goal()).toMatchObject({ status: "active", blocker: null });
       expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(1);
+    }));
+
+  it("stops a goal whose earlier write stays uncertain, after bounded continuations", async () =>
+    runAsSystem("goal persistent uncertain", async () => {
+      const t = await fixture();
+      await t.finish();
+      t.emulator.openPullRequest(t.threadId, PR);
+      await t.reconcile();
+      t.emulator.landPullRequest(t.threadId);
+      await t.p.externalEffect.create({
+        data: {
+          spaceId: t.owner.spaceId,
+          runId: t.run.id,
+          kind: "http_post",
+          idempotencyKey: `uncertain:${randomUUID()}`,
+          status: "uncertain",
+          request: {},
+        },
+      });
+      const start = Date.now();
+      await t.reconcile(new Date(start + 2 * MINUTE));
+      expect(await t.goal()).toMatchObject({ gate: "deploy", status: "waiting" });
+      expect(await t.continuations()).toBe(0);
+
+      // Within the stuck window the goal still waits for the write to settle.
+      await t.reconcile(new Date(start + 5 * MINUTE));
+      expect(await t.continuations()).toBe(0);
+
+      // Past it, a continuation reconciles the write; each one ends without progress.
+      for (let step = 1; step <= 12; step++) {
+        const active = (await t.goal()).activeRunId;
+        if (active) await t.p.run.update({ where: { id: active }, data: { status: "completed" } });
+        await t.reconcile(new Date(start + step * 40 * MINUTE));
+        if (step === 1) expect(await t.continuations()).toBe(1);
+      }
+      expect(await t.continuations()).toBe(3);
+      expect(await t.goal()).toMatchObject({ status: "blocked", nextAttemptAt: null });
+      expect(await t.notices("scoped-goal-blocked:")).toBe(1);
+      // The write stayed refused throughout.
+      expect((await t.agent()).followup).toBeNull();
+      expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(0);
     }));
 
   it("refuses a done report while evidence is missing", async () =>

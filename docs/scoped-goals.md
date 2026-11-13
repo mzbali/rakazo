@@ -13,8 +13,12 @@ queue or framework.
   a new approval, which discards earlier evidence.
 - Each evidence requirement names a recorded observation (tool and request) and assertions
   on its structured result. Prose from an agent never completes a goal.
-- A completion wake only asks the reconciler to look at the goal. Only satisfied evidence
-  completes a gate.
+- A completion wake only asks for a look at the goal. Only satisfied evidence completes a gate.
+  The process that records the wake advances the goal right away, never behind the job queue's
+  shared slots (at most 32 goals at once; one pass per goal). The same transaction records a
+  delayed `scoped_goal.advance` backup job; if the process dies, that job (or the periodic
+  sweep) advances the goal. The goal's version claim means the direct pass and the backup never
+  both act, so the backup is a no-op once the goal has moved.
 - While a goal drives its agent (active or waiting, current control epoch) the owner's normal
   completion wake is held back; the goal starts one deduplicated continuation Run instead
   (that Run stays in the bot's chat even with `CLOUD_AGENT_JOB_THREADS=1`).
@@ -27,7 +31,10 @@ queue or framework.
 - Any executing or uncertain write in the thread blocks further goal writes until it is
   reconciled. That includes the automatic follow-up: it is checked in the same transaction
   that records it, and while blocked the goal waits with the effect named in its blocker, then
-  sends the follow-up once the effect settles. Permission denials never trigger a fallback.
+  sends the follow-up once the effect settles. If it stays unsettled past the stuck window,
+  the goal gets a continuation that reconciles the effect (the follow-up stays refused), and
+  the back-off and three-strike stop below end it with one notice. Permission denials never
+  trigger a fallback.
 - `scoped_goal_authorize` and `scoped_goal_control` always need explicit approval;
   `scoped_goal_status` is read-only; `scoped_goal_report` records evidence.
 
@@ -50,7 +57,8 @@ and advances it, so a normal release takes no continuation Run.
 - The provider reports the pull request. When it names no merge commit, a public repository
   is asked once per check for it, with a timeout and no credentials. Failing that, merge is
   recorded without a commit, and the deploy gate passes only on a revision the owner approved
-  in the scope.
+  in the scope. That holds for evidence a model reports too: without a merged commit, a deploy
+  counts only if its requirement pins a revision, and one that does not is refused.
 - `http_check` fetches only the URL its approved requirement names, under the same egress
   rules as web fetches: private and internal hosts are refused.
 - When a gate passes, the agent gets one templated follow-up for the next (merge, then deploy

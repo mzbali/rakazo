@@ -36,7 +36,7 @@ import {
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
 import { notifyCloudAgentUnreachable } from "./run-notifications.js";
-import { enqueueScopedGoal, goalDrivesAgent } from "./scoped-goal-service.js";
+import { goalDrivesAgent, recordScopedGoalBackup, startScopedGoal } from "./scoped-goal-service.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
@@ -547,6 +547,7 @@ async function finishPoll(
       if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt) {
         goalId = goal.id;
         await tx.scopedGoal.update({ where: { id: goal.id }, data: { nextAttemptAt: new Date() } });
+        await recordScopedGoalBackup(deps, tx, goal.id);
       }
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
@@ -614,8 +615,8 @@ async function finishPoll(
     });
   }
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
-  // Only this agent's goal is looked at, in its own job; the reconciler finds the rest.
-  else if (committed.goalId) await enqueueScopedGoal(deps, committed.goalId);
+  // Only this agent's goal is looked at, from here; its backup job and the reconciler cover a crash.
+  else if (committed.goalId) startScopedGoal(deps, committed.goalId);
 }
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];

@@ -350,11 +350,13 @@ export function cloudAgentPollJob(
 
 export function scopedGoalAdvanceJob(
   payload: BackgroundJobPayloads["scoped_goal.advance"],
+  availableAt?: Date,
 ): BackgroundJob {
   return {
     name: "scoped_goal.advance",
     payload,
     replaceKey: `scoped_goal.advance:${payload.goalId}`,
+    ...(availableAt ? { availableAt } : {}),
   };
 }
 

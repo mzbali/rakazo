@@ -28,6 +28,7 @@ import type {
 import {
   ChatSdkMessagingSurface,
   CodexCatalogCache,
+  configureCorrectedClaimsConnections,
   contentKeyProviderFromEnv,
   createAgentHomeStore,
   createApnsActivityProvider,
@@ -303,6 +304,11 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  configureCorrectedClaimsConnections({
+    prisma,
+    secretStore: secrets,
+    mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
+  });
   installSecurityEventStore(prisma);
   installAuditEventStore(prisma);
   const unreadableMasterKeys = await verifyContentKeys(prisma);

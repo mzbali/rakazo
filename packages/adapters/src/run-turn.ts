@@ -11,6 +11,7 @@ import {
   TransientModelError,
 } from "@rakazo/adapter-kit";
 import {
+  assertNoAddedClaims,
   BACKGROUND_HELPER_TRIGGER,
   containsSecret,
   displayName,
@@ -787,12 +788,19 @@ export async function completeRun(ctx: RunContext) {
       );
     }
     for (const mem of turn.memory ?? []) {
+      const snapshot = await deps.memory.read(
+        { scope: mem.scope, botId: mem.scope === "bot" ? bot.id : undefined, path: mem.path },
+        context,
+      );
+      const previous = snapshot.documents.find((doc) => doc.path === mem.path);
+      await assertNoAddedClaims(previous?.content ?? "", mem.content);
       await deps.memory.commit(
         {
           scope: mem.scope,
           botId: mem.scope === "bot" ? bot.id : undefined,
           path: mem.path,
           content: mem.content,
+          expectedRevision: previous?.revision ?? 0,
           sourceRunId: runId,
           sourceThreadId: thread.id,
         },

@@ -1,7 +1,13 @@
 import type { AdapterContext, ConnectorProvider } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { T3CloudAgentProvider, t3CanonicalLink, t3DirectThread } from "./t3-cloud-agent.js";
+import {
+  instanceSelection,
+  startedNote,
+  T3CloudAgentProvider,
+  t3CanonicalLink,
+  t3DirectThread,
+} from "./t3-cloud-agent.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -139,6 +145,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
         providers: [{ providerInstanceId: "codex", canRunChildTask: true, models: [{ id: "m" }] }],
       }),
       t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
+      t3_thread_read: () => ({ thread: { model: "claude-model" } }),
     };
     const named = server(handlers);
     const modelSelection = {
@@ -164,8 +171,9 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       "t3_thread_list",
       "t3_project_list",
       "t3_thread_launch",
+      "t3_thread_read",
     ]);
-    expect(named.calls.at(-1)!.args).toEqual({
+    expect(named.calls.find((call) => call.tool === "t3_thread_launch")!.args).toEqual({
       title: "Fix it · abcdef123456",
       message: "Fix it",
       clientRequestId: "abcdef123456",
@@ -465,5 +473,79 @@ describe("thread links", () => {
     );
     const webLink = "https://app.t3.codes/threads/project/thread%3A1";
     expect(provider.canonicalizeLinks(webLink, "thread:1", url)).toBe(webLink);
+  });
+});
+
+describe("T3 launch model", () => {
+  it("sends a pool name given as provider as the instance id", () => {
+    expect(
+      instanceSelection({
+        provider: "claudeAgent_pool_ab",
+        model: "claude-sonnet-5-5",
+        options: [{ id: "effort", value: "medium" }],
+      }),
+    ).toEqual({
+      instanceId: "claudeAgent_pool_ab",
+      model: "claude-sonnet-5-5",
+      options: [{ id: "effort", value: "medium" }],
+    });
+    const both = { provider: "claudeAgent", instanceId: "pool", model: "m" };
+    expect(instanceSelection(both)).toEqual(both);
+    expect(instanceSelection({ model: "m" })).toEqual({ model: "m" });
+  });
+
+  it("says when the thread started on another model", () => {
+    const requested = { provider: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" };
+    expect(startedNote(requested, { model: "claude-opus-5-5", instanceId: "claudeAgent" })).toBe(
+      "Requested claude-sonnet-5-5 on claudeAgent_pool_ab, T3 started claude-opus-5-5 on claudeAgent.",
+    );
+    expect(
+      startedNote(requested, { model: "claude-sonnet-5-5", instanceId: "claudeAgent_pool_ab" }),
+    ).toBe("Started claude-sonnet-5-5 on claudeAgent_pool_ab.");
+  });
+});
+
+describe("T3 launch model reporting", () => {
+  const request = {
+    idempotencyKey: "abcdef123456",
+    prompt: "Fix it",
+    modelSelection: { provider: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
+  };
+  const base = {
+    t3_thread_list: () => ({ threads: [] }),
+    t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
+  };
+
+  it("sends the pool as instanceId and reads the thread for the model it started", async () => {
+    const t3 = server({
+      ...base,
+      t3_thread_read: () => ({
+        thread: { providerInstanceId: "claudeAgent", model: "claude-opus-5-5" },
+      }),
+    });
+    const handle = await t3.provider.launch(request, context);
+    expect(t3.calls.find((call) => call.tool === "t3_thread_launch")!.args).toMatchObject({
+      modelSelection: { instanceId: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
+    });
+    expect(handle.launchNote).toBe(
+      "Requested claude-sonnet-5-5 on claudeAgent_pool_ab, T3 started claude-opus-5-5 on claudeAgent.",
+    );
+  });
+
+  it("reports a match from the thread, not the launch response's echo", async () => {
+    const t3 = server({
+      ...base,
+      t3_thread_launch: () => ({
+        threadId: "thread:1",
+        runId: "run:1",
+        modelSelection: { instanceId: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
+      }),
+      t3_thread_read: () => ({
+        thread: { providerInstanceId: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
+      }),
+    });
+    const handle = await t3.provider.launch(request, context);
+    expect(t3.calls.map((call) => call.tool)).toContain("t3_thread_read");
+    expect(handle.launchNote).toBe("Started claude-sonnet-5-5 on claudeAgent_pool_ab.");
   });
 });

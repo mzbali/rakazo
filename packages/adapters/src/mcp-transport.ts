@@ -18,6 +18,7 @@ import {
   isPackageRunnerCommand,
 } from "./mcp-package-installer.js";
 import { limitMcpResponseBody } from "./mcp-response-limit.js";
+import { CachedJsonSchemaValidator } from "./mcp-schema-validator.js";
 import type { RemoteTransportDependencies, SafeRemoteFetch } from "./remote-mcp.js";
 import { createSafeRemoteFetch, listMcpTools } from "./remote-mcp.js";
 
@@ -357,7 +358,11 @@ export class McpSession {
   private newClient(): Client {
     return new Client(
       { name: this.clientOptions.name ?? "rakazo", version: this.clientOptions.version ?? "0.1.0" },
-      this.clientOptions.capabilities ?? { capabilities: MCP_APP_CLIENT_CAPABILITIES },
+      {
+        // Sessions are reused and list tools on every call; see CachedJsonSchemaValidator.
+        jsonSchemaValidator: new CachedJsonSchemaValidator(),
+        ...(this.clientOptions.capabilities ?? { capabilities: MCP_APP_CLIENT_CAPABILITIES }),
+      },
     );
   }
 

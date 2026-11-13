@@ -37,6 +37,8 @@ const EVENTS_CONTRACT_VERSION = 1;
 const IDLE_CONFIRM_MS = 1_000;
 const MAX_EVENT_PAGES = 10;
 
+const INTERNAL_SERVER_ERROR = "Tool execution failed due to an internal server error.";
+
 const failureSchema = z.object({ code: z.string(), message: z.string().optional() });
 
 /**
@@ -127,9 +129,14 @@ const capabilitiesSchema = z.object({
 });
 const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
 
-/** The provider link is Markdown or an autolink and contains the environment identity. */
+/**
+ * The provider link is Markdown or an autolink and contains the environment identity, as a
+ * `t3-thread://` link or the web form `https://<host>/threads/<environment>/<thread>`.
+ */
 export function t3CanonicalLink(link: string, id: string): string {
-  const match = /t3-thread:\/\/v2\/([^/\s)>]+)\/([^\s)>]+)/.exec(link);
+  const match =
+    /t3-thread:\/\/v2\/([^/\s)>]+)\/([^\s)>]+)/.exec(link) ??
+    /https:\/\/[^/\s)>]+\/threads\/([^/\s)>]+)\/([^/\s)>?#]+)/.exec(link);
   if (!match) return "";
   try {
     if (decodeURIComponent(match[2]!) !== id) return "";
@@ -555,6 +562,8 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     };
     if (result.isError) {
       const { code, message } = t3Failure(result);
+      // T3's own server fault carries no code, only this text; a later call may succeed.
+      if (!code && message === INTERNAL_SERVER_ERROR) throw new CloudAgentRetryLater("unavailable");
       if (code === "thread_not_found") throw new CloudAgentRequestRejected("not_found", message);
       if (code === "orchestration_error" || code === "provider_unavailable")
         throw new CloudAgentRetryLater("unavailable");

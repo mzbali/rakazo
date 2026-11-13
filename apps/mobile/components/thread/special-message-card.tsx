@@ -208,20 +208,28 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
   if (special.kind === "cloud_agent") {
     const title = special.title || t`Cloud agent`;
     const statusLabel =
-      special.status === "running" && special.needsInput
-        ? t`needs input`
-        : special.status === "running" && special.queued
-          ? t`queued`
-          : special.status === "running"
-            ? t`running`
-            : special.status === "finished"
-              ? t`finished`
-              : special.status === "cancelled"
-                ? t`cancelled`
-                : special.status === "expired"
-                  ? t`expired`
-                  : t`failed`;
+      special.status === "running" && special.unreachableSince
+        ? t`unreachable`
+        : special.status === "running" && special.needsInput
+          ? t`needs input`
+          : special.status === "running" && special.queued
+            ? t`queued`
+            : special.status === "running"
+              ? t`running`
+              : special.status === "finished"
+                ? t`finished`
+                : special.status === "cancelled"
+                  ? t`cancelled`
+                  : special.status === "expired"
+                    ? t`expired`
+                    : t`failed`;
     const running = special.status === "running";
+    const since = special.unreachableSince
+      ? new Date(special.unreachableSince).toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "";
     const failed = special.status !== "running" && special.status !== "finished";
     const prHref = cloudAgentHttpsUrl(special.prUrl);
     const href = prHref ?? cloudAgentHttpsUrl(special.url) ?? allowedAppLink(special.url);
@@ -256,6 +264,11 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
             {statusLabel}
           </Text>
         </View>
+        {running && special.unreachableSince ? (
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
+            {t`Resumes when it's back · since ${since}`}
+          </Text>
+        ) : null}
         {prHref ? (
           <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {t`Pull request`}

@@ -7,13 +7,15 @@ import type {
   CloudAgentSnapshot,
   ConnectorProvider,
   JobPublisher,
+  NotificationMessage,
+  NotificationProvider,
 } from "@rakazo/adapter-kit";
 import { CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
+import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "./cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,
@@ -171,10 +173,12 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       cancel: async () => undefined,
       close: async () => undefined,
     };
+    const send = vi.fn(async (_message: NotificationMessage) => undefined);
     const deps = {
       prisma,
       jobs,
       events: { notify: vi.fn(async () => undefined) },
+      notifications: { send } as unknown as NotificationProvider,
       cloudAgent: connection,
     };
     const context: AdapterContext & { botId: string; botName: string } = {
@@ -217,6 +221,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       ...fixture,
       provider,
       deps,
+      send,
       context,
       launch,
       state,
@@ -912,6 +917,115 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     // Polling a finished agent again does not wake the bot a second time.
     await t.poll(id);
     expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
+  });
+
+  describe("when the provider cannot be reached", () => {
+    afterEach(() => vi.useRealTimers());
+
+    /** A T3 emulator whose server can be taken away, as a sleeping Mac does. */
+    async function outageSetup() {
+      const emulator = new T3ThreadEventsEmulator();
+      let reachable = true;
+      const t = await setup(
+        t3EmulatedProvider({
+          fetch: async (input, init) => {
+            if (!reachable) throw new TypeError("fetch failed");
+            return emulator.fetch(input, init);
+          },
+        }),
+      );
+      const id = await t.launch(1);
+      await t.poll(id);
+      const sent = () => t.send.mock.calls;
+      /** Polls once, `minutes` after the last one, as the worker would when the poll comes due. */
+      const pollAfter = async (minutes: number) => {
+        vi.setSystemTime(Date.now() + minutes * 60_000);
+        await asSystem(prisma).cloudAgent.update({
+          where: { id },
+          data: { nextPollAt: new Date() },
+        });
+        await t.poll(id);
+      };
+      const card = async () => {
+        const message = await asSystem(prisma).message.findFirstOrThrow({
+          where: { id: (await t.state(id)).messageId! },
+        });
+        return (message.blocks as Array<{ kind: string; unreachableSince?: string }>).find(
+          (block) => block.kind === "cloud_agent",
+        )!;
+      };
+      return {
+        ...t,
+        id,
+        emulator,
+        sent,
+        pollAfter,
+        card,
+        setReachable: (value: boolean) => {
+          reachable = value;
+        },
+      };
+    }
+
+    it("marks the agent after the threshold, tells the owner once, and resumes with the completion wake", async () => {
+      const t = await outageSetup();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const { remoteId } = await t.state(t.id);
+      t.setReachable(false);
+
+      // A short outage is a blip: nothing is marked and nobody is told.
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({ unreachableSince: null });
+      expect(t.sent()).toHaveLength(0);
+
+      await t.pollAfter(UNREACHABLE_AFTER_MS / 60_000);
+      const marked = await t.state(t.id);
+      expect(marked.unreachableSince).toBeInstanceOf(Date);
+      expect((await t.card()).unreachableSince).toBe(marked.unreachableSince!.toISOString());
+      expect(t.sent()).toHaveLength(1);
+      expect(t.sent()[0]![0]).toMatchObject({ kind: "help", botId: t.lead.id });
+
+      // Still down: the same outage, so the same record and no second notice.
+      await t.pollAfter(10);
+      await t.pollAfter(10);
+      expect((await t.state(t.id)).unreachableSince).toEqual(marked.unreachableSince);
+      expect(t.sent()).toHaveLength(1);
+      // The bot was never woken for it.
+      expect(await t.wakeNonces()).toEqual([]);
+
+      // The thread finished while the Mac slept; once reachable the poll sees it and wakes once.
+      t.emulator.complete(remoteId!);
+      t.setReachable(true);
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({
+        status: "finished",
+        unreachableSince: null,
+        retryingSince: null,
+      });
+      expect((await t.card()).unreachableSince).toBeUndefined();
+      expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${t.id}:0`]);
+      expect(t.sent()).toHaveLength(1);
+    });
+
+    it("tells the owner again when it recovers and then goes unreachable again", async () => {
+      const t = await outageSetup();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      t.setReachable(false);
+      await t.pollAfter(1);
+      await t.pollAfter(6);
+      expect(t.sent()).toHaveLength(1);
+
+      t.setReachable(true);
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({ status: "running", unreachableSince: null });
+
+      t.setReachable(false);
+      await t.pollAfter(1);
+      expect(t.sent()).toHaveLength(1);
+      await t.pollAfter(6);
+      expect(t.sent()).toHaveLength(2);
+      expect((await t.state(t.id)).unreachableSince).not.toBeNull();
+    });
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

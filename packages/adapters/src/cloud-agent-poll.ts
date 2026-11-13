@@ -29,10 +29,13 @@ import {
   cloudAgentWakeNonces,
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
+import { notifyCloudAgentUnreachable } from "./run-notifications.js";
 import { goalDrivesAgent, reconcileScopedGoals } from "./scoped-goal-service.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
+/** Retryable failures this long in a row mean the agent's provider is unreachable, not blipping. */
+export const UNREACHABLE_AFTER_MS = 5 * 60_000;
 
 /** Reconcile one persisted intent. A fenced lease serializes remote mutations. */
 export async function pollCloudAgent(
@@ -240,7 +243,7 @@ export async function pollCloudAgent(
               where: { id: agent.id, leaseToken: agent.leaseToken },
               data: { followupDispatchedAt: null },
             });
-            await retryPoll(deps, agent, error.retryAfterMs);
+            await outagePoll(deps, agent, error.retryAfterMs);
             return;
           }
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
@@ -279,11 +282,8 @@ export async function pollCloudAgent(
     if (error instanceof CloudAgentRetryLater && error.reason === "credential")
       getLogger().warn("cloud agent credential rejected; check the provider connection");
     else getLogger().warn("cloud agent operation deferred to reconciliation");
-    await retryPoll(
-      deps,
-      agent,
-      error instanceof CloudAgentRetryLater ? error.retryAfterMs : undefined,
-    );
+    if (error instanceof CloudAgentRetryLater) await outagePoll(deps, agent, error.retryAfterMs);
+    else await retryPoll(deps, agent);
   } finally {
     // A concurrent user action can change version while remote I/O is in flight.
     // Release only our lease, preserving that action's pending intent and due date.
@@ -349,6 +349,66 @@ async function retryPoll(
     },
   });
   if (saved.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
+  return saved.count > 0;
+}
+
+/**
+ * A retryable failure. Once they have run unbroken past the threshold the card says so and the
+ * owner hears once, without waking the bot; a success (finishPoll) clears it and a new outage
+ * starts over.
+ */
+async function outagePoll(deps: CloudAgentDeps, agent: CloudAgent, retryAfterMs?: number) {
+  const now = new Date();
+  const since = agent.retryingSince ?? now;
+  const unreachable =
+    !agent.unreachableSince && now.getTime() - since.getTime() >= UNREACHABLE_AFTER_MS;
+  const saved = await retryPoll(deps, agent, retryAfterMs, {
+    retryingSince: since,
+    ...(unreachable ? { unreachableSince: now } : {}),
+  });
+  if (!saved || !unreachable) return;
+  await repaintCloudAgentCard(deps, agent.id);
+  await notifyCloudAgentUnreachable(
+    { prisma: deps.prisma, events: deps.events, notifications: deps.notifications },
+    agent,
+  ).catch(() => getLogger().warn("cloud agent unreachable notice failed"));
+}
+
+/** The card follows the row when only its outage state changed. */
+async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
+  const seq = await deps.prisma.$transaction(async (tx) => {
+    const saved = await tx.cloudAgent.findUnique({ where: { id: agentId } });
+    if (!saved) return undefined;
+    // Same lock order as finishPoll: thread first, then the message.
+    await tx.thread.updateMany({
+      where: { id: saved.threadId, spaceId: saved.spaceId },
+      data: { nextEventSeq: { increment: 0 } },
+    });
+    const message = await tx.message.findFirst({
+      where: { id: saved.messageId ?? "", threadId: saved.threadId },
+    });
+    if (!message) return undefined;
+    const nextBlock = cloudAgentBlock(saved);
+    const blocks = (message.blocks as MessageBlock[]).map((block) =>
+      block.kind === "cloud_agent" && block.agentId === saved.id ? nextBlock : block,
+    );
+    if (JSON.stringify(blocks) === JSON.stringify(message.blocks)) return undefined;
+    await tx.message.update({ where: { id: message.id }, data: { blocks } });
+    const event = await appendEventInTransaction(tx, {
+      spaceId: saved.spaceId,
+      threadId: saved.threadId,
+      botId: saved.botId,
+      type: "thread.cloud_agent",
+      payload: { messageId: message.id, ...nextBlock },
+    });
+    return event.seq;
+  });
+  const agent = await deps.prisma.cloudAgent.findUnique({
+    where: { id: agentId },
+    select: { threadId: true },
+  });
+  if (seq !== undefined && agent)
+    await deps.events.notify(agent.threadId, seq).catch(() => undefined);
 }
 
 async function finishPoll(
@@ -400,6 +460,8 @@ async function finishPoll(
         // A queued request cancelled before it started ends here, off the queue.
         ...(terminal ? { queuedAt: null } : {}),
         errorCount: 0,
+        retryingSince: null,
+        unreachableSince: null,
         leaseToken: null,
         leaseExpiresAt: null,
         version: { increment: 1 },

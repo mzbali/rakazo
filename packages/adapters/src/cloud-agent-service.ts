@@ -1,4 +1,4 @@
-import type { AdapterContext, JobPublisher } from "@rakazo/adapter-kit";
+import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, PrismaClient, ThreadEvents } from "@rakazo/db";
@@ -38,7 +38,9 @@ import { goalDrivesAgent, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
 export interface CloudAgentDeps {
   prisma: PrismaClient;
   jobs: JobPublisher;
-  events: Pick<ThreadEvents, "notify">;
+  events: Pick<ThreadEvents, "notify"> & Partial<Pick<ThreadEvents, "publishChatAlert">>;
+  /** Tells the owner a cloud agent is unreachable; absent leaves the card as the only sign. */
+  notifications?: NotificationProvider;
   cloudAgent: CloudAgentConnection | null | undefined;
   userCloudAgents?: UserCloudAgents;
   runLease?: ExecutorDeps["runLease"];

@@ -1441,8 +1441,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             ? strategicBuiltins
             : [...strategicBuiltins, ...strategicConnectorTools];
         for (const [index, tool] of tools.entries()) {
-          if (isPinnedTool(context.pinnedTools, tool.name))
-            tools[index] = { ...tool, pinned: true };
+          if (isPinnedTool(context.pinnedTools, tool)) tools[index] = { ...tool, pinned: true };
         }
         const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
           ? TASK_CATALOG_GUIDANCE

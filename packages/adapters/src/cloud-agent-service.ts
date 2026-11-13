@@ -403,7 +403,6 @@ export function cloudAgentStatusResult(agent: CloudAgent) {
     ...(agent.attention ? { attention: agent.attention } : {}),
     ...(agent.historyGapAt ? { historyGap: true } : {}),
     ...(agent.failureReason ? { failureReason: agent.failureReason } : {}),
-    ...(agent.launchNote ? { note: agent.launchNote } : {}),
     ...(agent.verdict ? { verdict: agent.verdict } : {}),
     ...(agent.agreement ? { agreement: agent.agreement } : {}),
     ...(agent.acceptance ? { acceptance: agent.acceptance } : {}),

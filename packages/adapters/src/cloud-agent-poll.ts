@@ -103,7 +103,6 @@ export async function pollCloudAgent(
           agent,
           {
             ...snapshotData(snapshot),
-            ...(snapshot.launchNote ? { launchNote: snapshot.launchNote } : {}),
             remoteId: snapshot.id,
             launchRequest: {},
             cancelRequested: abandoned || agent.cancelRequested,

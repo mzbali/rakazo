@@ -1515,8 +1515,6 @@ export interface CloudAgentHandle {
   status: CloudAgentStatus;
   /** Latest remote run id when the vendor exposes one (needed for cancel). */
   latestRunId?: string;
-  /** What the provider actually started, when it differs from the request or the request named nothing. */
-  launchNote?: string;
 }
 
 export interface CloudAgentSnapshot {

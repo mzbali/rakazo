@@ -1,9 +1,13 @@
 /**
  * A provider definitively refused a request. `not_found` means the agent or run no
- * longer exists; `expired` means the agent can no longer accept runs.
+ * longer exists; `expired` means the agent can no longer accept runs. `detail` is the
+ * provider's own explanation, when it gave one.
  */
 export class CloudAgentRequestRejected extends Error {
-  constructor(readonly reason: "invalid" | "not_found" | "expired" = "invalid") {
+  constructor(
+    readonly reason: "invalid" | "not_found" | "expired" = "invalid",
+    readonly detail?: string,
+  ) {
     super("Cloud agent request was rejected. Check the provider configuration and request.");
     this.name = "CloudAgentRequestRejected";
   }

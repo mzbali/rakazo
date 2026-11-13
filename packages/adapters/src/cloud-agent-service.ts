@@ -326,6 +326,7 @@ export function cloudAgentStatusResult(agent: CloudAgent) {
     ...snapshot,
     ...(agent.attention ? { attention: agent.attention } : {}),
     ...(agent.historyGapAt ? { historyGap: true } : {}),
+    ...(agent.failureReason ? { failureReason: agent.failureReason } : {}),
     ...(agent.verdict ? { verdict: agent.verdict } : {}),
     ...(agent.agreement ? { agreement: agent.agreement } : {}),
     ...(agent.acceptance ? { acceptance: agent.acceptance } : {}),

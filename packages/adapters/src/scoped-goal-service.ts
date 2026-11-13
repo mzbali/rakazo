@@ -14,7 +14,7 @@ import { createCloudAgentWake } from "./cloud-agent-poll.js";
 import {
   cloudAgentFor,
   enqueueCloudAgent,
-  queueCloudAgentFollowup,
+  queueCloudAgentFollowupInTransaction,
 } from "./cloud-agent-service.js";
 import type { ObservedResult, ObserverEgress } from "./scoped-goal-observers.js";
 import { isCodeObserver, observe } from "./scoped-goal-observers.js";
@@ -118,6 +118,20 @@ function revisionProblem(
   if (!revision) return `Deploy evidence names no revision; the merged commit is ${sha}.`;
   if (!sameRevision(revision, sha))
     return `Deployed revision ${revision} is not the merged commit ${sha}.`;
+}
+
+/** Retained deploy evidence that is not the merged commit, once that commit is known. */
+function staleDeploys(
+  scope: ScopedGoalScope,
+  evidence: readonly Evidence[],
+  results: ReadonlyMap<string, ObservedResult>,
+) {
+  const sha = mergedSha(scope, results);
+  return scope.requirements.flatMap((r) => {
+    if (!evidence.some((e) => e.requirementId === r.id)) return [];
+    const reason = revisionProblem(r, results.get(r.id) ?? {}, sha);
+    return reason ? [{ id: r.id, reason }] : [];
+  });
 }
 
 /** Without a merged commit, deploy passes in code only on a revision the owner approved. */
@@ -368,7 +382,6 @@ export async function scopedGoalTool(
       throw new Error("Goal changed or stopped.");
     const scope = ScopedGoalScope.parse(goal.scope);
     const evidence = [...evidenceOf(goal)];
-    const added: Requirement[] = [];
     const guard = scope.requirements.find((r) => r.revisionCheck)!;
     // A revision the reconciler observes itself needs no re-read from the bot.
     if (input.observations.length && !isCodeObserver(guard.tool)) {
@@ -412,16 +425,11 @@ export async function scopedGoalTool(
         throw new Error("Recorded observation does not satisfy the approved evidence contract.");
       if (!evidence.some((e) => e.requirementId === observation.requirementId)) {
         evidence.push(observation);
-        added.push(requirement);
       }
     }
-    // A deploy that is not the merged commit fails its gate instead of counting.
-    const results = await evidenceResults(tx, evidence);
-    const sha = mergedSha(scope, results);
-    const refused = added.flatMap((r) => {
-      const reason = revisionProblem(r, results.get(r.id) ?? {}, sha);
-      return reason ? [{ id: r.id, reason }] : [];
-    });
+    // A deploy that is not the merged commit fails its gate instead of counting, whichever
+    // report named the commit or the deploy first.
+    const refused = staleDeploys(scope, evidence, await evidenceResults(tx, evidence));
     const problem = refused[0]?.reason;
     if (refused.length)
       evidence.splice(
@@ -738,12 +746,11 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
     if (!isCodeObserver(requirement.tool)) break;
     const result = await observe(requirement, env);
     if (!observationMatches(requirement, result)) break;
-    const results = await evidenceResults(deps.prisma, evidence);
-    const sha = mergedSha(scope, results);
+    const sha = mergedSha(scope, await evidenceResults(deps.prisma, evidence));
     mismatch = revisionProblem(requirement, result, sha);
     // Without a merged commit, only a revision the owner approved can pass the deploy gate.
     if (mismatch || (requirement.gate === "deploy" && !sha && !pinsRevision(requirement))) break;
-    const next = [
+    const added = [
       ...evidence,
       {
         requirementId: requirement.id,
@@ -752,6 +759,9 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
         result,
       },
     ];
+    // A merged commit that just became known outranks deploy evidence recorded before it.
+    const stale = staleDeploys(scope, added, await evidenceResults(deps.prisma, added));
+    const next = added.filter((e) => !stale.some((s) => s.id === e.requirementId));
     const gate = goalGate(
       scope,
       next.map((e) => e.requirementId),
@@ -774,6 +784,7 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
           source: "code",
           requirementId: requirement.id,
           gate: requirement.gate,
+          ...(stale.length ? { dropped: stale } : {}),
         },
       );
       const updated = await tx.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
@@ -841,22 +852,32 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
       current.gate === "deploy"
         ? `PR merged${sha ? ` at ${sha}` : ""}. Deploy ${sha ?? "it"} per the repo's runbook, then reply with the deployed revision.`
         : `Deployed${deployed ? ` revision ${deployed}` : ""}. Install ${scope.installTarget} per the repo's runbook, then reply once it is installed.`;
-    await deps.prisma.$transaction((tx) =>
-      transition(
-        tx,
-        goal,
-        { activeEpoch: goal.controlEpoch },
-        { action: "followup_sent", source: "code", gate: current.gate },
-      ),
-    );
+    // The marker and the follow-up commit together; a changed agent undoes the marker.
+    const changed = new Error("Cloud agent changed before the follow-up was recorded.");
+    const queued = await deps.prisma
+      .$transaction(async (tx) => {
+        await transition(
+          tx,
+          goal,
+          { activeEpoch: goal.controlEpoch },
+          { action: "followup_sent", source: "code", gate: current.gate },
+        );
+        const result = await queueCloudAgentFollowupInTransaction(
+          tx,
+          fresh,
+          { prompt, goalGate: current.gate },
+          false,
+        );
+        if (!result.count) throw changed;
+      })
+      .then(() => true)
+      .catch((error: unknown) => {
+        if (error !== changed) throw error;
+        return false;
+      });
+    if (!queued) return wait();
     goal = await deps.prisma.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
-    const queued = await queueCloudAgentFollowup(
-      deps.prisma,
-      fresh,
-      { prompt, goalGate: current.gate },
-      false,
-    );
-    if (queued.count) await enqueueCloudAgent(deps, fresh.id);
+    await enqueueCloudAgent(deps, fresh.id);
     return wait();
   }
   if (fresh.status === "failed") return proceed();

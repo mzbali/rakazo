@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { pollCloudAgent } from "./cloud-agent-poll.js";
 import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
+import { reconcileCloudWork } from "./run-runtime.js";
 import { observe } from "./scoped-goal-observers.js";
 import { reconcileScopedGoals, scopedGoalTool } from "./scoped-goal-service.js";
 import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
@@ -308,6 +309,95 @@ suite("scoped goal gates advance in code", () => {
       expect(await t.notices("scoped-goal-blocked:")).toBe(1);
       expect(await t.continuations()).toBe(0);
       expect(await t.wakes()).toBe(0);
+    }));
+
+  it("drives goals for a deployment with only user-connected agents", async () =>
+    runAsSystem("goal user-connected only", async () => {
+      const t = await fixture();
+      await t.finish();
+      t.emulator.openPullRequest(t.threadId, PR);
+      t.emulator.landPullRequest(t.threadId);
+      const { cloudAgent, ...rest } = t.deps;
+      const userCloudAgents = {
+        forActor: async () => cloudAgent,
+        listForActor: async () => [cloudAgent],
+        forKey: async (key: string) => (key === cloudAgent.key ? cloudAgent : null),
+      };
+      await t.p.scopedGoal.update({
+        where: { id: (await t.goal()).id },
+        data: { nextAttemptAt: new Date() },
+      });
+      await reconcileCloudWork({
+        ...rest,
+        events: rest.events as never,
+        cloudAgent: null,
+        userCloudAgents,
+      });
+      expect(await t.goal()).toMatchObject({ gate: "deploy", status: "active" });
+      expect((await t.history()).filter((h) => h.action === "gate_passed")).toHaveLength(1);
+    }));
+
+  it("does not complete on deploy evidence that predates a different merged commit", async () =>
+    runAsSystem("goal deploy before merge", async () => {
+      const t = await fixture();
+      await t.finish();
+      const goal = await t.goal();
+      const scope = ScopedGoalScope.parse(goal.scope);
+      // The bot reports a deploy of another commit first; no merged commit is known yet.
+      const deployEffect = await t.p.externalEffect.create({
+        data: {
+          spaceId: t.owner.spaceId,
+          runId: t.run.id,
+          kind: "http_check",
+          idempotencyKey: `deploy:${goal.id}`,
+          status: "completed",
+          request: scope.requirements[1]!.request,
+          result: { ok: true, status: 200, revision: "b".repeat(40) },
+        },
+      });
+      await t.p.scopedGoal.update({
+        where: { id: goal.id },
+        data: { evidence: [{ requirementId: "deploy", effectId: deployEffect.id }] },
+      });
+      // The merge is then observed in code and names the real commit.
+      t.emulator.openPullRequest(t.threadId, PR);
+      t.emulator.landPullRequest(t.threadId);
+      await t.reconcile(new Date(Date.now() + 2 * MINUTE));
+      const after = await t.goal();
+      expect(after.status).not.toBe("completed");
+      expect(after.gate).toBe("deploy");
+      expect(
+        (after.evidence as Array<{ requirementId: string }>).map((e) => e.requirementId),
+      ).toEqual(["merge"]);
+    }));
+
+  it("leaves no follow-up marker when the agent changed, and sends it on the next pass", async () =>
+    runAsSystem("goal followup conflict", async () => {
+      const t = await fixture();
+      await t.finish();
+      t.emulator.openPullRequest(t.threadId, PR);
+      await t.reconcile();
+      t.emulator.landPullRequest(t.threadId);
+      // The agent row changes between the read and the follow-up write.
+      const delegate = t.p.cloudAgent as unknown as {
+        findUniqueOrThrow: (args: unknown) => Promise<unknown>;
+      };
+      const original = delegate.findUniqueOrThrow.bind(delegate);
+      const spy = vi.spyOn(delegate, "findUniqueOrThrow").mockImplementationOnce(async (args) => {
+        const row = await original(args);
+        await t.p.cloudAgent.updateMany({
+          where: { id: t.agentId },
+          data: { version: { increment: 1 } },
+        });
+        return row;
+      });
+      await t.reconcile(new Date(Date.now() + 2 * MINUTE));
+      spy.mockRestore();
+      expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(0);
+      expect((await t.agent()).followup).toBeNull();
+      await t.reconcile(new Date(Date.now() + 4 * MINUTE));
+      expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(1);
+      expect((await t.agent()).followup).toMatchObject({ goalGate: "deploy" });
     }));
 
   it("refuses a done report while evidence is missing", async () =>

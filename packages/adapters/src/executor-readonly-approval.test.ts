@@ -4357,3 +4357,34 @@ it.each(["cloud_agent_launch", "respond_agent_connection"])(
     );
   },
 );
+
+it.each(["relayed", "tainted"])(
+  "keeps connection acceptance guarded with saved Allow in a %s run",
+  async (source) => {
+    const f = fixture({
+      name: "respond_agent_connection",
+      builtin: true,
+      ...(source === "relayed" ? { trigger: "bot_message" as const } : {}),
+      rules: [
+        { effect: "always_allow", matchKind: "tool", matchValue: "respond_agent_connection" },
+      ],
+    });
+    if (source === "tainted") f.prisma.attempt.count.mockResolvedValue(2);
+    f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
+    Object.assign(f.prisma, {
+      agentConnection: {
+        findFirst: vi.fn(async () => ({
+          id: "connection-1",
+          requestVersion: 1,
+          requesterBotId: "bot-other",
+        })),
+      },
+      messagingIdentity: {
+        findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
+      },
+    });
+    f.setCalls([{ args: { accept: true }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+  },
+);

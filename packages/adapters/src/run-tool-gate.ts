@@ -327,11 +327,12 @@ export async function gateToolCall(
       : resolvedRules;
   // Guarded tools ask when the owner did not start the run, or outside content entered it,
   // and Never ask refuses them (see toolGuardedInNeverAsk). A saved Allow for the tool is
-  // applied first: it matches the tool name, not the arguments, so a wake or a run that
+  // applied first for cloud-agent launches: it matches the tool name, not the arguments, so a wake or a run that
   // already read something does not post another card.
   const guardedInNeverAsk = toolGuardedInNeverAsk(name);
   const steered =
-    guardedInNeverAsk && approvalResolved.source !== "always_allow"
+    guardedInNeverAsk &&
+    !(name === "cloud_agent_launch" && approvalResolved.source === "always_allow")
       ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
       : false;
   // These ask in every run, whatever started it.

@@ -518,4 +518,26 @@ describe("T3 Code environments connected as MCP servers", () => {
       await cloudAgentForActor({ cloudAgent: deployment, userCloudAgents: failing }, actor),
     ).toBe(deployment);
   });
+
+  it("prefers the deployment's T3 provider over a user-connected T3", async () => {
+    const deployment = {
+      key: `t3:${actor.spaceId}:t3`,
+      spaceId: actor.spaceId,
+      provider: { describe: () => ({ capabilities: { offline: false } }) },
+    } as unknown as CloudAgentConnection;
+    const own = { key: "mcp:t3" } as unknown as CloudAgentConnection;
+    const connections = {
+      forActor: async () => own,
+      forKey: async () => own,
+      listForActor: async () => [own],
+    };
+    expect(
+      await cloudAgentForActor({ cloudAgent: deployment, userCloudAgents: connections }, actor),
+    ).toBe(deployment);
+    // Another Space's deployment provider does not take over this one's user connection.
+    const elsewhere = { ...deployment, spaceId: "other-space" } as CloudAgentConnection;
+    expect(
+      await cloudAgentForActor({ cloudAgent: elsewhere, userCloudAgents: connections }, actor),
+    ).toBe(own);
+  });
 });

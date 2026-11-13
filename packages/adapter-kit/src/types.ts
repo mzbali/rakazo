@@ -1454,6 +1454,8 @@ export interface CloudAgentCapabilities {
   launch: boolean;
   reply: boolean;
   cancel: boolean;
+  /** Broadest runtime mode this connection can grant. */
+  runtimeModeCeiling?: CloudAgentRuntimeMode;
   /** True when the adapter never leaves the process (tests / Playwright). */
   offline?: boolean;
 }

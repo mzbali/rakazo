@@ -10,6 +10,29 @@ export function cloudAgentHttpsUrl(value: string | null | undefined): string | u
   }
 }
 
+/** Provider links are displayed only after each client applies its app-link allowlist. */
+export function cloudAgentUrl(value: string | null | undefined): string | undefined {
+  if (cloudAgentHttpsUrl(value)) return value!;
+  if (!value || /[?#]/.test(value)) return undefined;
+  try {
+    const url = new URL(value);
+    return /^[a-z][a-z0-9+.-]*:$/.test(url.protocol) &&
+      url.protocol !== "javascript:" &&
+      url.protocol !== "data:" &&
+      url.protocol !== "file:" &&
+      url.protocol !== "http:" &&
+      url.protocol !== "https:" &&
+      url.hostname &&
+      !url.username &&
+      !url.password &&
+      !url.port
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function cloudAgentBlockFromPayload(
   payload: Record<string, unknown>,
 ): Extract<MessageBlock, { kind: "cloud_agent" }> {
@@ -22,7 +45,7 @@ export function cloudAgentBlockFromPayload(
       status === "finished" || status === "failed" || status === "cancelled" || status === "expired"
         ? status
         : "running",
-    url: cloudAgentHttpsUrl(String(payload.url ?? "")) ?? "",
+    url: cloudAgentUrl(String(payload.url ?? "")) ?? "",
     ...(payload.branch ? { branch: String(payload.branch) } : {}),
     ...(cloudAgentHttpsUrl(String(payload.prUrl ?? "")) ? { prUrl: String(payload.prUrl) } : {}),
     ...(payload.latestRunId ? { latestRunId: String(payload.latestRunId) } : {}),

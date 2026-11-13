@@ -285,6 +285,11 @@ function urlLinkParts(text: string): PlainTextPart[] {
   return parts.length > 0 ? parts : [{ type: "text", value: text }];
 }
 
+/** An app link explicitly allowed by the host. */
+export function allowedAppLink(url: string): string | undefined {
+  return matchesAppLink(url, appLinks) ? url : undefined;
+}
+
 export function sanitizeMarkdownUrl(url: string, allowRelative = false): string | undefined {
   const value = url.trim();
   const protocol = value.match(protocolPattern)?.[1]?.toLowerCase();

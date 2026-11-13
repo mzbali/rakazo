@@ -102,8 +102,15 @@ export async function executeCloudAgentTool(
     return { error: "Cloud agents are not configured for this space." };
   }
   let agent: CloudAgent;
+  let clampNote: string | undefined;
   if (name === "cloud_agent_launch") {
     const request = cloudAgentLaunchSchema.parse(args);
+    const modes = ["approval-required", "auto-accept-edits", "auto", "full-access"] as const;
+    const ceiling = connection!.provider.describe().capabilities.runtimeModeCeiling ?? "auto";
+    if (request.runtimeMode && modes.indexOf(request.runtimeMode) > modes.indexOf(ceiling)) {
+      request.runtimeMode = ceiling;
+      clampNote = `Runtime mode clamped to ${ceiling}.`;
+    }
     const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
       // Serialize with clearThread before creating either the intent or its card.
       await tx.thread.update({
@@ -237,7 +244,7 @@ export async function executeCloudAgentTool(
     agent = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
-  return cloudAgentStatusResult(agent);
+  return { ...cloudAgentStatusResult(agent), ...(clampNote ? { note: clampNote } : {}) };
 }
 
 /**

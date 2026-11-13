@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { allowedAppLink, ChatMarkdown } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentHttpsUrl, helperCardState, displayName as safeDisplayName } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
@@ -224,7 +224,7 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
     const running = special.status === "running";
     const failed = special.status !== "running" && special.status !== "finished";
     const prHref = cloudAgentHttpsUrl(special.prUrl);
-    const href = prHref ?? cloudAgentHttpsUrl(special.url);
+    const href = prHref ?? cloudAgentHttpsUrl(special.url) ?? allowedAppLink(special.url);
     return (
       <Pressable
         {...actionProps}

@@ -94,6 +94,7 @@ vi.mock("./native", () => ({
 }));
 
 vi.mock("@rakazo/chat-ui/native", () => ({
+  allowedAppLink: (url: string) => (url.startsWith("t3code://threads/") ? url : undefined),
   MarkdownLongPressContext: createContext(undefined),
   ChatMarkdown: ({ children }: { children: string }) => <p>{children}</p>,
   withBlockMentions: <T,>(blocks: T) => blocks,

@@ -134,6 +134,7 @@ export {
   useLinkFavicon,
   withBlockMentions,
 } from "./markdown";
+export { allowedAppLink } from "./markdown.js";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";
 export { PageIcon } from "./native/chips";
 export type { MermaidDiagramProps } from "./native/code";

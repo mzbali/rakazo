@@ -1,4 +1,5 @@
 import type { AgentRuntimeEvent } from "@rakazo/adapter-kit";
+import { configureCorrectedClaimJudge } from "@rakazo/core";
 import { describe, expect, it, vi } from "vitest";
 import type { RunContext } from "./run-context.js";
 import { createReplyState } from "./run-progress.js";
@@ -117,5 +118,51 @@ describe("daily check-in routine execution", () => {
     await expect(
       consumeRunEvents(ctx, events({ type: "takeover", reason: "injected" })),
     ).rejects.toThrow("Daily check-ins cannot start a computer or helper.");
+  });
+});
+
+describe("scripted memory assessments", () => {
+  it.each(["rejected", "unqualified"] as const)("refuses %s before committing", async (status) => {
+    const { ctx } = await context();
+    ctx.run.clientNonce = null;
+    ctx.script = [{ memory: [{ scope: "bot", path: "notes.md", content: "replacement" }] }];
+    const commit = vi.fn();
+    const read = vi.fn(async () => ({
+      documents: [{ id: "fixture", path: "notes.md", content: "baseline", revision: 4 }],
+    }));
+    ctx.deps.memory = { read, commit } as never;
+    const judge = vi.fn(async () => ({ status, reason: "Fixture" }));
+    configureCorrectedClaimJudge(judge);
+    try {
+      await expect(completeRun(ctx)).rejects.toThrow("Nothing was saved");
+      expect(commit).not.toHaveBeenCalled();
+      expect(judge).toHaveBeenCalledWith({ before: "baseline", after: "replacement" });
+    } finally {
+      configureCorrectedClaimJudge(undefined);
+    }
+  });
+  it("binds an accepted scripted replacement to its assessed revision", async () => {
+    const { ctx } = await context();
+    ctx.run.clientNonce = null;
+    ctx.script = [{ memory: [{ scope: "bot", path: "notes.md", content: "replacement" }] }];
+    const commit = vi.fn(async () => {
+      throw Error("fixture commit reached");
+    });
+    ctx.deps.memory = {
+      read: async () => ({
+        documents: [{ id: "fixture", path: "notes.md", content: "baseline", revision: 4 }],
+      }),
+      commit,
+    } as never;
+    configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Fixture" }));
+    try {
+      await expect(completeRun(ctx)).rejects.toThrow("fixture commit reached");
+      expect(commit).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "replacement", expectedRevision: 4 }),
+        ctx.context,
+      );
+    } finally {
+      configureCorrectedClaimJudge(undefined);
+    }
   });
 });

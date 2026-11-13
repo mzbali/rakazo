@@ -52,13 +52,62 @@ it("composes the actual runtime with full documents and no tools", async () => {
 });
 
 it("reads the opt-in when called, so an environment loaded after import still applies", async () => {
+  vi.resetModules();
   const { assessCorrectedClaims, configureCorrectedClaimJudge } = await import("@rakazo/core");
   const { configureCorrectedClaimsFromEnv } = await import("./corrected-claims.js");
   configureCorrectedClaimsFromEnv({});
   expect((await assessCorrectedClaims("", "x")).reason).toBe("Fact checking is not configured.");
   configureCorrectedClaimsFromEnv({ RAKAZO_CORRECTED_CLAIMS_ENABLED: "true" });
-  expect((await assessCorrectedClaims("", "x")).reason).not.toBe(
-    "Fact checking is not configured.",
+  expect((await assessCorrectedClaims("", "x")).status).toBe("unqualified");
+  configureCorrectedClaimJudge(undefined);
+});
+
+it("uses only the current member's main connection and refuses missing tenant context", async () => {
+  vi.resetModules();
+  vi.stubEnv("RAKAZO_CORRECTED_CLAIMS_ENABLED", "true");
+  const main = vi.fn(async () => ({
+    provider: "fixture",
+    modelId: "judge",
+    credential: { id: "fixture-connection" },
+  }));
+  const material = vi.fn(async () => ({ apiKey: "fake", redact: [] }));
+  vi.doMock("./model-roles.js", () => ({ resolveMemberMainModel: main }));
+  vi.doMock("./run-model.js", () => ({
+    resolveModelKeyMaterial: material,
+    resolvedModelRunFields: () => ({ apiKey: "fake" }),
+  }));
+  vi.doMock("./pi-runtime.js", () => ({
+    PiAgentRuntime: class {
+      async *run() {
+        yield { type: "done", text: '{"status":"accepted","reason":"Fixture"}' };
+      }
+    },
+  }));
+  const { runAsTenant } = await import("@rakazo/db");
+  const { assessCorrectedClaims, configureCorrectedClaimJudge } = await import("@rakazo/core");
+  const { configureCorrectedClaimsConnections } = await import("./corrected-claims.js");
+  const deps = { prisma: {} as never, secretStore: {} as never };
+  configureCorrectedClaimsConnections(deps);
+  expect((await assessCorrectedClaims("before", "after")).status).toBe("unqualified");
+  expect(main).not.toHaveBeenCalled();
+  const scope = { userId: "fixture-member", spaceId: "fixture-space" };
+  await runAsTenant(scope, async () => {
+    expect((await assessCorrectedClaims("before", "after")).status).toBe("accepted");
+  });
+  expect(main).toHaveBeenCalledWith(deps, expect.objectContaining(scope));
+  expect(material).toHaveBeenCalledWith(
+    deps,
+    scope.userId,
+    scope.spaceId,
+    { id: "fixture-connection" },
+    "fixture",
+    "judge",
+    undefined,
+    { requireStoredSecret: true },
   );
   configureCorrectedClaimJudge(undefined);
+  vi.unstubAllEnvs();
+  vi.doUnmock("./model-roles.js");
+  vi.doUnmock("./run-model.js");
+  vi.doUnmock("./pi-runtime.js");
 });

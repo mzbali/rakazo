@@ -70,7 +70,10 @@ export * from "./computer-workspace.js";
 export * from "./configured-sandbox.js";
 export * from "./connector-catalog.js";
 export * from "./connector-registry.js";
-export { configureCorrectedClaimsFromEnv } from "./corrected-claims.js";
+export {
+  configureCorrectedClaimsConnections,
+  configureCorrectedClaimsFromEnv,
+} from "./corrected-claims.js";
 export * from "./createos-sandbox.js";
 export * from "./current-time.js";
 export * from "./cursor-cloud-agent.js";

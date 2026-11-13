@@ -1,6 +1,10 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
-import { configureCorrectedClaimsFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
+import {
+  configureCorrectedClaimsConnections,
+  configureCorrectedClaimsFromEnv,
+  unwrapEnvFromKeyManager,
+} from "@rakazo/adapters";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
 import { startWorkerHealth } from "./health.js";
@@ -122,6 +126,11 @@ async function main() {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  configureCorrectedClaimsConnections({
+    prisma,
+    secretStore: secrets,
+    mcpAllowPrivateEndpoint: process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+  });
   installSecurityEventStore(prisma);
   installAuditEventStore(prisma);
   const unreadableMasterKeys = await verifyContentKeys(prisma);

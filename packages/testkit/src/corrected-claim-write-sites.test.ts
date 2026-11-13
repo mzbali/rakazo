@@ -136,7 +136,7 @@ describe("write-site patterns", () => {
 });
 
 describe("shipped text", () => {
-  it("holds no corrected claim in templates or builtin skills", () => {
+  it("contains string content in templates and builtin skills", () => {
     const texts = [
       ...BOT_TEMPLATES.flatMap((template) => [
         template.instructions,

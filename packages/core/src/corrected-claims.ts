@@ -99,7 +99,7 @@ export async function addedClaimMessage(
     ? undefined
     : result.status === "rejected"
       ? "Nothing was saved: the edit contradicts a recorded correction. Review the corrected facts."
-      : "Nothing was saved: fact checking could not qualify this edit. Try again.";
+      : "Nothing was saved: fact checking could not qualify this edit. Check the selected main model connection and retry.";
 }
 export async function assertNoAddedClaims(before: string, after: string): Promise<void> {
   const message = await addedClaimMessage(before, after);

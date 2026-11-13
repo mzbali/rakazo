@@ -418,7 +418,7 @@ async function prepareChildInstructions(
     select: { instructions: true, instructionHistory: true },
   });
   if (instructionsVersionOf(current) !== expectedVersion) return refuse(CHILD_CHANGED);
-  const addedClaim = addedClaimMessage(current.instructions, instructions);
+  const addedClaim = await addedClaimMessage(current.instructions, instructions);
   if (addedClaim) return refuse(addedClaim);
   return {
     ok: true,

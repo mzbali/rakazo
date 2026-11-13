@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import { HistoryReadInputSchema, HistorySearchInputSchema } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { memoryTools, withoutBlankFields } from "./run-tools-memory.js";
@@ -30,6 +35,10 @@ describe("save_memory", () => {
   }
 
   it("refuses a fact that is a corrected claim, which later runs would recall", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const { semantic, result } = save("Continuations don't wake this bot.");
     await expect(result).resolves.toEqual({ error: expect.stringContaining("Nothing was saved") });
     expect(semantic.save).not.toHaveBeenCalled();

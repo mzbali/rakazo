@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import { buildSkillMd, formatSkillsCatalogInstruction, parseSkillMd } from "@rakazo/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BUILTIN_AGENT_SKILLS } from "./builtin-skills.js";
@@ -387,6 +392,10 @@ describe("skill tools", () => {
     const stale = "A continuation does not wake on completion.";
 
     it("refuses a create that adds one and stores nothing", async () => {
+      configureCorrectedClaimJudge(async () => ({
+        status: "rejected",
+        reason: "Scripted rejection",
+      }));
       const result = await skillCreateFromTool(prisma as never, owner, {
         name: "Waker",
         description: "Wake rules",
@@ -403,6 +412,10 @@ describe("skill tools", () => {
         body: "Fine.",
       });
       const before = prisma._store[0]!.content;
+      configureCorrectedClaimJudge(async () => ({
+        status: "rejected",
+        reason: "Scripted rejection",
+      }));
       const result = await skillUpdateFromTool(prisma as never, owner, {
         name: "Waker",
         body: stale,

@@ -316,7 +316,7 @@ export function botsRoutes(ctx: RouterContext) {
         return found;
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
-        assertNoAddedClaimsOrBadRequest("", input.instructions ?? "");
+        await assertNoAddedClaimsOrBadRequest("", input.instructions ?? "");
         let bot: Bot;
         try {
           // Older apps always send Original, which would pin every new bot to it.

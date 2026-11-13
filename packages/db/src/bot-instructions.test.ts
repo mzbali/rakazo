@@ -1,4 +1,8 @@
-import { CorrectedClaimError } from "@rakazo/core";
+import { configureCorrectedClaimJudge, prepareCorrectedClaimWrite } from "@rakazo/core";
+import { afterEach } from "vitest";
+
+afterEach(() => configureCorrectedClaimJudge(undefined));
+
 import { describe, expect, it, vi } from "vitest";
 import { InstructionConflictError, writeBotInstructions } from "./bot-instructions.js";
 
@@ -163,18 +167,6 @@ describe("instruction history", () => {
       }),
     ).rejects.toThrow("changed");
   });
-  it("refuses an added corrected claim and writes nothing", async () => {
-    const { bot, tx } = fixture();
-    await expect(
-      writeBotInstructions(tx as never, {
-        botId: bot.id,
-        instructions: "Draft only. A continuation does not wake on completion.",
-        reason: "Manual edit",
-      }),
-    ).rejects.toBeInstanceOf(CorrectedClaimError);
-    expect(bot.instructions).toBe("Draft only");
-    expect(tx.bot.update).not.toHaveBeenCalled();
-  });
   it("accepts an unrelated edit to instructions that already hold a corrected claim", async () => {
     const { bot, tx } = fixture();
     bot.instructions = "A continuation does not wake on completion.";
@@ -204,4 +196,37 @@ describe("instruction history", () => {
     });
     expect(bot.instructions).toBe("A continuation does not wake on completion.");
   });
+});
+
+it("binds accepted assessments to both documents under the lock", async () => {
+  const { bot, tx } = fixture();
+  configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Scripted acceptance" }));
+  const claimTicket = await prepareCorrectedClaimWrite(bot.instructions, "New instructions");
+  await expect(
+    writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "Different edit",
+      reason: "Edit",
+      claimTicket,
+    }),
+  ).rejects.toThrow("not assessed");
+  expect(tx.bot.update).not.toHaveBeenCalled();
+  bot.instructions = "Concurrent edit";
+  await expect(
+    writeBotInstructions(tx as never, {
+      botId: bot.id,
+      instructions: "New instructions",
+      reason: "Edit",
+      claimTicket,
+    }),
+  ).rejects.toThrow("not assessed");
+  expect(tx.bot.update).not.toHaveBeenCalled();
+  bot.instructions = claimTicket.before;
+  await writeBotInstructions(tx as never, {
+    botId: bot.id,
+    instructions: claimTicket.after,
+    reason: "Edit",
+    claimTicket,
+  });
+  expect(bot.instructions).toBe("New instructions");
 });

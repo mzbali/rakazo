@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import { describe, expect, it, vi } from "vitest";
 import type { ToolRequest } from "./run-tool-request.js";
 import { prepareToolRequest } from "./run-tool-request.js";
@@ -93,6 +98,10 @@ describe("prepareToolRequest: update_bot instructions that add a corrected claim
   }
 
   it("refuses the whole call, so a name change in it saves nothing", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const { ctx, req } = call({ name: "New", instructions: stale });
     await expect(prepareToolRequest(ctx as never, req)).resolves.toEqual({
       error: expect.stringContaining("Nothing was saved"),

@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import type { Actor } from "@rakazo/contracts";
 import { buildSkillMd, parseSkillMd } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
@@ -161,6 +166,10 @@ describe("corrected claims in the API", () => {
   const stale = "A continuation does not wake on completion.";
 
   it("refuses a create that adds one with BAD_REQUEST", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const { service } = setup();
     await expect(
       service.create(actor, { name: "Waker", description: "Wake rules", body: stale }),
@@ -171,6 +180,10 @@ describe("corrected claims in the API", () => {
   });
 
   it("refuses an update that adds one and leaves the row alone", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const rows = [savedSkill("Waker")];
     const { service, agentSkill } = setup(rows);
     const before = rows[0]!.content;

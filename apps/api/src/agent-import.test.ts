@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import type { Actor, Bot } from "@rakazo/contracts";
 import { AgentImportCreateInput } from "@rakazo/contracts";
 import { describe, expect, it, vi } from "vitest";
@@ -258,6 +263,10 @@ describe("corrected claims in an import", () => {
   const stale = "A continuation does not wake on completion.\n";
 
   it("refuses picked instructions that carry one and creates no bot", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const createBot = vi.fn();
     const withStale = AgentImportCreateInput.parse({
       ...input,

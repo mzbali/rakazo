@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1354,6 +1359,10 @@ describe("prepareFleetRequest set_child_instructions", () => {
   });
 
   it("refuses text that adds a corrected claim before any card is shown", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const { deps } = fakeFleet({ bots });
     expect(
       await prepareFleetRequest(deps, run, "set_child_instructions", {

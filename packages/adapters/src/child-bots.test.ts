@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import { execFileSync } from "node:child_process";
 import type * as fsPromises from "node:fs/promises";
 import {
@@ -184,6 +189,10 @@ describe("spawned bot creation", () => {
   });
 
   it("refuses instructions that add a corrected claim and creates nothing", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const enqueue = vi.fn();
     const prisma = {
       $transaction: vi.fn(),

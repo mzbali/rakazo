@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import type {
   AgentRunRequest,
   AutoReviewProvider,
@@ -876,6 +881,10 @@ describe("connector read-only metadata and approval enforcement", () => {
   });
 
   it("refuses shared memory that adds a corrected claim, which every bot would read", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const f = fixture({
       name: "save_shared_memory",
       builtin: true,

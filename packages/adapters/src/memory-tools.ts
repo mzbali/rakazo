@@ -1,6 +1,5 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { BOT_MEMORY_MAX_BYTES } from "@rakazo/contracts";
-import { addedClaimMessage } from "@rakazo/core";
 import { byteLength } from "./utf8.js";
 
 const SEMANTIC_MEMORY_TOOL_NAMES = new Set(["recall_memory", "save_memory", "forget_memory"]);
@@ -71,8 +70,6 @@ export function editMemory(
       ? `${current.slice(0, start)}${next}${current.slice(end)}`
       : `${current.slice(0, start)}${current.slice(lineEnd === -1 ? end : end + 1)}`;
   }
-  const addedClaim = addedClaimMessage(existing, content);
-  if (addedClaim) return { error: addedClaim, entries: entriesOf(existing) };
   const bytes = byteLength(content);
   if (bytes > maxBytes && bytes > byteLength(existing)) {
     return {

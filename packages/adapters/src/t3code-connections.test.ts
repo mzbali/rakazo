@@ -534,6 +534,22 @@ describe("T3 Code environments connected as MCP servers", () => {
     expect(
       await cloudAgentForActor({ cloudAgent: deployment, userCloudAgents: connections }, actor),
     ).toBe(deployment);
+    // A bot without the deployment's T3 server keeps its own connection.
+    const gated = { ...deployment, enabledForBot: async () => false } as CloudAgentConnection;
+    const prisma = {} as never;
+    expect(
+      await cloudAgentForActor(
+        { cloudAgent: gated, userCloudAgents: connections, prisma },
+        { ...actor, botIds: ["bot"] },
+      ),
+    ).toBe(own);
+    const allowed = { ...deployment, enabledForBot: async () => true } as CloudAgentConnection;
+    expect(
+      await cloudAgentForActor(
+        { cloudAgent: allowed, userCloudAgents: connections, prisma },
+        { ...actor, botIds: ["bot"] },
+      ),
+    ).toBe(allowed);
     // Another Space's deployment provider does not take over this one's user connection.
     const elsewhere = { ...deployment, spaceId: "other-space" } as CloudAgentConnection;
     expect(

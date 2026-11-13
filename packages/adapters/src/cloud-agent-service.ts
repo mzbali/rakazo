@@ -46,7 +46,7 @@ export interface CloudAgentDeps {
 /** A bot runs at most this many requests at once; later ones wait their turn in order. */
 export const CLOUD_AGENT_ACTIVE_LIMIT = 2;
 
-type Connections = Partial<Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents">>;
+type Connections = Partial<Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents" | "prisma">>;
 
 /** Where an actor's new agents run: their own connected environment, else the deployment's. */
 export async function cloudAgentForActor(
@@ -55,13 +55,29 @@ export async function cloudAgentForActor(
 ) {
   // The deployment's own T3 provider reaches the same T3 as a user-connected one, but forwards the
   // launch's model, workspace and modes, caps the runtime mode and reports the model started.
-  if (deps.cloudAgent?.key.startsWith("t3:") && cloudAgentsEnabled(deps.cloudAgent, actor.spaceId))
-    return deps.cloudAgent;
+  if (await deploymentT3Serves(deps, actor)) return deps.cloudAgent!;
   const own = await deps.userCloudAgents?.forActor(actor).catch((error: unknown) => {
     getLogger().warn("cloud_agent.user_connections_unavailable", { error });
     return null;
   });
   return own ?? (cloudAgentsEnabled(deps.cloudAgent, actor.spaceId) ? deps.cloudAgent! : null);
+}
+
+/** Whether the deployment's T3 provider is in this Space and every named bot may use it. */
+async function deploymentT3Serves(
+  deps: Connections,
+  actor: CloudAgentActor & { botIds?: string[] },
+) {
+  const deployment = deps.cloudAgent;
+  if (!deployment?.key.startsWith("t3:") || !cloudAgentsEnabled(deployment, actor.spaceId))
+    return false;
+  if (!actor.botIds?.length || !deployment.enabledForBot) return true;
+  const { prisma } = deps;
+  if (!prisma) return false;
+  const served = await Promise.all(
+    actor.botIds.map((botId) => deployment.enabledForBot!(prisma, actor.spaceId, botId)),
+  ).catch(() => [false]);
+  return served.every(Boolean);
 }
 
 /** Everywhere the actor's agents may send work: each environment they connected, and the deployment's. */

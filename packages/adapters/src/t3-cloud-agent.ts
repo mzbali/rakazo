@@ -259,10 +259,11 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ? await this.startedModel(launched.threadId, context)
       : undefined;
     const launchNote = started && startedNote(request.modelSelection, started);
+    // The tag stays in T3's own title for the lookup above; the owner's card shows the label.
     return {
       id: launched.threadId,
       url: t3CanonicalLink(launched.link ?? "", launched.threadId),
-      title,
+      title: label,
       status: "running",
       ...(launched.runId ? { latestRunId: launched.runId } : {}),
       ...(launchNote ? { launchNote } : {}),

@@ -16,6 +16,13 @@ const MAX_CACHED_SCHEMAS = 1_000;
  */
 export class CachedJsonSchemaValidator implements jsonSchemaValidator {
   private ajv = new AjvJsonSchemaValidator();
+
+  constructor(
+    private readonly fallback?: <T>(
+      schema: JsonSchemaType,
+      error: unknown,
+    ) => JsonSchemaValidator<T>,
+  ) {}
   private readonly validators = new Map<string, JsonSchemaValidator<unknown>>();
 
   getValidator<T>(schema: JsonSchemaType): JsonSchemaValidator<T> {
@@ -26,7 +33,13 @@ export class CachedJsonSchemaValidator implements jsonSchemaValidator {
       this.validators.clear();
       this.ajv = new AjvJsonSchemaValidator();
     }
-    const validator = this.ajv.getValidator<T>(schema);
+    let validator: JsonSchemaValidator<T>;
+    try {
+      validator = this.ajv.getValidator<T>(schema);
+    } catch (error) {
+      if (!this.fallback) throw error;
+      validator = this.fallback<T>(schema, error);
+    }
     this.validators.set(key, validator as JsonSchemaValidator<unknown>);
     return validator;
   }

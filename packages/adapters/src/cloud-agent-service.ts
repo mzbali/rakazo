@@ -9,14 +9,28 @@ import {
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { messageBot } from "./bot-messages.js";
-import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
-import { attentionIds, attentionWakePrompt, createCloudAgentWake } from "./cloud-agent-poll.js";
+import type {
+  CloudAgentActor,
+  CloudAgentConnection,
+  UserCloudAgents,
+} from "./cloud-agent-factory.js";
+import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
+import {
+  attentionIds,
+  cloudAgentWakeNonceWhere,
+  createCloudAgentWake,
+  lockCloudAgentWakeThread,
+} from "./cloud-agent-poll.js";
 import {
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
   cloudAgentReportSchema,
 } from "./cloud-agent-tools.js";
+import {
+  attentionWakePrompt,
+  cloudAgentWakeNonces,
+  terminalWakePrompt,
+} from "./cloud-agent-wake-start.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
 
@@ -25,11 +39,47 @@ export interface CloudAgentDeps {
   jobs: JobPublisher;
   events: Pick<ThreadEvents, "notify">;
   cloudAgent: CloudAgentConnection | null | undefined;
+  userCloudAgents?: UserCloudAgents;
   runLease?: ExecutorDeps["runLease"];
 }
 
 /** A bot runs at most this many requests at once; later ones wait their turn in order. */
 export const CLOUD_AGENT_ACTIVE_LIMIT = 2;
+
+type Connections = Partial<Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents">>;
+
+/** Where an actor's new agents run: their own connected environment, else the deployment's. */
+export async function cloudAgentForActor(
+  deps: Connections,
+  actor: CloudAgentActor & { botIds?: string[] },
+) {
+  const own = await deps.userCloudAgents?.forActor(actor).catch((error: unknown) => {
+    getLogger().warn("cloud_agent.user_connections_unavailable", { error });
+    return null;
+  });
+  return own ?? (cloudAgentsEnabled(deps.cloudAgent, actor.spaceId) ? deps.cloudAgent! : null);
+}
+
+/** Everywhere the actor's agents may send work: each environment they connected, and the deployment's. */
+export async function cloudAgentsForActor(deps: Connections, actor: CloudAgentActor) {
+  const own =
+    (await deps.userCloudAgents?.listForActor(actor).catch((error: unknown) => {
+      getLogger().warn("cloud_agent.user_connections_unavailable", { error });
+      return null;
+    })) ?? [];
+  return cloudAgentsEnabled(deps.cloudAgent, actor.spaceId) ? [...own, deps.cloudAgent!] : own;
+}
+
+/** The connection an agent was launched on, while it may still be used for it. */
+export async function cloudAgentFor(
+  deps: Connections,
+  agent: Pick<CloudAgent, "providerKey"> & CloudAgentActor,
+) {
+  if (deps.cloudAgent?.key === agent.providerKey)
+    return cloudAgentsEnabled(deps.cloudAgent, agent.spaceId) ? deps.cloudAgent : null;
+  const { spaceId, userId } = agent;
+  return (await deps.userCloudAgents?.forKey(agent.providerKey, { spaceId, userId })) ?? null;
+}
 
 export function cloudAgentBlock(agent: CloudAgent) {
   return cloudAgentBlockFromPayload({
@@ -48,20 +98,29 @@ export interface CloudAgentOrigin {
 
 /** Queue an intent only after scope and owner checks. The worker owns remote I/O. */
 export async function executeCloudAgentTool(
-  deps: CloudAgentDeps,
+  /** `deployment`: the deployment's connection when the run's own is the user's environment. */
+  deps: CloudAgentDeps & { deployment?: CloudAgentConnection | null },
   context: AdapterContext & { botId: string; botName?: string },
   run: { id: string; threadId: string; spaceId?: string; userId?: string },
   name: string,
   args: Record<string, unknown>,
   origin?: CloudAgentOrigin,
 ) {
-  const connection = deps.cloudAgent;
-  if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) {
+  const connection = cloudAgentsEnabled(deps.cloudAgent, context.spaceId) ? deps.cloudAgent : null;
+  const cleanup = name === "cloud_agent_status" || name === "cloud_agent_cancel";
+  if (!connection && !cleanup) {
     return { error: "Cloud agents are not configured for this space." };
   }
   let agent: CloudAgent;
+  let clampNote: string | undefined;
   if (name === "cloud_agent_launch") {
     const request = cloudAgentLaunchSchema.parse(args);
+    const modes = ["approval-required", "auto-accept-edits", "auto", "full-access"] as const;
+    const ceiling = connection!.provider.describe().capabilities.runtimeModeCeiling ?? "auto";
+    if (request.runtimeMode && modes.indexOf(request.runtimeMode) > modes.indexOf(ceiling)) {
+      request.runtimeMode = ceiling;
+      clampNote = `Runtime mode clamped to ${ceiling}.`;
+    }
     const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
       // Serialize with clearThread before creating either the intent or its card.
       await tx.thread.update({
@@ -85,23 +144,21 @@ export async function executeCloudAgentTool(
             })
           : null);
       if (existing) {
-        if (
-          existing.spaceId !== context.spaceId ||
-          existing.userId !== context.userId ||
-          existing.providerKey !== connection.key
-        ) {
+        if (existing.spaceId !== context.spaceId || existing.userId !== context.userId) {
           throw new Error("Cloud agent operation scope changed");
         }
+        // A retry returns the agent it started even when new agents now go elsewhere, as after a
+        // T3 Code grant lapsed; the agent's poll reaches it through its own provider key.
         return { agent: existing };
       }
       const { requestKey, agreement, acceptance, ...launchRequest } = request;
       const queued =
-        (await activeCloudAgentCount(tx, connection.key, context.botId)) >=
+        (await activeCloudAgentCount(tx, connection!.key, context.botId)) >=
         CLOUD_AGENT_ACTIVE_LIMIT;
       const created = await tx.cloudAgent.create({
         data: {
           operationKey: context.operationId,
-          providerKey: connection.key,
+          providerKey: connection!.key,
           spaceId: context.spaceId,
           userId: context.userId,
           botId: context.botId,
@@ -127,7 +184,14 @@ export async function executeCloudAgentTool(
     const owned = await deps.prisma.cloudAgent.findFirst({
       where: {
         id: String(args.id).trim(),
-        providerKey: connection.key,
+        // The actor's agents wherever they run, not only where new agents go.
+        OR: [
+          ...(connection ? [{ providerKey: connection.key }] : []),
+          { providerKey: { startsWith: USER_CLOUD_AGENT_KEY_PREFIX } },
+          ...(deps.deployment && cloudAgentsEnabled(deps.deployment, context.spaceId)
+            ? [{ providerKey: deps.deployment.key }]
+            : []),
+        ],
         spaceId: context.spaceId,
         userId: context.userId,
       },
@@ -135,6 +199,18 @@ export async function executeCloudAgentTool(
     if (!owned) return { error: "Unknown cloud agent." };
     agent = owned;
     if (name === "cloud_agent_reply") {
+      if (agent.providerKey.startsWith(USER_CLOUD_AGENT_KEY_PREFIX)) {
+        // A follow-up stays with the bot whose identity the worker will reauthorize.
+        if (
+          agent.botId !== context.botId ||
+          !(await deps.userCloudAgents?.forKey(agent.providerKey, {
+            spaceId: context.spaceId,
+            userId: context.userId,
+            botIds: [context.botId],
+          }))
+        )
+          return { error: "Unknown cloud agent." };
+      }
       // A blocked agent is still running; answering its question is the way forward.
       const blocked = openQuestion(agent) !== undefined;
       if (
@@ -178,7 +254,7 @@ export async function executeCloudAgentTool(
     agent = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
-  return cloudAgentStatusResult(agent);
+  return { ...cloudAgentStatusResult(agent), ...(clampNote ? { note: clampNote } : {}) };
 }
 
 /**
@@ -349,33 +425,44 @@ export async function enqueueCloudAgent(
   });
 }
 
-export async function reconcileCloudAgents(
-  deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
-) {
-  if (!deps.cloudAgent) return;
+type Reconciled = Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent" | "userCloudAgents">;
+
+/** The agents this deployment polls: its own connection's, and every user-connected environment's. */
+function reconciledKeys(deps: Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents">) {
+  return [
+    ...(deps.cloudAgent
+      ? [
+          {
+            providerKey: deps.cloudAgent.key,
+            ...(deps.cloudAgent.spaceId ? { spaceId: deps.cloudAgent.spaceId } : {}),
+          },
+        ]
+      : []),
+    ...(deps.userCloudAgents ? [{ providerKey: { startsWith: USER_CLOUD_AGENT_KEY_PREFIX } }] : []),
+  ];
+}
+
+export async function reconcileCloudAgents(deps: Reconciled) {
+  const keys = reconciledKeys(deps);
+  if (!keys.length) return;
   const due = await deps.prisma.cloudAgent.findMany({
-    where: {
-      providerKey: deps.cloudAgent.key,
-      nextPollAt: { lte: new Date() },
-      ...(deps.cloudAgent.spaceId ? { spaceId: deps.cloudAgent.spaceId } : {}),
-    },
+    where: { OR: keys, nextPollAt: { lte: new Date() } },
     orderBy: [{ nextPollAt: "asc" }, { id: "asc" }],
     take: 100,
     select: { id: true },
   });
   for (const agent of due) await enqueueCloudAgent(deps, agent.id);
   // A crash between a request finishing and the next one starting leaves a free slot unused.
-  const providerKey = deps.cloudAgent.key;
   const queued = await deps.prisma.cloudAgent.groupBy({
-    by: ["botId"],
-    where: { providerKey, status: "running", queuedAt: { not: null } },
+    by: ["providerKey", "botId"],
+    where: { OR: keys, status: "running", queuedAt: { not: null } },
   });
   // Bots whose slots are all busy are skipped before the batch limit, so they never hide one
   // with a free slot.
   const full = await deps.prisma.cloudAgent.groupBy({
-    by: ["botId"],
+    by: ["providerKey", "botId"],
     where: {
-      providerKey,
+      OR: keys,
       status: "running",
       queuedAt: null,
       botId: { in: queued.map((row) => row.botId) },
@@ -383,9 +470,11 @@ export async function reconcileCloudAgents(
     _count: { _all: true },
     having: { botId: { _count: { gte: CLOUD_AGENT_ACTIVE_LIMIT } } },
   });
-  const busy = new Set(full.map((row) => row.botId));
-  const waiting = queued.filter((row) => !busy.has(row.botId)).slice(0, 100);
-  for (const { botId } of waiting) {
+  const busy = new Set(full.map((row) => `${row.providerKey}\n${row.botId}`));
+  const waiting = queued
+    .filter((row) => !busy.has(`${row.providerKey}\n${row.botId}`))
+    .slice(0, 100);
+  for (const { providerKey, botId } of waiting) {
     const promoted = await deps.prisma.$transaction((tx) =>
       promoteQueuedCloudAgent(tx, providerKey, botId),
     );
@@ -402,16 +491,14 @@ const WAKE_RETRY_WINDOW_MS = 24 * 60 * 60_000;
  * A finished request's wake run can fail (a model outage) before the bot ever reads the result.
  * Queue another, up to three in all; the failure notice of the last one tells the owner.
  */
-async function retryFailedCloudAgentWakes(
-  deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
-) {
+async function retryFailedCloudAgentWakes(deps: Reconciled) {
   // Start from failed wake runs, so finished requests still awaiting a verdict never crowd them out.
   const failed = await recentFailedWakes(deps, "cloud-agent-wake-run:");
   const ids = [...new Set(failed.map((run) => run.clientNonce!.split(":")[1]!))];
   const candidates = await deps.prisma.cloudAgent.findMany({
     where: {
       id: { in: ids },
-      providerKey: deps.cloudAgent!.key,
+      OR: reconciledKeys(deps),
       status: { not: "running" },
       wakeAttempts: { gte: 1, lt: CLOUD_AGENT_WAKE_ATTEMPTS },
       verdict: null,
@@ -422,11 +509,12 @@ async function retryFailedCloudAgentWakes(
     const base = `cloud-agent-wake-run:${agent.id}:${agent.generation}`;
     const nonce = agent.wakeAttempts === 1 ? base : `${base}:r${agent.wakeAttempts - 1}`;
     const last = await deps.prisma.run.findFirst({
-      where: { spaceId: agent.spaceId, clientNonce: nonce },
+      where: { spaceId: agent.spaceId, ...cloudAgentWakeNonceWhere(nonce) },
       select: { status: true },
     });
     if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
     const runId = await deps.prisma.$transaction(async (tx) => {
+      await lockCloudAgentWakeThread(tx, agent);
       const claimed = await tx.cloudAgent.updateMany({
         // The same finished piece: a continuation since then has its own wake and attempts.
         where: {
@@ -443,7 +531,7 @@ async function retryFailedCloudAgentWakes(
       const [created] = await createCloudAgentWake(
         tx,
         agent,
-        `Cloud agent ${agent.id} is ${agent.status}. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+        terminalWakePrompt(agent),
         `${base}:r${agent.wakeAttempts}`,
       );
       return created;
@@ -457,9 +545,7 @@ async function retryFailedCloudAgentWakes(
  * A question or approval's wake can fail the same way. Retry while it is still open, up to three
  * wakes in all; each retry's key is the last one's plus a count, so a retry is made only once.
  */
-async function retryFailedAttentionWakes(
-  deps: Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent">,
-) {
+async function retryFailedAttentionWakes(deps: Reconciled) {
   const retries = (await recentFailedWakes(deps, "cloud-agent-attention:")).flatMap((run) => {
     const [, agentId, ...rest] = run.clientNonce!.split(":");
     const retry = /:r(\d+)$/.exec(run.clientNonce!);
@@ -473,18 +559,23 @@ async function retryFailedAttentionWakes(
   // Retries already made and blockers no longer open are dropped here, before any per-wake work.
   const [made, agents] = await Promise.all([
     deps.prisma.run.findMany({
-      where: { clientNonce: { in: retries.map((retry) => retry.nonce) } },
-      select: { clientNonce: true },
+      where: {
+        OR: [
+          { clientNonce: { in: retries.map((retry) => retry.nonce) } },
+          { cloudAgentWakeNonces: { hasSome: retries.map((retry) => retry.nonce) } },
+        ],
+      },
+      select: { clientNonce: true, cloudAgentWakeNonces: true },
     }),
     deps.prisma.cloudAgent.findMany({
       where: {
         id: { in: retries.map((retry) => retry.agentId) },
-        providerKey: deps.cloudAgent!.key,
+        OR: reconciledKeys(deps),
         status: "running",
       },
     }),
   ]);
-  const madeNonces = new Set(made.map((run) => run.clientNonce));
+  const madeNonces = new Set(made.flatMap(cloudAgentWakeNonces));
   const byId = new Map(agents.map((agent) => [agent.id, agent]));
   for (const { agentId, requestId, nonce } of retries) {
     const agent = byId.get(agentId);
@@ -505,16 +596,20 @@ async function retryFailedAttentionWakes(
  * Every wake run that failed within the retry window. Read in full, not a recent batch, since
  * failures already retried or past their last attempt would otherwise fill the batch each pass.
  */
-function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
-  return deps.prisma.run.findMany({
+async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
+  const runs = await deps.prisma.run.findMany({
     where: {
       trigger: "cloud_agent",
       status: "failed",
-      clientNonce: { startsWith: prefix },
       updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
     },
-    select: { clientNonce: true },
+    select: { clientNonce: true, cloudAgentWakeNonces: true },
   });
+  return runs.flatMap((run) =>
+    cloudAgentWakeNonces(run).flatMap((clientNonce) =>
+      clientNonce?.startsWith(prefix) ? [{ clientNonce }] : [],
+    ),
+  );
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */
@@ -590,20 +685,25 @@ export async function promoteQueuedCloudAgent(tx: Tx, providerKey: string, botId
  */
 export async function reportCloudAgent(
   deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs" | "runLease"> &
-    Pick<CloudAgentDeps, "cloudAgent">,
+    Pick<CloudAgentDeps, "cloudAgent"> & { deployment?: CloudAgentConnection | null },
   context: AdapterContext & { botId: string; botName?: string },
   run: { id: string; threadId: string },
   args: Record<string, unknown>,
 ) {
-  const connection = deps.cloudAgent;
-  if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) {
-    return { error: "Cloud agents are not configured for this space." };
-  }
+  const connection = cloudAgentsEnabled(deps.cloudAgent, context.spaceId) ? deps.cloudAgent : null;
+  if (!connection) return { error: "Cloud agents are not configured for this space." };
   const report = cloudAgentReportSchema.parse(args);
   const agent = await deps.prisma.cloudAgent.findFirst({
     where: {
       id: report.id,
-      providerKey: connection.key,
+      // Agents launched on any environment the actor connected report like the current one's.
+      OR: [
+        { providerKey: connection.key },
+        { providerKey: { startsWith: USER_CLOUD_AGENT_KEY_PREFIX } },
+        ...(deps.deployment && cloudAgentsEnabled(deps.deployment, context.spaceId)
+          ? [{ providerKey: deps.deployment.key }]
+          : []),
+      ],
       spaceId: context.spaceId,
       userId: context.userId,
       botId: context.botId,

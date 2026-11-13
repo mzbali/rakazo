@@ -1,0 +1,1 @@
+ALTER TABLE "bots" ADD COLUMN "pinnedTools" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

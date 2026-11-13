@@ -80,20 +80,22 @@ const coordinator = {
   abort: async () => undefined,
   async *run(request: AgentRunRequest) {
     const call = (name: string, args: Record<string, unknown>) =>
-      request.executeTool!(name, args, `${request.runId}:${name}`);
+      request.executeTool!(name, args, `${request.runId}:${name}:${args.id ?? "launch"}`);
     const agreed = /^Agreed: request (\d+)/.exec(request.prompt);
-    const input = /^Cloud agent (\S+) needs input/.exec(request.prompt);
-    const ended = /^Cloud agent (\S+) is (\w+)\./.exec(request.prompt);
+    const inputs = [...request.prompt.matchAll(/^Cloud agent (\S+) needs input/gm)];
+    const endings = [...request.prompt.matchAll(/^Cloud agent (\S+) is (\w+)\./gm)];
     if (agreed) {
       await call("cloud_agent_launch", {
         prompt: `Request ${agreed[1]}`,
         requestKey: `request-${agreed[1]}`,
         agreement: request.prompt,
       });
-    } else if (input) {
+    }
+    for (const input of inputs) {
       await call("cloud_agent_status", { id: input[1] });
       await call("cloud_agent_reply", { id: input[1], prompt: "Use the existing style." });
-    } else if (ended) {
+    }
+    for (const ended of endings) {
       await call("cloud_agent_status", { id: ended[1] });
       await call("cloud_agent_report", {
         id: ended[1],
@@ -208,6 +210,8 @@ describePostgres("a coordinator bot runs six agreed requests (PostgreSQL)", () =
     const queue: BackgroundJob[] = [];
     const jobs: JobPublisher = {
       enqueue: async (job) => void queue.push(job),
+      enqueueIn: async (_tx, job) => void queue.push(job),
+      cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
     };
@@ -337,7 +341,7 @@ describePostgres("a coordinator bot runs six agreed requests (PostgreSQL)", () =
     const wakes = await system.run.findMany({
       where: { threadId: thread.id, trigger: "cloud_agent" },
     });
-    expect(wakes.map((run) => run.status)).toEqual(Array(7).fill("completed"));
-    expect(wakes).toHaveLength(7);
+    expect(wakes.every((run) => run.status === "completed")).toBe(true);
+    expect(wakes.flatMap((run) => run.cloudAgentWakeNonces)).toHaveLength(7);
   });
 });

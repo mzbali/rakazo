@@ -1,4 +1,5 @@
 import { Trans } from "@lingui/react/macro";
+import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentHttpsUrl } from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
@@ -10,7 +11,7 @@ export function CloudAgentCard({
   block: Extract<MessageBlock, { kind: "cloud_agent" }>;
 }) {
   const prHref = cloudAgentHttpsUrl(block.prUrl);
-  const href = prHref ?? cloudAgentHttpsUrl(block.url);
+  const href = prHref ?? cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
   const content = (
     <Card size="sm" className="w-80 max-w-full" data-testid="cloud-agent-card">
       <CardContent className="flex flex-col gap-2">

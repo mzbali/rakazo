@@ -263,6 +263,16 @@ describe("contracts", () => {
     }
   });
 
+  it("accepts bounded tool pins including unknown names", () => {
+    expect(
+      UpdateBotInput.parse({ botId: "bot-1", pinnedTools: ["unknown", "cloud_agent_status"] })
+        .pinnedTools,
+    ).toEqual(["unknown", "cloud_agent_status"]);
+    expect(
+      UpdateBotInput.safeParse({ botId: "bot-1", pinnedTools: Array(13).fill("tool") }).success,
+    ).toBe(false);
+  });
+
   it("rejects unknown built-in tool names and keeps a known denylist", () => {
     expect(
       UpdateBotInput.parse({ botId: "bot-1", disabledBuiltinTools: ["web_search", "web_search"] })

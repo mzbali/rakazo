@@ -1,7 +1,7 @@
 import type { AdapterContext, ConnectorProvider } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { T3CloudAgentProvider, t3DirectThread } from "./t3-cloud-agent.js";
+import { T3CloudAgentProvider, t3CanonicalLink, t3DirectThread } from "./t3-cloud-agent.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -216,7 +216,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       t3_project_list: () => ({ projects: [{ id: "project:1" }] }),
       t3_thread_launch: () => ({
         threadId: "thread:1",
-        link: "https://example.test/thread",
+        link: "[Task](t3-thread://v2/env/thread%3A1)",
         runId: "run:1",
       }),
     };
@@ -234,7 +234,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     });
     expect(await narrowed.provider.launch(request, context)).toMatchObject({
       id: "thread:1",
-      url: "https://example.test/thread",
+      url: "t3code://threads/env/thread%3A1",
       status: "running",
     });
     const launches = narrowed.calls.filter((call) => call.tool === "t3_thread_launch");
@@ -430,5 +430,40 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_read", { threadId: "t-old" }, {}),
     ).toBeUndefined();
+  });
+});
+
+describe("thread links", () => {
+  it("returns canonical links from launch and status", async () => {
+    const fixture = server({
+      t3_thread_list: () => ({ threads: [] }),
+      t3_thread_launch: () => ({
+        threadId: "thread:1",
+        runId: "r",
+        link: "[Task](t3-thread://v2/env/thread%3A1)",
+      }),
+      t3_thread_events: () => state({ link: "<t3-thread://v2/env/thread%3A1>" }),
+    });
+    const request = { idempotencyKey: "key", prompt: "task", modelSelection: { model: "m" } };
+    expect((await fixture.provider.launch(request, context)).url).toBe(
+      "t3code://threads/env/thread%3A1",
+    );
+    expect((await fixture.provider.get("thread:1", context)).url).toBe(
+      "t3code://threads/env/thread%3A1",
+    );
+  });
+  it("extracts the environment from provider links and rewrites only tracked threads", () => {
+    const url = t3CanonicalLink("[Task](t3-thread://v2/env-1/thread%3A1)", "thread:1");
+    expect(url).toBe("t3code://threads/env-1/thread%3A1");
+    expect(t3CanonicalLink("<t3-thread://v2/env-1/thread%3A1>", "thread:1")).toBe(url);
+    expect(t3CanonicalLink("<t3-thread://v2/env-1/other>", "thread:1")).toBe("");
+    const { provider } = server({});
+    const text =
+      "[one](t3-thread://v2/env-1/thread%3A1) [two](t3code://threads/project/thread%3A1) [other](t3-thread://v2/env-1/other)";
+    expect(provider.canonicalizeLinks(text, "thread:1", url)).toBe(
+      `[one](${url}) [two](${url}) [other](t3-thread://v2/env-1/other)`,
+    );
+    const webLink = "https://app.t3.codes/threads/project/thread%3A1";
+    expect(provider.canonicalizeLinks(webLink, "thread:1", url)).toBe(webLink);
   });
 });

@@ -1,5 +1,10 @@
-import type { MessageBlock } from "@rakazo/contracts";
-import { callIdFromClientNonce, isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
+import type { HistoryToolStep, MessageBlock } from "@rakazo/contracts";
+import {
+  callIdFromClientNonce,
+  isBackgroundRunTrigger,
+  redactSecrets,
+  splitToolHistory,
+} from "@rakazo/core";
 import type { Prisma, RunLease } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -8,6 +13,8 @@ import {
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { cloudAgentFor } from "./cloud-agent-service.js";
+import { redactConnectorPayload } from "./connector-safety.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 
 /** Deps for one attempt: its run's history writes carry the lease, so a superseded attempt cannot write. */
@@ -27,6 +34,15 @@ export function runLeaseFor(
   runId: string,
 ): RunLease | undefined {
   return deps.runLease?.runId === runId ? deps.runLease : undefined;
+}
+
+/** Stored call arguments with the run's secrets redacted inside their values, still valid JSON. */
+function redactedArguments(json: string, secrets: string[]): string {
+  try {
+    return JSON.stringify(redactConnectorPayload(JSON.parse(json), secrets));
+  } catch {
+    return "{}";
+  }
 }
 
 export function redactBlocks(blocks: MessageBlock[], secrets: string[]): MessageBlock[] {
@@ -51,10 +67,24 @@ export function redactBlocks(blocks: MessageBlock[], secrets: string[]): Message
     if (block.kind === "steps") {
       return {
         ...block,
-        steps: block.steps.map((step) => ({
+        steps: (block.steps as HistoryToolStep[]).map((step) => ({
           ...step,
           label: redactSecrets(step.label, secrets),
           ...(step.note === undefined ? {} : { note: redactSecrets(step.note, secrets) }),
+          // Secrets a later call revealed are redacted from earlier calls' arguments too.
+          ...(step.calls
+            ? {
+                calls: step.calls.map((call) => ({
+                  ...call,
+                  ...(call.arguments === undefined
+                    ? {}
+                    : { arguments: redactedArguments(call.arguments, secrets) }),
+                  ...(call.result === undefined
+                    ? {}
+                    : { result: redactSecrets(call.result, secrets) }),
+                })),
+              }
+            : {}),
         })),
       };
     }
@@ -77,6 +107,73 @@ export async function publishMessage(
   if (isBackgroundRunTrigger(run.trigger)) {
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0 && !stoppedHelper) return null;
+  }
+  if (role === "bot" && (deps.cloudAgent || deps.userCloudAgents)) {
+    // App links have custom schemes. Web links are not recognized by the adapters that
+    // canonicalize thread links, so they do not need a cloud-agent lookup.
+    const candidates = new Set<string>();
+    for (const block of blocks) {
+      if (block.kind !== "text") continue;
+      for (const match of block.text.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s<>()]+/gi)) {
+        try {
+          const url = new URL(match[0].replace(/[.,!?;]+$/, ""));
+          if (url.protocol === "http:" || url.protocol === "https:") continue;
+          const id = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
+          if (id) candidates.add(id);
+        } catch {
+          // Malformed links remain unchanged.
+        }
+      }
+    }
+    if (candidates.size) {
+      try {
+        const owner = await deps.prisma.run.findUnique({
+          where: { id: run.id },
+          select: { userId: true },
+        });
+        if (owner) {
+          const agents = await deps.prisma.cloudAgent.findMany({
+            where: {
+              spaceId: run.spaceId,
+              userId: owner.userId,
+              botId: run.botId,
+              remoteId: { in: [...candidates] },
+            },
+            select: { remoteId: true, url: true, providerKey: true },
+          });
+          const connections = new Map<string, Awaited<ReturnType<typeof cloudAgentFor>>>();
+          let rewritten = blocks;
+          for (const agent of agents) {
+            if (!agent.remoteId || !agent.url) continue;
+            if (!connections.has(agent.providerKey)) {
+              connections.set(
+                agent.providerKey,
+                await cloudAgentFor(deps, {
+                  providerKey: agent.providerKey,
+                  spaceId: run.spaceId,
+                  userId: owner.userId,
+                }),
+              );
+            }
+            const connection = connections.get(agent.providerKey);
+            const rewrite = connection?.provider.canonicalizeLinks;
+            if (!rewrite) continue;
+            rewritten = rewritten.map((block) =>
+              block.kind === "text"
+                ? {
+                    ...block,
+                    text: rewrite.call(connection.provider, block.text, agent.remoteId!, agent.url),
+                  }
+                : block,
+            );
+          }
+          blocks = rewritten;
+        }
+      } catch {
+        // A link is optional; never lose a reply because its provider could not be reached.
+        getLogger().warn("cloud_agent.link_canonicalization_failed");
+      }
+    }
   }
   const lease = runLeaseFor(deps, run.id);
   // Concurrent runs in one thread contend for its sequence counters; Postgres aborts a
@@ -131,10 +228,14 @@ export async function persistMessageInTransaction(
   allowCancelledRun = false,
   lease?: RunLease,
 ) {
+  // Clients get the blocks without the kept calls, in the message and in its event alike.
+  const { blocks: shown, toolHistory } = splitToolHistory(blocks);
+  blocks = shown;
   const message = await createThreadMessageInTransaction(tx, {
     threadId: run.threadId,
     role,
     blocks,
+    toolHistory,
     botId: run.botId,
     runId: run.id,
     markUnread,

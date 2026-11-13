@@ -115,6 +115,12 @@ function builtinParameters(tool: ConnectorTool) {
       use_attached_image: Type.Optional(Type.Boolean()),
       notifyOnFinish: Type.Optional(Type.Boolean()),
       dailyCheckIns: Type.Optional(Type.Boolean()),
+      pinnedTools: Type.Optional(
+        Type.Array(Type.String({ minLength: 1, maxLength: 200 }), {
+          maxItems: 12,
+          description: "Tool names to list directly.",
+        }),
+      ),
       model: Type.Optional(Type.String()),
       thinkingLevel: Type.Optional(stringEnum(ThinkingLevelSchema.options, {})),
       readAloud: Type.Optional(Type.Boolean()),
@@ -380,6 +386,8 @@ export function prepareFleetArguments(
     if (argumentGiven(raw[key])) out[key] = raw[key];
   }
   if (argumentGiven(raw.dailyCheckIns)) out.dailyCheckIns = raw.dailyCheckIns;
+  if (toolName === "update_bot" && Array.isArray(raw.pinnedTools))
+    out.pinnedTools = raw.pinnedTools;
   const notify = raw.notifyOnFinish ?? raw.notify_on_finish;
   if (argumentGiven(notify)) out.notifyOnFinish = notify;
   // The read pager's offset is a number; the handler validates it.
@@ -409,6 +417,11 @@ function enumUnion(values: readonly unknown[], options: FieldOptions = {}) {
 export function jsonField(spec: unknown): ReturnType<typeof Type.String> {
   const definition = spec && typeof spec === "object" ? (spec as Record<string, unknown>) : {};
   const options = fieldOptions(definition);
+  // Nested intersections need the same preservation as root schemas; otherwise an
+  // allOf-only field falls back to string and loses its sibling constraints.
+  if (Array.isArray(definition.allOf)) {
+    return jsonSchemaParameters(definition, options) as never;
+  }
   if (Array.isArray(definition.enum) && definition.enum.length > 0) {
     if (definition.enum.every((value) => typeof value === "string")) {
       return stringEnum(definition.enum as string[], options) as never;
@@ -459,7 +472,8 @@ export function jsonField(spec: unknown): ReturnType<typeof Type.String> {
   if (!("type" in definition)) return Type.Unknown(options) as never;
   const type = String(definition.type);
   if (type === "null") return Type.Null(options) as never;
-  if (type === "number" || type === "integer") return Type.Number(options) as never;
+  if (type === "integer") return Type.Integer(options) as never;
+  if (type === "number") return Type.Number(options) as never;
   if (type === "boolean") return Type.Boolean(options) as never;
   if (type === "array") {
     const arrayOptions: FieldOptions & {

@@ -6,6 +6,7 @@ import {
   partitionTools,
   USE_TOOL,
 } from "./builtin-tool-bridge.js";
+import { builtinAgentTools } from "./builtin-tools.js";
 import { describeToolActivity } from "./pi-runtime-tools.js";
 import { BUILTIN_AGENT_TOOL_NAMES, selectBuiltinToolsForRun } from "./run-tool-selection.js";
 
@@ -69,6 +70,16 @@ describe("built-in tool bridge", () => {
         "scratchpad_add",
       ]),
     );
+  });
+
+  it("exposes a pinned deferred tool only for the run that pins it", () => {
+    const tool = builtinAgentTools.find((entry) => entry.name === "cloud_agent_status")!;
+    const pinned = partitionTools([...ownerChat, { ...tool, pinned: true }]);
+    expect(pinned.listed).toContainEqual(expect.objectContaining(tool));
+    expect(pinned.listed.find((entry) => entry.name === FIND_TOOL)?.description).not.toContain(
+      tool.name,
+    );
+    expect(partitionTools([...ownerChat, tool]).deferred).toContainEqual(tool);
   });
 
   it("names only real built-ins as core", () => {

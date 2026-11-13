@@ -5,9 +5,10 @@ import type { VisualFit } from "@rakazo/core";
 import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { currentApiBase } from "../../lib/api";
 import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
+import { HEADER_CONTROL_SIZE } from "../../lib/native-controls";
 import { loadPageRuntime } from "../../lib/page-runtime";
 import { usePageTapGate } from "../../lib/page-tap-gate";
 import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages";
@@ -63,15 +64,15 @@ function useVisualActions() {
 
 /**
  * A visual the bot drew in the chat. One that fits works in place. Its Expand button
- * grows the same running view in the conversation.
- * A taller one draws its top without taking touches and opens on a tap.
+ * grows the same running view in the conversation, so what the reader did in it stays.
+ * A taller one draws its top without taking touches and opens whole in a sheet on a tap.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const tokens = useMobileTokens();
   const theme = useResolvedAppearance();
   const errorTitle = t`This page couldn't be shown.`;
-  const { runtime } = usePageRuntime();
+  const { runtime, failed } = usePageRuntime();
   const window = useWindowDimensions();
   const [height, setHeight] = useState<number | null>(null);
   const [fit, setFit] = useState<VisualFit>("drawing");
@@ -86,11 +87,24 @@ export function VisualCard({ block }: { block: VisualBlock }) {
       }),
     [runtime, block.code, theme, errorTitle, tokens.card],
   );
+  const live = fit === "inline";
+  const expanded = open && live;
+  const sheet = open && !live;
+  // Built only once opened, from the runtime the card already has: each document carries all of it.
+  const full = useMemo(
+    () =>
+      sheet && runtime
+        ? pageDocumentWith(runtime, block.code, theme, errorTitle, {
+            inline: "full",
+            surface: tokens.background,
+          })
+        : null,
+    [sheet, runtime, block.code, theme, errorTitle, tokens.background],
+  );
 
-  const shown = open
+  const shown = expanded
     ? window.height * 0.8
     : Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
-  const live = open || fit === "inline";
   const frame = (
     <View
       pointerEvents={live ? "auto" : "none"}
@@ -106,7 +120,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             html={inline}
             background={tokens.card}
             // An inline visual that grew past the card scrolls in place.
-            scrollEnabled={open || (live && height !== null && height > MAX_INLINE_HEIGHT)}
+            scrollEnabled={expanded || (live && height !== null && height > MAX_INLINE_HEIGHT)}
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {
@@ -129,51 +143,119 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     </View>
   );
   return (
-    <View
-      testID="visual-card"
-      style={[styles.card, { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` }]}
-    >
-      {open ? (
-        <View style={styles.expandedHeader}>
-          <Text numberOfLines={1} style={[styles.sheetTitle, { color: tokens.foreground }]}>
-            {block.title}
-          </Text>
-          <NativeActionButton
-            accessibilityLabel={t`Close`}
-            icon={{ ios: "xmark", android: "close", size: 20 }}
-            prominence="secondary"
-            onPress={() => setOpen(false)}
-          />
-        </View>
-      ) : null}
-      {frame}
-      {open ? null : live ? (
-        <View style={styles.expand}>
-          <NativeActionButton
-            accessibilityLabel={t`Expand ${block.title}`}
-            icon={{
-              ios: "arrow.up.left.and.arrow.down.right",
-              android: "expand-outline",
-              size: 15,
-            }}
-            prominence="secondary"
-            size="compact"
+    <>
+      <View
+        testID="visual-card"
+        style={[
+          styles.card,
+          { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` },
+        ]}
+      >
+        {expanded ? (
+          <View style={styles.expandedHeader}>
+            <Text numberOfLines={1} style={[styles.sheetTitle, { color: tokens.foreground }]}>
+              {block.title}
+            </Text>
+            <NativeActionButton
+              accessibilityLabel={t`Close`}
+              icon={{ ios: "xmark", android: "close", size: 20 }}
+              prominence="secondary"
+              onPress={() => setOpen(false)}
+            />
+          </View>
+        ) : null}
+        {frame}
+        {expanded ? null : live ? (
+          <View style={styles.expand}>
+            <NativeActionButton
+              accessibilityLabel={t`Expand ${block.title}`}
+              icon={{
+                ios: "arrow.up.left.and.arrow.down.right",
+                android: "expand-outline",
+                size: 15,
+              }}
+              prominence="secondary"
+              size="compact"
+              onPress={() => setOpen(true)}
+            />
+          </View>
+        ) : (
+          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t`Open ${block.title}`}
+            accessibilityHint={block.text}
             onPress={() => setOpen(true)}
+            style={({ pressed }) => [
+              StyleSheet.absoluteFill,
+              pressed ? { backgroundColor: `${tokens.foreground}14` } : null,
+            ]}
           />
-        </View>
-      ) : (
-        // Over the frame rather than around it, so the WebView never reloads when the fit settles.
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t`Open ${block.title}`}
-          accessibilityHint={block.text}
-          onPress={() => setOpen(true)}
-          style={({ pressed }) => [
-            StyleSheet.absoluteFill,
-            pressed ? { backgroundColor: `${tokens.foreground}14` } : null,
-          ]}
+        )}
+      </View>
+      <Modal
+        visible={sheet}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setOpen(false)}
+      >
+        {sheet ? (
+          <VisualSheet
+            block={block}
+            document={failed ? null : full}
+            onClose={() => setOpen(false)}
+          />
+        ) : null}
+      </Modal>
+    </>
+  );
+}
+
+/** The visual whole, interactive, as an opened page is: one tap, one copy or link. */
+function VisualSheet({
+  block,
+  document,
+  onClose,
+}: {
+  block: VisualBlock;
+  /** Null when the runtime could not load; the summary stands in. */
+  document: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useLingui();
+  const tokens = useMobileTokens();
+  const actions = useVisualActions();
+  return (
+    <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
+      <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...actions.touch}>
+        {document ? (
+          <SandboxedHtmlPreview
+            html={document}
+            background={tokens.background}
+            onMessage={actions.act}
+          />
+        ) : (
+          <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>
+        )}
+      </View>
+      <View pointerEvents="box-none" style={styles.controls}>
+        <NativeActionButton
+          accessibilityLabel={t`Close`}
+          icon={{ ios: "xmark", android: "close", size: 20 }}
+          prominence="secondary"
+          onPress={onClose}
         />
-      )}
+        <Text
+          numberOfLines={1}
+          accessibilityRole="header"
+          style={[
+            styles.sheetTitle,
+            { color: tokens.foreground, marginRight: HEADER_CONTROL_SIZE },
+          ]}
+        >
+          {block.title}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -190,6 +272,18 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   summary: { fontSize: 15, lineHeight: 20 },
+  sheet: { flex: 1 },
+  sheetSummary: { fontSize: 17, lineHeight: 24, padding: 20 },
+  // A page sheet starts below the status bar, so the close button sits at its top.
+  controls: {
+    position: "absolute",
+    top: 6,
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   expand: { position: "absolute", top: 10, right: 10 },
   expandedHeader: { flexDirection: "row", alignItems: "center", padding: 12 },
   sheetTitle: {

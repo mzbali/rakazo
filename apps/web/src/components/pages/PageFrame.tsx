@@ -20,7 +20,9 @@ export function PageFrame({
   interactive = false,
   onHeight,
   onReply,
+  portalContainer,
 }: {
+  portalContainer?: HTMLElement | null;
   document: string;
   title: string;
   interactive?: boolean;
@@ -28,7 +30,7 @@ export function PageFrame({
   /** Where a page's reply button puts its text; without it the page offers no replies. */
   onReply?: (text: unknown) => void;
 }) {
-  const { open, dialog } = useExternalLinkOpener();
+  const { open, dialog } = useExternalLinkOpener(portalContainer);
   const box = useRef<HTMLDivElement>(null);
   const [drawnAt, setDrawnAt] = useState<CSSProperties | undefined>(undefined);
   const usedGesture = useRef<string | null>(null);

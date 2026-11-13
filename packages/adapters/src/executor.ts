@@ -9,6 +9,7 @@ import {
   formatSkillRunPrompt,
   formatSkillsCatalogInstruction,
   isCallClientNonce,
+  isJobHelperRun,
   isMessagingChannelRun,
   isOwnerStartedRun,
   isTerminal,
@@ -1373,6 +1374,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
               Boolean(cloudAgent) &&
               ((await cloudAgent?.enabledForBot?.(deps.prisma, run.spaceId, bot.id)) ?? true),
             cloudAgentCleanupEnabled,
+            jobHelper: isJobHelperRun(run),
             paymentWalletEnabled,
             messagingChannelRun: nonOwnerChatRun,
             voiceCall,

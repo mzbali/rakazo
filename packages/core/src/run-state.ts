@@ -107,6 +107,17 @@ export function isTerminal(status: string): boolean {
  */
 export const BACKGROUND_HELPER_TRIGGER = "helper";
 export const HELPER_RESULT_TRIGGER = "helper_result";
+/**
+ * A background helper that handles one cloud agent's wakes, in a thread of that agent's own. It
+ * is the only helper that carries cloud-agent wake identities.
+ */
+export function isJobHelperRun(run: {
+  trigger: string;
+  cloudAgentWakeNonces?: readonly string[];
+}): boolean {
+  return run.trigger === BACKGROUND_HELPER_TRIGGER && (run.cloudAgentWakeNonces?.length ?? 0) > 0;
+}
+
 /** The result a stopped background helper's card settles with, beside status "failed". */
 export const STOPPED_HELPER_RESULT = "stopped";
 

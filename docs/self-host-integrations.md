@@ -335,6 +335,10 @@ CLOUD_AGENT_MCP_SERVER=t3
 
 To pick models by quota, set `T3_MODEL_ROUTES` to JSON listing models per kind of work, best first (`hard`, `normal`, `simple`, `ui`), each `{ "instanceId", "model", "options"? }`. A launch that passes `workKind` and no `modelSelection` takes the first model whose instance has quota; a T3 that does not report quota counts every model as available. When every model is out, or the named model is, the launch waits for the earliest reset (between one minute and six hours per attempt) and the agent's note says so. Unset or invalid JSON turns routing off.
 
+### Job threads
+
+By default every cloud-agent wake (a finished run, a question, an approval) runs in the bot's own chat, so each one pays for that chat's whole context. Set `CLOUD_AGENT_JOB_THREADS=1` to run them in a hidden helper thread per agent instead, created on the agent's first wake and reused after. The helper starts from the job record (the agent's title, launch brief, status, links, verdict, and its scoped goal when it has one), not from the chat, and may use `cloud_agent_status`, `cloud_agent_report`, `cloud_agent_reply` and `cloud_agent_cancel` for that agent. The chat gets one card that the helper's result settles, and the bot's own chat runs only if the helper leaves a question or approval open. A helper cannot ask the owner for approval, so `cloud_agent_reply` and `cloud_agent_cancel` run there only where the owner's rules already allow them. Wake deduplication, stale-wake cancelling and retries work as before. Scoped-goal continuation turns still run in the bot's chat. Agents launched while the setting is off keep waking the chat.
+
 ### Recovery
 
 The database stores ownership and pending operations independently of chat cards. The worker and reconciler recover queue failures and interrupted launches. Cursor creates use a stable client agent ID, so retrying an accepted create does not create another remote agent. T3 Code launches use a stable request key the same way, unless the server is reconnected while one is in flight.

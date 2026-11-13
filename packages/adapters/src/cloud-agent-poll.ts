@@ -11,10 +11,16 @@ import {
   runContinueJob,
 } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl, cloudAgentUrl } from "@rakazo/core";
+import { BACKGROUND_HELPER_TRIGGER, cloudAgentHttpsUrl, cloudAgentUrl } from "@rakazo/core";
 import type { CloudAgent } from "@rakazo/db";
 import { appendEventInTransaction, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import {
+  cloudAgentJobThreadsEnabled,
+  jobHelperTaskPrompt,
+  jobThreadFor,
+  postJobHelperCard,
+} from "./cloud-agent-job-thread.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   cloudAgentBlock,
@@ -515,6 +521,9 @@ async function finishPoll(
     const saved = await tx.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
     let seq: number | undefined;
     const wakeRunIds: string[] = [];
+    // Events for the cards a job helper's wakes left in the chat, announced with the rest.
+    const wakeSeqs: number[] = [];
+    const wakeOptions = { jobThread: true, seqs: wakeSeqs };
     if (message && !detached) {
       const nextBlock = cloudAgentBlock(saved);
       const blocks = (message.blocks as MessageBlock[]).map((block) =>
@@ -544,6 +553,7 @@ async function finishPoll(
             saved,
             terminalWakePrompt(saved),
             `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
+            wakeOptions,
           )),
         );
         await tx.cloudAgent.update({
@@ -559,6 +569,7 @@ async function finishPoll(
             saved,
             attentionWakePrompt(agent.id, requestId),
             `cloud-agent-attention:${agent.id}:${requestId}`,
+            wakeOptions,
           )),
         );
       }
@@ -572,6 +583,7 @@ async function finishPoll(
             saved,
             `Cloud agent ${agent.id} had a question or approval (${requestId}) that closed unanswered. Use cloud_agent_status to check whether it is still working.`,
             `cloud-agent-attention:${agent.id}:${requestId}`,
+            wakeOptions,
           )),
         );
       }
@@ -580,7 +592,12 @@ async function finishPoll(
       terminal && agent.status === "running"
         ? await promoteQueuedCloudAgent(tx, agent.providerKey, agent.botId)
         : undefined;
-    return { seq, wakeRunIds, nextPollAt, promotedId };
+    return {
+      seq: wakeSeqs.length ? Math.max(seq ?? 0, ...wakeSeqs) : seq,
+      wakeRunIds,
+      nextPollAt,
+      promotedId,
+    };
   });
   if (!committed) return;
   if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
@@ -611,6 +628,13 @@ function newAttention(before: unknown, after: unknown): string[] {
   return attentionIds(after).filter((id) => !seen.has(id));
 }
 
+export interface CloudAgentWakeOptions {
+  /** Run the wake in the agent's own helper thread when the deployment turns that on. */
+  jobThread?: boolean;
+  /** Collects the event seq of each card posted to the chat, for the caller to announce. */
+  seqs?: number[];
+}
+
 /**
  * Preserve each wake identity, folding it into an unstarted run in the same bot/thread.
  * The thread lock serializes deduplication and appends across pollers and reconcilers.
@@ -620,6 +644,7 @@ export async function createCloudAgentWake(
   agent: CloudAgent,
   prompt: string,
   clientNonce: string,
+  options: CloudAgentWakeOptions = {},
 ): Promise<string[]> {
   // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
   // also come here; no in-process lock can protect wakes created on another instance.
@@ -629,13 +654,15 @@ export async function createCloudAgentWake(
     select: { id: true },
   });
   if (existing) return [];
+  const job = options.jobThread && cloudAgentJobThreadsEnabled();
+  const threadId = job ? await jobThreadFor(tx, agent) : agent.threadId;
   const queued = await tx.run.findFirst({
     where: {
       spaceId: agent.spaceId,
       userId: agent.userId,
       botId: agent.botId,
-      threadId: agent.threadId,
-      trigger: "cloud_agent",
+      threadId,
+      trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
       status: "queued",
       startedAt: null,
     },
@@ -660,13 +687,16 @@ export async function createCloudAgentWake(
       return [queued.id];
     }
   }
+  // A job helper's one result lands on a card in the main chat, which its run settles.
+  const card = job ? await postJobHelperCard(tx, agent, clientNonce) : undefined;
+  if (card) options.seqs?.push(card.seq);
   const task = await tx.task.create({
     data: {
       spaceId: agent.spaceId,
       botId: agent.botId,
-      threadId: agent.threadId,
+      threadId,
       userId: agent.userId,
-      prompt,
+      prompt: job ? await jobHelperTaskPrompt(tx, agent, [prompt]) : prompt,
       status: "queued",
     },
   });
@@ -674,13 +704,14 @@ export async function createCloudAgentWake(
     data: {
       spaceId: agent.spaceId,
       botId: agent.botId,
-      threadId: agent.threadId,
+      threadId,
       userId: agent.userId,
       taskId: task.id,
       status: "queued",
-      trigger: "cloud_agent",
+      trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
       clientNonce,
       cloudAgentWakeNonces: [clientNonce],
+      ...(card ? { sourceMessageId: card.messageId } : {}),
     },
   });
   return [run.id];

@@ -1,10 +1,13 @@
 import { runContinueJob } from "@rakazo/adapter-kit";
+import { isJobHelperRun } from "@rakazo/core";
 import type { CloudAgent, Run } from "@rakazo/db";
 import {
   appendEventInTransaction,
   cancelRunsInTransaction,
   createPendingSteeringRun,
 } from "@rakazo/db";
+import { returnHelperOutcome } from "./background-helpers.js";
+import { jobHelperTaskPrompt } from "./cloud-agent-job-thread.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 
 /** The primary nonce keeps wakes from older workers readable. */
@@ -51,7 +54,8 @@ export async function cancelStaleCloudAgentWake(
   lease: { owner: string; fence: number },
 ): Promise<boolean> {
   // A resumed turn may already have effects to finish; its original trigger no longer gates it.
-  if (run.trigger !== "cloud_agent" || run.startedAt) return false;
+  const job = isJobHelperRun(run);
+  if ((run.trigger !== "cloud_agent" && !job) || run.startedAt) return false;
   const result = await deps.prisma.$transaction(async (tx) => {
     // Match polling/clearing's thread -> run order. This also seals a coalesced prompt against
     // an appender that read the run before the executor claimed it.
@@ -74,7 +78,8 @@ export async function cancelStaleCloudAgentWake(
         spaceId: run.spaceId,
         userId: run.userId,
         botId: run.botId,
-        threadId: run.threadId,
+        // A job helper's wakes belong to the agent whose helper thread it runs in.
+        ...(job ? { jobThreadId: run.threadId } : { threadId: run.threadId }),
       },
     });
     const byId = new Map(agents.map((agent) => [agent.id, agent]));
@@ -92,9 +97,16 @@ export async function cancelStaleCloudAgentWake(
         return undefined;
       });
       if (prompts.every((prompt) => prompt !== undefined)) {
+        // A job helper starts from the agent's record as it is now, not as the wake left it.
+        const [agent] = agents;
         await tx.task.update({
           where: { id: current.taskId },
-          data: { prompt: prompts.join("\n\n") },
+          data: {
+            prompt:
+              job && agent
+                ? await jobHelperTaskPrompt(tx, agent, prompts as string[])
+                : prompts.join("\n\n"),
+          },
         });
       }
       return { stopped: false };
@@ -109,11 +121,15 @@ export async function cancelStaleCloudAgentWake(
       type: "run.cancelled",
       payload: {},
     });
-    const continuationId = await createPendingSteeringRun(tx, run);
+    // A helper thread takes no steering, and its card is settled below.
+    const continuationId = job ? undefined : await createPendingSteeringRun(tx, run);
     return { stopped: true, seq: event.seq, continuationId };
   });
   if (result.seq !== undefined)
     await deps.events.notify(run.threadId, result.seq).catch(() => undefined);
   if (result.continuationId) await deps.jobs.enqueue(runContinueJob(result.continuationId));
+  if (job && result.stopped && result.seq !== undefined) {
+    await returnHelperOutcome(deps, run, { status: "stopped", text: "" }).catch(() => undefined);
+  }
   return result.stopped;
 }

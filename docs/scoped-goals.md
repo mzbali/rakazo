@@ -16,7 +16,8 @@ queue or framework.
 - A completion wake only asks the reconciler to look at the goal. Only satisfied evidence
   completes a gate.
 - While a goal drives its agent (active or waiting, current control epoch) the owner's normal
-  completion wake is held back; the goal starts one deduplicated continuation Run instead.
+  completion wake is held back; the goal starts one deduplicated continuation Run instead
+  (that Run stays in the bot's chat even with `CLOUD_AGENT_JOB_THREADS=1`).
   Paused, blocked, cancelled and completed goals hand wakes back to the owner.
 - Pause, cancel, scope reapproval or the owner writing in the thread stop the current
   continuation. Its later writes are refused at the tool gate and any follow-up it queued

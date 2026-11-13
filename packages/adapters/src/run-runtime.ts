@@ -341,6 +341,7 @@ export function createRunReconciler(
       await reconcileCloudAgents({
         prisma,
         jobs,
+        events: deps.events,
         cloudAgent,
         userCloudAgents: deps.userCloudAgents,
       });

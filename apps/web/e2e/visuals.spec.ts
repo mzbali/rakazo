@@ -9,6 +9,7 @@ const COUNTER = `function Counter() {
       <Diagram direction="horizontal" nodes={[{ id: "a", label: "Your message" }, { id: "b", label: "Bot reply" }]} edges={[{ from: "a", to: "b" }]} />
       <p>Count: {count}</p>
       <Button label="Add one" onClick={() => setCount(count + 1)} />
+      <Text>How it counts: https://example.com/counter</Text>
     </Section>
   );
 }
@@ -72,6 +73,15 @@ test("a visual that fits works in the chat and expands; a tall one previews and 
   await visualFrame(dialog, small).getByRole("button", { name: "Add one" }).click();
   await expect(visualFrame(dialog, small).getByText("Count: 2")).toBeVisible();
   await captureScreenshot(page, testInfo, "visual-open");
+  // Its link prompt shows above the expanded visual and takes clicks; Cancel leaves it open.
+  await visualFrame(dialog, small)
+    .getByRole("link", { name: "https://example.com/counter" })
+    .click();
+  const leave = page.getByRole("alertdialog", { name: "Open external link?" });
+  await expect(leave).toContainText("example.com/counter");
+  await leave.getByRole("button", { name: "Cancel" }).click();
+  await expect(leave).toBeHidden();
+  await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Close preview" }).click();
   await expect(dialog).toBeHidden();
   // Changes made while expanded persist in the chat.

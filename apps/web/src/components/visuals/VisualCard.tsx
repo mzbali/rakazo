@@ -27,11 +27,13 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const live = useLiveNearView(box);
   const viewer = usePageDocument(block.code, "card", false, 0, "card");
   const [open, setOpen] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
+  // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
+  // of the page inert.
+  const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
   useEffect(() => {
-    if (open) dialog.current?.showModal();
-    else if (dialog.current?.open) dialog.current.close();
-  }, [open]);
+    if (open) dialog?.showModal();
+    else if (dialog?.open) dialog.close();
+  }, [open, dialog]);
   const summaryId = useId();
   // The last height the visual reported; kept while it is out of the live set, so the chat
   // does not jump when it scrolls back and draws again.
@@ -63,7 +65,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         style={{ height: shown }}
       >
         <dialog
-          ref={dialog}
+          ref={setDialog}
           role={open ? "dialog" : "generic"}
           aria-label={open ? block.title : undefined}
           onClose={() => setOpen(false)}
@@ -95,6 +97,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               style={open ? { top: 56, bottom: 0 } : { top: 0, height: shown }}
             >
               <PageFrame
+                portalContainer={dialog}
                 document={viewer.document}
                 title={block.title}
                 interactive={inline || open}

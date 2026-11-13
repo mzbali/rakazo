@@ -3,7 +3,20 @@ import type { BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
 import { ScopedGoalScope } from "@rakazo/contracts";
 import { createDb, Prisma, runAsSystem, runAsTenant } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { goalDrivesAgent, reconcileScopedGoals, scopedGoalTool } from "./scoped-goal-service.js";
+import {
+  advanceScopedGoal,
+  dueScopedGoalIds,
+  goalDrivesAgent,
+  scopedGoalTool,
+} from "./scoped-goal-service.js";
+
+/** What the job queue does with the goals the reconciler finds due, run inline. */
+async function reconcileScopedGoals(
+  deps: Parameters<typeof advanceScopedGoal>[0],
+  now = new Date(),
+) {
+  for (const id of await dueScopedGoalIds(deps.prisma, now)) await advanceScopedGoal(deps, id, now);
+}
 
 const suite = process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
 suite("durable scoped continuation", () => {

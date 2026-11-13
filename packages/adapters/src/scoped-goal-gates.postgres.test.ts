@@ -8,7 +8,12 @@ import { pollCloudAgent } from "./cloud-agent-poll.js";
 import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
 import { reconcileCloudWork } from "./run-runtime.js";
 import { observe } from "./scoped-goal-observers.js";
-import { reconcileScopedGoals, scopedGoalTool } from "./scoped-goal-service.js";
+import {
+  advanceScopedGoal,
+  dueScopedGoalIds,
+  reconcileScopedGoals,
+  scopedGoalTool,
+} from "./scoped-goal-service.js";
 import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
 const PR = "https://github.com/example/demo/pull/1";
@@ -100,11 +105,15 @@ suite("scoped goal gates advance in code", () => {
       provider: t3EmulatedProvider(emulator),
     };
     // What the live checks and the code host answer; tests change it between passes.
-    const world = { deployedSha: "0".repeat(40), healthStatus: 200 };
+    const world: { deployedSha: string; healthStatus: number; hold?: Promise<void> } = {
+      deployedSha: "0".repeat(40),
+      healthStatus: 200,
+    };
     const requests: string[] = [];
     const fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       requests.push(url);
+      await world.hold;
       if (url.startsWith("https://api.github.com/"))
         return Response.json({ merged: true, merge_commit_sha: SHA });
       if (url === VERSION_URL) return Response.json({ sha: world.deployedSha });
@@ -172,9 +181,20 @@ suite("scoped goal gates advance in code", () => {
     await runAsSystem("authorize", () =>
       scopedGoalTool(deps, owner, "scoped_goal_authorize", scope, key),
     );
+    // The approved write has settled by the time the goal drives the agent.
+    await runAsSystem("settle approval", () =>
+      p.externalEffect.updateMany({
+        where: { idempotencyKey: key },
+        data: { status: "completed" },
+      }),
+    );
     const goal = () => p.scopedGoal.findUniqueOrThrow({ where: { agentId } });
     const reconcile = (now = new Date()) =>
-      runAsSystem("reconcile", () => reconcileScopedGoals(deps, now));
+      runAsSystem("reconcile", async () => {
+        // What the job queue does with the goals the reconciler finds due, run inline.
+        for (const id of await dueScopedGoalIds(deps.prisma, now))
+          await advanceScopedGoal(deps, id, now);
+      });
     const continuations = async () =>
       p.run.count({ where: { clientNonce: { startsWith: `scoped-goal:${(await goal()).id}:` } } });
     const wakes = () =>
@@ -333,6 +353,12 @@ suite("scoped goal gates advance in code", () => {
         cloudAgent: null,
         userCloudAgents,
       });
+      // The pass hands the goal to its own job, which then advances it.
+      const goalId = (await t.goal()).id;
+      expect(t.deps.jobs.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "scoped_goal.advance", payload: { goalId } }),
+      );
+      await advanceScopedGoal({ ...rest, cloudAgent: null, userCloudAgents }, goalId);
       expect(await t.goal()).toMatchObject({ gate: "deploy", status: "active" });
       expect((await t.history()).filter((h) => h.action === "gate_passed")).toHaveLength(1);
     }));
@@ -398,6 +424,101 @@ suite("scoped goal gates advance in code", () => {
       await t.reconcile(new Date(Date.now() + 4 * MINUTE));
       expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(1);
       expect((await t.agent()).followup).toMatchObject({ goalGate: "deploy" });
+    }));
+
+  it("lets one goal's slow remote check hold back no other goal", async () =>
+    runAsSystem("goal independence", async () => {
+      const slow = await fixture();
+      const quick = await fixture();
+      for (const t of [slow, quick]) {
+        await t.finish();
+        t.emulator.openPullRequest(t.threadId, PR);
+        t.emulator.landPullRequest(t.threadId);
+      }
+      let release!: () => void;
+      slow.world.hold = new Promise<void>((resolve) => (release = resolve));
+      const now = new Date(Date.now() + 2 * MINUTE);
+      const goalIds = [await slow.goal(), await quick.goal()].map((g) => g.id);
+      const enqueued = (t: typeof slow) =>
+        vi
+          .mocked(t.deps.jobs.enqueue)
+          .mock.calls.map(([job]) => job)
+          .filter((job) => job.name === "scoped_goal.advance")
+          .map((job) => (job.payload as { goalId: string }).goalId);
+
+      // The pass only hands each due goal its own job, so it finishes while a check hangs.
+      await runAsSystem("pass", () => reconcileScopedGoals(slow.deps, now));
+      expect(enqueued(slow)).toEqual(expect.arrayContaining(goalIds));
+
+      // The hung goal's job is running; the other goal's job still advances it.
+      const hung = runAsSystem("hung", () => advanceScopedGoal(slow.deps, goalIds[0]!, now));
+      await vi.waitFor(() =>
+        expect(slow.requests.some((url) => url.startsWith("https://api.github.com/"))).toBe(true),
+      );
+      await runAsSystem("quick", () => advanceScopedGoal(quick.deps, goalIds[1]!, now));
+      expect(await quick.goal()).toMatchObject({ gate: "deploy", status: "active" });
+      expect(await slow.goal()).toMatchObject({ gate: "merge" });
+
+      release();
+      await hung;
+      expect(await slow.goal()).toMatchObject({ gate: "deploy", status: "active" });
+    }));
+
+  it("nudges only the goal of the agent that finished", async () =>
+    runAsSystem("goal nudge", async () => {
+      const a = await fixture();
+      const b = await fixture();
+      const later = new Date(Date.now() + 60 * MINUTE);
+      for (const t of [a, b])
+        await t.p.scopedGoal.update({
+          where: { id: (await t.goal()).id },
+          data: { nextAttemptAt: later },
+        });
+      await a.finish();
+      const advances = (t: typeof a) =>
+        vi
+          .mocked(t.deps.jobs.enqueue)
+          .mock.calls.filter(([job]) => job.name === "scoped_goal.advance")
+          .map(([job]) => (job.payload as { goalId: string }).goalId);
+      expect(advances(a)).toEqual([(await a.goal()).id]);
+      expect((await a.goal()).nextAttemptAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      expect((await b.goal()).nextAttemptAt).toEqual(later);
+      expect(advances(b)).toEqual([]);
+    }));
+
+  it("holds the automatic follow-up while an earlier write is uncertain, then sends it", async () =>
+    runAsSystem("goal uncertain follow-up", async () => {
+      const t = await fixture();
+      await t.finish();
+      t.emulator.openPullRequest(t.threadId, PR);
+      await t.reconcile();
+      t.emulator.landPullRequest(t.threadId);
+      const effect = await t.p.externalEffect.create({
+        data: {
+          spaceId: t.owner.spaceId,
+          runId: t.run.id,
+          kind: "http_post",
+          idempotencyKey: `uncertain:${randomUUID()}`,
+          status: "uncertain",
+          request: {},
+        },
+      });
+      await t.reconcile(new Date(Date.now() + 2 * MINUTE));
+      expect((await t.agent()).followup).toBeNull();
+      expect(await t.goal()).toMatchObject({ gate: "deploy", status: "waiting" });
+      expect(JSON.stringify((await t.goal()).blocker)).toContain(effect.id);
+      expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(0);
+      expect((await t.history()).filter((h) => h.action === "followup_deferred")).toHaveLength(1);
+
+      // Waiting again records nothing new.
+      await t.reconcile(new Date(Date.now() + 4 * MINUTE));
+      expect((await t.history()).filter((h) => h.action === "followup_deferred")).toHaveLength(1);
+
+      await t.p.externalEffect.update({ where: { id: effect.id }, data: { status: "completed" } });
+      await t.reconcile(new Date(Date.now() + 6 * MINUTE));
+      expect((await t.agent()).followup).toMatchObject({ goalGate: "deploy" });
+      expect(await t.goal()).toMatchObject({ status: "active", blocker: null });
+      expect((await t.history()).filter((h) => h.action === "followup_sent")).toHaveLength(1);
     }));
 
   it("refuses a done report while evidence is missing", async () =>

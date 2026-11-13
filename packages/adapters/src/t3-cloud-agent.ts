@@ -73,10 +73,9 @@ const launchSchema = z.object({
   threadId: z.string().min(1),
   link: z.string().optional(),
   runId: z.string().nullable(),
-  modelSelection: startedModelSchema.nullish(),
 });
 const threadReadSchema = z.object({
-  thread: z.object({ modelSelection: startedModelSchema.nullish() }),
+  thread: z.object({ model: z.string().optional(), providerInstanceId: z.string().optional() }),
 });
 const listSchema = z.object({
   threads: z.array(
@@ -255,8 +254,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ),
     );
     // A named model is checked against what T3 started; one left out keeps T3's default unreported.
+    // The launch response echoes the request, so only the thread says what really started.
     const started = request.modelSelection
-      ? (launched.modelSelection ?? (await this.startedModel(launched.threadId, context)))
+      ? await this.startedModel(launched.threadId, context)
       : undefined;
     const launchNote = started && startedNote(request.modelSelection, started);
     return {
@@ -445,13 +445,18 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
   }
 
-  /** One read of the new thread, when T3 does not say its model in the launch response. */
+  /** One read of the new thread for the model and instance it runs on. */
   private async startedModel(id: string, context: AdapterContext) {
     try {
-      const read = threadReadSchema.parse(
+      const { thread } = threadReadSchema.parse(
         await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
       );
-      return read.thread.modelSelection ?? undefined;
+      return thread.model
+        ? {
+            model: thread.model,
+            ...(thread.providerInstanceId ? { instanceId: thread.providerInstanceId } : {}),
+          }
+        : undefined;
     } catch {
       return undefined;
     }

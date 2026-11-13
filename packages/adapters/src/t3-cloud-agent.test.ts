@@ -145,7 +145,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
         providers: [{ providerInstanceId: "codex", canRunChildTask: true, models: [{ id: "m" }] }],
       }),
       t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
-      t3_thread_read: () => ({ thread: { modelSelection: { model: "claude-model" } } }),
+      t3_thread_read: () => ({ thread: { model: "claude-model" } }),
     };
     const named = server(handlers);
     const modelSelection = {
@@ -520,7 +520,7 @@ describe("T3 launch model reporting", () => {
     const t3 = server({
       ...base,
       t3_thread_read: () => ({
-        thread: { modelSelection: { instanceId: "claudeAgent", model: "claude-opus-5-5" } },
+        thread: { providerInstanceId: "claudeAgent", model: "claude-opus-5-5" },
       }),
     });
     const handle = await t3.provider.launch(request, context);
@@ -532,7 +532,7 @@ describe("T3 launch model reporting", () => {
     );
   });
 
-  it("uses the launch response when it names the model, without a read", async () => {
+  it("reports a match from the thread, not the launch response's echo", async () => {
     const t3 = server({
       ...base,
       t3_thread_launch: () => ({
@@ -540,9 +540,12 @@ describe("T3 launch model reporting", () => {
         runId: "run:1",
         modelSelection: { instanceId: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
       }),
+      t3_thread_read: () => ({
+        thread: { providerInstanceId: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
+      }),
     });
     const handle = await t3.provider.launch(request, context);
-    expect(t3.calls.map((call) => call.tool)).not.toContain("t3_thread_read");
+    expect(t3.calls.map((call) => call.tool)).toContain("t3_thread_read");
     expect(handle.launchNote).toBe("Started claude-sonnet-5-5 on claudeAgent_pool_ab.");
   });
 });

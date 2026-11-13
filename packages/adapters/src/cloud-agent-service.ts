@@ -285,24 +285,34 @@ export async function queueCloudAgentFollowup(
   followup: Prisma.InputJsonValue,
   answer = false,
 ) {
-  return prisma.$transaction(async (tx) => {
-    await lockBotSlots(tx, agent.botId);
-    const queued =
-      !answer &&
-      (await activeCloudAgentCount(tx, agent.providerKey, agent.botId)) >= CLOUD_AGENT_ACTIVE_LIMIT;
-    return tx.cloudAgent.updateMany({
-      where: { id: agent.id, version: agent.version },
-      data: {
-        followup,
-        followupDispatchedAt: null,
-        status: "running",
-        // An answer continues the same piece of work; a follow-up starts the next one.
-        ...(answer ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
-        version: { increment: 1 },
-        ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
-        errorCount: 0,
-      },
-    });
+  return prisma.$transaction((tx) =>
+    queueCloudAgentFollowupInTransaction(tx, agent, followup, answer),
+  );
+}
+
+/** The same, inside a transaction that records something else with it. */
+export async function queueCloudAgentFollowupInTransaction(
+  tx: Prisma.TransactionClient,
+  agent: CloudAgent,
+  followup: Prisma.InputJsonValue,
+  answer = false,
+) {
+  await lockBotSlots(tx, agent.botId);
+  const queued =
+    !answer &&
+    (await activeCloudAgentCount(tx, agent.providerKey, agent.botId)) >= CLOUD_AGENT_ACTIVE_LIMIT;
+  return tx.cloudAgent.updateMany({
+    where: { id: agent.id, version: agent.version },
+    data: {
+      followup,
+      followupDispatchedAt: null,
+      status: "running",
+      // An answer continues the same piece of work; a follow-up starts the next one.
+      ...(answer ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+      version: { increment: 1 },
+      ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
+      errorCount: 0,
+    },
   });
 }
 

@@ -295,6 +295,18 @@ export function createRunRuntime(
   return { executor, jobHandlers, messagingDelivery, teamChat };
 }
 
+/** Agents and their goals; a deployment with only user-connected agents has goals to drive too. */
+export async function reconcileCloudWork(
+  deps: Pick<ExecutorDeps, "prisma" | "jobs" | "events" | "userCloudAgents"> & {
+    cloudAgent: NonNullable<ExecutorDeps["cloudAgent"]> | null;
+  },
+) {
+  const { prisma, jobs, cloudAgent, userCloudAgents } = deps;
+  await reconcileCloudAgents({ prisma, jobs, events: deps.events, cloudAgent, userCloudAgents });
+  if (cloudAgent || userCloudAgents)
+    await reconcileScopedGoals({ prisma, jobs, cloudAgent, userCloudAgents });
+}
+
 type JobReconcilerDeps = Parameters<typeof createJobReconciler>[0];
 
 /** The periodic recovery and cleanup passes; the worker adds the ones that need its pool. */
@@ -313,7 +325,7 @@ export function createRunReconciler(
   > = {},
   chat: { messagingDelivery?: MessagingDelivery; teamChat?: TeamChat } = {},
 ) {
-  const { prisma, jobs, cloudAgent, paymentWallet, mediaGeneration } = deps;
+  const { prisma, jobs, paymentWallet, mediaGeneration } = deps;
   const { messagingDelivery, teamChat } = chat;
   return createJobReconciler({
     prisma,
@@ -337,22 +349,7 @@ export function createRunReconciler(
       jobs,
       billingEnabled: deps.billingEnabled,
     }),
-    reconcileCloudAgents: async () => {
-      await reconcileCloudAgents({
-        prisma,
-        jobs,
-        events: deps.events,
-        cloudAgent,
-        userCloudAgents: deps.userCloudAgents,
-      });
-      if (cloudAgent)
-        await reconcileScopedGoals({
-          prisma,
-          jobs,
-          cloudAgent,
-          userCloudAgents: deps.userCloudAgents,
-        });
-    },
+    reconcileCloudAgents: () => reconcileCloudWork(deps),
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
     reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),

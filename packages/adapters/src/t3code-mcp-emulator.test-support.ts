@@ -19,6 +19,14 @@ export interface Thread {
   runs: Run[];
   branch: string | null;
   prUrl: string | null;
+  /** What `t3_thread_read` lists under `pullRequests`; a merge changes `state`. */
+  pullRequests: Array<{
+    url: string;
+    number: number;
+    repository: string;
+    state: "open" | "merged" | "closed";
+    mergeCommitSha?: string;
+  }>;
   pendingRequestCount: number;
   /** Launched into a worktree, which exists once its setup finished. */
   worktree: boolean;
@@ -519,6 +527,21 @@ export class T3McpEmulator {
       thread.prUrl = "https://github.com/example/demo/pull/1";
   }
 
+  /** The agent opened a pull request, which T3 Code now lists on the thread. */
+  openPullRequest(threadId: string, url = "https://github.com/example/demo/pull/1") {
+    const thread = this.threads.get(threadId)!;
+    const number = Number(url.split("/").at(-1));
+    thread.pullRequests.push({ url, number, repository: "example/demo", state: "open" });
+  }
+
+  /** The pull request landed, as T3 Code reports it; `mergeCommitSha` is optional there. */
+  landPullRequest(threadId: string, mergeCommitSha?: string) {
+    for (const pr of this.threads.get(threadId)!.pullRequests) {
+      pr.state = "merged";
+      if (mergeCommitSha) pr.mergeCommitSha = mergeCommitSha;
+    }
+  }
+
   /** T3 Code starts a run itself, as when a background task the agent left finishes. */
   continueRun(threadId: string) {
     const thread = this.threads.get(threadId)!;
@@ -589,6 +612,7 @@ export class T3McpEmulator {
                   url: thread.prUrl,
                 }
               : null,
+            pullRequests: thread.pullRequests,
             branch: thread.branch,
             worktreePath: null,
             settled: false,
@@ -693,6 +717,7 @@ export class T3McpEmulator {
         runs: [this.newRun(1, "preparing")],
         branch: null,
         prUrl: null,
+        pullRequests: [],
         pendingRequestCount: 0,
         worktree: (args.workspaceStrategy as { type?: string } | undefined)?.type === "worktree",
         worktreePath: null,

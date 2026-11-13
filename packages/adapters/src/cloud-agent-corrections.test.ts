@@ -145,11 +145,14 @@ describe("cloud agent corrections", () => {
       url: `t3code://threads/env/${encodeURIComponent(remoteId)}`,
     }));
     const forKey = vi.fn(async () => ({ key: "mcp:connection", provider }));
+    const findMany = vi.fn(async ({ where }: { where: { remoteId: { in: string[] } } }) =>
+      agents.filter((agent) => where.remoteId.in.includes(agent.remoteId)),
+    );
     const deps = {
       userCloudAgents: { forKey },
       prisma: {
         run: { findUnique: async () => ({ userId: "user" }) },
-        cloudAgent: { findMany: async () => agents },
+        cloudAgent: { findMany },
         $transaction: async (fn: (tx: unknown) => unknown) => fn({}),
       },
       events: { notify: vi.fn(async () => undefined) },
@@ -158,6 +161,7 @@ describe("cloud agent corrections", () => {
       { kind: "text", text: "See https://example.test/docs" },
     ]);
     expect(forKey).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
     const result = await publishMessage(deps as never, run, "bot", [
       {
         kind: "text",
@@ -165,6 +169,15 @@ describe("cloud agent corrections", () => {
       },
     ]);
     expect(forKey).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        spaceId: "space",
+        userId: "user",
+        botId: "bot",
+        remoteId: { in: ["thread:1", "thread:2"] },
+      },
+      select: { remoteId: true, url: true, providerKey: true },
+    });
     expect(result?.blocks).toEqual([
       {
         kind: "text",
@@ -172,4 +185,43 @@ describe("cloud agent corrections", () => {
       },
     ]);
   });
+
+  it.each(["connection", "rewrite", "query"])(
+    "saves the original reply when %s fails",
+    async (failure) => {
+      const text = "[known](t3-thread://v2/env/thread%3A1)";
+      const agent = {
+        providerKey: "mcp:connection",
+        remoteId: "thread:1",
+        url: "t3code://threads/env/thread%3A1",
+      };
+      const forKey = vi.fn(async () => {
+        if (failure === "connection") throw new Error("private credential");
+        return {
+          key: "mcp:connection",
+          provider: {
+            canonicalizeLinks: () => {
+              throw new Error("private reply");
+            },
+          },
+        };
+      });
+      const deps = {
+        userCloudAgents: { forKey },
+        prisma: {
+          run: { findUnique: async () => ({ userId: "user" }) },
+          cloudAgent: {
+            findMany: async () => {
+              if (failure === "query") throw new Error("private query");
+              return [agent];
+            },
+          },
+          $transaction: async (fn: (tx: unknown) => unknown) => fn({}),
+        },
+        events: { notify: vi.fn(async () => undefined) },
+      };
+      const result = await publishMessage(deps as never, run, "bot", [{ kind: "text", text }]);
+      expect(result?.blocks).toEqual([{ kind: "text", text }]);
+    },
+  );
 });

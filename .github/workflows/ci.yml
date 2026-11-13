@@ -240,7 +240,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        # The Windows desktop is built only upstream; forks test the macOS one.
+        os: ${{ fromJSON(github.repository == 'elie222/rakazo' && '["macos-latest","windows-latest"]' || '["macos-latest"]') }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -379,7 +380,8 @@ jobs:
 
   publish-mobile-update:
     name: Publish compatible mobile update
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Over-the-air updates need upstream's Expo project; a fork's app bundles its own code.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'elie222/rakazo'
     needs: [checks, test-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 20

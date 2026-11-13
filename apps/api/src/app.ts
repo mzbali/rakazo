@@ -304,7 +304,9 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  const codexCatalog = new CodexCatalogCache();
   configureCorrectedClaimsConnections({
+    codexCatalog,
     prisma,
     secretStore: secrets,
     mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
@@ -615,7 +617,6 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   });
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
-  const codexCatalog = new CodexCatalogCache();
   // One instance: chat runs submit videos and, in single-process mode, background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();
   const { executor, jobHandlers } = createRunRuntime(runtimeEnv, connectors, {

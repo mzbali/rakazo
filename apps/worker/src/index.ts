@@ -126,7 +126,9 @@ async function main() {
   if (secrets.describe().capabilities.degraded)
     logger.warn("Secret storage degraded; encrypted credentials remain available");
   prisma = withSecretPersistence(prisma, secrets);
+  const codexCatalog = new CodexCatalogCache();
   configureCorrectedClaimsConnections({
+    codexCatalog,
     prisma,
     secretStore: secrets,
     mcpAllowPrivateEndpoint: process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
@@ -225,7 +227,7 @@ async function main() {
     prisma,
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.
-    codexCatalog: new CodexCatalogCache(),
+    codexCatalog,
     sandbox,
     memory: new MarkdownMemoryStore(prisma),
     memoryProviders,

@@ -82,6 +82,7 @@ import { callPaidService } from "./run-tools-integrations.js";
 import { USER_COMPUTER_TOOLS, userComputerGate } from "./run-tools-user-computer.js";
 import { connectorTrustKeys } from "./run-trust.js";
 import { watchFromTool } from "./schedule-tools.js";
+import { goalDrivesAgent, SCOPED_GOAL_NONCE, uncertainEffect } from "./scoped-goal-service.js";
 import { pagePaymentPrecheck, paysWithWallet } from "./spending-gate.js";
 import { refusal } from "./tool-refusal.js";
 
@@ -456,7 +457,34 @@ export async function gateToolCall(
       : toolEffectIdempotencyKey(runId, replayEffectToolName, args, occurrence));
   // Connector read-only hints must not bypass approval, review, or replay decisions.
   // A fetch to a new site is gated like any action, so it needs an effect to approve.
+  const goalRun = ctx.run.clientNonce?.startsWith(SCOPED_GOAL_NONCE);
+  const goalContinuation = goalRun
+    ? await deps.prisma.scopedGoal.findFirst({ where: { activeRunId: runId } })
+    : null;
+  // A superseded continuation (no longer the goal's active Run) is stopped too.
+  if (goalRun && !goalDrivesAgent(goalContinuation) && !READ_ONLY_AGENT_TOOLS.has(name))
+    return { result: refusal("goal_stopped", "The owner stopped this goal.") };
+  if (
+    goalContinuation &&
+    name !== "scoped_goal_report" &&
+    name !== "scoped_goal_status" &&
+    !READ_ONLY_AGENT_TOOLS.has(name) &&
+    !(viaConnector && connectorTool?.readOnly === true)
+  ) {
+    const uncertain = await uncertainEffect(deps.prisma, {
+      spaceId: run.spaceId,
+      threadId: ctx.thread.id,
+    });
+    if (uncertain)
+      return {
+        result: refusal(
+          "goal_uncertain_write",
+          `Reconcile effect ${uncertain.id} before another write.`,
+        ),
+      };
+  }
   const applied =
+    !goalContinuation &&
     READ_ONLY_AGENT_TOOLS.has(name) &&
     siteGate !== "new" &&
     nextApprovedTool !== name &&
@@ -739,8 +767,16 @@ function createToolCall(
             result,
           )
         : Promise.resolve(true),
-    finish: async (result) =>
-      (await call.persistEffectResult(result)) ? result : uncertainEffectResult(name, args),
+    finish: async (result) => {
+      if (!(await call.persistEffectResult(result))) return uncertainEffectResult(name, args);
+      return ctx.run.clientNonce?.startsWith(SCOPED_GOAL_NONCE) &&
+        applied &&
+        result &&
+        typeof result === "object" &&
+        !Array.isArray(result)
+        ? { ...result, recordedEffectId: applied.effect.id }
+        : result;
+    },
     claimOrReturn: async (from) => {
       if (await claimEffect(deps, ctx.runId, applied!.effect.id, from)) {
         call.claimedEffect = true;

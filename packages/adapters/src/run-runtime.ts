@@ -39,6 +39,7 @@ import {
   pipedreamConfigFromEnv,
 } from "./pipedream-connector.js";
 import { reconcilePurchases } from "./purchase-poll.js";
+import { reconcileScopedGoals } from "./scoped-goal-service.js";
 import { createStrategicInitiativeReconciler } from "./strategic-initiative.js";
 import { T3CodeConnections } from "./t3code-connections.js";
 import { TeamChat } from "./team-chat.js";
@@ -294,6 +295,17 @@ export function createRunRuntime(
   return { executor, jobHandlers, messagingDelivery, teamChat };
 }
 
+/** Agents and their goals; a deployment with only user-connected agents has goals to drive too. */
+export async function reconcileCloudWork(
+  deps: Pick<ExecutorDeps, "prisma" | "jobs" | "events" | "userCloudAgents"> & {
+    cloudAgent: NonNullable<ExecutorDeps["cloudAgent"]> | null;
+  },
+) {
+  const { prisma, jobs, cloudAgent, userCloudAgents } = deps;
+  await reconcileCloudAgents({ prisma, jobs, events: deps.events, cloudAgent, userCloudAgents });
+  if (cloudAgent || userCloudAgents) await reconcileScopedGoals({ prisma, jobs });
+}
+
 type JobReconcilerDeps = Parameters<typeof createJobReconciler>[0];
 
 /** The periodic recovery and cleanup passes; the worker adds the ones that need its pool. */
@@ -312,7 +324,7 @@ export function createRunReconciler(
   > = {},
   chat: { messagingDelivery?: MessagingDelivery; teamChat?: TeamChat } = {},
 ) {
-  const { prisma, jobs, cloudAgent, paymentWallet, mediaGeneration } = deps;
+  const { prisma, jobs, paymentWallet, mediaGeneration } = deps;
   const { messagingDelivery, teamChat } = chat;
   return createJobReconciler({
     prisma,
@@ -336,8 +348,7 @@ export function createRunReconciler(
       jobs,
       billingEnabled: deps.billingEnabled,
     }),
-    reconcileCloudAgents: () =>
-      reconcileCloudAgents({ prisma, jobs, cloudAgent, userCloudAgents: deps.userCloudAgents }),
+    reconcileCloudAgents: () => reconcileCloudWork(deps),
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
     reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),

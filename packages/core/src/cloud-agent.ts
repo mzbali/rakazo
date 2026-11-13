@@ -37,6 +37,13 @@ export function cloudAgentBlockFromPayload(
   payload: Record<string, unknown>,
 ): Extract<MessageBlock, { kind: "cloud_agent" }> {
   const status = payload.status;
+  const since = payload.unreachableSince;
+  const unreachableSince =
+    since instanceof Date
+      ? since.toISOString()
+      : typeof since === "string" && !Number.isNaN(Date.parse(since))
+        ? since
+        : undefined;
   return {
     kind: "cloud_agent",
     agentId: String(payload.agentId ?? ""),
@@ -51,5 +58,6 @@ export function cloudAgentBlockFromPayload(
     ...(payload.latestRunId ? { latestRunId: String(payload.latestRunId) } : {}),
     ...(payload.queued === true ? { queued: true } : {}),
     ...(payload.needsInput === true ? { needsInput: true } : {}),
+    ...(unreachableSince ? { unreachableSince } : {}),
   };
 }

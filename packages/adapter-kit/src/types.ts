@@ -935,6 +935,8 @@ export interface BackgroundJobPayloads {
   "team_chat.ambient": { conversationId: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };
+  /** Observe and advance one scoped goal; its gates' remote reads never wait on another goal. */
+  "scoped_goal.advance": { goalId: string };
   "purchase.poll": { purchaseId: string };
   /** Check a submitted video and post it when ready; the ID is the bot-visible job ID. */
   "media.poll": { jobId: string };
@@ -1465,6 +1467,9 @@ export interface CloudAgentCapabilities {
 
 export type CloudAgentImage = { data: string; mimeType: string } | { url: string };
 
+/** What the work needs, so a provider with a model route for the kind can pick a model. */
+export type CloudAgentWorkKind = "hard" | "normal" | "simple" | "ui";
+
 export interface CloudAgentLaunchRequest {
   /** Repeated launches with this key must resolve to the same remote agent. */
   idempotencyKey: string;
@@ -1479,6 +1484,8 @@ export interface CloudAgentLaunchRequest {
    * provider that cannot honor one it is given rejects the launch rather than start other work.
    */
   modelSelection?: CloudAgentModelSelection;
+  /** The kind of work; a provider with routes for it picks the model unless one is named. */
+  workKind?: CloudAgentWorkKind;
   /** The provider's own project id, from its project list. */
   projectId?: string;
   workspaceStrategy?: CloudAgentWorkspaceStrategy;
@@ -1535,6 +1542,15 @@ export interface CloudAgentSnapshot {
   missedAttention?: CloudAgentAttention[];
   /** Events after the previous cursor may be missing; the snapshot is still current. */
   historyGap?: boolean;
+}
+
+export interface CloudAgentPullRequest {
+  url: string;
+  number: number;
+  repository: string;
+  state: "open" | "merged" | "closed";
+  /** Only when the provider reports it; observers may look it up elsewhere. */
+  mergeCommitSha?: string;
 }
 
 export interface CloudAgentAttention {

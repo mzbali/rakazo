@@ -1,5 +1,12 @@
 import type { ConnectorCall, ConnectorTool } from "@rakazo/adapter-kit";
-import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@rakazo/contracts";
+import {
+  BOT_INSTRUCTIONS_MAX_LENGTH,
+  BotSecretAuth,
+  OneTimeCodeTarget,
+  ScopedGoalControl,
+  ScopedGoalReport,
+  ScopedGoalScope,
+} from "@rakazo/contracts";
 import { addedClaimMessage, redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import { prepareAgentConnectionResponse } from "./agent-connections.js";
@@ -124,6 +131,18 @@ export async function resolveToolRequest(
   );
   if (approvedReplay.error) return { error: approvedReplay.error };
   if (approvedReplay.args) connectorCall.args = approvedReplay.args;
+  if (name.startsWith("scoped_goal_")) {
+    const schema =
+      name === "scoped_goal_authorize"
+        ? ScopedGoalScope
+        : name === "scoped_goal_report"
+          ? ScopedGoalReport
+          : name === "scoped_goal_control"
+            ? ScopedGoalControl
+            : null;
+    if (schema && !schema.safeParse(args).success)
+      return { error: "Invalid scoped goal arguments." };
+  }
   let catalogRemapped = false;
   let resolvedTool: ConnectorTool | undefined;
   if (name.startsWith("cloud_agent_") && !validCloudAgentArgs(name, args)) {

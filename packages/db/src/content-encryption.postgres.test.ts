@@ -467,6 +467,43 @@ describePostgres("content encryption (PostgreSQL)", () => {
       ).rejects.toThrow(/nested write/);
     }));
 
+  it("encrypts a cloud agent's launch brief, migrates a plaintext one and writes it back", () =>
+    runAsSystem("test fixture", async () => {
+      const agent = await prisma.cloudAgent.create({
+        data: {
+          ...scope,
+          operationKey: `enc-agent-${suffix}`,
+          providerKey: "test-provider",
+          title: "Brief",
+          launchRequest: {},
+          launchBrief: "Ship the PERIWINKLE release",
+        },
+      });
+      const stored = async () =>
+        (
+          await raw.query(`SELECT "launchBrief" AS brief FROM cloud_agents WHERE id = $1`, [
+            agent.id,
+          ])
+        ).rows[0].brief as string;
+      expect(await stored()).not.toMatch(/periwinkle/i);
+      expect(
+        (await prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } })).launchBrief,
+      ).toBe("Ship the PERIWINKLE release");
+
+      await migrateContent(prisma, { mode: "decrypt" });
+      expect(await stored()).toBe("Ship the PERIWINKLE release");
+      await migrateContent(prisma, { mode: "encrypt" });
+      expect(await stored()).not.toMatch(/periwinkle/i);
+      expect(
+        (
+          await prisma.cloudAgent.findUniqueOrThrow({
+            where: { id: agent.id },
+            select: { launchBrief: true },
+          })
+        ).launchBrief,
+      ).toBe("Ship the PERIWINKLE release");
+    }));
+
   it("encrypts bot inbox mail, migrates plaintext mail and writes it back for a rollback", () =>
     runAsSystem("test fixture", async () => {
       const mail = await prisma.botEmailMessage.create({

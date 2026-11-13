@@ -10,6 +10,12 @@ export function CloudAgentCard({
 }: {
   block: Extract<MessageBlock, { kind: "cloud_agent" }>;
 }) {
+  const since = block.unreachableSince
+    ? new Date(block.unreachableSince).toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
   const prHref = cloudAgentHttpsUrl(block.prUrl);
   const href = prHref ?? cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
   const content = (
@@ -29,7 +35,9 @@ export function CloudAgentCard({
                   : "text-muted-foreground"
             }
           >
-            {block.status === "running" && block.needsInput ? (
+            {block.status === "running" && block.unreachableSince ? (
+              <Trans>unreachable</Trans>
+            ) : block.status === "running" && block.needsInput ? (
               <Trans>needs input</Trans>
             ) : block.status === "running" && block.queued ? (
               <Trans>queued</Trans>
@@ -46,6 +54,11 @@ export function CloudAgentCard({
             )}
           </Badge>
         </div>
+        {block.status === "running" && block.unreachableSince ? (
+          <span className="text-muted-foreground">
+            <Trans>Resumes when it's back · since {since}</Trans>
+          </span>
+        ) : null}
         {prHref ? (
           <span className="text-muted-foreground">
             <Trans>Pull request</Trans>

@@ -15,6 +15,9 @@ import {
   LOGIN_FIELD_LIMIT,
   PAID_REQUEST_METHODS,
   PURCHASE_CARD_FIELDS,
+  ScopedGoalControl,
+  ScopedGoalReport,
+  ScopedGoalScope,
   SecretAskPurpose,
   SecretHttpRequest,
   ThinkingLevelSchema,
@@ -655,7 +658,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "secret_request",
     description:
-      "Make an authenticated HTTPS request using a saved credential name. The backend injects authentication only at its saved origin. Redirects are rejected; response echoes of the credential are redacted. Use normal request URLs and bodies without secret placeholders.",
+      "Make an authenticated HTTPS request using a saved credential name. The backend injects authentication only at its saved origin. Redirects are rejected; response echoes of the credential are redacted. Use normal request URLs and bodies without secret placeholders. A paged response returns its Link header as links (request links.next to read on) and paging headers such as x-next-page or x-total-count in headers; when an API pages by headers, build the next page's URL by that API's rules. A missing links.next alone does not mean the list is complete.",
     inputSchema: z.toJSONSchema(SecretHttpRequest, { io: "input" }),
   },
   {
@@ -878,6 +881,31 @@ export const builtinAgentTools: ConnectorTool[] = [
     readOnly: false,
   },
   {
+    name: "scoped_goal_authorize",
+    description:
+      "Propose exact durable md/mdi scope for the owner to approve. Track the existing coding thread first. Include revision-bound structured observation contracts for merge, health, live deploy and applicable install. Never treat prose as evidence.",
+    inputSchema: z.toJSONSchema(ScopedGoalScope),
+  },
+  {
+    name: "scoped_goal_report",
+    description:
+      "Advance an authorized goal with recorded observation effect ids, or preserve a blocker and its reset time. Read status for its current version first.",
+    inputSchema: z.toJSONSchema(ScopedGoalReport),
+  },
+  {
+    name: "scoped_goal_control",
+    description:
+      "Pause, resume or cancel a durable goal after an owner decision. Does not roll back in-flight work.",
+    inputSchema: z.toJSONSchema(ScopedGoalControl),
+  },
+  {
+    name: "scoped_goal_status",
+    description:
+      "Read a durable goal's exact approved scope, gate, blockers, evidence and version.",
+    readOnly: true,
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  },
+  {
     name: "cloud_agent_launch",
     description:
       "Launch a remote cloud coding agent on a connected repository. Returns immediately with a tracking id and status; the agent link appears when launched. Opens a PR when openPr is true. Not the bot computer.",
@@ -920,6 +948,12 @@ export const builtinAgentTools: ConnectorTool[] = [
             },
           },
           required: ["model"],
+        },
+        workKind: {
+          type: "string",
+          enum: ["hard", "normal", "simple", "ui"],
+          description:
+            "The kind of work, so the deployment can pick a model with quota; ignored when modelSelection is given.",
         },
         projectId: {
           type: "string",

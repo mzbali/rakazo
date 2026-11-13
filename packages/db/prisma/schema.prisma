@@ -1408,8 +1408,16 @@ model CloudAgent {
   failureReason       String?
   /// What the provider reported starting, shown to the bot, when it is worth saying.
   launchNote          String?
+  /// When the provider's calls first failed retryably in the current outage; cleared by a success.
+  retryingSince       DateTime?
+  /// When the outage had lasted long enough to tell the owner, once; shown on the card.
+  unreachableSince    DateTime?
   /// Wake runs created for the current generation, counting retries of failed ones.
   wakeAttempts        Int      @default(0)
+  /// The hidden helper thread that handles this agent's wakes, created on its first one.
+  jobThreadId         String?
+  /// The launch prompt, kept for that helper once the launch request itself is cleared.
+  launchBrief         String?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])
@@ -1525,6 +1533,8 @@ model ExternalEffect {
   /// `kind`. Empty when an entry names no action; null for any other tool.
   batchActions   Json?
   result         Json?
+  approvedByUserId String?
+  approvedAt DateTime?
   reviewDecision String?
   reviewReason   String?
   reviewModel    String?
@@ -1691,7 +1701,7 @@ model AgentImport {
   userId        String
   botId         String
   bot           Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  /// openclaw | hermes | document
+  /// openclaw | hermes | document | grok_bot
   source        String
   created       Json
   /// Idempotency: a retry with the same key and digest returns the same bot.
@@ -2266,6 +2276,9 @@ model MessagingIdentity {
   verifiedAt           DateTime?
   lastInboundAt        DateTime?
   outboundSinceInbound Int       @default(0)
+  /// Provider handle of the reply that last released messages held behind the outbound cap.
+  /// A redelivery of that reply answers no request: it was sent before they went out.
+  capReleaseHandle     String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -2858,4 +2871,49 @@ model CapabilityInstallSpace {
   @@id([installId, spaceId])
   @@index([spaceId, userId])
   @@map("capability_install_spaces")
+}
+
+/// Durable owner-authorized work; remote execution remains in CloudAgent/Run.
+model ScopedGoal {
+  id String @id @default(cuid())
+  spaceId String
+  userId String
+  botId String
+  threadId String
+  agentId String @unique
+  approvalEffectId String @unique
+  ownerSeenAt DateTime @default(now())
+  controlEpoch Int @default(0)
+  activeEpoch Int @default(0)
+  sourceMessageId String?
+  approval Json
+  scope Json
+  status String @default("active")
+  gate String
+  version Int @default(0)
+  attempt Int @default(0)
+  noProgress Int @default(0)
+  activeRunId String?
+  nextAttemptAt DateTime? @default(now())
+  blocker Json?
+  evidence Json @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transitions ScopedGoalTransition[]
+  @@index([status, nextAttemptAt])
+  @@index([spaceId, userId, botId])
+  @@map("scoped_goals")
+}
+
+model ScopedGoalTransition {
+  id String @id @default(cuid())
+  goalId String
+  goal ScopedGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  spaceId String
+  userId String
+  version Int
+  detail Json
+  createdAt DateTime @default(now())
+  @@index([goalId, createdAt])
+  @@map("scoped_goal_transitions")
 }

@@ -159,7 +159,10 @@ export type SpaceSource =
   | "events"
   | "memory_documents"
   | "memory_revisions"
-  | "bot_email_messages";
+  | "bot_email_messages"
+  | "cloud_agents"
+  | "scoped_goals"
+  | "scoped_goal_transitions";
 
 export interface SpaceKeyStore {
   forSpace(spaceId: string): Promise<SpaceKeyRecord[]>;
@@ -189,6 +192,9 @@ export const ROW_OWNER: Record<SpaceSource, string> = {
   memory_documents: "userId",
   memory_revisions: "documentId",
   bot_email_messages: "botId",
+  cloud_agents: "userId",
+  scoped_goals: "userId",
+  scoped_goal_transitions: "userId",
 };
 
 export interface Queryable {
@@ -205,6 +211,9 @@ export class VaultKeyOwnerGoneError extends Error {
   }
 }
 const ROW_CONTEXT: Record<SpaceSource, string> = {
+  cloud_agents: `SELECT "spaceId", "userId" AS owner FROM cloud_agents WHERE id = $1`,
+  scoped_goals: `SELECT "spaceId", "userId" AS owner FROM scoped_goals WHERE id = $1`,
+  scoped_goal_transitions: `SELECT "spaceId", "userId" AS owner FROM scoped_goal_transitions WHERE id = $1`,
   threads: `SELECT "spaceId", "userId" AS owner FROM threads WHERE id = $1`,
   events: `SELECT "spaceId", "threadId" AS owner FROM events WHERE id = $1`,
   memory_documents: `SELECT "spaceId", "userId" AS owner FROM memory_documents WHERE id = $1`,

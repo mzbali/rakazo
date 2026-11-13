@@ -1,7 +1,7 @@
-import type { AdapterContext, JobPublisher } from "@rakazo/adapter-kit";
+import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
-import { cloudAgentBlockFromPayload } from "@rakazo/core";
-import type { CloudAgent, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { BACKGROUND_HELPER_TRIGGER, cloudAgentBlockFromPayload } from "@rakazo/core";
+import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
@@ -15,6 +15,7 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
+import { cloudAgentJobThreadsEnabled, MAX_LAUNCH_BRIEF } from "./cloud-agent-job-thread.js";
 import {
   attentionIds,
   cloudAgentWakeNonceWhere,
@@ -33,11 +34,14 @@ import {
 } from "./cloud-agent-wake-start.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
+import { goalDrivesAgent, missingGoalEvidence, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
 
 export interface CloudAgentDeps {
   prisma: PrismaClient;
   jobs: JobPublisher;
-  events: Pick<ThreadEvents, "notify">;
+  events: Pick<ThreadEvents, "notify"> & Partial<Pick<ThreadEvents, "publishChatAlert">>;
+  /** Tells the owner a cloud agent is unreachable; absent leaves the card as the only sign. */
+  notifications?: NotificationProvider;
   cloudAgent: CloudAgentConnection | null | undefined;
   userCloudAgents?: UserCloudAgents;
   runLease?: ExecutorDeps["runLease"];
@@ -121,7 +125,13 @@ export async function executeCloudAgentTool(
   /** `deployment`: the deployment's connection when the run's own is the user's environment. */
   deps: CloudAgentDeps & { deployment?: CloudAgentConnection | null },
   context: AdapterContext & { botId: string; botName?: string },
-  run: { id: string; threadId: string; spaceId?: string; userId?: string },
+  run: {
+    id: string;
+    threadId: string;
+    spaceId?: string;
+    userId?: string;
+    clientNonce?: string | null;
+  },
   name: string,
   args: Record<string, unknown>,
   origin?: CloudAgentOrigin,
@@ -185,6 +195,10 @@ export async function executeCloudAgentTool(
           threadId: run.threadId,
           title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
           launchRequest,
+          // The launch request is cleared once sent; a job thread's helper still needs the brief.
+          ...(cloudAgentJobThreadsEnabled()
+            ? { launchBrief: request.prompt.slice(0, MAX_LAUNCH_BRIEF) }
+            : {}),
           requestKey,
           agreement,
           acceptance,
@@ -241,29 +255,12 @@ export async function executeCloudAgentTool(
       ) {
         return { error: "Wait for the current cloud agent operation to finish." };
       }
-      const { id: _id, ...followup } = cloudAgentReplySchema.parse(args);
-      const current = agent;
-      const updated = await deps.prisma.$transaction(async (tx) => {
-        // A follow-up restarts finished work, so it takes a slot like a launch; an answer keeps its own.
-        await lockBotSlots(tx, current.botId);
-        const queued =
-          !blocked &&
-          (await activeCloudAgentCount(tx, current.providerKey, current.botId)) >=
-            CLOUD_AGENT_ACTIVE_LIMIT;
-        return tx.cloudAgent.updateMany({
-          where: { id: current.id, version: current.version },
-          data: {
-            followup,
-            followupDispatchedAt: null,
-            status: "running",
-            // An answer continues the same piece of work; a follow-up starts the next one.
-            ...(blocked ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
-            version: { increment: 1 },
-            ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
-            errorCount: 0,
-          },
-        });
-      });
+      const { id: _id, ...prompt } = cloudAgentReplySchema.parse(args);
+      // A goal continuation's follow-up is dropped if the owner stops the goal before it is sent.
+      const followup = run.clientNonce?.startsWith(SCOPED_GOAL_NONCE)
+        ? { ...prompt, goalRunId: run.id }
+        : prompt;
+      const updated = await queueCloudAgentFollowup(deps.prisma, agent, followup, blocked);
       if (!updated.count) return { error: "Cloud agent changed; check its status and try again." };
     } else if (name === "cloud_agent_cancel") {
       await deps.prisma.cloudAgent.update({
@@ -275,6 +272,48 @@ export async function executeCloudAgentTool(
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
   return { ...cloudAgentStatusResult(agent), ...(clampNote ? { note: clampNote } : {}) };
+}
+
+/**
+ * Queues a message for the agent's next poll to send. A follow-up restarts finished work, so it
+ * takes a slot like a launch; an answer to an open question keeps its own. The caller enqueues
+ * the poll when `count` is 1.
+ */
+export async function queueCloudAgentFollowup(
+  prisma: PrismaClient,
+  agent: CloudAgent,
+  followup: Prisma.InputJsonValue,
+  answer = false,
+) {
+  return prisma.$transaction((tx) =>
+    queueCloudAgentFollowupInTransaction(tx, agent, followup, answer),
+  );
+}
+
+/** The same, inside a transaction that records something else with it. */
+export async function queueCloudAgentFollowupInTransaction(
+  tx: Prisma.TransactionClient,
+  agent: CloudAgent,
+  followup: Prisma.InputJsonValue,
+  answer = false,
+) {
+  await lockBotSlots(tx, agent.botId);
+  const queued =
+    !answer &&
+    (await activeCloudAgentCount(tx, agent.providerKey, agent.botId)) >= CLOUD_AGENT_ACTIVE_LIMIT;
+  return tx.cloudAgent.updateMany({
+    where: { id: agent.id, version: agent.version },
+    data: {
+      followup,
+      followupDispatchedAt: null,
+      status: "running",
+      // An answer continues the same piece of work; a follow-up starts the next one.
+      ...(answer ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+      version: { increment: 1 },
+      ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
+      errorCount: 0,
+    },
+  });
 }
 
 /**
@@ -446,7 +485,8 @@ export async function enqueueCloudAgent(
   });
 }
 
-type Reconciled = Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent" | "userCloudAgents">;
+type Reconciled = Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent" | "userCloudAgents"> &
+  Partial<Pick<CloudAgentDeps, "events">>;
 
 /** The agents this deployment polls: its own connection's, and every user-connected environment's. */
 function reconciledKeys(deps: Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents">) {
@@ -526,6 +566,8 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
     },
   });
   for (const agent of candidates) {
+    if (goalDrivesAgent(await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })))
+      continue;
     if (agent.wakeGeneration !== agent.generation) continue;
     const base = `cloud-agent-wake-run:${agent.id}:${agent.generation}`;
     const nonce = agent.wakeAttempts === 1 ? base : `${base}:r${agent.wakeAttempts - 1}`;
@@ -534,6 +576,7 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
       select: { status: true },
     });
     if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
+    const seqs: number[] = [];
     const runId = await deps.prisma.$transaction(async (tx) => {
       await lockCloudAgentWakeThread(tx, agent);
       const claimed = await tx.cloudAgent.updateMany({
@@ -554,9 +597,11 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
         agent,
         terminalWakePrompt(agent),
         `${base}:r${agent.wakeAttempts}`,
+        { jobThread: true, seqs },
       );
       return created;
     });
+    if (seqs.length) await notifyJobCards(deps, agent, seqs);
     if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
   }
   await retryFailedAttentionWakes(deps);
@@ -603,12 +648,17 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
     if (madeNonces.has(nonce) || !agent || !attentionIds(agent.attention).includes(requestId))
       continue;
     if (!(await canWake(deps, agent))) continue;
+    const seqs: number[] = [];
     const runId = await deps.prisma
       .$transaction((tx) =>
-        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce),
+        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce, {
+          jobThread: true,
+          seqs,
+        }),
       )
       // A concurrent reconciler made the same retry; the nonce is unique per space.
       .catch(() => []);
+    if (seqs.length && runId.length) await notifyJobCards(deps, agent, seqs);
     for (const id of runId) await deps.jobs.enqueue(runContinueJob(id)).catch(() => undefined);
   }
 }
@@ -620,7 +670,8 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
 async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
   const runs = await deps.prisma.run.findMany({
     where: {
-      trigger: "cloud_agent",
+      // A job helper's wake is a helper run; only wakes carry nonces.
+      trigger: { in: ["cloud_agent", BACKGROUND_HELPER_TRIGGER] },
       status: "failed",
       updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
     },
@@ -631,6 +682,15 @@ async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: s
       clientNonce?.startsWith(prefix) ? [{ clientNonce }] : [],
     ),
   );
+}
+
+/** Announce the cards a retried job wake posted to the chat. */
+async function notifyJobCards(
+  deps: Partial<Pick<CloudAgentDeps, "events">>,
+  agent: CloudAgent,
+  seqs: number[],
+) {
+  await deps.events?.notify(agent.threadId, Math.max(...seqs)).catch(() => undefined);
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */
@@ -732,6 +792,13 @@ export async function reportCloudAgent(
   });
   if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
   if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
+  // Done means the evidence says so, not the agent's or the bot's word.
+  const missing =
+    report.verdict === "accepted" && (await missingGoalEvidence(deps.prisma, agent.id));
+  if (missing)
+    return {
+      error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
+    };
   // One verdict per piece of work, so the asking bot never holds a different one than the record.
   // A follow-up accepted meanwhile starts new work, which this verdict is not about.
   const recorded = await deps.prisma.cloudAgent.updateMany({

@@ -7,13 +7,15 @@ import type {
   CloudAgentSnapshot,
   ConnectorProvider,
   JobPublisher,
+  NotificationMessage,
+  NotificationProvider,
 } from "@rakazo/adapter-kit";
 import { CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
+import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "./cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,
@@ -23,6 +25,7 @@ import {
 import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
 import { createRunExecutor } from "./executor.js";
 import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
+import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
@@ -170,10 +173,12 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       cancel: async () => undefined,
       close: async () => undefined,
     };
+    const send = vi.fn(async (_message: NotificationMessage) => undefined);
     const deps = {
       prisma,
       jobs,
       events: { notify: vi.fn(async () => undefined) },
+      notifications: { send } as unknown as NotificationProvider,
       cloudAgent: connection,
     };
     const context: AdapterContext & { botId: string; botName: string } = {
@@ -185,14 +190,23 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       botName: "Lead",
       signal: new AbortController().signal,
     };
-    const launch = async (n: number, origin?: { botId: string; messageId: string }) => {
+    const launch = async (
+      n: number,
+      origin?: { botId: string; messageId: string },
+      extra: Record<string, unknown> = {},
+    ) => {
       const result = await runAsSystem("agent run tool call", () =>
         executeCloudAgentTool(
           deps,
           { ...context, operationId: randomUUID() },
           fixture.run,
           "cloud_agent_launch",
-          { prompt: `Request ${n}`, requestKey: `request-${n}`, agreement: "Owner said yes" },
+          {
+            prompt: `Request ${n}`,
+            requestKey: `request-${n}`,
+            agreement: "Owner said yes",
+            ...extra,
+          },
           origin,
         ),
       );
@@ -216,6 +230,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       ...fixture,
       provider,
       deps,
+      send,
       context,
       launch,
       state,
@@ -703,6 +718,67 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     ]);
   });
 
+  it("drops a stopped goal's unsent follow-up but still sends the owner's own", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:goal", { status: "finished", attention: [], cursor: 0 });
+    await runAsSystem("agent run tool call", () =>
+      trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        remoteId: "remote:goal",
+        title: "Existing thread",
+      }),
+    );
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    await t.poll(id);
+    const continuation = await asSystem(prisma).run.update({
+      where: { id: t.run.id },
+      data: { clientNonce: `scoped-goal:test:${id}` },
+    });
+    const goal = await asSystem(prisma).scopedGoal.create({
+      data: {
+        spaceId: t.context.spaceId,
+        userId: t.context.userId,
+        botId: t.lead.id,
+        threadId: t.thread.id,
+        agentId: id,
+        approvalEffectId: randomUUID(),
+        approval: {},
+        scope: {},
+        gate: "merge",
+        activeRunId: continuation.id,
+      },
+    });
+    const reply = (run: typeof continuation) =>
+      runAsSystem("agent run tool call", () =>
+        executeCloudAgentTool(
+          t.deps,
+          { ...t.context, operationId: randomUUID() },
+          run,
+          "cloud_agent_reply",
+          { id, prompt: "Merge it" },
+        ),
+      );
+    await reply(continuation);
+    expect((await t.state(id)).followup).toMatchObject({ goalRunId: continuation.id });
+    // The owner paused the goal before the poller sent it.
+    await asSystem(prisma).scopedGoal.update({
+      where: { id: goal.id },
+      data: { status: "paused", controlEpoch: 1, activeRunId: null },
+    });
+    await t.poll(id);
+    expect(t.provider.replies).toBe(0);
+    expect((await t.state(id)).followup).toBeNull();
+    // The owner's own follow-up is not the goal's to drop, and its end wakes the owner's bot.
+    await reply({ ...continuation, clientNonce: null });
+    await t.poll(id);
+    expect(t.provider.replies).toBe(1);
+    t.provider.agents.get("remote:goal")!.status = "finished";
+    await t.poll(id);
+    expect(await t.wakeNonces()).toContain(`cloud-agent-wake-run:${id}:2`);
+  });
+
   it("does not retry an earlier piece's failed wake once a continuation has finished", async () => {
     const t = await setup();
     t.provider.agents.set("remote:again", { status: "running", attention: [], cursor: 0 });
@@ -831,6 +907,178 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(result.id);
     expect(await t.state(result.id)).toMatchObject({ status: "finished" });
     expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${result.id}:0`]);
+  });
+
+  it("wakes the bot once a thread on the T3 emulator ends, and not before", async () => {
+    const emulator = new T3ThreadEventsEmulator();
+    const t = await setup(t3EmulatedProvider(emulator));
+    const id = await t.launch(1);
+    await t.poll(id);
+    const { remoteId } = await t.state(id);
+    expect(emulator.threads.has(remoteId!)).toBe(true);
+    expect(await t.state(id)).toMatchObject({ status: "running" });
+    expect(await t.wakeNonces()).toEqual([]);
+
+    emulator.complete(remoteId!);
+    await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "finished" });
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
+    // Polling a finished agent again does not wake the bot a second time.
+    await t.poll(id);
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
+  });
+
+  describe("when the provider cannot be reached", () => {
+    afterEach(() => vi.useRealTimers());
+
+    /** A T3 emulator whose server can be taken away, as a sleeping Mac does. */
+    async function outageSetup() {
+      const emulator = new T3ThreadEventsEmulator();
+      let reachable = true;
+      const t = await setup(
+        t3EmulatedProvider({
+          fetch: async (input, init) => {
+            if (!reachable) throw new TypeError("fetch failed");
+            return emulator.fetch(input, init);
+          },
+        }),
+      );
+      const id = await t.launch(1);
+      await t.poll(id);
+      const sent = () => t.send.mock.calls;
+      /** Polls once, `minutes` after the last one, as the worker would when the poll comes due. */
+      const pollAfter = async (minutes: number) => {
+        vi.setSystemTime(Date.now() + minutes * 60_000);
+        await asSystem(prisma).cloudAgent.update({
+          where: { id },
+          data: { nextPollAt: new Date() },
+        });
+        await t.poll(id);
+      };
+      const card = async () => {
+        const message = await asSystem(prisma).message.findFirstOrThrow({
+          where: { id: (await t.state(id)).messageId! },
+        });
+        return (message.blocks as Array<{ kind: string; unreachableSince?: string }>).find(
+          (block) => block.kind === "cloud_agent",
+        )!;
+      };
+      return {
+        ...t,
+        id,
+        emulator,
+        sent,
+        pollAfter,
+        card,
+        setReachable: (value: boolean) => {
+          reachable = value;
+        },
+      };
+    }
+
+    it("marks the agent after the threshold, tells the owner once, and resumes with the completion wake", async () => {
+      const t = await outageSetup();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const { remoteId } = await t.state(t.id);
+      t.setReachable(false);
+
+      // A short outage is a blip: nothing is marked and nobody is told.
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({ unreachableSince: null });
+      expect(t.sent()).toHaveLength(0);
+
+      await t.pollAfter(UNREACHABLE_AFTER_MS / 60_000);
+      const marked = await t.state(t.id);
+      expect(marked.unreachableSince).toBeInstanceOf(Date);
+      expect((await t.card()).unreachableSince).toBe(marked.unreachableSince!.toISOString());
+      expect(t.sent()).toHaveLength(1);
+      expect(t.sent()[0]![0]).toMatchObject({ kind: "help", botId: t.lead.id });
+
+      // Still down: the same outage, so the same record and no second notice.
+      await t.pollAfter(10);
+      await t.pollAfter(10);
+      expect((await t.state(t.id)).unreachableSince).toEqual(marked.unreachableSince);
+      expect(t.sent()).toHaveLength(1);
+      // The bot was never woken for it.
+      expect(await t.wakeNonces()).toEqual([]);
+
+      // The thread finished while the Mac slept; once reachable the poll sees it and wakes once.
+      t.emulator.complete(remoteId!);
+      t.setReachable(true);
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({
+        status: "finished",
+        unreachableSince: null,
+        retryingSince: null,
+      });
+      expect((await t.card()).unreachableSince).toBeUndefined();
+      expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${t.id}:0`]);
+      expect(t.sent()).toHaveLength(1);
+    });
+
+    it("tells the owner again when it recovers and then goes unreachable again", async () => {
+      const t = await outageSetup();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      t.setReachable(false);
+      await t.pollAfter(1);
+      await t.pollAfter(6);
+      expect(t.sent()).toHaveLength(1);
+
+      t.setReachable(true);
+      await t.pollAfter(1);
+      expect(await t.state(t.id)).toMatchObject({ status: "running", unreachableSince: null });
+
+      t.setReachable(false);
+      await t.pollAfter(1);
+      expect(t.sent()).toHaveLength(1);
+      await t.pollAfter(6);
+      expect(t.sent()).toHaveLength(2);
+      expect((await t.state(t.id)).unreachableSince).not.toBeNull();
+    });
+  });
+
+  it("keeps a launch waiting for quota queued, noted and unflagged until it can start", async () => {
+    let quota = true;
+    const launched: unknown[] = [];
+    class Waiting extends ScriptedProvider {
+      override async launch(request: Parameters<ScriptedProvider["launch"]>[0]) {
+        launched.push(request);
+        if (quota)
+          throw new CloudAgentRetryLater(
+            "quota",
+            2 * 3_600_000,
+            "Waiting for quota until 21:00 UTC.",
+          );
+        return super.launch(request);
+      }
+    }
+    const t = await setup(new Waiting());
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const id = await t.launch(1, undefined, { workKind: "hard" });
+    await t.poll(id);
+    expect(launched[0]).toMatchObject({ workKind: "hard" });
+    // Not an outage, however long it waits: nothing is flagged and the owner is not told.
+    expect(await t.state(id)).toMatchObject({
+      remoteId: null,
+      status: "running",
+      launchDispatched: false,
+      launchNote: "Waiting for quota until 21:00 UTC.",
+      errorCount: 0,
+      retryingSince: null,
+      unreachableSince: null,
+    });
+    const due = (await t.state(id)).nextPollAt!.getTime() - Date.now();
+    expect(due).toBeGreaterThanOrEqual(2 * 3_600_000 - 1_000);
+    vi.setSystemTime(Date.now() + UNREACHABLE_AFTER_MS * 3);
+    await t.poll(id);
+    expect((await t.state(id)).unreachableSince).toBeNull();
+    expect(t.send).not.toHaveBeenCalled();
+    // The quota is back: the same launch starts and the wait's note is gone.
+    quota = false;
+    await t.poll(id);
+    const started = await t.state(id);
+    expect(started.remoteId).not.toBeNull();
+    expect(started.launchNote).toBeNull();
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

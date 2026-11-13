@@ -19,6 +19,7 @@ interface TableSpec {
     | "memoryDocument"
     | "memoryRevision"
     | "thread"
+    | "cloudAgent"
     | "botEmailMessage";
   /** Scans return them in this order as `values`. */
   columns: string[];
@@ -109,6 +110,17 @@ const TABLES: TableSpec[] = [
       WHERE id > ${cursor} AND "historyCompactionSummary" IS NOT NULL ORDER BY id LIMIT ${limit}`,
     writePlaintext: (id, row) =>
       Prisma.sql`UPDATE threads SET "historyCompactionSummary" = ${row.historyCompactionSummary as string} WHERE id = ${id}`,
+  },
+  {
+    model: "CloudAgent",
+    delegate: "cloudAgent",
+    columns: ["launchBrief"],
+    json: false,
+    scan: (cursor, limit) => Prisma.sql`
+      SELECT id, jsonb_build_array("launchBrief") AS values, "spaceId", "userId" AS owner FROM cloud_agents
+      WHERE id > ${cursor} AND "launchBrief" IS NOT NULL ORDER BY id LIMIT ${limit}`,
+    writePlaintext: (id, row) =>
+      Prisma.sql`UPDATE cloud_agents SET "launchBrief" = ${row.launchBrief as string} WHERE id = ${id}`,
   },
   {
     model: "BotEmailMessage",

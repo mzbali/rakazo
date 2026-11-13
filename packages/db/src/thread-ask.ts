@@ -381,7 +381,11 @@ async function commitAnswerRunInput(
     const allowed = approvalAnswer === "allow" || approvalAnswer === "always";
     await tx.externalEffect.update({
       where: { id: approvalEffect!.id },
-      data: { status: allowed ? "approved" : "denied" },
+      data: {
+        status: allowed ? "approved" : "denied",
+        approvedByUserId: allowed ? input.answeredByUserId : null,
+        approvedAt: allowed ? new Date() : null,
+      },
     });
     // "Always" on a card for a request to a site allows that site, never every site the tool can
     // reach, and on a batch allows each action in it, never every action the batch tool can run.

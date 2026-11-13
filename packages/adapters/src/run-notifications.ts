@@ -159,6 +159,42 @@ export async function notifyMemberMessage(
   });
 }
 
+/** The owner of a cloud agent hears once that its provider cannot be reached; no bot run is spent. */
+export async function notifyCloudAgentUnreachable(
+  deps: Pick<ExecutorDeps, "prisma" | "notifications"> & {
+    events: Pick<ThreadEvents, "publishChatAlert">;
+  },
+  agent: { spaceId: string; userId: string; botId: string; threadId: string; title: string },
+) {
+  if (!deps.notifications && !deps.events.publishChatAlert) return;
+  const [bot, thread] = await Promise.all([
+    deps.prisma.bot.findFirst({
+      where: { id: agent.botId, spaceId: agent.spaceId },
+      select: { id: true, name: true, color: true, avatarSet: true },
+    }),
+    deps.prisma.thread.findFirst({
+      where: { id: agent.threadId, spaceId: agent.spaceId },
+      select: { groupId: true },
+    }),
+  ]);
+  if (!bot || !thread) return;
+  await deliverChatNotice(deps, {
+    spaceId: agent.spaceId,
+    recipients: [agent.userId],
+    message: {
+      kind: "help",
+      title: displayName(bot.name, "Bot"),
+      body: completionNotificationPreview(
+        `${agent.title || "Cloud agent"} is unreachable; it resumes when it's back.`,
+      ),
+      botId: bot.id,
+      threadId: agent.threadId,
+    },
+    groupId: thread.groupId,
+    bot,
+  });
+}
+
 /** Everyone in the Space. Leaving it ends their notifications from it. */
 async function spaceMemberIds(prisma: PrismaClient, spaceId: string): Promise<string[]> {
   const members = await prisma.spaceMember.findMany({
@@ -170,7 +206,9 @@ async function spaceMemberIds(prisma: PrismaClient, spaceId: string): Promise<st
 
 /** Alerts open apps and pushes to each recipient's devices, with their own unread count. */
 async function deliverChatNotice(
-  deps: Pick<ExecutorDeps, "prisma" | "events" | "notifications">,
+  deps: Pick<ExecutorDeps, "prisma" | "notifications"> & {
+    events: Pick<ThreadEvents, "publishChatAlert">;
+  },
   input: {
     spaceId: string;
     recipients: string[];

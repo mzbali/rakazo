@@ -30,6 +30,7 @@ import type {
   CloudAgentCapabilities,
   CloudAgentHandle,
   CloudAgentLaunchRequest,
+  CloudAgentPullRequest,
   CloudAgentReplyRequest,
   CloudAgentSnapshot,
   CommandRequest,
@@ -728,6 +729,8 @@ export interface CloudAgentProvider {
     context: AdapterContext,
   ): Promise<CloudAgentHandle>;
   cancel(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
+  /** The pull requests the agent's work opened, for providers that track them. */
+  pullRequests?(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]>;
 }
 
 /**

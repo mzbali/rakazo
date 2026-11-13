@@ -54,6 +54,30 @@ interface ModelSpec {
 
 /** Further content columns (external messages, steering, skills, …) add an entry here. */
 export const ENCRYPTED_MODELS: Record<string, ModelSpec> = {
+  ScopedGoal: {
+    table: "scoped_goals",
+    fields: {
+      approval: { plainKeys: new Set() },
+      scope: { plainKeys: new Set() },
+      blocker: { plainKeys: new Set() },
+      evidence: { plainKeys: new Set() },
+    },
+    space: { column: "spaceId" },
+    ownerRelation: "user",
+  },
+  ScopedGoalTransition: {
+    table: "scoped_goal_transitions",
+    fields: { detail: { plainKeys: new Set() } },
+    space: { column: "spaceId" },
+    ownerRelation: "user",
+  },
+  /** The launch prompt a job helper starts from: chat-derived, so sealed like the chat. */
+  CloudAgent: {
+    table: "cloud_agents",
+    fields: { launchBrief: {} },
+    space: { column: "spaceId" },
+    ownerRelation: "user",
+  },
   Message: {
     table: "messages",
     fields: { blocks: { plainKeys: MESSAGE_BLOCK_PLAIN_KEYS }, toolHistory: { hidden: true } },

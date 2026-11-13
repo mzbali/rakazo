@@ -59,5 +59,9 @@ export const deploymentCorrectedClaimJudge: CorrectedClaimJudge = async (input) 
   if (signal.aborted) return { status: "unqualified", reason: "Fact checker timed out." };
   return parseCorrectedClaimVerdict(text.trim());
 };
-if (process.env.RAKAZO_CORRECTED_CLAIMS_ENABLED === "true")
-  configureCorrectedClaimJudge(deploymentCorrectedClaimJudge);
+/** Call after the entrypoint loads its environment: static imports run before `loadRootEnv`. */
+export function configureCorrectedClaimsFromEnv(env: NodeJS.ProcessEnv = process.env): void {
+  configureCorrectedClaimJudge(
+    env.RAKAZO_CORRECTED_CLAIMS_ENABLED === "true" ? deploymentCorrectedClaimJudge : undefined,
+  );
+}

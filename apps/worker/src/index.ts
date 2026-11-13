@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
-import { unwrapEnvFromKeyManager } from "@rakazo/adapters";
+import { configureCorrectedClaimsFromEnv, unwrapEnvFromKeyManager } from "@rakazo/adapters";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
 import { startWorkerHealth } from "./health.js";
@@ -8,6 +8,7 @@ import { createWorkerSecretStore } from "./secret-store.js";
 
 loadRootEnv();
 await unwrapEnvFromKeyManager();
+configureCorrectedClaimsFromEnv();
 
 import {
   apnsVoipConfig,

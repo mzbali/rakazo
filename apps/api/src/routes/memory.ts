@@ -9,6 +9,7 @@ import {
 } from "@rakazo/adapters";
 import { isDeletableMemoryDocument } from "@rakazo/contracts";
 import { findSpaceMemoryConfig, IsolationError } from "@rakazo/db";
+import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,
@@ -60,6 +61,7 @@ export function memoryRoutes(ctx: RouterContext) {
           },
         });
         if (!doc) throw new IsolationError();
+        await assertNoAddedClaimsOrBadRequest(doc.content, input.content);
         const updated = await deps.memory
           .commit(
             {

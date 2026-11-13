@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
+import { CloudAgentRequestRejected } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import {
   asSystem,
@@ -667,6 +668,25 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
     expect(await h.wakes()).toHaveLength(1);
     expect(h.wire.agents.size).toBe(0);
+  });
+
+  it("keeps the provider's reason when it refuses a launch, and shows it in status", async () => {
+    const h = await setup();
+    const id = await h.launch();
+    const reason = "Child runtime mode full-access is broader than parent mode auto.";
+    vi.spyOn(h.connection.provider, "launch").mockRejectedValueOnce(
+      new CloudAgentRequestRejected("invalid", reason),
+    );
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({
+      status: "failed",
+      remoteId: null,
+      failureReason: reason,
+    });
+    expect(await h.tool("status", { id })).toMatchObject({
+      status: "failed",
+      failureReason: reason,
+    });
   });
 
   it("stops polling a remote agent or run that no longer exists", async () => {

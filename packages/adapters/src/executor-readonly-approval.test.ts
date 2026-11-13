@@ -4277,8 +4277,8 @@ it("applies a saved Allow for cloud_agent_launch before posting a card", async (
   // The rule matches the tool name. requestKey, project and runtime mode are not part of it.
   const args = {
     prompt: "Trace the quota reset",
-    requestKey: "quota-reset-cliproxy-20261112",
-    projectId: "mcp:9dadece5-4f7b-4a4e-90c0-4dc45011c8d8",
+    requestKey: "example-launch-request",
+    projectId: "example-project",
     runtimeMode: "full-access",
   };
   const owner = fixture({ name: "cloud_agent_launch", builtin: true, rules });
@@ -4311,3 +4311,49 @@ it("applies a saved Allow for cloud_agent_launch before posting a card", async (
   await unruled.run();
   expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
 });
+
+it.each(["cloud_agent_launch", "respond_agent_connection"])(
+  "keeps webhook Never ask guarded for %s despite a saved Allow",
+  async (name) => {
+    const f = fixture({
+      name,
+      builtin: true,
+      trigger: "webhook",
+      skipApprovals: true,
+      rules: [{ effect: "always_allow", matchKind: "tool", matchValue: name }],
+    });
+    if (name === "respond_agent_connection") {
+      f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
+      Object.assign(f.prisma, {
+        agentConnection: {
+          findFirst: vi.fn(async () => ({
+            id: "connection-1",
+            requestVersion: 1,
+            requesterBotId: "bot-other",
+          })),
+        },
+        messagingIdentity: {
+          findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
+        },
+      });
+    }
+    f.setCalls([
+      {
+        args:
+          name === "cloud_agent_launch"
+            ? {
+                prompt: "Example task",
+                requestKey: "example-request",
+                projectId: "example-project",
+              }
+            : { accept: true },
+        executionId: "call-1",
+      },
+    ]);
+    await f.run();
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    expect(f.results[0]).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("this space never asks") }),
+    );
+  },
+);

@@ -377,7 +377,8 @@ export async function gateToolCall(
         resolved: approvalResolved,
         mode,
         mandatory: requiresMandatoryApproval,
-        steerable: guardedInNeverAsk && mode === "never" ? steered : undefined,
+        steerable:
+          guardedInNeverAsk && mode === "never" ? steered || requiresUnattendedApproval : undefined,
         consequential: requiresApprovalByDefault,
         reviewOnly: connectorReadGated,
         checkerConfigured,

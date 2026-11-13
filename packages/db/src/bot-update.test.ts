@@ -1,3 +1,4 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
 import { describe, expect, it, vi } from "vitest";
 import type * as Events from "./events.js";
 
@@ -328,4 +329,26 @@ it("preserves readable numbered bot names on writes", async () => {
   expect(update).toHaveBeenCalledWith(
     expect.objectContaining({ data: { name: "CustomerSupportBot2026" } }),
   );
+});
+
+it("does not open a transaction for an unqualified instruction edit", async () => {
+  const transaction = vi.fn();
+  configureCorrectedClaimJudge(async () => ({ status: "unqualified", reason: "Scripted outage" }));
+  try {
+    await expect(
+      commitBotUpdate({
+        prisma: { $transaction: transaction } as never,
+        notify: vi.fn(),
+        spaceId: "space-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        expectedInstructions: "Before",
+        data: { instructions: "After" },
+        emitBotUpdated: true,
+      }),
+    ).rejects.toThrow("could not qualify");
+    expect(transaction).not.toHaveBeenCalled();
+  } finally {
+    configureCorrectedClaimJudge(undefined);
+  }
 });

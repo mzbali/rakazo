@@ -1,5 +1,6 @@
 import { BotSettingsValuesSchema } from "@rakazo/contracts";
-import { CorrectedClaimError } from "@rakazo/core";
+import type { CorrectedClaimTicket } from "@rakazo/core";
+import { CorrectedClaimError, prepareCorrectedClaimWrite } from "@rakazo/core";
 import {
   appendEventInTransaction,
   commitBotUpdate,
@@ -98,6 +99,13 @@ async function commitOwnInstructions(
   const { deps, run, runId, context } = ctx;
   const botId = ctx.bot.id;
   const previousInstructions = input.previousInstructions;
+  let claimTicket: CorrectedClaimTicket | undefined;
+  try {
+    claimTicket = await prepareCorrectedClaimWrite(previousInstructions, input.instructions);
+  } catch (error) {
+    if (error instanceof CorrectedClaimError) return { error: error.message };
+    throw error;
+  }
   const committed = await deps.prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM threads WHERE id = ${run.threadId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM runs WHERE id = ${runId} FOR UPDATE`;
@@ -110,6 +118,7 @@ async function commitOwnInstructions(
       undoVersionId = await writeBotInstructions(tx, {
         botId,
         instructions: input.instructions,
+        claimTicket,
         reason: input.reason,
         expectedInstructions: previousInstructions,
       });

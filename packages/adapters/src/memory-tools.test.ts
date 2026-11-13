@@ -149,14 +149,10 @@ describe("editMemory", () => {
     expect(editMemory(oversized, "", "bbb", 32)).toEqual({ content: `${"a".repeat(40)}\n` });
   });
 
-  it("refuses an edit that adds a corrected claim and returns the entries", () => {
-    expect(editMemory("Be brief.\n", "A continuation does not wake on completion.")).toEqual({
-      error: expect.stringContaining("Nothing was saved"),
-      entries: ["Be brief."],
+  it("leaves semantic assessment to the async persistence caller", () => {
+    expect(editMemory("", "A continuation does not wake on completion.")).toEqual({
+      content: "A continuation does not wake on completion.\n",
     });
-    expect(
-      editMemory("Be brief.\n", "A continuation does not wake on completion.", "brief"),
-    ).toEqual({ error: expect.stringContaining("Nothing was saved"), entries: ["Be brief."] });
   });
 
   it("lets an unrelated edit through memory that already holds a corrected claim", () => {

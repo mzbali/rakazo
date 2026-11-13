@@ -606,7 +606,7 @@ async function prepareOwnBotUpdate(
     );
   if (redactSecrets(instructions, ctx.secrets) !== instructions)
     return refusal("instructions_contain_credentials", "Instructions cannot contain credentials.");
-  const addedClaim = addedClaimMessage(current?.instructions ?? "", instructions);
+  const addedClaim = await addedClaimMessage(current?.instructions ?? "", instructions);
   if (addedClaim) return refusal("instructions_corrected_claim", addedClaim);
   request.args = { ...args, instructions };
   if (unguarded) return undefined;

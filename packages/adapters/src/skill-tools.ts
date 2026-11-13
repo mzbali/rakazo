@@ -202,7 +202,7 @@ export async function skillCreateFromTool(
 
   const existing = await findOwnedSkill(prisma, owner, { name });
   if (existing) return { error: `A skill named "${existing.name}" already exists.` };
-  const addedClaim = addedClaimMessage("", content);
+  const addedClaim = await addedClaimMessage("", content);
   if (addedClaim) return { error: addedClaim };
 
   try {
@@ -289,7 +289,7 @@ export async function skillUpdateFromTool(
     }
   }
 
-  const addedClaim = addedClaimMessage(existing.content, nextContent);
+  const addedClaim = await addedClaimMessage(existing.content, nextContent);
   if (addedClaim) return { error: addedClaim };
 
   try {

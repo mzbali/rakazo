@@ -1,3 +1,5 @@
+import "./corrected-claims.js";
+
 export * from "./advisory-lock.js";
 export * from "./agent-connections.js";
 export * from "./agent-environment.js";

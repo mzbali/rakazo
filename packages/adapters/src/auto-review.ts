@@ -272,7 +272,7 @@ function readStrictVerdict(text: string): z.infer<typeof AutoReviewVerdict> | un
 }
 
 /** JSON.parse keeps the last of repeated keys; call only on text it has already accepted. */
-function hasRepeatedTopLevelKey(json: string): boolean {
+export function hasRepeatedTopLevelKey(json: string): boolean {
   const keys = new Set<string>();
   const colon = /\s*:/y;
   let depth = 0;

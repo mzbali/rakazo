@@ -1,3 +1,8 @@
+import { configureCorrectedClaimJudge } from "@rakazo/core";
+import { afterEach as resetClaimJudge } from "vitest";
+
+resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
+
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7258,6 +7263,7 @@ describe("bot model auth on save", () => {
     const prisma = {
       $queryRaw: vi.fn(async () => []),
       bot: {
+        findUniqueOrThrow: vi.fn(async () => ({ ...bot, instructions: "" })),
         findFirst: vi.fn(async () => bot),
         findMany: vi.fn(async () => [{ ...bot, name: "Ada renamed" }]),
         update: botUpdate,
@@ -7361,6 +7367,10 @@ describe("bot model auth on save", () => {
   });
 
   it("answers instructions that add a corrected claim with 400 and the reason", async () => {
+    configureCorrectedClaimJudge(async () => ({
+      status: "rejected",
+      reason: "Scripted rejection",
+    }));
     const { botUpdate, handler } = saveDeps({ modelId: luna, preferences: () => null });
 
     const response = await call(handler, "bots/update", {
@@ -8369,6 +8379,7 @@ describe("openai-compatible enabled models", () => {
       ...pins,
       $queryRaw: vi.fn(async () => []),
       bot: {
+        findUniqueOrThrow: vi.fn(async () => ({ ...bot, instructions: "" })),
         findFirst: vi.fn(async () => bot),
         findMany: vi.fn(async ({ where }: { where: PinWhere }) =>
           where.modelProvider ? pins.bots(where) : [bot],

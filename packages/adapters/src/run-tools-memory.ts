@@ -112,6 +112,8 @@ export const memoryTools: ToolHandlers = {
       );
       if ("error" in edit) return call.finish(edit);
       const { content } = edit;
+      const claimError = await addedClaimMessage(existing?.content ?? "", content);
+      if (claimError) return call.finish({ error: claimError });
       if (content === (existing?.content ?? "")) return call.finish({ ok: true });
       try {
         await deps.memory.commit(
@@ -145,7 +147,7 @@ export const memoryTools: ToolHandlers = {
     const expectedRevision = snapshot.documents[0]?.revision ?? 0;
     const content = String(args.content ?? "");
     // Every bot in the space reads shared memory, so a corrected claim may not come in here either.
-    const addedClaim = addedClaimMessage(snapshot.documents[0]?.content ?? "", content);
+    const addedClaim = await addedClaimMessage(snapshot.documents[0]?.content ?? "", content);
     if (addedClaim) return call.finish({ error: addedClaim });
     try {
       const saved = await deps.memory.commit(
@@ -189,7 +191,7 @@ export const memoryTools: ToolHandlers = {
     const { args } = call;
     const content = String(args.content ?? "");
     // Each save is a new fact that later runs recall into their prompt.
-    const addedClaim = addedClaimMessage("", content);
+    const addedClaim = await addedClaimMessage("", content);
     if (addedClaim) return call.finish({ error: addedClaim });
     return call.finish(
       await ctx.memory.semantic!.save(

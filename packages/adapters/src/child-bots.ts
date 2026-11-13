@@ -85,7 +85,7 @@ export async function spawnBot(
   if (!name) return { error: "Bot name is required." };
 
   const instructions = (input.instructions ?? "").trim().slice(0, BOT_INSTRUCTIONS_MAX_LENGTH);
-  const addedClaim = addedClaimMessage("", instructions);
+  const addedClaim = await addedClaimMessage("", instructions);
   if (addedClaim) return { error: addedClaim };
 
   const actor: Actor = {

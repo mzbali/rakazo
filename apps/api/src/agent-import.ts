@@ -315,7 +315,7 @@ export async function createImportedBot<PreparedKey>(
       digest: requestDigest(request),
       build: async () => {
         const built = await buildPlan(services as AgentImportServices, actor, input);
-        refuseAddedClaims(built.plan, input.selection);
+        await refuseAddedClaims(built.plan, input.selection);
         return built;
       },
     },
@@ -325,7 +325,10 @@ export async function createImportedBot<PreparedKey>(
 }
 
 /** Imported text is new to the bot, so any corrected claim in what was picked is an addition. */
-function refuseAddedClaims(plan: AgentImportPlan, choice: AgentImportCreateInput["selection"]) {
+async function refuseAddedClaims(
+  plan: AgentImportPlan,
+  choice: AgentImportCreateInput["selection"],
+) {
   const picked = [
     ...selected(plan.instructions, choice.instructions),
     ...selected(
@@ -334,7 +337,7 @@ function refuseAddedClaims(plan: AgentImportPlan, choice: AgentImportCreateInput
     ),
     ...selected(plan.skills, choice.skills),
   ];
-  for (const item of picked) assertNoAddedClaimsOrBadRequest("", item.content);
+  for (const item of picked) await assertNoAddedClaimsOrBadRequest("", item.content);
 }
 
 /** A bot to create from a plan: an import's files or a template build it. */

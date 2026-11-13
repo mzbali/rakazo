@@ -194,7 +194,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       if (builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
-      assertNoAddedClaimsOrBadRequest("", resolved.content);
+      await assertNoAddedClaimsOrBadRequest("", resolved.content);
       try {
         const row = await prisma.$transaction(async (tx) => {
           await assertNameFreeWhereAvailable(
@@ -247,7 +247,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       ) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
-      assertNoAddedClaimsOrBadRequest(existing.content, resolved.content);
+      await assertNoAddedClaimsOrBadRequest(existing.content, resolved.content);
       // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
       // The content just read is part of the match, so a stale read cannot revive a removed phrase.
       try {

@@ -1406,6 +1406,8 @@ model CloudAgent {
   verdictSummary      String?
   /// The provider's reason for refusing the launch or ending the agent, when it gave one.
   failureReason       String?
+  /// What the provider reported starting, shown to the bot, when it is worth saying.
+  launchNote          String?
   /// Wake runs created for the current generation, counting retries of failed ones.
   wakeAttempts        Int      @default(0)
   createdAt           DateTime @default(now())

@@ -118,7 +118,7 @@ function builtinParameters(tool: ConnectorTool) {
       pinnedTools: Type.Optional(
         Type.Array(Type.String({ minLength: 1, maxLength: 200 }), {
           maxItems: 12,
-          description: "Tool names to list directly.",
+          description: "Tool names to list; MCP bare or full.",
         }),
       ),
       model: Type.Optional(Type.String()),

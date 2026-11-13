@@ -216,6 +216,7 @@ export function createBackgroundJobHandlers(deps: {
           prisma: deps.prisma,
           jobs: deps.jobs,
           events: deps.events,
+          notifications: deps.notifications,
           cloudAgent: deps.cloudAgent,
           userCloudAgents: deps.userCloudAgents,
         },

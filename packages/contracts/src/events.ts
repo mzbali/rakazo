@@ -304,6 +304,8 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     queued: z.boolean().optional(),
     /** An open question or approval; still "running" for clients that predate it. */
     needsInput: z.boolean().optional(),
+    /** ISO time since the agent's provider could not be reached; polling resumes when it can. */
+    unreachableSince: z.string().optional(),
   }),
   z.object({
     kind: z.literal("skill_draft"),

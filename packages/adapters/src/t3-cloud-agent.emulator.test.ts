@@ -148,6 +148,19 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     expect((await provider.cancel(agent.id, context)).status).toBe("cancelled");
   });
 
+  it("reads the thread link in T3's web form as well as its deep link", async () => {
+    const { emulator, provider } = setup();
+    emulator.linkOf = (threadId) =>
+      `https://app.example.test/threads/env-1/${encodeURIComponent(threadId)}`;
+    const agent = await provider.launch(
+      { idempotencyKey: "weblink-key-123", prompt: "Task" },
+      context,
+    );
+    const url = `t3code://threads/env-1/${encodeURIComponent(agent.id)}`;
+    expect(agent.url).toBe(url);
+    expect((await provider.get(agent.id, context)).url).toBe(url);
+  });
+
   it("reports a pending approval as attention", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
@@ -193,6 +206,17 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       await expect(
         provider.launch({ idempotencyKey: "refused-key-12", prompt: "Task" }, context),
       ).rejects.toBeInstanceOf(CloudAgentRequestRejected);
+    });
+
+    it("retries T3's codeless internal server error instead of rejecting it", async () => {
+      const { emulator, provider } = setup();
+      const agent = await provider.launch(
+        { idempotencyKey: "internal-key-12", prompt: "Task" },
+        context,
+      );
+      emulator.failNext = { internal: true };
+      await expect(provider.get(agent.id, context)).rejects.toBeInstanceOf(CloudAgentRetryLater);
+      expect((await provider.get(agent.id, context)).status).toBe("running");
     });
 
     it("launches without a start note when T3 cannot say what started", async () => {

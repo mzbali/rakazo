@@ -1408,6 +1408,10 @@ model CloudAgent {
   failureReason       String?
   /// What the provider reported starting, shown to the bot, when it is worth saying.
   launchNote          String?
+  /// When the provider's calls first failed retryably in the current outage; cleared by a success.
+  retryingSince       DateTime?
+  /// When the outage had lasted long enough to tell the owner, once; shown on the card.
+  unreachableSince    DateTime?
   /// Wake runs created for the current generation, counting retries of failed ones.
   wakeAttempts        Int      @default(0)
   createdAt           DateTime @default(now())

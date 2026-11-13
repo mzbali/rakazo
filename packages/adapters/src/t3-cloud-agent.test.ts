@@ -473,6 +473,12 @@ describe("thread links", () => {
     );
     const webLink = "https://app.t3.codes/threads/project/thread%3A1";
     expect(provider.canonicalizeLinks(webLink, "thread:1", url)).toBe(webLink);
+    // The web form names the thread for the provider's own status, but is not rewritten in text.
+    expect(t3CanonicalLink(`[Task](${webLink})`, "thread:1")).toBe(
+      "t3code://threads/project/thread%3A1",
+    );
+    expect(t3CanonicalLink(webLink, "thread:2")).toBe("");
+    expect(t3CanonicalLink("http://app.t3.codes/threads/project/thread%3A1", "thread:1")).toBe("");
   });
 });
 

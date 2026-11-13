@@ -53,6 +53,10 @@ export async function cloudAgentForActor(
   deps: Connections,
   actor: CloudAgentActor & { botIds?: string[] },
 ) {
+  // The deployment's own T3 provider reaches the same T3 as a user-connected one, but forwards the
+  // launch's model, workspace and modes, caps the runtime mode and reports the model started.
+  if (deps.cloudAgent?.key.startsWith("t3:") && cloudAgentsEnabled(deps.cloudAgent, actor.spaceId))
+    return deps.cloudAgent;
   const own = await deps.userCloudAgents?.forActor(actor).catch((error: unknown) => {
     getLogger().warn("cloud_agent.user_connections_unavailable", { error });
     return null;

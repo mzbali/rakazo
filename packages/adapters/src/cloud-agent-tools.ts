@@ -49,6 +49,7 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     })
     .strict()
     .optional(),
+  workKind: z.enum(["hard", "normal", "simple", "ui"]).optional(),
   projectId: id.optional(),
   workspaceStrategy: z
     .discriminatedUnion("type", [

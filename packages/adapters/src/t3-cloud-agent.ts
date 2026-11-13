@@ -12,6 +12,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
+import type { T3ModelRoutes } from "./t3-model-routes.js";
 
 /** T3 Code's thread tools, reached through the space's MCP connection as the requesting bot. */
 export interface T3CloudAgentOptions {
@@ -20,6 +21,8 @@ export interface T3CloudAgentOptions {
   server: string;
   /** Names this Rakazo's event holds; one per configured connection. */
   holdKey: string;
+  /** Ordered models per kind of work; a launch with a `workKind` takes the first with quota. */
+  routes?: T3ModelRoutes;
 }
 
 /** The tools a bot's assignment must allow before it is offered cloud agents on this provider. */
@@ -134,15 +137,74 @@ const eventsSchema = z.object({
   }),
 });
 const sendSchema = z.object({ runId: z.string() });
+/** Quota fields come from newer T3 builds; without them every model has room. */
 const capabilitiesSchema = z.object({
   providers: z.array(
     z.object({
       providerInstanceId: z.string(),
       canRunChildTask: z.boolean(),
-      models: z.array(z.object({ id: z.string() })),
+      models: z.array(
+        z.object({
+          id: z.string(),
+          exhausted: z.boolean().optional(),
+          resetsAt: z.string().optional(),
+        }),
+      ),
+      usage: z
+        .object({
+          windows: z.array(
+            z.object({ exhausted: z.boolean().optional(), resetsAt: z.string().optional() }),
+          ),
+        })
+        .optional(),
     }),
   ),
+  earliestResetAt: z.string().optional(),
 });
+type Capabilities = z.infer<typeof capabilitiesSchema>;
+
+const MIN_QUOTA_WAIT_MS = 60_000;
+const MAX_QUOTA_WAIT_MS = 6 * 3_600_000;
+/** How long to wait when T3 says a model is out of quota but not when it comes back. */
+const UNKNOWN_QUOTA_WAIT_MS = 15 * 60_000;
+
+/** A model's quota as the capabilities report it; the reset falls back to its provider's, then T3's earliest. */
+function quotaOf(capabilities: Capabilities, model: string, instanceId?: string) {
+  for (const provider of capabilities.providers) {
+    if (instanceId && provider.providerInstanceId !== instanceId) continue;
+    const entry = provider.models.find((candidate) => candidate.id === model);
+    if (!entry) continue;
+    const windows = (provider.usage?.windows ?? [])
+      .filter((window) => window.exhausted)
+      .map((window) => window.resetsAt);
+    const resetsAt = [entry.resetsAt, ...windows, capabilities.earliestResetAt]
+      .map((value) => (value ? Date.parse(value) : Number.NaN))
+      .find((value) => !Number.isNaN(value));
+    return { provider, exhausted: entry.exhausted === true, resetsAt };
+  }
+  return undefined;
+}
+
+/** A reset in UTC; the date only when it is not today. */
+function utcStamp(at: number, now: number): string {
+  const iso = new Date(at).toISOString();
+  const time = `${iso.slice(11, 16)} UTC`;
+  return iso.slice(0, 10) === new Date(now).toISOString().slice(0, 10)
+    ? time
+    : `${iso.slice(0, 10)} ${time}`;
+}
+
+/** Every model that could run the work is out: retry at the earliest reset, not as an outage. */
+function quotaWait(resets: Array<number | undefined>, now: number, detail?: string) {
+  const known = resets.filter((at): at is number => at !== undefined && at > now);
+  const at = known.length ? Math.min(...known) : undefined;
+  const wait = Math.min(
+    MAX_QUOTA_WAIT_MS,
+    Math.max(MIN_QUOTA_WAIT_MS, (at ?? now + UNKNOWN_QUOTA_WAIT_MS) - now),
+  );
+  const note = `Waiting for quota${at ? ` until ${utcStamp(at, now)}` : ""}${detail ? `: ${detail}` : ""}.`;
+  return new CloudAgentRetryLater("quota", wait, note);
+}
 const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
 
 /**
@@ -248,10 +310,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       request.projectId || request.repository ? await this.projectFor(request, context) : undefined;
     // A workspace is a project's checkout; a scratch thread has none.
     if (request.workspaceStrategy && !project) throw new CloudAgentRequestRejected("invalid");
+    const chosen = await this.chooseModel(request, context);
+    const requested = request.modelSelection ?? chosen?.selection;
     // A named model goes in the launch itself, so the thread's first turn runs on it. Otherwise
     // scratch threads, and projects without a default, need one named for them.
     const modelSelection =
-      (request.modelSelection && instanceSelection(request.modelSelection)) ??
+      (requested && instanceSelection(requested)) ??
       (project?.defaultModelSelection ? undefined : await this.defaultModel(context));
     const launched = launchSchema.parse(
       await this.launchWithinCeiling(
@@ -278,10 +342,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     // A named model is checked against what T3 started; one left out keeps T3's default unreported.
     // The launch response echoes the request, so only the thread says what really started.
-    const started = request.modelSelection
-      ? await this.startedModel(launched.threadId, context)
-      : undefined;
-    const launchNote = started && startedNote(request.modelSelection, started);
+    const started = requested ? await this.startedModel(launched.threadId, context) : undefined;
+    const startedText = started && startedNote(requested, started);
+    // A route's note says what was picked and why; T3 starting something else is added to it.
+    const launchNote = chosen?.note
+      ? startedText?.startsWith("Requested")
+        ? `${chosen.note} ${startedText}`
+        : chosen.note
+      : startedText;
     // The tag stays in T3's own title for the lookup above; the owner's card shows the label.
     return {
       id: launched.threadId,
@@ -478,6 +546,59 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       state: state === "merged" || state === "closed" ? state : "open",
       ...(mergeCommitSha ? { mergeCommitSha } : {}),
     }));
+  }
+
+  /**
+   * Quota first, then kind of work: the first route for the work's kind with quota room, or the
+   * model the owner named if it has room. Out of quota everywhere, the launch waits for the
+   * earliest reset. Without a kind or routes for it, or a T3 that reports no quota, nothing changes.
+   */
+  private async chooseModel(
+    request: CloudAgentLaunchRequest,
+    context: AdapterContext,
+  ): Promise<{ selection?: RequestedModel; note?: string } | undefined> {
+    const kind = request.workKind;
+    const routes = kind && this.options.routes?.[kind];
+    if (!kind || !routes?.length) return undefined;
+    const capabilities = capabilitiesSchema.parse(
+      await this.call("orchestrator_capabilities", {}, context),
+    );
+    const now = Date.now();
+    if (request.modelSelection) {
+      const asked = instanceSelection(request.modelSelection);
+      const quota = quotaOf(capabilities, asked.model, asked.instanceId);
+      if (quota?.exhausted)
+        throw quotaWait([quota.resetsAt], now, `${asked.model} is out of quota`);
+      return undefined;
+    }
+    const skipped: Array<{ model: string; resetsAt?: number }> = [];
+    for (const route of routes) {
+      const quota = quotaOf(capabilities, route.model, route.instanceId);
+      // An instance that is absent or cannot run tasks is not a quota matter: try the next.
+      if (!quota?.provider.canRunChildTask) continue;
+      if (quota.exhausted) {
+        skipped.push({ model: route.model, resetsAt: quota.resetsAt });
+        continue;
+      }
+      const why = skipped.map(
+        ({ model, resetsAt }) =>
+          `${model} out of quota${resetsAt && resetsAt > now ? ` until ${utcStamp(resetsAt, now)}` : ""}`,
+      );
+      return {
+        selection: {
+          model: route.model,
+          instanceId: route.instanceId,
+          ...(route.options ? { options: route.options } : {}),
+        },
+        note: `Picked ${route.model} on ${route.instanceId} (${[kind, ...why].join("; ")}).`,
+      };
+    }
+    if (skipped.length)
+      throw quotaWait(
+        skipped.map((route) => route.resetsAt),
+        now,
+      );
+    return { note: `No ${kind} route is available; T3's default was used.` };
   }
 
   /** One read of the new thread for the model and instance it runs on. */

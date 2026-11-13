@@ -190,14 +190,23 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       botName: "Lead",
       signal: new AbortController().signal,
     };
-    const launch = async (n: number, origin?: { botId: string; messageId: string }) => {
+    const launch = async (
+      n: number,
+      origin?: { botId: string; messageId: string },
+      extra: Record<string, unknown> = {},
+    ) => {
       const result = await runAsSystem("agent run tool call", () =>
         executeCloudAgentTool(
           deps,
           { ...context, operationId: randomUUID() },
           fixture.run,
           "cloud_agent_launch",
-          { prompt: `Request ${n}`, requestKey: `request-${n}`, agreement: "Owner said yes" },
+          {
+            prompt: `Request ${n}`,
+            requestKey: `request-${n}`,
+            agreement: "Owner said yes",
+            ...extra,
+          },
           origin,
         ),
       );
@@ -1026,6 +1035,50 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       expect(t.sent()).toHaveLength(2);
       expect((await t.state(t.id)).unreachableSince).not.toBeNull();
     });
+  });
+
+  it("keeps a launch waiting for quota queued, noted and unflagged until it can start", async () => {
+    let quota = true;
+    const launched: unknown[] = [];
+    class Waiting extends ScriptedProvider {
+      override async launch(request: Parameters<ScriptedProvider["launch"]>[0]) {
+        launched.push(request);
+        if (quota)
+          throw new CloudAgentRetryLater(
+            "quota",
+            2 * 3_600_000,
+            "Waiting for quota until 21:00 UTC.",
+          );
+        return super.launch(request);
+      }
+    }
+    const t = await setup(new Waiting());
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const id = await t.launch(1, undefined, { workKind: "hard" });
+    await t.poll(id);
+    expect(launched[0]).toMatchObject({ workKind: "hard" });
+    // Not an outage, however long it waits: nothing is flagged and the owner is not told.
+    expect(await t.state(id)).toMatchObject({
+      remoteId: null,
+      status: "running",
+      launchDispatched: false,
+      launchNote: "Waiting for quota until 21:00 UTC.",
+      errorCount: 0,
+      retryingSince: null,
+      unreachableSince: null,
+    });
+    const due = (await t.state(id)).nextPollAt!.getTime() - Date.now();
+    expect(due).toBeGreaterThanOrEqual(2 * 3_600_000 - 1_000);
+    vi.setSystemTime(Date.now() + UNREACHABLE_AFTER_MS * 3);
+    await t.poll(id);
+    expect((await t.state(id)).unreachableSince).toBeNull();
+    expect(t.send).not.toHaveBeenCalled();
+    // The quota is back: the same launch starts and the wait's note is gone.
+    quota = false;
+    await t.poll(id);
+    const started = await t.state(id);
+    expect(started.remoteId).not.toBeNull();
+    expect(started.launchNote).toBeNull();
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

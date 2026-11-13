@@ -40,9 +40,11 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const first = await provider.launch(request, context);
     expect(first).toMatchObject({
       status: "running",
-      title: "Add a README · abcdef1234567",
+      title: "Add a README",
       url: expect.stringMatching(/^t3code:\/\/threads\/env-1\//),
     });
+    // T3's own title keeps the tag the replay below looks for.
+    expect(launched(emulator)[0]!.args).toMatchObject({ title: "Add a README · abcdef1234567" });
     // No model was asked for: T3's first capable provider is used and nothing is reported.
     expect(launched(emulator)[0]!.args).toMatchObject({
       scratch: true,

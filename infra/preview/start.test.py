@@ -9,6 +9,9 @@ import time
 import unittest
 
 
+# Shutdown runs every stub's Python startup again; shared CI runners can take several seconds.
+SHUTDOWN_SECONDS = 20
+
 STUB = r'''#!/usr/bin/env python3
 import os, pathlib, sys, time
 name = pathlib.Path(sys.argv[0]).name
@@ -88,11 +91,11 @@ class PreviewBoot(unittest.TestCase):
                 time.sleep(0.02)
             self.assertEqual(serving.exists(), succeeds)
             if not succeeds:
-                self.assertNotEqual(process.wait(timeout=3), 0)
+                self.assertNotEqual(process.wait(timeout=SHUTDOWN_SECONDS), 0)
         finally:
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGTERM)
-            output = process.communicate(timeout=3)[0].decode()
+            output = process.communicate(timeout=SHUTDOWN_SECONDS)[0].decode()
             if succeeds:
                 self.assertIn("[preview] Ready", output)
 

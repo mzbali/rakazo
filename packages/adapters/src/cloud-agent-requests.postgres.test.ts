@@ -13,13 +13,15 @@ import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { pollCloudAgent } from "./cloud-agent-poll.js";
+import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,
   reportCloudAgent,
   trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
+import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
+import { createRunExecutor } from "./executor.js";
 import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
 
 const describePostgres =
@@ -208,8 +210,21 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
         where: { threadId: fixture.thread.id, trigger: "cloud_agent" },
         orderBy: { createdAt: "asc" },
       });
+    const wakeNonces = async () => (await wakes()).flatMap(cloudAgentWakeNonces);
     const reconcile = () => runAsSystem("reconciler", () => reconcileCloudAgents(deps));
-    return { ...fixture, provider, deps, context, launch, state, poll, remote, wakes, reconcile };
+    return {
+      ...fixture,
+      provider,
+      deps,
+      context,
+      launch,
+      state,
+      poll,
+      remote,
+      wakes,
+      wakeNonces,
+      reconcile,
+    };
   }
 
   it("runs two requests at a time, queues the rest in order and drains the queue", async () => {
@@ -246,7 +261,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       Array(6).fill("finished"),
     );
     expect(t.provider.launches).toBe(6);
-    expect(await t.wakes()).toHaveLength(7);
+    expect(await t.wakeNonces()).toHaveLength(7);
   });
 
   it("keeps the same request key from two members of a group apart", async () => {
@@ -287,33 +302,29 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     agent.attention = [{ requestId: "q1", kind: "question" }];
     await t.poll(id);
     await t.poll(id);
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
-      `cloud-agent-attention:${id}:q1`,
-    ]);
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-attention:${id}:q1`]);
     expect((await t.state(id)).status).toBe("running");
     // A new blocker in place of the old one is new work for the bot, though the count stays 1.
     agent.attention = [{ requestId: "q2", kind: "approval" }];
     await t.poll(id);
-    expect(await t.wakes()).toHaveLength(2);
+    expect(await t.wakeNonces()).toHaveLength(2);
     expect((await t.state(id)).remoteCursor).toBe(3);
-    // A question that opened and expired between polls still wakes the bot; one it was already
-    // woken for (q2, now expired too) does not wake it again.
+    // Closed blockers do not wake the bot while the agent is still running.
     agent.missed = [
       { requestId: "q3", kind: "question" },
       { requestId: "q2", kind: "approval" },
     ];
     await t.poll(id);
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+    expect(await t.wakeNonces()).toEqual([
       `cloud-agent-attention:${id}:q1`,
       `cloud-agent-attention:${id}:q2`,
-      `cloud-agent-attention:${id}:q3`,
     ]);
     // A failed wake for a blocker still open is retried, at most three wakes in all.
     agent.attention = [{ requestId: "q2", kind: "approval" }];
     await t.poll(id);
     const failWake = async (nonce: string) =>
       asSystem(prisma).run.updateMany({
-        where: { clientNonce: nonce },
+        where: { OR: [{ clientNonce: nonce }, { cloudAgentWakeNonces: { has: nonce } }] },
         data: { status: "failed" },
       });
     await failWake(`cloud-agent-attention:${id}:q2`);
@@ -323,29 +334,234 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.reconcile();
     await failWake(`cloud-agent-attention:${id}:q2:r2`);
     await t.reconcile();
-    expect((await t.wakes()).map((run) => run.clientNonce).slice(3)).toEqual([
+    expect((await t.wakeNonces()).slice(2)).toEqual([
       `cloud-agent-attention:${id}:q2:r1`,
       `cloud-agent-attention:${id}:q2:r2`,
     ]);
     // A failed wake for a blocker that has closed is not retried.
     await failWake(`cloud-agent-attention:${id}:q1`);
     await t.reconcile();
-    expect(await t.wakes()).toHaveLength(5);
+    expect(await t.wakeNonces()).toHaveLength(4);
 
     agent.attention = [];
     agent.status = "finished";
     await t.poll(id);
     await t.poll(id);
     const finished = (await t.wakes()).at(-1)!;
-    expect(await t.wakes()).toHaveLength(6);
-    expect(finished.clientNonce).toBe(`cloud-agent-wake-run:${id}:0`);
+    expect(await t.wakeNonces()).toHaveLength(5);
+    expect(finished.cloudAgentWakeNonces).toContain(`cloud-agent-wake-run:${id}:0`);
     await asSystem(prisma).run.update({ where: { id: finished.id }, data: { status: "failed" } });
     await t.reconcile();
     await t.reconcile();
-    expect((await t.wakes()).map((run) => run.clientNonce).at(-1)).toBe(
-      `cloud-agent-wake-run:${id}:0:r1`,
+    expect((await t.wakeNonces()).at(-1)).toBe(`cloud-agent-wake-run:${id}:0:r1`);
+    expect(await t.wakeNonces()).toHaveLength(6);
+  });
+
+  it.each(["running", "finished"] as const)(
+    "drops closed blockers when the saved agent is %s",
+    async (status) => {
+      const t = await setup();
+      const id = await t.launch(1);
+      await t.poll(id);
+      const remote = await t.remote(id);
+      remote.status = status;
+      remote.missed = [{ requestId: "answered-elsewhere", kind: "approval" }];
+      await t.poll(id);
+      expect(await t.wakeNonces()).toEqual(
+        status === "running" ? [] : [`cloud-agent-wake-run:${id}:0`],
+      );
+    },
+  );
+
+  it("keeps a failed closure and its terminal notification in one wake", async () => {
+    const t = await setup();
+    const id = await t.launch(1);
+    await t.poll(id);
+    const remote = await t.remote(id);
+    remote.status = "failed";
+    remote.missed = [{ requestId: "closed", kind: "question" }];
+    await t.poll(id);
+    expect(await t.wakes()).toHaveLength(1);
+    expect(await t.wakeNonces()).toEqual([
+      `cloud-agent-wake-run:${id}:0`,
+      `cloud-agent-attention:${id}:closed`,
+    ]);
+  });
+
+  it.each(["attention", "reported", "continued"] as const)(
+    "cancels a stale %s wake before invoking the model",
+    async (kind) => {
+      const t = await setup();
+      const id = await t.launch(1);
+      await t.poll(id);
+      const remote = await t.remote(id);
+      if (kind === "attention") remote.attention = [{ requestId: "q1", kind: "question" }];
+      else remote.status = "finished";
+      await t.poll(id);
+      const [wake] = await t.wakes();
+      expect(wake).toBeDefined();
+      await asSystem(prisma).cloudAgent.update({
+        where: { id },
+        data:
+          kind === "attention"
+            ? { attention: [] }
+            : kind === "reported"
+              ? { verdict: "accepted" }
+              : { generation: 1, status: "running" },
+      });
+      const model = vi.fn();
+      const executor = createRunExecutor({
+        ...t.deps,
+        runtime: { run: model },
+      } as unknown as Parameters<typeof createRunExecutor>[0]);
+      await runAsSystem("execute stale wake", () => executor.continueRun(wake!.id, "test-worker"));
+      expect(model).not.toHaveBeenCalled();
+      expect(await asSystem(prisma).attempt.count({ where: { runId: wake!.id } })).toBe(0);
+      expect(await asSystem(prisma).run.findUnique({ where: { id: wake!.id } })).toMatchObject({
+        status: "cancelled",
+        leaseOwner: null,
+      });
+      expect(await asSystem(prisma).task.findUnique({ where: { id: wake!.taskId } })).toMatchObject(
+        { status: "cancelled" },
+      );
+    },
+  );
+
+  it("coalesces concurrent wakes and keeps every nonce exactly once", async () => {
+    const t = await setup();
+    const first = await t.launch(1);
+    const second = await t.launch(2);
+    const a = await t.state(first);
+    const b = await t.state(second);
+    const queue = (agent: typeof a, requestId: string) =>
+      runAsSystem("queue attention wake", () =>
+        prisma.$transaction((tx) =>
+          createCloudAgentWake(
+            tx,
+            agent,
+            `Cloud agent ${agent.id} needs input (${requestId}).`,
+            `cloud-agent-attention:${agent.id}:${requestId}`,
+          ),
+        ),
+      );
+    await Promise.all([queue(a, "q1"), queue(b, "q2"), queue(a, "q1")]);
+    const wakes = await t.wakes();
+    expect(wakes).toHaveLength(1);
+    expect(new Set(cloudAgentWakeNonces(wakes[0]!))).toEqual(
+      new Set([`cloud-agent-attention:${first}:q1`, `cloud-agent-attention:${second}:q2`]),
     );
-    expect(await t.wakes()).toHaveLength(7);
+    const task = await asSystem(prisma).task.findUniqueOrThrow({ where: { id: wakes[0]!.taskId } });
+    expect(task.prompt).toContain(first);
+    expect(task.prompt).toContain(second);
+    expect(task.prompt.match(/needs input/g)).toHaveLength(2);
+    // Claimed work is immutable; a later wake starts another run even before startedAt is set.
+    await asSystem(prisma).run.update({ where: { id: wakes[0]!.id }, data: { status: "leased" } });
+    await queue(a, "q3");
+    expect(await t.wakes()).toHaveLength(2);
+  });
+
+  it("keeps a batch with a current secondary wake and retries both identities on failure", async () => {
+    const t = await setup();
+    const ids = [await t.launch(1), await t.launch(2)];
+    for (const id of ids) {
+      await t.poll(id);
+      (await t.remote(id)).attention = [{ requestId: "question", kind: "question" }];
+      await t.poll(id);
+    }
+    const [wake] = await t.wakes();
+    expect(await t.wakes()).toHaveLength(1);
+    // The primary wake is obsolete, but the secondary still needs the bot.
+    await asSystem(prisma).cloudAgent.update({ where: { id: ids[0]! }, data: { attention: [] } });
+    const claimed = await asSystem(prisma).run.update({
+      where: { id: wake!.id },
+      data: { status: "running", leaseOwner: "batch-worker", leaseFence: 1 },
+    });
+    expect(
+      await runAsSystem("check current batch", () =>
+        cancelStaleCloudAgentWake(t.deps, claimed, { owner: "batch-worker", fence: 1 }),
+      ),
+    ).toBe(false);
+    const refreshed = await asSystem(prisma).task.findUniqueOrThrow({
+      where: { id: claimed.taskId },
+    });
+    expect(refreshed.prompt).not.toContain(ids[0]!);
+    expect(refreshed.prompt).toContain(ids[1]!);
+    // Both requests are current when a model outage fails this batch. Every identity gets its
+    // own retry nonce, and the retries can themselves share one queued execution.
+    await asSystem(prisma).cloudAgent.update({
+      where: { id: ids[0]! },
+      data: { attention: [{ requestId: "question", kind: "question" }] },
+    });
+    await asSystem(prisma).run.update({ where: { id: wake!.id }, data: { status: "failed" } });
+    await Promise.all([t.reconcile(), t.reconcile()]);
+    expect(await t.wakes()).toHaveLength(2);
+    expect((await t.wakes())[1]!.cloudAgentWakeNonces).toEqual(
+      ids.map((id) => `cloud-agent-attention:${id}:question:r1`),
+    );
+    await t.reconcile();
+    expect(await t.wakes()).toHaveLength(2);
+  });
+
+  it("creates another run when a claim wins the race with a queued append", async () => {
+    const t = await setup();
+    const id = await t.launch(1);
+    await t.poll(id);
+    const remote = await t.remote(id);
+    remote.attention = [{ requestId: "q1", kind: "question" }];
+    await t.poll(id);
+    const [wake] = await t.wakes();
+    const agent = await t.state(id);
+    let found!: () => void;
+    let proceed!: () => void;
+    const readQueued = new Promise<void>((resolve) => {
+      found = resolve;
+    });
+    const claimed = new Promise<void>((resolve) => {
+      proceed = resolve;
+    });
+    const append = runAsSystem("append racing wake", () =>
+      prisma.$transaction(async (tx) => {
+        const wrapped = new Proxy(tx, {
+          get(target, key) {
+            if (key !== "run") return Reflect.get(target, key);
+            return new Proxy(target.run, {
+              get(runs, method) {
+                if (method !== "findFirst") return Reflect.get(runs, method);
+                return async (args: Parameters<typeof runs.findFirst>[0]) => {
+                  const result = await runs.findFirst(args);
+                  if (args?.where?.status === "queued") {
+                    found();
+                    await claimed;
+                  }
+                  return result;
+                };
+              },
+            });
+          },
+        });
+        return createCloudAgentWake(
+          wrapped,
+          agent,
+          "Second wake (q2)",
+          `cloud-agent-attention:${id}:q2`,
+        );
+      }),
+    );
+    await readQueued;
+    try {
+      await asSystem(prisma).run.update({
+        where: { id: wake!.id },
+        data: { status: "leased", leaseOwner: "winning-worker" },
+      });
+    } finally {
+      proceed();
+    }
+    await append;
+    expect(await t.wakes()).toHaveLength(2);
+    const originalTask = await asSystem(prisma).task.findUniqueOrThrow({
+      where: { id: wake!.taskId },
+    });
+    expect(originalTask.prompt).not.toContain("q2");
   });
 
   it("wakes for work the bot started or messaged with the provider's own tools", async () => {
@@ -379,7 +595,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect((await t.state(id)).messageId).not.toBe(rows[0]!.messageId);
     remote.status = "finished";
     await t.poll(id);
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+    expect(await t.wakeNonces()).toEqual([
       `cloud-agent-wake-run:${id}:0`,
       `cloud-agent-wake-run:${id}:1`,
     ]);
@@ -416,7 +632,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await stale;
     t.provider.stall = undefined;
     expect(await t.state(id)).toMatchObject({ status: "running", generation: 0 });
-    expect(await t.wakes()).toHaveLength(0);
+    expect(await t.wakeNonces()).toHaveLength(0);
     await t.poll(id);
     remote.status = "finished";
     await t.poll(id);
@@ -428,7 +644,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(id);
     await t.poll(id);
     await t.reconcile();
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+    expect(await t.wakeNonces()).toEqual([
       `cloud-agent-wake-run:${id}:0`,
       `cloud-agent-wake-run:${id}:1`,
     ]);
@@ -481,7 +697,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     remote.status = "finished";
     await t.poll(id);
     await t.poll(id);
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+    expect(await t.wakeNonces()).toEqual([
       `cloud-agent-wake-run:${id}:0`,
       `cloud-agent-wake-run:${id}:1`,
     ]);
@@ -522,7 +738,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.reconcile();
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
+    expect(await t.wakeNonces()).toEqual([
       `cloud-agent-wake-run:${id}:0`,
       `cloud-agent-wake-run:${id}:1`,
     ]);
@@ -604,9 +820,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     finished = true;
     await t.poll(result.id);
     expect(await t.state(result.id)).toMatchObject({ status: "finished" });
-    expect((await t.wakes()).map((run) => run.clientNonce)).toEqual([
-      `cloud-agent-wake-run:${result.id}:0`,
-    ]);
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${result.id}:0`]);
   });
 
   it("records the asking bot and tells it the verdict once", async () => {

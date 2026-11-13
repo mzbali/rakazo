@@ -1272,6 +1272,8 @@ model Run {
   leaseFence           Int               @default(0)
   leaseExpiresAt       DateTime?
   checkpoint           String?
+  /// Every cloud-agent wake folded into this run, including its primary client nonce.
+  cloudAgentWakeNonces  String[]          @default([])
   clientNonce          String?
   sourceMessageId      String?
   sourceMessage        Message?          @relation("RunSourceMessage", fields: [sourceMessageId], references: [id], onDelete: SetNull)
@@ -1297,6 +1299,7 @@ model Run {
   steeringMessages     SteeringMessage[]
   externalMessage      ExternalMessage?
 
+  @@index([cloudAgentWakeNonces], type: Gin)
   @@unique([spaceId, clientNonce])
   @@index([status, wakeAt])
   @@index([status, leaseExpiresAt])

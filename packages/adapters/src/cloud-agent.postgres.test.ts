@@ -157,6 +157,10 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       );
     const wakes = () =>
       asSystem(prisma).run.findMany({ where: { threadId: thread.id, trigger: "cloud_agent" } });
+    const wakeNonces = async () =>
+      (await wakes()).flatMap((run) =>
+        run.cloudAgentWakeNonces.length ? run.cloudAgentWakeNonces : [run.clientNonce],
+      );
     const finish = async (agentId: string) => {
       wire.complete((await state(agentId)).remoteId!);
       await poll(agentId);
@@ -186,6 +190,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       poll,
       clear,
       wakes,
+      wakeNonces,
       finish,
       settle,
       runs,
@@ -274,10 +279,10 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       wakeGeneration: 0,
       nextPollAt: null,
     });
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     await prisma.cloudAgent.update({ where: { id }, data: { nextPollAt: new Date() } });
     await h.poll(id);
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
   });
 
   it("recovers an accepted launch whose response was lost without creating a second remote agent", async () => {
@@ -404,7 +409,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       return snapshot;
     });
     await h.poll(id);
-    expect(await h.wakes()).toHaveLength(0);
+    expect(await h.wakeNonces()).toHaveLength(0);
     expect((await h.state(id)).nextPollAt).toBeNull();
   });
 
@@ -438,10 +443,10 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(newRun).not.toBe(oldRun);
     await h.poll(id);
     expect((await h.state(id)).status).toBe("running");
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     h.wire.complete((await h.state(id)).remoteId!);
     await h.poll(id);
-    expect(await h.wakes()).toHaveLength(2);
+    expect(await h.wakeNonces()).toHaveLength(2);
     expect(await h.state(id)).toMatchObject({
       latestRunId: newRun,
       generation: 1,
@@ -482,7 +487,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
     expect((await h.state(id)).latestRunId).not.toBe(oldRun);
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     expect(
       h.wire.requests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/runs"),
@@ -664,7 +669,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.complete((await h.state(id)).remoteId!, { failed: true });
     await h.poll(id);
     expect((await h.state(id)).status).toBe("failed");
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     await h.tool("reply", { id, prompt: "Try again" });
     expect(await h.tool("reply", { id, prompt: "Duplicate" })).toHaveProperty("error");
   });
@@ -678,7 +683,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.failNextRequest = 400;
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     expect(h.wire.agents.size).toBe(0);
   });
 
@@ -708,7 +713,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.agents.delete((await h.state(id)).remoteId!);
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
-    expect(await h.wakes()).toHaveLength(1);
+    expect(await h.wakeNonces()).toHaveLength(1);
     const cancelled = await setup();
     const cancelledId = await cancelled.launch();
     await cancelled.poll(cancelledId);
@@ -760,7 +765,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       followupDispatchedAt: null,
       nextPollAt: null,
     });
-    expect(await h.wakes()).toHaveLength(2);
+    expect(await h.wakeNonces()).toHaveLength(2);
   });
 
   it("resends a follow-up the provider refused for its key or rate limit", async () => {
@@ -1029,7 +1034,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
         await poll(id);
         expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
         expect(t3.calls.at(-1)).toMatchObject({ tool: "t3_queue", args: { action: "cancel" } });
-        expect(await h.wakes()).toHaveLength(2);
+        expect(await h.wakeNonces()).toHaveLength(2);
       } finally {
         vi.useRealTimers();
       }
@@ -1114,7 +1119,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       t3.token = "revoked";
       await poll(id);
       expect(await h.state(id)).toMatchObject({ status: "expired", nextPollAt: null });
-      expect(await h.wakes()).toHaveLength(1);
+      expect(await h.wakeNonces()).toHaveLength(1);
       // The token is dropped, so MCP servers list it as needing a reconnect.
       expect((await forActor())!.key).toBe(h.connection.key);
       t3.token = T3_TOKEN;
@@ -1128,7 +1133,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       await poll(next);
       expect(await h.state(next)).toMatchObject({ status: "expired", nextPollAt: null });
       expect(t3.calls).toHaveLength(calls);
-      expect(await h.wakes()).toHaveLength(2);
+      expect(await h.wakeNonces()).toHaveLength(2);
     });
   });
 });

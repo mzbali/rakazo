@@ -15,12 +15,22 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
-import { attentionIds, attentionWakePrompt, createCloudAgentWake } from "./cloud-agent-poll.js";
+import {
+  attentionIds,
+  cloudAgentWakeNonceWhere,
+  createCloudAgentWake,
+  lockCloudAgentWakeThread,
+} from "./cloud-agent-poll.js";
 import {
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
   cloudAgentReportSchema,
 } from "./cloud-agent-tools.js";
+import {
+  attentionWakePrompt,
+  cloudAgentWakeNonces,
+  terminalWakePrompt,
+} from "./cloud-agent-wake-start.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
 
@@ -492,11 +502,12 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
     const base = `cloud-agent-wake-run:${agent.id}:${agent.generation}`;
     const nonce = agent.wakeAttempts === 1 ? base : `${base}:r${agent.wakeAttempts - 1}`;
     const last = await deps.prisma.run.findFirst({
-      where: { spaceId: agent.spaceId, clientNonce: nonce },
+      where: { spaceId: agent.spaceId, ...cloudAgentWakeNonceWhere(nonce) },
       select: { status: true },
     });
     if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
     const runId = await deps.prisma.$transaction(async (tx) => {
+      await lockCloudAgentWakeThread(tx, agent);
       const claimed = await tx.cloudAgent.updateMany({
         // The same finished piece: a continuation since then has its own wake and attempts.
         where: {
@@ -513,7 +524,7 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
       const [created] = await createCloudAgentWake(
         tx,
         agent,
-        `Cloud agent ${agent.id} is ${agent.status}. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+        terminalWakePrompt(agent),
         `${base}:r${agent.wakeAttempts}`,
       );
       return created;
@@ -541,8 +552,13 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
   // Retries already made and blockers no longer open are dropped here, before any per-wake work.
   const [made, agents] = await Promise.all([
     deps.prisma.run.findMany({
-      where: { clientNonce: { in: retries.map((retry) => retry.nonce) } },
-      select: { clientNonce: true },
+      where: {
+        OR: [
+          { clientNonce: { in: retries.map((retry) => retry.nonce) } },
+          { cloudAgentWakeNonces: { hasSome: retries.map((retry) => retry.nonce) } },
+        ],
+      },
+      select: { clientNonce: true, cloudAgentWakeNonces: true },
     }),
     deps.prisma.cloudAgent.findMany({
       where: {
@@ -552,7 +568,7 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
       },
     }),
   ]);
-  const madeNonces = new Set(made.map((run) => run.clientNonce));
+  const madeNonces = new Set(made.flatMap(cloudAgentWakeNonces));
   const byId = new Map(agents.map((agent) => [agent.id, agent]));
   for (const { agentId, requestId, nonce } of retries) {
     const agent = byId.get(agentId);
@@ -573,16 +589,20 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
  * Every wake run that failed within the retry window. Read in full, not a recent batch, since
  * failures already retried or past their last attempt would otherwise fill the batch each pass.
  */
-function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
-  return deps.prisma.run.findMany({
+async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
+  const runs = await deps.prisma.run.findMany({
     where: {
       trigger: "cloud_agent",
       status: "failed",
-      clientNonce: { startsWith: prefix },
       updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
     },
-    select: { clientNonce: true },
+    select: { clientNonce: true, cloudAgentWakeNonces: true },
   });
+  return runs.flatMap((run) =>
+    cloudAgentWakeNonces(run).flatMap((clientNonce) =>
+      clientNonce?.startsWith(prefix) ? [{ clientNonce }] : [],
+    ),
+  );
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */

@@ -472,8 +472,16 @@ export function jsonField(spec: unknown): ReturnType<typeof Type.String> {
   if (!("type" in definition)) return Type.Unknown(options) as never;
   const type = String(definition.type);
   if (type === "null") return Type.Null(options) as never;
-  if (type === "integer") return Type.Integer(options) as never;
-  if (type === "number") return Type.Number(options) as never;
+  if (type === "integer" || type === "number") {
+    const numericOptions = {
+      ...options,
+      ...(typeof definition.minimum === "number" ? { minimum: definition.minimum } : {}),
+      ...(typeof definition.maximum === "number" ? { maximum: definition.maximum } : {}),
+    };
+    return (
+      type === "integer" ? Type.Integer(numericOptions) : Type.Number(numericOptions)
+    ) as never;
+  }
   if (type === "boolean") return Type.Boolean(options) as never;
   if (type === "array") {
     const arrayOptions: FieldOptions & {
@@ -489,6 +497,7 @@ export function jsonField(spec: unknown): ReturnType<typeof Type.String> {
   if (type === "object") return jsonSchemaParameters(definition, options) as never;
   return Type.String({
     ...options,
+    ...(typeof definition.minLength === "number" ? { minLength: definition.minLength } : {}),
     ...(typeof definition.maxLength === "number" ? { maxLength: definition.maxLength } : {}),
   });
 }

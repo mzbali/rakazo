@@ -251,7 +251,15 @@ function openExternalLink(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function ExternalLinkAlert({ url, onDismiss }: { url: string; onDismiss: () => void }) {
+function ExternalLinkAlert({
+  url,
+  onDismiss,
+  portalContainer,
+}: {
+  url: string;
+  onDismiss: () => void;
+  portalContainer?: HTMLElement | null;
+}) {
   const copy = useMarkdownLinkCopy();
   const { trust } = useMarkdownLinkTrust();
   const site = trust ? markdownLinkSite(url) : undefined;
@@ -262,7 +270,7 @@ function ExternalLinkAlert({ url, onDismiss }: { url: string; onDismiss: () => v
         if (!open) onDismiss();
       }}
     >
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent portalContainer={portalContainer} className="sm:max-w-md">
         <AlertDialogHeader className="place-items-start text-left">
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>
           <AlertDialogDescription className="break-all text-left text-foreground">
@@ -298,18 +306,23 @@ function ExternalLinkAlert({ url, onDismiss }: { url: string; onDismiss: () => v
   );
 }
 
-function useExternalLinkConfirm() {
+function useExternalLinkConfirm(portalContainer?: HTMLElement | null) {
   const [url, setUrl] = useState<string | null>(null);
   const request = useCallback((destination: string) => {
     setUrl(destination);
   }, []);
-  const dialog = url ? <ExternalLinkAlert url={url} onDismiss={() => setUrl(null)} /> : null;
+  const dialog = url ? (
+    <ExternalLinkAlert url={url} onDismiss={() => setUrl(null)} portalContainer={portalContainer} />
+  ) : null;
   return { request, dialog };
 }
 
 /** Opens a link the way a chat link opens: through the prompt unless it is in-app or trusted. */
-export function useExternalLinkOpener(): { open: (url: string) => void; dialog: ReactNode } {
-  const { request, dialog } = useExternalLinkConfirm();
+export function useExternalLinkOpener(portalContainer?: HTMLElement | null): {
+  open: (url: string) => void;
+  dialog: ReactNode;
+} {
+  const { request, dialog } = useExternalLinkConfirm(portalContainer);
   const { sites } = useMarkdownLinkTrust();
   const open = useCallback(
     (url: string) => {

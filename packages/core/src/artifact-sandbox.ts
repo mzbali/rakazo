@@ -114,3 +114,19 @@ export function pageLinkRequest(data: unknown): string | null {
 export function pageCopyResult(id: string, ok: boolean) {
   return { type: "rakazo-page:copied", id, ok };
 }
+
+/**
+ * How a visual sits in the chat. One that fits works there: its controls take taps, and it opens
+ * whole only from its Expand button. A taller one (a report, a dashboard) shows its top as a
+ * preview that opens whole on a tap. `drawing` holds until it first reports its height.
+ */
+export type VisualFit = "drawing" | "inline" | "preview";
+
+/**
+ * The fit from the first height the visual reports, kept after that: a control that grows the
+ * visual while someone uses it must not turn it into a preview under their finger.
+ */
+export function visualFit(current: VisualFit, height: number, maxInline: number): VisualFit {
+  if (current !== "drawing" || !Number.isFinite(height) || height <= 0) return current;
+  return height <= maxInline ? "inline" : "preview";
+}

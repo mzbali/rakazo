@@ -1,6 +1,14 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   PAGE_GLOBALS,
@@ -69,7 +77,11 @@ const HOOKS: Record<(typeof PAGE_HOOKS)[number], unknown> = {
   useReducer,
 };
 
-/** The public viewer sizes its frame to the page, so the page scrolls and prints as a whole. */
+/**
+ * The public viewer sizes its frame to the page, so the page scrolls and prints as a whole.
+ * Called once the page is in the document: the empty body is a few dozen pixels tall, and a chat
+ * that keeps the first height would treat a tall page as if it fitted.
+ */
 function reportHeight() {
   const post = () =>
     window.parent?.postMessage(
@@ -86,17 +98,25 @@ function reportHeight() {
   new ResizeObserver(post).observe(document.body);
 }
 
+/** Starts measuring only after its children have been committed. */
+function Measured({ children }: { children: ReactNode }) {
+  useLayoutEffect(() => {
+    reportHeight();
+  }, []);
+  return children;
+}
+
 function mount(boot: PageBoot) {
   document.documentElement.dataset.theme = boot.theme === "light" ? "light" : "dark";
-  reportHeight();
   const host =
     document.getElementById("root") ?? document.body.appendChild(document.createElement("div"));
   const root = createRoot(host);
   let Page: ComponentType;
+  const show = (node: ReactNode) => root.render(<Measured>{node}</Measured>);
   try {
     Page = loadPage(boot.code);
   } catch (error) {
-    root.render(
+    show(
       <ErrorPanel
         title={boot.errorTitle}
         message={error instanceof Error ? error.message : String(error)}
@@ -104,7 +124,7 @@ function mount(boot: PageBoot) {
     );
     return;
   }
-  root.render(
+  show(
     <ErrorTitle.Provider value={boot.errorTitle}>
       <PageLanguage.Provider value={typeof boot.lang === "string" ? boot.lang : undefined}>
         <ErrorBoundary>

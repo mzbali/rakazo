@@ -9,7 +9,7 @@ import time
 import unittest
 
 
-# Shutdown runs every stub's Python startup again; shared CI runners can take several seconds.
+# Shutdown waits for every child and runs the stubbed pg_ctl again; a busy CI runner can take seconds.
 SHUTDOWN_SECONDS = 20
 
 STUB = r'''#!/usr/bin/env python3

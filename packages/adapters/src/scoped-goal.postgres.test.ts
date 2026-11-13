@@ -83,6 +83,8 @@ suite("durable scoped continuation", () => {
       const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
       const jobs: JobPublisher = {
         enqueue,
+        enqueueIn: async () => undefined,
+        cancelIn: async () => undefined,
         cancel: async () => undefined,
         close: async () => undefined,
       };

@@ -338,7 +338,12 @@ export function createRunReconciler(
       billingEnabled: deps.billingEnabled,
     }),
     reconcileCloudAgents: async () => {
-      await reconcileCloudAgents({ prisma, jobs, cloudAgent, userCloudAgents: deps.userCloudAgents });
+      await reconcileCloudAgents({
+        prisma,
+        jobs,
+        cloudAgent,
+        userCloudAgents: deps.userCloudAgents,
+      });
       if (cloudAgent) await reconcileScopedGoals({ prisma, jobs });
     },
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),

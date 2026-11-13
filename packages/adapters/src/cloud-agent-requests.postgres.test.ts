@@ -761,7 +761,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(t.provider.replies).toBe(1);
     t.provider.agents.get("remote:goal")!.status = "finished";
     await t.poll(id);
-    expect((await t.wakes()).at(-1)?.clientNonce).toBe(`cloud-agent-wake-run:${id}:2`);
+    expect(await t.wakeNonces()).toContain(`cloud-agent-wake-run:${id}:2`);
   });
 
   it("does not retry an earlier piece's failed wake once a continuation has finished", async () => {

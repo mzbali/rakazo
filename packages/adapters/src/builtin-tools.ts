@@ -1734,7 +1734,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "update_bot",
     description:
-      "Read or change your own settings. Call with no fields to read them and the models and thinking levels you can pick. Long instructions come in pages; follow instructionsNextOffset before replacing them. If a read comes back with contextTruncated, it was shortened: say so, do not rewrite. Pass fields to change them, only when the user asks; setting your name, description and first instructions when you have none is fine. Never claim a change without calling this.",
+      "Read or change your settings. Call with no fields to read them. Read every instructions page before replacing them. If contextTruncated, say so and do not rewrite. Change fields only when asked, except your initial name, description and instructions. Never claim a change without calling this.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1763,6 +1763,12 @@ export const builtinAgentTools: ConnectorTool[] = [
         },
         // Explained in the update_bot instructions; kept short for the listed-tool budget.
         dailyCheckIns: { type: "boolean" },
+        pinnedTools: {
+          type: "array",
+          items: { type: "string" },
+          maxItems: 12,
+          description: "Tool names to list directly.",
+        },
         notifyOnFinish: {
           type: "boolean",
           description: "Notify the user when this bot finishes a run.",

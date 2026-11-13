@@ -1006,6 +1006,7 @@ model Bot {
   modelId           String?
   thinkingLevel     String?
   disabledBuiltinTools String[] @default([])
+  pinnedTools String[] @default([])
   webhookSecretId   String?
   teamChatAmbientEnabled Boolean @default(false)
   teamChatRules          String  @default("")

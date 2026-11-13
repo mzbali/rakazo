@@ -893,6 +893,7 @@ class AccountImporter implements ArchiveSink {
       modelId: record.modelId,
       thinkingLevel: record.thinkingLevel,
       disabledBuiltinTools: record.disabledBuiltinTools,
+      pinnedTools: record.pinnedTools,
       seed: async (tx, botId) => {
         await tx.bot.update({
           where: { id: botId },

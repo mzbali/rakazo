@@ -162,6 +162,7 @@ async function* spaceRecords(
       modelId: bot.modelId,
       thinkingLevel: bot.thinkingLevel,
       disabledBuiltinTools: bot.disabledBuiltinTools,
+      pinnedTools: bot.pinnedTools,
       teamChatAmbientEnabled: bot.teamChatAmbientEnabled,
       teamChatRules: bot.teamChatRules,
       crossSpaceCommunication: bot.crossSpaceCommunication,

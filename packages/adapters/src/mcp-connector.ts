@@ -446,7 +446,10 @@ export class McpConnector implements ConnectorProvider {
     }
     if (tools.length <= DIRECT_TOOL_LIMIT) return tools;
     // Keep wrappers off "mcp_": see lazyCatalogTools.
-    return lazyCatalogTools(catalogToolPrefix("mcp"), "mcp", "MCP", catalogEntries(tools));
+    return [
+      ...tools.filter((tool) => !tool.unavailable && context.pinnedTools?.includes(tool.name)),
+      ...lazyCatalogTools(catalogToolPrefix("mcp"), "mcp", "MCP", catalogEntries(tools)),
+    ];
   }
 
   async resolveCall(

@@ -53,6 +53,7 @@ function sourceRecords(): AccountExportRecord[] {
       modelId: null,
       thinkingLevel: null,
       disabledBuiltinTools: ["browser"],
+      pinnedTools: ["cloud_agent_status"],
       teamChatAmbientEnabled: false,
       teamChatRules: "",
       crossSpaceCommunication: false,
@@ -82,6 +83,7 @@ function sourceRecords(): AccountExportRecord[] {
       modelId: null,
       thinkingLevel: null,
       disabledBuiltinTools: [],
+      pinnedTools: [],
       teamChatAmbientEnabled: false,
       teamChatRules: "",
       crossSpaceCommunication: false,
@@ -458,6 +460,7 @@ describePostgres("account import (PostgreSQL)", () => {
     expect(child.dailyCheckIns).toBe(false);
     expect(parent.dailyCheckIns).toBe(false);
     expect(child.disabledBuiltinTools).toEqual(["browser"]);
+    expect(child.pinnedTools).toEqual(["cloud_agent_status"]);
     const section = await system.botSection.findFirstOrThrow({ where: { spaceId } });
     expect(child.sectionId).toBe(section.id);
     expect(child.computer).not.toBeNull();

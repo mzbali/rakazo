@@ -817,6 +817,7 @@ export async function updateChildBot(
   }
   const profile = {
     dailyCheckIns: argumentGiven(args.dailyCheckIns) ? args.dailyCheckIns : undefined,
+    pinnedTools: argumentGiven(args.pinnedTools) ? args.pinnedTools : undefined,
     name: argumentGiven(args.name) ? args.name : undefined,
     description: argumentGiven(args.description) ? args.description : undefined,
     notifyOnFinish: argumentGiven(args.notifyOnFinish)
@@ -1368,6 +1369,7 @@ export async function updateOwnBotFromTool(
       color: true,
       notifyOnFinish: true,
       dailyCheckIns: true,
+      pinnedTools: true,
     },
   });
   try {
@@ -1394,5 +1396,6 @@ export async function updateOwnBotFromTool(
     avatar: updated.color.startsWith("data:image/") ? "image" : updated.color,
     notifyOnFinish: updated.notifyOnFinish,
     dailyCheckIns: updated.dailyCheckIns,
+    pinnedTools: updated.pinnedTools,
   };
 }

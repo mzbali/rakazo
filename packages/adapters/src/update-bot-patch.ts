@@ -6,6 +6,7 @@ export type UpdateBotPatch = {
   color?: string;
   notifyOnFinish?: boolean;
   dailyCheckIns?: boolean;
+  pinnedTools?: string[];
 };
 
 function hasUpdateBotAvatarArgs(args: Record<string, unknown>): boolean {
@@ -18,6 +19,17 @@ export function parseUpdateBotPatch(
   args: Record<string, unknown>,
 ): { error: string } | { patch: UpdateBotPatch } {
   const patch: UpdateBotPatch = {};
+  if (args.pinnedTools !== undefined) {
+    if (
+      !Array.isArray(args.pinnedTools) ||
+      args.pinnedTools.length > 12 ||
+      args.pinnedTools.some(
+        (name) => typeof name !== "string" || !name.trim() || name.trim().length > 200,
+      )
+    )
+      return { error: "pinnedTools must contain at most 12 tool names." };
+    patch.pinnedTools = [...new Set(args.pinnedTools.map((name: string) => name.trim()))];
+  }
   if (args.name !== undefined) patch.name = String(args.name);
   if (args.description !== undefined) patch.description = String(args.description);
   if (args.dailyCheckIns !== undefined) {
@@ -64,6 +76,7 @@ export type OwnBotCurrentValues = {
   color: string;
   notifyOnFinish: boolean;
   dailyCheckIns: boolean;
+  pinnedTools?: string[];
   thinkingLevel: string | null;
   autoSpeak: boolean;
   voiceId: string | null;
@@ -90,6 +103,7 @@ export function dropUnchangedOwnBotArgs(
     notifyOnFinish: [current.notifyOnFinish],
     notify_on_finish: [current.notifyOnFinish],
     dailyCheckIns: [current.dailyCheckIns],
+    pinnedTools: [current.pinnedTools ?? []],
     model: currentModelNames.map((name) => name.toLowerCase()),
     thinkingLevel: current.thinkingLevel
       ? [current.thinkingLevel]
@@ -114,7 +128,11 @@ export function dropUnchangedOwnBotArgs(
           ? value.trim().toLowerCase()
           : value.trim();
     const repeated = values.some((known) =>
-      typeof known === "string" ? known.trim() === compared : known === compared,
+      Array.isArray(known) && Array.isArray(compared)
+        ? JSON.stringify(known) === JSON.stringify(compared)
+        : typeof known === "string"
+          ? known.trim() === compared
+          : known === compared,
     );
     if (!repeated) kept[key] = value;
   }

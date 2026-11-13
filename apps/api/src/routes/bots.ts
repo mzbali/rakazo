@@ -523,6 +523,7 @@ export function botsRoutes(ctx: RouterContext) {
             modelId: source.modelId,
             thinkingLevel: source.thinkingLevel,
             disabledBuiltinTools: source.disabledBuiltinTools,
+            pinnedTools: source.pinnedTools,
             replyMode: source.replyMode,
           })
           .catch((error: unknown) => {
@@ -629,6 +630,7 @@ export function botsRoutes(ctx: RouterContext) {
               ? { fleetManagement: input.fleetManagement }
               : {}),
             ...(input.replyMode !== undefined ? { replyMode: input.replyMode } : {}),
+            ...(input.pinnedTools !== undefined ? { pinnedTools: input.pinnedTools } : {}),
             ...(input.disabledBuiltinTools !== undefined
               ? { disabledBuiltinTools: input.disabledBuiltinTools }
               : {}),

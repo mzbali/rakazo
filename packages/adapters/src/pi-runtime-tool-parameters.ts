@@ -115,6 +115,12 @@ function builtinParameters(tool: ConnectorTool) {
       use_attached_image: Type.Optional(Type.Boolean()),
       notifyOnFinish: Type.Optional(Type.Boolean()),
       dailyCheckIns: Type.Optional(Type.Boolean()),
+      pinnedTools: Type.Optional(
+        Type.Array(Type.String({ minLength: 1, maxLength: 200 }), {
+          maxItems: 12,
+          description: "Tool names to list directly.",
+        }),
+      ),
       model: Type.Optional(Type.String()),
       thinkingLevel: Type.Optional(stringEnum(ThinkingLevelSchema.options, {})),
       readAloud: Type.Optional(Type.Boolean()),
@@ -380,6 +386,8 @@ export function prepareFleetArguments(
     if (argumentGiven(raw[key])) out[key] = raw[key];
   }
   if (argumentGiven(raw.dailyCheckIns)) out.dailyCheckIns = raw.dailyCheckIns;
+  if (toolName === "update_bot" && Array.isArray(raw.pinnedTools))
+    out.pinnedTools = raw.pinnedTools;
   const notify = raw.notifyOnFinish ?? raw.notify_on_finish;
   if (argumentGiven(notify)) out.notifyOnFinish = notify;
   // The read pager's offset is a number; the handler validates it.

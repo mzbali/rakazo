@@ -60,6 +60,7 @@ const botRecord = (id: string): Extract<AccountExportRecord, { type: "bot" }> =>
   modelId: null,
   thinkingLevel: null,
   disabledBuiltinTools: [],
+  pinnedTools: [],
   teamChatAmbientEnabled: false,
   teamChatRules: "",
   crossSpaceCommunication: false,

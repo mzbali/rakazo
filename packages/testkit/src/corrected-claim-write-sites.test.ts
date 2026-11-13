@@ -31,11 +31,13 @@ const WRITERS: Record<string, string> = {
   "packages/adapters/src/child-bots.ts":
     "exempt: archiving a bot moves its saved memory to the space (raw SQL); spawnBot is checked",
   "packages/testkit/src/cli/ios-screenshot-seed.ts": "exempt: screenshot fixture",
+  "packages/db/src/bootstrap-user.ts": "exempt: a fixed starter space memory for a new user",
 };
 
 const WRITES = [
-  /\b(?:agentSkill|memoryDocument)\.(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\b/,
-  /\bbot\.(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\(\s*\{[\s\S]{0,1500}?\binstructions\b/,
+  // Whitespace and line breaks around the dot and before the call, as the formatter writes them.
+  /\b(?:agentSkill|memoryDocument)\s*\??\.\s*(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\b/,
+  /\bbot\s*\??\.\s*(?:create|createMany|createManyAndReturn|update|updateMany|upsert)\s*\(\s*\{[\s\S]{0,1500}?\binstructions\b/,
   /\$(?:executeRaw|queryRaw)(?:Unsafe)?[\s\S]{0,200}?\b(?:UPDATE|INSERT INTO)\s+"?(?:bots|agent_skills|memory_documents)\b/i,
 ];
 
@@ -59,10 +61,10 @@ const CALLERS: Record<string, string> = {
 };
 
 const CALLS = [
-  /\bmemory\s*\??\.\s*commit\(/,
-  /\??\.\s*createBot\(/,
+  /\bmemory\s*\??\.\s*commit\s*\(/,
+  /\??\.\s*createBot\s*\(/,
   // Semantic memory: what a bot saves here is recalled into later prompts.
-  /\b(?:semantic|provider)\s*!?\??\.\s*save\(/,
+  /\b(?:semantic|provider)\s*!?\s*\??\s*\.\s*save\s*\(/,
 ];
 
 function sourceFiles(dir: string): string[] {
@@ -111,6 +113,25 @@ describe("corrected-claim write sites", () => {
 
   it("lists no caller that stopped calling them", () => {
     expect(Object.keys(CALLERS).filter((file) => !calling.includes(file))).toEqual([]);
+  });
+});
+
+describe("write-site patterns", () => {
+  const writes = (text: string) => WRITES.some((pattern) => pattern.test(text));
+  const calls = (text: string) => CALLS.some((pattern) => pattern.test(text));
+
+  it("see writers and callers the formatter split across lines", () => {
+    expect(writes("await tx.agentSkill\n  .create({ data })")).toBe(true);
+    expect(writes("tx.memoryDocument\n    .update({ where, data })")).toBe(true);
+    expect(writes("tx.bot\n  .update({\n    where,\n    data: { instructions },\n  })")).toBe(true);
+    expect(calls("await deps.memory\n  .commit({ scope })")).toBe(true);
+    expect(calls("repos\n  .createBot(actor, input)")).toBe(true);
+    expect(calls("ctx.memory.semantic!\n  .save({ content })")).toBe(true);
+  });
+
+  it("ignore reads and bot writes that leave instructions alone", () => {
+    expect(writes("tx.agentSkill.findMany({ where })")).toBe(false);
+    expect(writes("tx.bot.update({ where, data: { name } })")).toBe(false);
   });
 });
 

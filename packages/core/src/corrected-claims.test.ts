@@ -28,7 +28,7 @@ describe("corrected claims", () => {
 
   it("sees a phrase wrapped across lines and dressed in markdown", () => {
     expect(hits("A continuation does\n  not wake on\ncompletion.")).toBe(true);
-    expect(hits("It **does not forward** _those_ `fields`.")).toBe(true);
+    expect(hits("`cloud_agent_launch` **does not forward** _those_ `fields`.")).toBe(true);
   });
 
   it("sees curly apostrophes and capitals", () => {

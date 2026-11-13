@@ -39,6 +39,7 @@ import {
   pipedreamConfigFromEnv,
 } from "./pipedream-connector.js";
 import { reconcilePurchases } from "./purchase-poll.js";
+import { reconcileScopedGoals } from "./scoped-goal-service.js";
 import { createStrategicInitiativeReconciler } from "./strategic-initiative.js";
 import { T3CodeConnections } from "./t3code-connections.js";
 import { TeamChat } from "./team-chat.js";
@@ -336,8 +337,15 @@ export function createRunReconciler(
       jobs,
       billingEnabled: deps.billingEnabled,
     }),
-    reconcileCloudAgents: () =>
-      reconcileCloudAgents({ prisma, jobs, cloudAgent, userCloudAgents: deps.userCloudAgents }),
+    reconcileCloudAgents: async () => {
+      await reconcileCloudAgents({
+        prisma,
+        jobs,
+        cloudAgent,
+        userCloudAgents: deps.userCloudAgents,
+      });
+      if (cloudAgent) await reconcileScopedGoals({ prisma, jobs });
+    },
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
     reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs }),

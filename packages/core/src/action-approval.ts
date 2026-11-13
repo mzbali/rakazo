@@ -55,6 +55,7 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "request_takeover",
   "run_subagent",
   "schedule_list",
+  "scoped_goal_status",
   "scratchpad_list",
   "search_history",
   "service_search",
@@ -87,6 +88,8 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "send_email",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
+  "scoped_goal_authorize",
+  "scoped_goal_control",
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
   "respond_agent_connection",

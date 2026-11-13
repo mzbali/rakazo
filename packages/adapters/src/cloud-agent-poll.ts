@@ -29,6 +29,7 @@ import {
   cloudAgentWakeNonces,
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
+import { goalDrivesAgent, reconcileScopedGoals } from "./scoped-goal-service.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
@@ -186,6 +187,24 @@ export async function pollCloudAgent(
           snapshot.missedAttention,
         );
       } else {
+        const { goalRunId, ...followup } = agent.followup as { goalRunId?: string };
+        const goal = goalRunId
+          ? await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })
+          : null;
+        if (goalRunId && (!goalDrivesAgent(goal) || goal?.activeRunId !== goalRunId)) {
+          const snapshot = await provider.get(
+            agent.remoteId,
+            context,
+            undefined,
+            agent.remoteCursor ?? undefined,
+          );
+          await finishPoll(deps, agent, {
+            ...snapshotData(snapshot),
+            followup: Prisma.DbNull,
+            followupDispatchedAt: null,
+          });
+          return;
+        }
         const marked = await deps.prisma.cloudAgent.updateMany({
           where: fence(agent),
           data: { followupDispatchedAt: new Date() },
@@ -196,7 +215,7 @@ export async function pollCloudAgent(
           const snapshot = await provider.reply(
             agent.remoteId,
             {
-              ...cloudAgentPromptSchema.parse(agent.followup),
+              ...cloudAgentPromptSchema.parse(followup),
               ...(question
                 ? { questionId: question.requestId, questionThreadId: question.threadId }
                 : {}),
@@ -406,7 +425,9 @@ async function finishPoll(
         });
         seq = event.seq;
       }
-      if (terminal && saved.wakeGeneration < saved.generation) {
+      // A live goal starts its own supervisory turn; otherwise the owner hears as usual.
+      const goal = await tx.scopedGoal.findUnique({ where: { agentId: agent.id } });
+      if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
         wakeRunIds.push(
           ...(await createCloudAgentWake(
@@ -463,6 +484,7 @@ async function finishPoll(
     });
   }
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
+  else await reconcileScopedGoals(deps);
 }
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];

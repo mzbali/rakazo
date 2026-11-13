@@ -1525,6 +1525,8 @@ model ExternalEffect {
   /// `kind`. Empty when an entry names no action; null for any other tool.
   batchActions   Json?
   result         Json?
+  approvedByUserId String?
+  approvedAt DateTime?
   reviewDecision String?
   reviewReason   String?
   reviewModel    String?
@@ -2858,4 +2860,49 @@ model CapabilityInstallSpace {
   @@id([installId, spaceId])
   @@index([spaceId, userId])
   @@map("capability_install_spaces")
+}
+
+/// Durable owner-authorized work; remote execution remains in CloudAgent/Run.
+model ScopedGoal {
+  id String @id @default(cuid())
+  spaceId String
+  userId String
+  botId String
+  threadId String
+  agentId String @unique
+  approvalEffectId String @unique
+  ownerSeenAt DateTime @default(now())
+  controlEpoch Int @default(0)
+  activeEpoch Int @default(0)
+  sourceMessageId String?
+  approval Json
+  scope Json
+  status String @default("active")
+  gate String
+  version Int @default(0)
+  attempt Int @default(0)
+  noProgress Int @default(0)
+  activeRunId String?
+  nextAttemptAt DateTime? @default(now())
+  blocker Json?
+  evidence Json @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transitions ScopedGoalTransition[]
+  @@index([status, nextAttemptAt])
+  @@index([spaceId, userId, botId])
+  @@map("scoped_goals")
+}
+
+model ScopedGoalTransition {
+  id String @id @default(cuid())
+  goalId String
+  goal ScopedGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  spaceId String
+  userId String
+  version Int
+  detail Json
+  createdAt DateTime @default(now())
+  @@index([goalId, createdAt])
+  @@map("scoped_goal_transitions")
 }

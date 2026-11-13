@@ -35,6 +35,7 @@ import {
   userComputerShell,
 } from "./run-tools-user-computer.js";
 import { visualTools } from "./run-tools-visuals.js";
+import { scopedGoalTool } from "./scoped-goal-service.js";
 import { strategicInitiativeToolAllowed } from "./strategic-initiative.js";
 import { logToolRefusal } from "./tool-completion-audit.js";
 import { refusal } from "./tool-refusal.js";
@@ -62,6 +63,22 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
 ]);
 
 function toolHandler(name: string): ToolHandler {
+  if (name.startsWith("scoped_goal_"))
+    return async (ctx, call) =>
+      call.finish(
+        await scopedGoalTool(
+          ctx.deps,
+          {
+            spaceId: ctx.run.spaceId,
+            userId: ctx.run.userId,
+            botId: ctx.bot.id,
+            threadId: ctx.thread.id,
+          },
+          call.name,
+          call.args,
+          call.effectKey,
+        ),
+      );
   return (
     TOOL_HANDLERS.get(name) ?? (name.startsWith("cloud_agent_") ? cloudAgentTool : connectorTool)
   );

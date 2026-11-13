@@ -61,6 +61,9 @@ export function memoryRoutes(ctx: RouterContext) {
           },
         });
         if (!doc) throw new IsolationError();
+        if (input.expectedRevision !== undefined && input.expectedRevision !== doc.revision) {
+          throw new ORPCError("CONFLICT", { message: MEMORY_REVISION_CONFLICT_ERROR });
+        }
         await assertNoAddedClaimsOrBadRequest(doc.content, input.content);
         const updated = await deps.memory
           .commit(
@@ -69,7 +72,7 @@ export function memoryRoutes(ctx: RouterContext) {
               botId: doc.botId ?? undefined,
               path: doc.path,
               content: input.content,
-              expectedRevision: input.expectedRevision,
+              expectedRevision: doc.revision,
             },
             {
               operationId: "mem",

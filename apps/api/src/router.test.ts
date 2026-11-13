@@ -10456,7 +10456,14 @@ describe("manual memory edits", () => {
   } satisfies Actor;
 
   function memoryClient() {
-    const doc = { id: "doc-1", scope: "bot", botId: "bot-1", path: "notes.md", content: "Old" };
+    const doc = {
+      id: "doc-1",
+      scope: "bot",
+      botId: "bot-1",
+      path: "notes.md",
+      content: "Old",
+      revision: 1,
+    };
     const commit = vi.fn(async (input: { content: string }) => ({
       id: doc.id,
       path: doc.path,
@@ -10468,7 +10475,7 @@ describe("manual memory edits", () => {
       memory: { commit },
     } as unknown as RouterDeps;
     const client = createRouterClient(createRouter(deps), { context: { actor } as never });
-    return { client, commit };
+    return { client, commit, doc };
   }
 
   it("refuses an edit the fact checker rejects and saves nothing", async () => {
@@ -10491,5 +10498,24 @@ describe("manual memory edits", () => {
       client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 1 }),
     ).resolves.toMatchObject({ content: "New" });
     expect(commit).toHaveBeenCalledOnce();
+  });
+  it("binds omitted revisions to the assessed snapshot", async () => {
+    configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Scripted" }));
+    const { client, commit } = memoryClient();
+    await client.memory.update({ documentId: "doc-1", content: "New" });
+    expect(commit).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedRevision: 1 }),
+      expect.anything(),
+    );
+  });
+  it("refuses a caller revision that differs from the assessed snapshot", async () => {
+    const judge = vi.fn(async () => ({ status: "accepted" as const, reason: "Scripted" }));
+    configureCorrectedClaimJudge(judge);
+    const { client, commit } = memoryClient();
+    await expect(
+      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 2 }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(judge).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
   });
 });

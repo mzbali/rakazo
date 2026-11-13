@@ -4,6 +4,7 @@ import type {
   CloudAgentHandle,
   CloudAgentLaunchRequest,
   CloudAgentProvider,
+  CloudAgentPullRequest,
   CloudAgentReplyRequest,
   CloudAgentSnapshot,
   CloudAgentStatus,
@@ -78,6 +79,21 @@ const launchSchema = z.object({
 });
 const threadReadSchema = z.object({
   thread: z.object({ model: z.string().optional(), providerInstanceId: z.string().optional() }),
+});
+const pullRequestsSchema = z.object({
+  thread: z.object({
+    pullRequests: z
+      .array(
+        z.object({
+          url: z.string(),
+          number: z.number(),
+          repository: z.string(),
+          state: z.string(),
+          mergeCommitSha: z.string().nullish(),
+        }),
+      )
+      .default([]),
+  }),
 });
 const listSchema = z.object({
   threads: z.array(
@@ -451,6 +467,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     const snapshot = await this.peek(id, context);
     return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
+  }
+
+  async pullRequests(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]> {
+    const { thread } = pullRequestsSchema.parse(
+      await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
+    );
+    return thread.pullRequests.map(({ mergeCommitSha, state, ...pr }) => ({
+      ...pr,
+      state: state === "merged" || state === "closed" ? state : "open",
+      ...(mergeCommitSha ? { mergeCommitSha } : {}),
+    }));
   }
 
   /** One read of the new thread for the model and instance it runs on. */

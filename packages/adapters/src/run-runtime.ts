@@ -344,7 +344,13 @@ export function createRunReconciler(
         cloudAgent,
         userCloudAgents: deps.userCloudAgents,
       });
-      if (cloudAgent) await reconcileScopedGoals({ prisma, jobs });
+      if (cloudAgent)
+        await reconcileScopedGoals({
+          prisma,
+          jobs,
+          cloudAgent,
+          userCloudAgents: deps.userCloudAgents,
+        });
     },
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
     reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),

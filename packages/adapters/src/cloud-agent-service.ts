@@ -1,7 +1,7 @@
 import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
-import type { CloudAgent, PrismaClient, ThreadEvents } from "@rakazo/db";
+import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
@@ -33,7 +33,7 @@ import {
 } from "./cloud-agent-wake-start.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
-import { goalDrivesAgent, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
+import { goalDrivesAgent, missingGoalEvidence, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
 
 export interface CloudAgentDeps {
   prisma: PrismaClient;
@@ -255,28 +255,7 @@ export async function executeCloudAgentTool(
       const followup = run.clientNonce?.startsWith(SCOPED_GOAL_NONCE)
         ? { ...prompt, goalRunId: run.id }
         : prompt;
-      const current = agent;
-      const updated = await deps.prisma.$transaction(async (tx) => {
-        // A follow-up restarts finished work, so it takes a slot like a launch; an answer keeps its own.
-        await lockBotSlots(tx, current.botId);
-        const queued =
-          !blocked &&
-          (await activeCloudAgentCount(tx, current.providerKey, current.botId)) >=
-            CLOUD_AGENT_ACTIVE_LIMIT;
-        return tx.cloudAgent.updateMany({
-          where: { id: current.id, version: current.version },
-          data: {
-            followup,
-            followupDispatchedAt: null,
-            status: "running",
-            // An answer continues the same piece of work; a follow-up starts the next one.
-            ...(blocked ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
-            version: { increment: 1 },
-            ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
-            errorCount: 0,
-          },
-        });
-      });
+      const updated = await queueCloudAgentFollowup(deps.prisma, agent, followup, blocked);
       if (!updated.count) return { error: "Cloud agent changed; check its status and try again." };
     } else if (name === "cloud_agent_cancel") {
       await deps.prisma.cloudAgent.update({
@@ -288,6 +267,38 @@ export async function executeCloudAgentTool(
   }
   if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
   return { ...cloudAgentStatusResult(agent), ...(clampNote ? { note: clampNote } : {}) };
+}
+
+/**
+ * Queues a message for the agent's next poll to send. A follow-up restarts finished work, so it
+ * takes a slot like a launch; an answer to an open question keeps its own. The caller enqueues
+ * the poll when `count` is 1.
+ */
+export async function queueCloudAgentFollowup(
+  prisma: PrismaClient,
+  agent: CloudAgent,
+  followup: Prisma.InputJsonValue,
+  answer = false,
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockBotSlots(tx, agent.botId);
+    const queued =
+      !answer &&
+      (await activeCloudAgentCount(tx, agent.providerKey, agent.botId)) >= CLOUD_AGENT_ACTIVE_LIMIT;
+    return tx.cloudAgent.updateMany({
+      where: { id: agent.id, version: agent.version },
+      data: {
+        followup,
+        followupDispatchedAt: null,
+        status: "running",
+        // An answer continues the same piece of work; a follow-up starts the next one.
+        ...(answer ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+        version: { increment: 1 },
+        ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
+        errorCount: 0,
+      },
+    });
+  });
 }
 
 /**
@@ -747,6 +758,13 @@ export async function reportCloudAgent(
   });
   if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
   if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
+  // Done means the evidence says so, not the agent's or the bot's word.
+  const missing =
+    report.verdict === "accepted" && (await missingGoalEvidence(deps.prisma, agent.id));
+  if (missing)
+    return {
+      error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
+    };
   // One verdict per piece of work, so the asking bot never holds a different one than the record.
   // A follow-up accepted meanwhile starts new work, which this verdict is not about.
   const recorded = await deps.prisma.cloudAgent.updateMany({

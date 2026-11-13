@@ -190,11 +190,21 @@ export async function pollCloudAgent(
           snapshot.missedAttention,
         );
       } else {
-        const { goalRunId, ...followup } = agent.followup as { goalRunId?: string };
-        const goal = goalRunId
-          ? await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })
-          : null;
-        if (goalRunId && (!goalDrivesAgent(goal) || goal?.activeRunId !== goalRunId)) {
+        // A goal's follow-up is dropped if the owner stops the goal first: a continuation's also
+        // if that continuation was superseded (`goalRunId`), the reconciler's own (`goalGate`)
+        // once its goal no longer drives the agent.
+        const { goalRunId, goalGate, ...followup } = agent.followup as {
+          goalRunId?: string;
+          goalGate?: string;
+        };
+        const goal =
+          goalRunId || goalGate
+            ? await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })
+            : null;
+        if (
+          (goalRunId || goalGate) &&
+          (!goalDrivesAgent(goal) || (goalRunId && goal?.activeRunId !== goalRunId))
+        ) {
           const snapshot = await provider.get(
             agent.remoteId,
             context,
@@ -489,6 +499,9 @@ async function finishPoll(
       }
       // A live goal starts its own supervisory turn; otherwise the owner hears as usual.
       const goal = await tx.scopedGoal.findUnique({ where: { agentId: agent.id } });
+      // The agent stopping is when its goal's gates are worth observing.
+      if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt)
+        await tx.scopedGoal.update({ where: { id: goal.id }, data: { nextAttemptAt: new Date() } });
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
         wakeRunIds.push(

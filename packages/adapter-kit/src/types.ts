@@ -1537,6 +1537,15 @@ export interface CloudAgentSnapshot {
   historyGap?: boolean;
 }
 
+export interface CloudAgentPullRequest {
+  url: string;
+  number: number;
+  repository: string;
+  state: "open" | "merged" | "closed";
+  /** Only when the provider reports it; observers may look it up elsewhere. */
+  mergeCommitSha?: string;
+}
+
 export interface CloudAgentAttention {
   requestId: string;
   kind: "question" | "approval";

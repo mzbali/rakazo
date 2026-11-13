@@ -9,9 +9,34 @@ import {
   Prisma as DbPrisma,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
 import { createCloudAgentWake } from "./cloud-agent-poll.js";
+import {
+  cloudAgentFor,
+  enqueueCloudAgent,
+  queueCloudAgentFollowup,
+} from "./cloud-agent-service.js";
+import type { ObservedResult, ObserverEgress } from "./scoped-goal-observers.js";
+import { isCodeObserver, observe } from "./scoped-goal-observers.js";
 
-type Deps = { prisma: PrismaClient; jobs: JobPublisher };
+type Deps = {
+  prisma: PrismaClient;
+  jobs: JobPublisher;
+  /** What the reconciler reads the managed thread through; without it only reported evidence counts. */
+  cloudAgent?: CloudAgentConnection | null;
+  userCloudAgents?: UserCloudAgents;
+  /** Outbound fetch seams for the built-in observations; tests inject them. */
+  egress?: ObserverEgress;
+};
+/** A requirement's recorded observation: reported by the bot (`effectId`) or run by the reconciler. */
+type Evidence = {
+  requirementId: string;
+  effectId?: string;
+  source?: "code";
+  observedAt?: string;
+  result?: ObservedResult;
+};
+type Requirement = ScopedGoalScope["requirements"][number];
 type Owner = { spaceId: string; userId: string; botId: string; threadId: string };
 type Tx = Prisma.TransactionClient;
 const TERMINAL = new Set(["completed", "failed", "cancelled"]);
@@ -44,6 +69,125 @@ export function observationMatches(
     }
     return value === equals;
   });
+}
+
+const evidenceOf = (goal: ScopedGoal) =>
+  Array.isArray(goal.evidence) ? (goal.evidence as Evidence[]) : [];
+
+/** Each recorded requirement's result: kept with a code observation, the effect's when reported. */
+async function evidenceResults(db: Pick<Tx, "externalEffect">, evidence: readonly Evidence[]) {
+  const results = new Map<string, ObservedResult>();
+  const reported = new Map<string, string>();
+  for (const e of evidence) {
+    if (e.result) results.set(e.requirementId, e.result);
+    else if (e.effectId) reported.set(e.effectId, e.requirementId);
+  }
+  if (reported.size) {
+    const effects = await db.externalEffect.findMany({
+      where: { id: { in: [...reported.keys()] } },
+      select: { id: true, result: true },
+    });
+    for (const { id, result } of effects)
+      if (result && typeof result === "object" && !Array.isArray(result))
+        results.set(reported.get(id)!, result as ObservedResult);
+  }
+  return results;
+}
+
+/** The commit the merge evidence names, when it names one. */
+function mergedSha(scope: ScopedGoalScope, results: ReadonlyMap<string, ObservedResult>) {
+  for (const r of scope.requirements) {
+    const sha = r.gate === "merge" ? results.get(r.id)?.mergeCommitSha : undefined;
+    if (typeof sha === "string") return sha;
+  }
+}
+
+const sameRevision = (a: string, b: string) => {
+  const [x, y] = [a.toLowerCase(), b.toLowerCase()];
+  return Math.min(x.length, y.length) >= 7 && (x.startsWith(y) || y.startsWith(x));
+};
+
+/** A deploy observation has to name the commit that was merged. */
+function revisionProblem(
+  requirement: Requirement,
+  result: ObservedResult,
+  sha: string | undefined,
+) {
+  if (requirement.gate !== "deploy" || !sha) return undefined;
+  const revision = typeof result.revision === "string" ? result.revision : undefined;
+  if (!revision) return `Deploy evidence names no revision; the merged commit is ${sha}.`;
+  if (!sameRevision(revision, sha))
+    return `Deployed revision ${revision} is not the merged commit ${sha}.`;
+}
+
+/** Without a merged commit, deploy passes in code only on a revision the owner approved. */
+const pinsRevision = (r: Requirement) =>
+  r.revisionCheck || r.assertions.some((a) => a.path.length === 1 && a.path[0] === "revision");
+
+/** The evidence a live goal still lacks, for refusing a "done" the evidence does not back. */
+export async function missingGoalEvidence(prisma: PrismaClient, agentId: string) {
+  const goal = await prisma.scopedGoal.findUnique({ where: { agentId } });
+  if (!goal || !["active", "waiting"].includes(goal.status)) return undefined;
+  const have = new Set(evidenceOf(goal).map((e) => e.requirementId));
+  return ScopedGoalScope.parse(goal.scope)
+    .requirements.filter((r) => !have.has(r.id))
+    .map((r) => `${r.id} (${r.gate})`);
+}
+
+/** One notice in the owner's chat; the nonce keeps a retried transaction from saying it twice. */
+async function notifyOwner(tx: Tx, goal: ScopedGoal, text: string, clientNonce: string) {
+  const blocks = [{ kind: "text" as const, text }];
+  const message = await createThreadMessageInTransaction(tx, {
+    threadId: goal.threadId,
+    botId: goal.botId,
+    role: "bot",
+    blocks,
+    clientNonce,
+  });
+  await appendEventInTransaction(tx, {
+    spaceId: goal.spaceId,
+    threadId: goal.threadId,
+    botId: goal.botId,
+    type: "thread.message.created",
+    payload: { messageId: message.id, role: "bot", blocks },
+  });
+  // The notice is the owner's one word on it, so the agent's own finish wakes no run.
+  const agent = await tx.cloudAgent.findUnique({
+    where: { id: goal.agentId },
+    select: { generation: true },
+  });
+  if (agent)
+    await tx.cloudAgent.update({
+      where: { id: goal.agentId },
+      data: { wakeGeneration: agent.generation },
+    });
+}
+
+async function notifyCompleted(
+  tx: Tx,
+  goal: ScopedGoal,
+  scope: ScopedGoalScope,
+  evidence: readonly Evidence[],
+) {
+  const results = await evidenceResults(tx, evidence);
+  const parts = scope.requirements.flatMap((r) => {
+    const result = results.get(r.id);
+    if (!result) return [];
+    const text = (key: string) => (typeof result[key] === "string" ? (result[key] as string) : "");
+    if (r.gate === "merge" && text("url"))
+      return [
+        `PR ${text("url")} merged${text("mergeCommitSha") ? ` at ${text("mergeCommitSha")}` : ""}`,
+      ];
+    if (r.gate === "deploy" && text("revision")) return [`deployed revision ${text("revision")}`];
+    if (r.gate === "health" && result.status !== undefined) return [`live check ${result.status}`];
+    return [];
+  });
+  await notifyOwner(
+    tx,
+    goal,
+    `The release goal is complete${parts.length ? `: ${parts.join("; ")}` : ""}.`,
+    `scoped-goal-completed:${goal.id}:${goal.approvalEffectId}`,
+  );
 }
 
 async function transition(
@@ -223,11 +367,11 @@ export async function scopedGoalTool(
     )
       throw new Error("Goal changed or stopped.");
     const scope = ScopedGoalScope.parse(goal.scope);
-    const evidence = Array.isArray(goal.evidence)
-      ? ([...goal.evidence] as Array<{ requirementId: string; effectId: string }>)
-      : [];
-    if (input.observations.length) {
-      const guard = scope.requirements.find((r) => r.revisionCheck)!;
+    const evidence = [...evidenceOf(goal)];
+    const added: Requirement[] = [];
+    const guard = scope.requirements.find((r) => r.revisionCheck)!;
+    // A revision the reconciler observes itself needs no re-read from the bot.
+    if (input.observations.length && !isCodeObserver(guard.tool)) {
       const observation = input.observations.find((o) => o.requirementId === guard.id);
       if (!observation || !goal.activeRunId)
         throw new Error(
@@ -266,18 +410,35 @@ export async function scopedGoalTool(
         !observationMatches(requirement, effect.result)
       )
         throw new Error("Recorded observation does not satisfy the approved evidence contract.");
-      if (!evidence.some((e) => e.requirementId === observation.requirementId))
+      if (!evidence.some((e) => e.requirementId === observation.requirementId)) {
         evidence.push(observation);
+        added.push(requirement);
+      }
     }
+    // A deploy that is not the merged commit fails its gate instead of counting.
+    const results = await evidenceResults(tx, evidence);
+    const sha = mergedSha(scope, results);
+    const refused = added.flatMap((r) => {
+      const reason = revisionProblem(r, results.get(r.id) ?? {}, sha);
+      return reason ? [{ id: r.id, reason }] : [];
+    });
+    const problem = refused[0]?.reason;
+    if (refused.length)
+      evidence.splice(
+        0,
+        evidence.length,
+        ...evidence.filter((e) => !refused.some((r) => r.id === e.requirementId)),
+      );
     const gate = goalGate(
       scope,
       evidence.map((e) => e.requirementId),
     );
     const progressed = !isDeepStrictEqual(evidence, goal.evidence);
-    const blocker = input.blocker;
+    const blocker = problem ? { category: "failure" as const, reason: problem } : input.blocker;
     const retryAt =
       blocker?.category === "cooldown" && blocker.retryAt ? new Date(blocker.retryAt) : null;
     if (retryAt && retryAt <= new Date()) throw new Error("Cooldown reset must be in the future.");
+    const blocks = blocker && !retryAt;
     await transition(
       tx,
       goal,
@@ -299,6 +460,14 @@ export async function scopedGoalTool(
       },
       { action: "report", observations: input.observations, blocker: blocker ?? null },
     );
+    if (gate === "complete") await notifyCompleted(tx, goal, scope, evidence);
+    else if (blocks)
+      await notifyOwner(
+        tx,
+        goal,
+        `The release goal is blocked: ${blocker.reason}`,
+        `scoped-goal-blocked:${goal.id}:${goal.version}`,
+      );
     return tx.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
   });
 }
@@ -314,12 +483,19 @@ export async function reconcileScopedGoals(deps: Deps, now = new Date()) {
     take: 100,
   });
   for (const candidate of due) {
+    // Gates that code can observe advance here, with no model. Remote reads stay out of the
+    // transaction below, which only decides whether a model has to look.
+    const advanced = await advanceInCode(deps, candidate, now).catch((error: unknown) => {
+      getLogger().error("scoped goal observation", error);
+      return { proceed: false, version: candidate.version };
+    });
+    if (advanced && !advanced.proceed) continue;
     // One goal's conflict or bad row never holds back the others; the next pass retries it.
     const runId = await deps.prisma
       .$transaction(async (tx) => {
         // Acquire the goal row before reading related state; no remote I/O under this lock.
         const claimed = await tx.scopedGoal.updateMany({
-          where: { id: candidate.id, version: candidate.version },
+          where: { id: candidate.id, version: advanced?.version ?? candidate.version },
           data: { updatedAt: now },
         });
         if (!claimed.count) return;
@@ -467,24 +643,231 @@ async function settleContinuation(tx: Tx, goal: ScopedGoal, run: Run | null, now
     },
     { ...outcome, exhausted: true },
   );
-  const blocks = [
-    {
-      kind: "text" as const,
-      text: "The release goal stopped after three continuations without new completion evidence. Review its blocker before resuming.",
+  await notifyOwner(
+    tx,
+    goal,
+    "The release goal stopped after three continuations without new completion evidence. Review its blocker before resuming.",
+    `scoped-goal-blocked:${goal.id}:${goal.version}`,
+  );
+}
+
+/** Between code passes while a gate waits on the agent or the world. */
+const POLL_MS = 60_000;
+/** A finished agent whose gate shows nothing new for this long is stuck, and a model looks. */
+const STUCK_MS = 10 * 60_000;
+const PROGRESS_ACTIONS = new Set([
+  "authorized",
+  "scope_reauthorized",
+  "gate_passed",
+  "followup_sent",
+  "resume",
+]);
+
+type Step = { goal: ScopedGoal; evidence: Evidence[] };
+const nextRequirement = (scope: ScopedGoalScope, evidence: readonly Evidence[]) =>
+  scope.requirements.find((r) => !evidence.some((e) => e.requirementId === r.id));
+
+/** The goal's history since its scope was last approved, newest first. */
+async function historySinceApproval(prisma: PrismaClient, goalId: string) {
+  const rows = await prisma.scopedGoalTransition.findMany({
+    where: { goalId },
+    orderBy: [{ createdAt: "desc" }, { version: "desc" }],
+    take: 100,
+  });
+  const out: Array<{ createdAt: Date; detail: Record<string, unknown> }> = [];
+  for (const row of rows) {
+    const detail = (row.detail ?? {}) as Record<string, unknown>;
+    out.push({ createdAt: row.createdAt, detail });
+    if (detail.action === "authorized" || detail.action === "scope_reauthorized") break;
+  }
+  return out;
+}
+
+/**
+ * Advances the gates code can observe by itself (the agent's pull request, a live check) and
+ * sends the agent the next gate's instruction. A model turn is wanted only when a gate failed,
+ * the agent failed, or a finished agent has shown nothing new for a while; `proceed` says so.
+ * Remote reads happen here, outside any lock; each recorded step is its own versioned transition.
+ */
+async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
+  let goal = candidate;
+  const scope = ScopedGoalScope.parse(goal.scope);
+  const proceed = () => ({ proceed: true, version: goal.version });
+  const wait = async () => {
+    await deps.prisma.scopedGoal.updateMany({
+      where: { id: goal.id, version: goal.version },
+      data: { nextAttemptAt: new Date(now.getTime() + POLL_MS) },
+    });
+    return { proceed: false, version: goal.version };
+  };
+  const first = nextRequirement(scope, evidenceOf(goal));
+  if (goal.activeRunId || !first || !isCodeObserver(first.tool)) return proceed();
+  const [agent, intervention] = await Promise.all([
+    deps.prisma.cloudAgent.findUnique({ where: { id: goal.agentId } }),
+    deps.prisma.message.findFirst({
+      where: {
+        threadId: goal.threadId,
+        role: "user",
+        authorUserId: goal.userId,
+        createdAt: { gt: goal.ownerSeenAt },
+      },
+      select: { id: true },
+    }),
+  ]);
+  // Owner turns and an unavailable thread are for the locked pass below to settle.
+  if (!agent?.remoteId || agent.cancelRequested || intervention) return proceed();
+  const provider = (await cloudAgentFor(deps, agent))?.provider;
+  const env = {
+    scope,
+    provider,
+    remoteId: agent.remoteId,
+    egress: deps.egress,
+    context: {
+      operationId: `scoped-goal:${goal.id}`,
+      traceId: goal.id,
+      spaceId: goal.spaceId,
+      userId: goal.userId,
+      botId: goal.botId,
+      signal: AbortSignal.timeout(30_000),
     },
-  ];
-  const message = await createThreadMessageInTransaction(tx, {
-    threadId: goal.threadId,
-    botId: goal.botId,
-    role: "bot",
-    blocks,
-    clientNonce: `scoped-goal-blocked:${goal.id}:${goal.version}`,
-  });
-  await appendEventInTransaction(tx, {
-    spaceId: goal.spaceId,
-    threadId: goal.threadId,
-    botId: goal.botId,
-    type: "thread.message.created",
-    payload: { messageId: message.id, role: "bot", blocks },
-  });
+  };
+  let evidence = evidenceOf(goal);
+  let progressed = false;
+  let mismatch: string | undefined;
+  for (let requirement = first; ; ) {
+    if (!isCodeObserver(requirement.tool)) break;
+    const result = await observe(requirement, env);
+    if (!observationMatches(requirement, result)) break;
+    const results = await evidenceResults(deps.prisma, evidence);
+    const sha = mergedSha(scope, results);
+    mismatch = revisionProblem(requirement, result, sha);
+    // Without a merged commit, only a revision the owner approved can pass the deploy gate.
+    if (mismatch || (requirement.gate === "deploy" && !sha && !pinsRevision(requirement))) break;
+    const next = [
+      ...evidence,
+      {
+        requirementId: requirement.id,
+        source: "code" as const,
+        observedAt: now.toISOString(),
+        result,
+      },
+    ];
+    const gate = goalGate(
+      scope,
+      next.map((e) => e.requirementId),
+    );
+    const recorded = await deps.prisma.$transaction(async (tx): Promise<Step> => {
+      await transition(
+        tx,
+        goal,
+        {
+          evidence: json(next),
+          gate,
+          noProgress: 0,
+          activeEpoch: goal.controlEpoch,
+          status: gate === "complete" ? "completed" : "active",
+          blocker: DbPrisma.DbNull,
+          nextAttemptAt: gate === "complete" ? null : now,
+        },
+        {
+          action: "gate_passed",
+          source: "code",
+          requirementId: requirement.id,
+          gate: requirement.gate,
+        },
+      );
+      const updated = await tx.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
+      if (gate === "complete") await notifyCompleted(tx, updated, scope, next);
+      return { goal: updated, evidence: next };
+    });
+    ({ goal, evidence } = recorded);
+    progressed = true;
+    mismatch = undefined;
+    const following = nextRequirement(scope, evidence);
+    if (!following) return { proceed: false, version: goal.version };
+    requirement = following;
+  }
+  const current = nextRequirement(scope, evidence)!;
+  const fresh = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
+  const idle = fresh.status !== "running" && !fresh.followup;
+  const history = await historySinceApproval(deps.prisma, goal.id);
+  const instruction = history.find(
+    (h) => h.detail.action === "followup_sent" && h.detail.gate === current.gate,
+  );
+  const instructed = Boolean(instruction);
+  // The agent was told what to do and stopped long ago, yet the world shows something else.
+  if (
+    mismatch &&
+    idle &&
+    instruction &&
+    now.getTime() - instruction.createdAt.getTime() >= STUCK_MS
+  ) {
+    const reason = mismatch;
+    await deps.prisma.$transaction(async (tx) => {
+      await transition(
+        tx,
+        goal,
+        {
+          status: "blocked",
+          nextAttemptAt: null,
+          blocker: json({ category: "failure", reason }),
+        },
+        { action: "gate_failed", source: "code", requirementId: current.id, reason },
+      );
+      await notifyOwner(
+        tx,
+        goal,
+        `The release goal is blocked: ${reason}`,
+        `scoped-goal-blocked:${goal.id}:${goal.version}`,
+      );
+    });
+    return { proceed: false, version: goal.version + 1 };
+  }
+  // The next gate's instruction goes to the agent once, without a model.
+  const results = await evidenceResults(deps.prisma, evidence);
+  if (
+    (current.gate === "deploy" || current.gate === "install") &&
+    evidence.length &&
+    idle &&
+    !instructed &&
+    fresh.remoteId
+  ) {
+    const sha = mergedSha(scope, results);
+    const deployed = scope.requirements
+      .filter((r) => r.gate === "deploy")
+      .map((r) => results.get(r.id)?.revision)
+      .find((revision) => typeof revision === "string");
+    const prompt =
+      current.gate === "deploy"
+        ? `PR merged${sha ? ` at ${sha}` : ""}. Deploy ${sha ?? "it"} per the repo's runbook, then reply with the deployed revision.`
+        : `Deployed${deployed ? ` revision ${deployed}` : ""}. Install ${scope.installTarget} per the repo's runbook, then reply once it is installed.`;
+    await deps.prisma.$transaction((tx) =>
+      transition(
+        tx,
+        goal,
+        { activeEpoch: goal.controlEpoch },
+        { action: "followup_sent", source: "code", gate: current.gate },
+      ),
+    );
+    goal = await deps.prisma.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
+    const queued = await queueCloudAgentFollowup(
+      deps.prisma,
+      fresh,
+      { prompt, goalGate: current.gate },
+      false,
+    );
+    if (queued.count) await enqueueCloudAgent(deps, fresh.id);
+    return wait();
+  }
+  if (fresh.status === "failed") return proceed();
+  const since = [...history].find(
+    (h) =>
+      PROGRESS_ACTIONS.has(String(h.detail.action)) ||
+      (h.detail.action === "report" &&
+        Array.isArray(h.detail.observations) &&
+        h.detail.observations.length > 0),
+  )?.createdAt;
+  if (!progressed && idle && now.getTime() - (since ?? goal.createdAt).getTime() >= STUCK_MS)
+    return proceed();
+  return wait();
 }

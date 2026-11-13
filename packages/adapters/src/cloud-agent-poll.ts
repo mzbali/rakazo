@@ -24,6 +24,11 @@ import {
   promoteQueuedCloudAgent,
 } from "./cloud-agent-service.js";
 import { cloudAgentLaunchSchema, cloudAgentPromptSchema } from "./cloud-agent-tools.js";
+import {
+  attentionWakePrompt,
+  cloudAgentWakeNonces,
+  terminalWakePrompt,
+} from "./cloud-agent-wake-start.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
@@ -406,7 +411,7 @@ async function finishPoll(
           ...(await createCloudAgentWake(
             tx,
             saved,
-            `Cloud agent ${agent.id} is ${status}. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+            terminalWakePrompt(saved),
             `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
           )),
         );
@@ -426,9 +431,10 @@ async function finishPoll(
           )),
         );
       }
-      // One that closed unanswered between polls still tells the bot, under the same key, so a
-      // blocker it was already woken for is not repeated.
-      for (const { requestId } of missed) {
+      // A closed blocker only matters if the agent did not keep working or finish normally.
+      for (const { requestId } of saved.status === "running" || saved.status === "finished"
+        ? []
+        : missed) {
         wakeRunIds.push(
           ...(await createCloudAgentWake(
             tx,
@@ -449,7 +455,7 @@ async function finishPoll(
   if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
   if (committed.seq !== undefined)
     await deps.events.notify(agent.threadId, committed.seq).catch(() => undefined);
-  for (const wakeRunId of committed.wakeRunIds) {
+  for (const wakeRunId of new Set(committed.wakeRunIds)) {
     // The existing run reconciler recovers a queued wake after an enqueue failure.
     await deps.jobs.enqueue(runContinueJob(wakeRunId)).catch(() => {
       getLogger().warn("cloud agent wake deferred to reconciliation");
@@ -459,10 +465,6 @@ async function finishPoll(
 }
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];
-
-export function attentionWakePrompt(agentId: string, requestId: string) {
-  return `Cloud agent ${agentId} needs input (${requestId}). Use cloud_agent_status; answer a question with cloud_agent_reply, or ask the owner to decide an approval where the agent runs.`;
-}
 
 export function attentionIds(value: unknown): string[] {
   return Array.isArray(value)
@@ -478,8 +480,8 @@ function newAttention(before: unknown, after: unknown): string[] {
 }
 
 /**
- * Queue one wake run in the agent's thread. Runs are unique by nonce in a space, so a replayed
- * poll finds the earlier wake instead of failing the whole transaction on the constraint.
+ * Preserve each wake identity, folding it into an unstarted run in the same bot/thread.
+ * The thread lock serializes deduplication and appends across pollers and reconcilers.
  */
 export async function createCloudAgentWake(
   tx: Tx,
@@ -487,11 +489,45 @@ export async function createCloudAgentWake(
   prompt: string,
   clientNonce: string,
 ): Promise<string[]> {
+  // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
+  // also come here; no in-process lock can protect wakes created on another instance.
+  await lockCloudAgentWakeThread(tx, agent);
   const existing = await tx.run.findFirst({
-    where: { spaceId: agent.spaceId, clientNonce },
+    where: { spaceId: agent.spaceId, ...cloudAgentWakeNonceWhere(clientNonce) },
     select: { id: true },
   });
   if (existing) return [];
+  const queued = await tx.run.findFirst({
+    where: {
+      spaceId: agent.spaceId,
+      userId: agent.userId,
+      botId: agent.botId,
+      threadId: agent.threadId,
+      trigger: "cloud_agent",
+      status: "queued",
+      startedAt: null,
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, taskId: true, clientNonce: true, cloudAgentWakeNonces: true },
+  });
+  if (queued) {
+    // Claiming the run competes on this row. If it won, its prompt is immutable and the new
+    // wake needs another run. If we win, the claimant reads the appended prompt after commit.
+    const appended = await tx.run.updateMany({
+      where: { id: queued.id, status: "queued", startedAt: null },
+      data: {
+        cloudAgentWakeNonces: [...cloudAgentWakeNonces(queued), clientNonce],
+      },
+    });
+    if (appended.count) {
+      const task = await tx.task.findUniqueOrThrow({ where: { id: queued.taskId } });
+      await tx.task.update({
+        where: { id: task.id },
+        data: { prompt: `${task.prompt}\n\n${prompt}` },
+      });
+      return [queued.id];
+    }
+  }
   const task = await tx.task.create({
     data: {
       spaceId: agent.spaceId,
@@ -512,7 +548,23 @@ export async function createCloudAgentWake(
       status: "queued",
       trigger: "cloud_agent",
       clientNonce,
+      cloudAgentWakeNonces: [clientNonce],
     },
   });
   return [run.id];
+}
+
+/** Primary nonces also cover runs written by the previous release. */
+export function cloudAgentWakeNonceWhere(clientNonce: string): Prisma.RunWhereInput {
+  return { OR: [{ clientNonce }, { cloudAgentWakeNonces: { has: clientNonce } }] };
+}
+
+export async function lockCloudAgentWakeThread(
+  tx: Tx,
+  agent: Pick<CloudAgent, "spaceId" | "threadId">,
+) {
+  await tx.thread.updateMany({
+    where: { id: agent.threadId, spaceId: agent.spaceId },
+    data: { nextEventSeq: { increment: 0 } },
+  });
 }

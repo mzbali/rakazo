@@ -57,6 +57,7 @@ import { partitionTools } from "./builtin-tool-bridge.js";
 import { agentConnectionTools, builtinAgentTools } from "./builtin-tools.js";
 import { USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
 import { cloudAgentForActor } from "./cloud-agent-service.js";
+import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
 import { mergeConnectedPlugins, needsLivePluginSync } from "./composio-connector.js";
 import { diskNoteInstruction, recordComputerDisk } from "./computer-disk.js";
 import { scheduleComputerSleep } from "./computer-idle.js";
@@ -336,6 +337,10 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
       const claimed = await claimRun(deps, run, workerId);
       if (!claimed) return;
       const { fence, current } = claimed;
+      if (await cancelStaleCloudAgentWake(deps, current, { owner: workerId, fence })) {
+        endRunConnectorState(runId);
+        return;
+      }
       const leaseTarget = await deps.prisma.bot.findUniqueOrThrow({
         where: { id: run.botId },
         select: {

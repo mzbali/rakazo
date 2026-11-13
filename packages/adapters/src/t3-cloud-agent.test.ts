@@ -15,6 +15,24 @@ const context: AdapterContext = {
 type Handler = (args: Record<string, unknown>) => unknown;
 
 /**
+ * A refused call exactly as T3's MCP server sends it: the encoded failure is JSON in the one
+ * text block, with no structured content.
+ */
+const T3_MESSAGES: Record<string, string> = {
+  runtime_mode_escalation_denied:
+    "Child runtime mode full-access is broader than parent mode auto.",
+};
+
+function t3Failure(code: string, message: string) {
+  return {
+    isError: true,
+    content: [
+      { type: "text", text: JSON.stringify({ _tag: "OrchestratorMcpFailure", code, message }) },
+    ],
+  };
+}
+
+/**
  * An offline stand-in for the T3 MCP server: each tool answers from the test's script.
  * A string failure repeats. A list is used once each, then the handler answers.
  */
@@ -42,7 +60,7 @@ function server(
       if (typeof code === "string") {
         yield {
           type: "result" as const,
-          data: { isError: true, structuredContent: { code } },
+          data: t3Failure(code, T3_MESSAGES[code] ?? `Refused: ${code}.`),
         };
         return;
       }
@@ -238,9 +256,9 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(bothLaunches[2]!.args).not.toHaveProperty("interactionMode");
 
     const stuck = server(handlers, { t3_thread_launch: "runtime_mode_escalation_denied" });
-    await expect(stuck.provider.launch(request, context)).rejects.toBeInstanceOf(
-      CloudAgentRequestRejected,
-    );
+    const refused = await stuck.provider.launch(request, context).catch((error) => error);
+    expect(refused).toBeInstanceOf(CloudAgentRequestRejected);
+    expect(refused.detail).toBe("Child runtime mode full-access is broader than parent mode auto.");
     const stuckLaunches = stuck.calls.filter((call) => call.tool === "t3_thread_launch");
     expect(stuckLaunches).toHaveLength(2);
     expect(stuckLaunches[1]!.args).not.toHaveProperty("runtimeMode");
@@ -354,6 +372,25 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     await expect(stopped.provider.cancel("thread:1", context)).resolves.toMatchObject({
       status: "cancelled",
     });
+  });
+
+  it("keeps T3's reason when a refusal is plain text rather than an encoded failure", async () => {
+    const provider = new T3CloudAgentProvider({
+      connector: {
+        resolveCall: async (call: unknown) => ({ call, tool: {} }),
+        async *execute() {
+          yield {
+            type: "result" as const,
+            data: { isError: true, content: [{ type: "text", text: "Project is archived." }] },
+          };
+        },
+      } as unknown as ConnectorProvider,
+      server: "t3",
+      holdKey: "hold",
+    });
+    const refused = await provider.get("thread:1", context).catch((error) => error);
+    expect(refused).toBeInstanceOf(CloudAgentRequestRejected);
+    expect(refused).toMatchObject({ reason: "invalid", detail: "Project is archived." });
   });
 
   it("finds the thread a bot launched or messaged with T3's own tools", () => {

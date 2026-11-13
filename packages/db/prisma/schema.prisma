@@ -1379,6 +1379,8 @@ model CloudAgent {
   originMessageId     String?
   verdict             String?
   verdictSummary      String?
+  /// The provider's reason for refusing the launch or ending the agent, when it gave one.
+  failureReason       String?
   /// Wake runs created for the current generation, counting retries of failed ones.
   wakeAttempts        Int      @default(0)
   createdAt           DateTime @default(now())

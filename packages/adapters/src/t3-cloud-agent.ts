@@ -39,9 +39,28 @@ const MAX_EVENT_PAGES = 10;
 
 const failureSchema = z.object({ code: z.string(), message: z.string().optional() });
 
+/**
+ * T3 sends a refused call's encoded failure as JSON in its text content, not as structured
+ * content. A refusal that is not an encoded failure is its message alone.
+ */
+function t3Failure(result: { structuredContent?: unknown; content?: unknown }) {
+  const structured = failureSchema.safeParse(result.structuredContent);
+  if (structured.success) return structured.data;
+  const block = Array.isArray(result.content) ? result.content[0] : undefined;
+  const text = block?.type === "text" && typeof block.text === "string" ? block.text : "";
+  try {
+    const encoded = failureSchema.safeParse(JSON.parse(text));
+    if (encoded.success) return encoded.data;
+  } catch {}
+  return { code: "", message: text || undefined };
+}
+
 /** The connection refused this mode before creating a thread. The message is the field name only. */
 class ModeEscalationDenied extends Error {
-  constructor(readonly field: "runtimeMode" | "interactionMode") {
+  constructor(
+    readonly field: "runtimeMode" | "interactionMode",
+    readonly detail?: string,
+  ) {
     super(field);
   }
 }
@@ -402,7 +421,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       } catch (error) {
         const denied = error instanceof ModeEscalationDenied ? error : undefined;
         if (!denied || dropped.has(denied.field) || !(denied.field in fields)) {
-          if (denied) throw new CloudAgentRequestRejected("invalid");
+          if (denied) throw new CloudAgentRequestRejected("invalid", denied.detail);
           throw error;
         }
         dropped.add(denied.field);
@@ -431,21 +450,24 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       else if (event.type === "error") {
         if (event.retryable) throw new CloudAgentRetryLater("unavailable");
         // Not assigned to this bot, or refused outright: retrying cannot change it.
-        throw new CloudAgentRequestRejected("invalid");
+        throw new CloudAgentRequestRejected("invalid", event.message);
       }
     }
-    const result = (data ?? {}) as { isError?: boolean; structuredContent?: unknown };
+    const result = (data ?? {}) as {
+      isError?: boolean;
+      structuredContent?: unknown;
+      content?: unknown;
+    };
     if (result.isError) {
-      const failure = failureSchema.safeParse(result.structuredContent);
-      const code = failure.success ? failure.data.code : "";
-      if (code === "thread_not_found") throw new CloudAgentRequestRejected("not_found");
+      const { code, message } = t3Failure(result);
+      if (code === "thread_not_found") throw new CloudAgentRequestRejected("not_found", message);
       if (code === "orchestration_error" || code === "provider_unavailable")
         throw new CloudAgentRetryLater("unavailable");
       if (options?.modeEscalation && code === "runtime_mode_escalation_denied")
-        throw new ModeEscalationDenied("runtimeMode");
+        throw new ModeEscalationDenied("runtimeMode", message);
       if (options?.modeEscalation && code === "interaction_mode_escalation_denied")
-        throw new ModeEscalationDenied("interactionMode");
-      throw new CloudAgentRequestRejected("invalid");
+        throw new ModeEscalationDenied("interactionMode", message);
+      throw new CloudAgentRequestRejected("invalid", message);
     }
     return result.structuredContent ?? data;
   }

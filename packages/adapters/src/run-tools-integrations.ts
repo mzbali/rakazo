@@ -26,7 +26,11 @@ export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, context } = ctx;
   const { name, args, effectKey } = call;
   const scoped = { ...context, operationId: effectKey, botId: bot.id, botName: bot.name };
-  const cloudDeps = { ...deps, cloudAgent: ctx.providers.cloudAgent };
+  const cloudDeps = {
+    ...deps,
+    cloudAgent: ctx.providers.cloudAgent,
+    deployment: deps.cloudAgent,
+  };
   if (name === "cloud_agent_report") {
     return call.finish(await reportCloudAgent(cloudDeps, scoped, run, args));
   }

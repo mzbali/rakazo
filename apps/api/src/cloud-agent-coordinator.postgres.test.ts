@@ -208,6 +208,8 @@ describePostgres("a coordinator bot runs six agreed requests (PostgreSQL)", () =
     const queue: BackgroundJob[] = [];
     const jobs: JobPublisher = {
       enqueue: async (job) => void queue.push(job),
+      enqueueIn: async (_tx, job) => void queue.push(job),
+      cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
     };

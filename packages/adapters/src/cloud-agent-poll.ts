@@ -15,10 +15,10 @@ import { cloudAgentHttpsUrl } from "@rakazo/core";
 import type { CloudAgent } from "@rakazo/db";
 import { appendEventInTransaction, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { cloudAgentsEnabled } from "./cloud-agent-factory.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   cloudAgentBlock,
+  cloudAgentFor,
   enqueueCloudAgent,
   openQuestion,
   promoteQueuedCloudAgent,
@@ -33,19 +33,12 @@ export async function pollCloudAgent(
   deps: CloudAgentDeps,
   payload: BackgroundJobPayloads["cloud_agent.poll"],
 ) {
-  const connection = deps.cloudAgent;
-  if (!connection) return;
-  const stored = await deps.prisma.cloudAgent.findFirst({
-    where: { id: payload.agentId, providerKey: connection.key },
-  });
+  const stored = await deps.prisma.cloudAgent.findUnique({ where: { id: payload.agentId } });
   // A queued request waits for a slot (promoteQueuedCloudAgent), so it is never launched early;
   // cancelling one goes ahead, since a never-launched request is cancelled locally below.
-  if (
-    !stored?.nextPollAt ||
-    (stored.queuedAt && !stored.cancelRequested) ||
-    !cloudAgentsEnabled(connection, stored.spaceId)
-  )
-    return;
+  if (!stored?.nextPollAt || (stored.queuedAt && !stored.cancelRequested)) return;
+  const connection = await cloudAgentFor(deps, stored);
+  if (!connection) return;
   const token = randomUUID();
   const claimed = await deps.prisma.cloudAgent.updateMany({
     where: {

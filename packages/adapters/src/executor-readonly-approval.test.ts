@@ -4306,12 +4306,19 @@ it("does not blame the webhook on cards every run shows", async () => {
   expect(askDetail(connection)).toBe("Telegram: fake");
 });
 
-it("asks before a launch another bot's message started, even with an allow rule", async () => {
+it("applies a saved Allow for cloud_agent_launch before posting a card", async () => {
   const rules = [
     { effect: "always_allow", matchKind: "tool", matchValue: "cloud_agent_launch" },
   ] as ActionApprovalRule[];
+  // The rule matches the tool name. requestKey, project and runtime mode are not part of it.
+  const args = {
+    prompt: "Trace the quota reset",
+    requestKey: "example-launch-request",
+    projectId: "example-project",
+    runtimeMode: "full-access",
+  };
   const owner = fixture({ name: "cloud_agent_launch", builtin: true, rules });
-  owner.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  owner.setCalls([{ args, executionId: "call-1" }]);
   await owner.run();
   expect(owner.pauseRunForInput).not.toHaveBeenCalled();
 
@@ -4321,7 +4328,99 @@ it("asks before a launch another bot's message started, even with an allow rule"
     rules,
     trigger: "bot_message",
   });
-  relayed.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  relayed.setCalls([{ args, executionId: "call-1" }]);
   await relayed.run();
-  expect(relayed.pauseRunForInput).toHaveBeenCalledOnce();
+  expect(relayed.pauseRunForInput).not.toHaveBeenCalled();
+
+  const tainted = fixture({ name: "cloud_agent_launch", builtin: true, rules });
+  tainted.prisma.attempt.count.mockResolvedValue(2);
+  tainted.setCalls([{ args, executionId: "call-1" }]);
+  await tainted.run();
+  expect(tainted.pauseRunForInput).not.toHaveBeenCalled();
+
+  const unruled = fixture({
+    name: "cloud_agent_launch",
+    builtin: true,
+    trigger: "bot_message",
+  });
+  unruled.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  await unruled.run();
+  expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
 });
+
+it.each(["cloud_agent_launch", "respond_agent_connection"])(
+  "keeps webhook Never ask guarded for %s despite a saved Allow",
+  async (name) => {
+    const f = fixture({
+      name,
+      builtin: true,
+      trigger: "webhook",
+      skipApprovals: true,
+      rules: [{ effect: "always_allow", matchKind: "tool", matchValue: name }],
+    });
+    if (name === "respond_agent_connection") {
+      f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
+      Object.assign(f.prisma, {
+        agentConnection: {
+          findFirst: vi.fn(async () => ({
+            id: "connection-1",
+            requestVersion: 1,
+            requesterBotId: "bot-other",
+          })),
+        },
+        messagingIdentity: {
+          findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
+        },
+      });
+    }
+    f.setCalls([
+      {
+        args:
+          name === "cloud_agent_launch"
+            ? {
+                prompt: "Example task",
+                requestKey: "example-request",
+                projectId: "example-project",
+              }
+            : { accept: true },
+        executionId: "call-1",
+      },
+    ]);
+    await f.run();
+    expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    expect(f.results[0]).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("this space never asks") }),
+    );
+  },
+);
+
+it.each(["relayed", "tainted"])(
+  "keeps connection acceptance guarded with saved Allow in a %s run",
+  async (source) => {
+    const f = fixture({
+      name: "respond_agent_connection",
+      builtin: true,
+      ...(source === "relayed" ? { trigger: "bot_message" as const } : {}),
+      rules: [
+        { effect: "always_allow", matchKind: "tool", matchValue: "respond_agent_connection" },
+      ],
+    });
+    if (source === "tainted") f.prisma.attempt.count.mockResolvedValue(2);
+    f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
+    Object.assign(f.prisma, {
+      agentConnection: {
+        findFirst: vi.fn(async () => ({
+          id: "connection-1",
+          requestVersion: 1,
+          requesterBotId: "bot-other",
+        })),
+      },
+      messagingIdentity: {
+        findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
+      },
+    });
+    f.setCalls([{ args: { accept: true }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
+  },
+);

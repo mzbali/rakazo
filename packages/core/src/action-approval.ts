@@ -203,9 +203,10 @@ export function toolRequiresExplicitApproval(toolName: string): boolean {
 }
 
 /**
- * Tools that follow the owner's rules only in a run the owner started with no outside content:
- * elsewhere they always ask, and Never ask refuses them. Another owner's connection, and starting
- * coding work, which a bot's message or an email must not agree to on the owner's behalf.
+ * Tools that ask when the owner did not start the run, or outside content entered it, and that
+ * Never ask refuses in those runs. A saved Allow for the tool is applied before that ask.
+ * Another owner's connection, and starting coding work, which a bot's message or an email must
+ * not agree to on the owner's behalf unless they allowed the tool.
  */
 export function toolGuardedInNeverAsk(toolName: string): boolean {
   return toolName === "respond_agent_connection" || toolName === "cloud_agent_launch";

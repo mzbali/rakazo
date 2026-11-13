@@ -70,7 +70,7 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("delete_bot", true, false)).toBe(true);
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);
-    // Starting real work follows the owner's rules only in their own runs (toolGuardedInNeverAsk).
+    // Starting real work asks outside the owner's own clean run unless they allowed the tool.
     expect(toolRequiresExplicitApproval("cloud_agent_launch")).toBe(false);
     expect(toolGuardedInNeverAsk("cloud_agent_launch")).toBe(true);
     expect(toolGuardedInNeverAsk("cloud_agent_reply")).toBe(false);

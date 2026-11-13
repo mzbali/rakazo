@@ -5,6 +5,7 @@ import { EmulatorCloudAgentProvider } from "./cloud-agent-emulator.js";
 import { resolveCloudAgentProvider } from "./cloud-agent-provider-env.js";
 import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
 import { T3_CLOUD_AGENT_TOOLS, T3CloudAgentProvider, t3DirectThread } from "./t3-cloud-agent.js";
+import { parseT3ModelRoutes } from "./t3-model-routes.js";
 
 /** The composition root binds a credential to exactly one authorized Space. */
 export interface CloudAgentConnection {
@@ -71,7 +72,12 @@ export function createCloudAgentConnection(
     const spaceId = source.CLOUD_AGENT_SPACE_ID!.trim();
     const key = `t3:${spaceId}:${server}`;
     return {
-      provider: new T3CloudAgentProvider({ connector, server, holdKey: `rakazo:${spaceId}` }),
+      provider: new T3CloudAgentProvider({
+        connector,
+        server,
+        holdKey: `rakazo:${spaceId}`,
+        routes: parseT3ModelRoutes(source.T3_MODEL_ROUTES),
+      }),
       key,
       spaceId,
       enabledForBot: (prisma, botSpaceId, botId) =>

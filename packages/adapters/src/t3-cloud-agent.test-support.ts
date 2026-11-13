@@ -1,4 +1,5 @@
 import type { AdapterContext, ConnectorCall, ConnectorProvider } from "@rakazo/adapter-kit";
+import type { T3CloudAgentOptions } from "./t3-cloud-agent.js";
 import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
 import { T3_TOKEN, T3McpEmulator } from "./t3code-mcp-emulator.test-support.js";
 
@@ -122,10 +123,14 @@ export function t3EmulatorConnector(
   } as unknown as ConnectorProvider;
 }
 
-export function t3EmulatedProvider(emulator: Pick<T3McpEmulator, "fetch">) {
+export function t3EmulatedProvider(
+  emulator: Pick<T3McpEmulator, "fetch">,
+  routes?: T3CloudAgentOptions["routes"],
+) {
   return new T3CloudAgentProvider({
     connector: t3EmulatorConnector(emulator),
     server: "t3",
     holdKey: "hold",
+    ...(routes ? { routes } : {}),
   });
 }

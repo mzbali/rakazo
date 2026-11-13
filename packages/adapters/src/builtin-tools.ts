@@ -949,6 +949,12 @@ export const builtinAgentTools: ConnectorTool[] = [
           },
           required: ["model"],
         },
+        workKind: {
+          type: "string",
+          enum: ["hard", "normal", "simple", "ui"],
+          description:
+            "The kind of work, so the deployment can pick a model with quota; ignored when modelSelection is given.",
+        },
         projectId: {
           type: "string",
           description: "The provider's project id; omit to find it from repository.",

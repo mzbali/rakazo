@@ -16,19 +16,23 @@ export class CloudAgentRequestRejected extends Error {
 /**
  * The provider refused the credential, rate limited the request, or failed before
  * a mutation was sent. None says anything about the agent itself and nothing was
- * accepted, so callers retry instead of failing it.
+ * accepted, so callers retry instead of failing it. `quota` is not an outage: every
+ * model that could run the work is out of quota until `retryAfterMs`, and `note` says so.
  */
 export class CloudAgentRetryLater extends Error {
   constructor(
-    readonly reason: "credential" | "rate_limited" | "unavailable",
+    readonly reason: "credential" | "rate_limited" | "unavailable" | "quota",
     readonly retryAfterMs?: number,
+    readonly note?: string,
   ) {
     super(
       reason === "credential"
         ? "Cloud agent credential was rejected."
         : reason === "rate_limited"
           ? "Cloud agent requests are rate limited."
-          : "Cloud agent provider is unavailable.",
+          : reason === "quota"
+            ? "Cloud agent is waiting for model quota."
+            : "Cloud agent provider is unavailable.",
     );
     this.name = "CloudAgentRetryLater";
   }

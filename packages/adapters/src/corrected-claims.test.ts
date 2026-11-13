@@ -86,7 +86,11 @@ it("uses only the current member's main connection and refuses missing tenant co
   const { runAsTenant } = await import("@rakazo/db");
   const { assessCorrectedClaims, configureCorrectedClaimJudge } = await import("@rakazo/core");
   const { configureCorrectedClaimsConnections } = await import("./corrected-claims.js");
-  const deps = { prisma: {} as never, secretStore: {} as never };
+  const deps = {
+    prisma: {} as never,
+    secretStore: {} as never,
+    codexCatalog: { resolve: vi.fn() } as never,
+  };
   configureCorrectedClaimsConnections(deps);
   expect((await assessCorrectedClaims("before", "after")).status).toBe("unqualified");
   expect(main).not.toHaveBeenCalled();

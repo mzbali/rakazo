@@ -11,7 +11,7 @@ interface Run {
   held?: boolean;
   interruptRequested?: boolean;
 }
-interface Thread {
+export interface Thread {
   threadId: string;
   projectId: string;
   title: string;
@@ -23,6 +23,9 @@ interface Thread {
   /** Launched into a worktree, which exists once its setup finished. */
   worktree: boolean;
   worktreePath: string | null;
+  /** The model and instance the thread runs on. */
+  model: string;
+  providerInstanceId: string;
 }
 type Args = Record<string, unknown>;
 type Outcome =
@@ -365,6 +368,12 @@ export class T3McpEmulator {
   ) & { tool?: string };
   /** No default model is set, so a launch must name one. */
   noDefaultModel = false;
+  /** The broadest runtime mode a launch may ask for; a broader one is refused, as a connection's ceiling does. */
+  runtimeCeiling?: string;
+  /** How a thread's link is worded; T3 Code's own deep links differ from this web form. */
+  linkOf: (threadId: string) => string = link;
+  /** Threads start on this model and instance whatever a launch asked for. */
+  startsOn?: { model: string; providerInstanceId: string };
   /** Providers and models `orchestrator_capabilities` offers; constraints mean it cannot run. */
   providers: Array<{
     providerInstanceId: string;
@@ -521,8 +530,15 @@ export class T3McpEmulator {
     this.threads.get(threadId)!.pendingRequestCount = 1;
   }
 
-  private handle(tool: string, args: Args): Outcome {
-    if (!T3_TOOLS.some((entry) => entry.name === tool)) return { invalidParams: true };
+  /** The agent stops: a run asked to stop ends, and the queue moves on. */
+  protected landInterrupt(thread: Thread) {
+    for (const run of thread.runs)
+      if (run.interruptRequested && !isTerminal(run.status)) end(run, "interrupted");
+    startNext(thread);
+  }
+
+  protected handle(tool: string, args: Args): Outcome {
+    if (!this.tools.some((entry) => entry.name === tool)) return { invalidParams: true };
     if (tool === "t3_project_list") {
       const cursor = Number(args.cursor ?? 0);
       const limit = Number(args.limit ?? 20);
@@ -539,7 +555,10 @@ export class T3McpEmulator {
         result: {
           inheritedProviderInstanceId: null,
           inheritedModel: null,
-          providers: this.providers,
+          providers: this.providers.map((provider) => ({
+            ...provider,
+            canRunChildTask: !provider.constraints?.length,
+          })),
         },
       };
     const thread = this.threads.get(String(args.threadId));
@@ -548,18 +567,16 @@ export class T3McpEmulator {
     if (tool === "t3_thread_read") {
       const latest = thread.runs.at(-1);
       // An interrupt lands once the agent stops, after this read.
-      queueMicrotask(() => {
-        for (const run of thread.runs)
-          if (run.interruptRequested && !isTerminal(run.status)) end(run, "interrupted");
-        startNext(thread);
-      });
+      queueMicrotask(() => this.landInterrupt(thread));
       return {
         result: {
           thread: {
             threadId: thread.threadId,
             projectId: thread.projectId,
             title: thread.title,
-            link: link(thread.threadId),
+            model: thread.model,
+            providerInstanceId: thread.providerInstanceId,
+            link: this.linkOf(thread.threadId),
             status: active?.status ?? latest?.status ?? "idle",
             latestRunId: latest?.runId ?? null,
             activeRunId: active?.runId ?? null,
@@ -651,6 +668,14 @@ export class T3McpEmulator {
         message:
           "Pass modelSelection: the project has no default model. orchestrator_capabilities lists providers and models.",
       };
+    if (this.runtimeCeiling && args.runtimeMode !== undefined) {
+      const modes = ["approval-required", "auto-accept-edits", "auto", "full-access"];
+      if (modes.indexOf(String(args.runtimeMode)) > modes.indexOf(this.runtimeCeiling))
+        return {
+          failure: "runtime_mode_escalation_denied",
+          message: `Child runtime mode ${String(args.runtimeMode)} is broader than parent mode ${this.runtimeCeiling}.`,
+        };
+    }
     const projectId = args.scratch === true ? "project-scratch" : String(args.projectId ?? "");
     if (args.scratch !== true && !this.projects.some((project) => project.id === projectId))
       return { failure: "orchestration_error" };
@@ -671,13 +696,14 @@ export class T3McpEmulator {
         pendingRequestCount: 0,
         worktree: (args.workspaceStrategy as { type?: string } | undefined)?.type === "worktree",
         worktreePath: null,
+        ...(this.startsOn ?? requestedModel(args)),
       });
     }
     const run = this.threads.get(threadId)!.runs[0]!;
     return {
       result: {
         threadId,
-        link: link(threadId),
+        link: this.linkOf(threadId),
         projectId,
         modelSelection: args.modelSelection ?? { instanceId: "default", model: "model" },
         runId: run.runId,
@@ -691,6 +717,14 @@ export class T3McpEmulator {
     const requestedAt = new Date().toISOString();
     return { runId: `run-${this.runs}`, ordinal, status, requestedAt, completedAt: null };
   }
+}
+
+function requestedModel(args: Args) {
+  const selection = (args.modelSelection ?? {}) as { instanceId?: string; model?: string };
+  return {
+    model: selection.model ?? "model",
+    providerInstanceId: selection.instanceId ?? "default",
+  };
 }
 
 function startNext(thread: Thread) {

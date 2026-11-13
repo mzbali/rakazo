@@ -163,6 +163,8 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     };
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
+      enqueueIn: async () => undefined,
+      cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
     };

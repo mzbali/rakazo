@@ -1,5 +1,6 @@
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMcpJsonSchemaValidator } from "./mcp-output-schema.js";
 import { CachedJsonSchemaValidator } from "./mcp-schema-validator.js";
 import { McpSession } from "./mcp-transport.js";
 
@@ -18,6 +19,19 @@ describe("CachedJsonSchemaValidator", () => {
     const validator = new CachedJsonSchemaValidator();
     for (let listing = 0; listing < 200; listing += 1) validator.getValidator(outputSchema());
     expect(compile).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches repaired output schemas across repeated tool listings", () => {
+    const compile = vi.spyOn(AjvJsonSchemaValidator.prototype, "getValidator");
+    const validator = createMcpJsonSchemaValidator();
+    const schema = () => ({ type: "string" as const, pattern: "\\:" });
+    const first = validator.getValidator(schema());
+    for (let listing = 0; listing < 200; listing += 1) {
+      expect(validator.getValidator(schema())).toBe(first);
+    }
+    expect(compile).toHaveBeenCalledTimes(2);
+    expect(first("value").valid).toBe(true);
+    expect(first(42).valid).toBe(false);
   });
 
   it("still validates tool output", () => {

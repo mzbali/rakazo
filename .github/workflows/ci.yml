@@ -133,7 +133,8 @@ jobs:
         if: steps.areas.outputs.all_packages != 'false'
         run: python3 infra/compose/host-safeguards.test.py
       - name: Preview startup tests
-        if: steps.areas.outputs.all_packages != 'false'
+        # PR previews run only on the upstream repository; forks keep its workflows off.
+        if: steps.areas.outputs.all_packages != 'false' && github.repository == 'elie222/rakazo'
         run: python3 infra/preview/start.test.py
       - name: Codex subscription auth safety tests
         if: steps.areas.outputs.all_packages != 'false'

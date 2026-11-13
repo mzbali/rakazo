@@ -36,7 +36,7 @@ import {
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
 import { notifyCloudAgentUnreachable } from "./run-notifications.js";
-import { goalDrivesAgent, reconcileScopedGoals } from "./scoped-goal-service.js";
+import { enqueueScopedGoal, goalDrivesAgent } from "./scoped-goal-service.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
@@ -521,6 +521,7 @@ async function finishPoll(
     const saved = await tx.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
     let seq: number | undefined;
     const wakeRunIds: string[] = [];
+    let goalId: string | undefined;
     // Events for the cards a job helper's wakes left in the chat, announced with the rest.
     const wakeSeqs: number[] = [];
     const wakeOptions = { jobThread: true, seqs: wakeSeqs };
@@ -543,8 +544,10 @@ async function finishPoll(
       // A live goal starts its own supervisory turn; otherwise the owner hears as usual.
       const goal = await tx.scopedGoal.findUnique({ where: { agentId: agent.id } });
       // The agent stopping is when its goal's gates are worth observing.
-      if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt)
+      if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt) {
+        goalId = goal.id;
         await tx.scopedGoal.update({ where: { id: goal.id }, data: { nextAttemptAt: new Date() } });
+      }
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
         wakeRunIds.push(
@@ -597,6 +600,7 @@ async function finishPoll(
       wakeRunIds,
       nextPollAt,
       promotedId,
+      goalId,
     };
   });
   if (!committed) return;
@@ -610,7 +614,8 @@ async function finishPoll(
     });
   }
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
-  else await reconcileScopedGoals(deps);
+  // Only this agent's goal is looked at, in its own job; the reconciler finds the rest.
+  else if (committed.goalId) await enqueueScopedGoal(deps, committed.goalId);
 }
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];

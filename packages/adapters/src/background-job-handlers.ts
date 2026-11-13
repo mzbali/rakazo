@@ -40,6 +40,7 @@ import { pollMediaVideo } from "./media-video-poll.js";
 import type { MemoryProviderResolver } from "./memory-provider-factory.js";
 import type { MessagingDelivery } from "./messaging-delivery.js";
 import { pollPurchase } from "./purchase-poll.js";
+import { advanceScopedGoal } from "./scoped-goal-service.js";
 import { expireTaughtSkillTeaching } from "./teaching-session.js";
 import type { TeamChat } from "./team-chat.js";
 
@@ -109,6 +110,8 @@ export function createBackgroundJobHandlers(deps: {
     deps.prisma.taughtSkill.findUnique({ where: { id: skillId }, select: OWNER });
   const cloudAgent = ({ agentId }: { agentId: string }) =>
     deps.prisma.cloudAgent.findUnique({ where: { id: agentId }, select: OWNER });
+  const scopedGoal = ({ goalId }: { goalId: string }) =>
+    deps.prisma.scopedGoal.findUnique({ where: { id: goalId }, select: OWNER });
   const purchase = ({ purchaseId }: { purchaseId: string }) =>
     deps.prisma.purchase.findUnique({ where: { id: purchaseId }, select: OWNER });
   const mediaJob = async ({ jobId }: { jobId: string }) =>
@@ -221,6 +224,17 @@ export function createBackgroundJobHandlers(deps: {
           userCloudAgents: deps.userCloudAgents,
         },
         payload,
+      );
+    }),
+    "scoped_goal.advance": asOwner(scopedGoal, async (payload) => {
+      await advanceScopedGoal(
+        {
+          prisma: deps.prisma,
+          jobs: deps.jobs,
+          cloudAgent: deps.cloudAgent,
+          userCloudAgents: deps.userCloudAgents,
+        },
+        payload.goalId,
       );
     }),
     "purchase.poll": asOwner(purchase, async (payload) => {

@@ -82,7 +82,7 @@ import { callPaidService } from "./run-tools-integrations.js";
 import { USER_COMPUTER_TOOLS, userComputerGate } from "./run-tools-user-computer.js";
 import { connectorTrustKeys } from "./run-trust.js";
 import { watchFromTool } from "./schedule-tools.js";
-import { goalDrivesAgent, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
+import { goalDrivesAgent, SCOPED_GOAL_NONCE, uncertainEffect } from "./scoped-goal-service.js";
 import { pagePaymentPrecheck, paysWithWallet } from "./spending-gate.js";
 import { refusal } from "./tool-refusal.js";
 
@@ -471,13 +471,9 @@ export async function gateToolCall(
     !READ_ONLY_AGENT_TOOLS.has(name) &&
     !(viaConnector && connectorTool?.readOnly === true)
   ) {
-    const uncertain = await deps.prisma.externalEffect.findFirst({
-      where: {
-        spaceId: run.spaceId,
-        run: { threadId: ctx.thread.id },
-        status: { in: ["executing", "uncertain"] },
-      },
-      select: { id: true },
+    const uncertain = await uncertainEffect(deps.prisma, {
+      spaceId: run.spaceId,
+      threadId: ctx.thread.id,
     });
     if (uncertain)
       return {

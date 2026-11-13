@@ -303,8 +303,7 @@ export async function reconcileCloudWork(
 ) {
   const { prisma, jobs, cloudAgent, userCloudAgents } = deps;
   await reconcileCloudAgents({ prisma, jobs, events: deps.events, cloudAgent, userCloudAgents });
-  if (cloudAgent || userCloudAgents)
-    await reconcileScopedGoals({ prisma, jobs, cloudAgent, userCloudAgents });
+  if (cloudAgent || userCloudAgents) await reconcileScopedGoals({ prisma, jobs });
 }
 
 type JobReconcilerDeps = Parameters<typeof createJobReconciler>[0];

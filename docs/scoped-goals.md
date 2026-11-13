@@ -25,7 +25,9 @@ queue or framework.
 - A turn without progress backs off (1 minute, then 5) and the third stops the goal with one
   durable notice.
 - Any executing or uncertain write in the thread blocks further goal writes until it is
-  reconciled. Permission denials never trigger a fallback.
+  reconciled. That includes the automatic follow-up: it is checked in the same transaction
+  that records it, and while blocked the goal waits with the effect named in its blocker, then
+  sends the follow-up once the effect settles. Permission denials never trigger a fallback.
 - `scoped_goal_authorize` and `scoped_goal_control` always need explicit approval;
   `scoped_goal_status` is read-only; `scoped_goal_report` records evidence.
 
@@ -33,6 +35,11 @@ queue or framework.
 
 Orchestration is code; the model only judges. The reconciler observes the current gate itself
 and advances it, so a normal release takes no continuation Run.
+
+- The periodic pass only finds due goals and gives each its own `scoped_goal.advance` job
+  (keyed per goal), so one goal's slow remote check never holds back another's. A finishing
+  agent nudges only its own goal's job. The goal row's version claim keeps two workers from
+  advancing the same goal twice.
 
 - Two built-in observations carry the evidence contract like any other tool: `agent_pull_request`
   (the managed thread's pull request, its state and, once merged, the merge commit) and

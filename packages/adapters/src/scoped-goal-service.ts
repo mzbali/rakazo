@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { JobPublisher } from "@rakazo/adapter-kit";
-import { runContinueJob } from "@rakazo/adapter-kit";
+import { runContinueJob, scopedGoalAdvanceJob } from "@rakazo/adapter-kit";
 import { ScopedGoalControl, ScopedGoalReport, ScopedGoalScope } from "@rakazo/contracts";
 import type { Prisma, PrismaClient, Run, ScopedGoal } from "@rakazo/db";
 import {
@@ -45,6 +45,21 @@ const BACKOFF_MS = [60_000, 5 * 60_000, 30 * 60_000];
 const MAX_REASON = 1_000;
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 export const SCOPED_GOAL_NONCE = "scoped-goal:";
+
+/** An earlier write in the goal's thread that is still running or whose outcome is unknown. */
+export function uncertainEffect(
+  db: Pick<Tx, "externalEffect">,
+  where: { spaceId: string; threadId: string },
+) {
+  return db.externalEffect.findFirst({
+    where: {
+      spaceId: where.spaceId,
+      run: { threadId: where.threadId },
+      status: { in: ["executing", "uncertain"] },
+    },
+    select: { id: true },
+  });
+}
 
 /** A goal drives its agent only while running in the epoch the owner last set. */
 export function goalDrivesAgent(goal: ScopedGoal | null): goal is ScopedGoal {
@@ -480,131 +495,145 @@ export async function scopedGoalTool(
   });
 }
 
+/** Goals whose next look is due. */
+export async function dueScopedGoalIds(prisma: PrismaClient, now: Date) {
+  const due = await prisma.scopedGoal.findMany({
+    where: { status: { in: ["active", "waiting"] }, nextAttemptAt: { lte: now } },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    take: 100,
+    select: { id: true },
+  });
+  return due.map((goal) => goal.id);
+}
+
+/** Hands each due goal its own job, so one goal's remote reads never hold back another's. */
+export async function reconcileScopedGoals(deps: Pick<Deps, "prisma" | "jobs">, now = new Date()) {
+  for (const goalId of await dueScopedGoalIds(deps.prisma, now))
+    await enqueueScopedGoal(deps, goalId);
+}
+
+export async function enqueueScopedGoal(deps: Pick<Deps, "jobs">, goalId: string) {
+  await deps.jobs.enqueue(scopedGoalAdvanceJob({ goalId })).catch(() => {
+    getLogger().warn("scoped goal advance deferred to reconciliation");
+  });
+}
+
 /** One transaction owns the wake intent; Run leases own execution after commit. */
-export async function reconcileScopedGoals(deps: Deps, now = new Date()) {
-  const due = await deps.prisma.scopedGoal.findMany({
+export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Date()) {
+  const candidate = await deps.prisma.scopedGoal.findFirst({
     where: {
+      id: goalId,
       status: { in: ["active", "waiting"] },
       nextAttemptAt: { lte: now },
     },
-    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
-    take: 100,
   });
-  for (const candidate of due) {
-    // Gates that code can observe advance here, with no model. Remote reads stay out of the
-    // transaction below, which only decides whether a model has to look.
-    const advanced = await advanceInCode(deps, candidate, now).catch((error: unknown) => {
-      getLogger().error("scoped goal observation", error);
-      return { proceed: false, version: candidate.version };
-    });
-    if (advanced && !advanced.proceed) continue;
-    // One goal's conflict or bad row never holds back the others; the next pass retries it.
-    const runId = await deps.prisma
-      .$transaction(async (tx) => {
-        // Acquire the goal row before reading related state; no remote I/O under this lock.
-        const claimed = await tx.scopedGoal.updateMany({
-          where: { id: candidate.id, version: advanced?.version ?? candidate.version },
-          data: { updatedAt: now },
-        });
-        if (!claimed.count) return;
-        const goal = await tx.scopedGoal.findUniqueOrThrow({ where: { id: candidate.id } });
-        const [agent, member, bot, active] = await Promise.all([
-          tx.cloudAgent.findUnique({ where: { id: goal.agentId } }),
-          tx.spaceMember.findUnique({
-            where: { spaceId_userId: { spaceId: goal.spaceId, userId: goal.userId } },
-          }),
-          tx.bot.findFirst({ where: { id: goal.botId, spaceId: goal.spaceId, archivedAt: null } }),
-          goal.activeRunId ? tx.run.findUnique({ where: { id: goal.activeRunId } }) : null,
-        ]);
-        if (!member || !bot || !agent || agent.cancelRequested) {
-          await transition(
-            tx,
-            goal,
-            { status: "blocked", nextAttemptAt: null },
-            { reason: "Owner, bot or managed thread unavailable" },
-          );
-          return;
-        }
-        const intervention = await tx.message.findFirst({
-          where: {
-            threadId: goal.threadId,
-            role: "user",
-            authorUserId: goal.userId,
-            createdAt: { gt: goal.ownerSeenAt },
-          },
-          select: { id: true },
-        });
-        if (intervention) {
-          await transition(
-            tx,
-            goal,
-            {
-              status: "paused",
-              nextAttemptAt: null,
-              controlEpoch: { increment: 1 },
-              blocker: json({
-                category: "scope",
-                reason: "Owner intervened; resume after reconciling the new instruction.",
-              }),
-            },
-            { action: "owner_intervention", messageId: intervention.id },
-          );
-          return;
-        }
-        if (active && !TERMINAL.has(active.status)) return;
-        if (goal.activeRunId) {
-          await settleContinuation(tx, goal, active, now);
-          return;
-        }
-        // Remote work and other owner turns settle before a new supervisory turn starts.
-        if (
-          agent.status === "running" ||
-          agent.followup ||
-          (await tx.run.findFirst({
-            where: {
-              threadId: goal.threadId,
-              status: { notIn: [...TERMINAL] },
-            },
-            select: { id: true },
-          }))
-        )
-          return;
-        const uncertain = await tx.externalEffect.findFirst({
-          where: {
-            spaceId: goal.spaceId,
-            run: { threadId: goal.threadId },
-            status: { in: ["executing", "uncertain"] },
-          },
-          select: { id: true },
-        });
-        const prompt = `Continue scoped goal ${goal.id}, version ${goal.version + 1}, gate ${goal.gate}. Read scoped_goal_status first. Inspect the existing managed thread and current revision before acting. ${uncertain ? `Effect ${uncertain.id} is uncertain: reconcile its observable result before retrying any write.` : ""} Advance only the approved scope; retain mandatory platform approvals. Use scoped_goal_report with recorded observation effect ids, or preserve the blocker and reset time. If the current provider is unavailable, inspect available capabilities and use a suitable configured fallback in the same thread only after reconciling uncertain work. Never broaden permissions or substitute a provider for a permission refusal. Persist cooldown/reset times rather than polling a model. A completed turn is not a completed goal.`;
-        const [created] = await createCloudAgentWake(
+  if (!candidate) return;
+  // Gates that code can observe advance here, with no model. Remote reads stay out of the
+  // transaction below, which only decides whether a model has to look.
+  const advanced = await advanceInCode(deps, candidate, now).catch((error: unknown) => {
+    getLogger().error("scoped goal observation", error);
+    return { proceed: false, version: candidate.version };
+  });
+  if (advanced && !advanced.proceed) return;
+  // One goal's conflict or bad row never holds back the others; the next pass retries it.
+  const runId = await deps.prisma
+    .$transaction(async (tx) => {
+      // Acquire the goal row before reading related state; no remote I/O under this lock.
+      const claimed = await tx.scopedGoal.updateMany({
+        where: { id: candidate.id, version: advanced?.version ?? candidate.version },
+        data: { updatedAt: now },
+      });
+      if (!claimed.count) return;
+      const goal = await tx.scopedGoal.findUniqueOrThrow({ where: { id: candidate.id } });
+      const [agent, member, bot, active] = await Promise.all([
+        tx.cloudAgent.findUnique({ where: { id: goal.agentId } }),
+        tx.spaceMember.findUnique({
+          where: { spaceId_userId: { spaceId: goal.spaceId, userId: goal.userId } },
+        }),
+        tx.bot.findFirst({ where: { id: goal.botId, spaceId: goal.spaceId, archivedAt: null } }),
+        goal.activeRunId ? tx.run.findUnique({ where: { id: goal.activeRunId } }) : null,
+      ]);
+      if (!member || !bot || !agent || agent.cancelRequested) {
+        await transition(
           tx,
-          agent,
-          prompt,
-          `${SCOPED_GOAL_NONCE}${goal.id}:${goal.attempt}`,
+          goal,
+          { status: "blocked", nextAttemptAt: null },
+          { reason: "Owner, bot or managed thread unavailable" },
         );
-        if (!created) return;
+        return;
+      }
+      const intervention = await tx.message.findFirst({
+        where: {
+          threadId: goal.threadId,
+          role: "user",
+          authorUserId: goal.userId,
+          createdAt: { gt: goal.ownerSeenAt },
+        },
+        select: { id: true },
+      });
+      if (intervention) {
         await transition(
           tx,
           goal,
           {
-            activeRunId: created,
-            activeEpoch: goal.controlEpoch,
-            attempt: { increment: 1 },
-            status: "active",
-            nextAttemptAt: now,
+            status: "paused",
+            nextAttemptAt: null,
+            controlEpoch: { increment: 1 },
+            blocker: json({
+              category: "scope",
+              reason: "Owner intervened; resume after reconciling the new instruction.",
+            }),
           },
-          { action: "continue", runId: created },
+          { action: "owner_intervention", messageId: intervention.id },
         );
-        return created;
-      })
-      .catch((error: unknown) => {
-        getLogger().error("scoped goal reconciliation", error);
-        return undefined;
-      });
-    if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
-  }
+        return;
+      }
+      if (active && !TERMINAL.has(active.status)) return;
+      if (goal.activeRunId) {
+        await settleContinuation(tx, goal, active, now);
+        return;
+      }
+      // Remote work and other owner turns settle before a new supervisory turn starts.
+      if (
+        agent.status === "running" ||
+        agent.followup ||
+        (await tx.run.findFirst({
+          where: {
+            threadId: goal.threadId,
+            status: { notIn: [...TERMINAL] },
+          },
+          select: { id: true },
+        }))
+      )
+        return;
+      const uncertain = await uncertainEffect(tx, goal);
+      const prompt = `Continue scoped goal ${goal.id}, version ${goal.version + 1}, gate ${goal.gate}. Read scoped_goal_status first. Inspect the existing managed thread and current revision before acting. ${uncertain ? `Effect ${uncertain.id} is uncertain: reconcile its observable result before retrying any write.` : ""} Advance only the approved scope; retain mandatory platform approvals. Use scoped_goal_report with recorded observation effect ids, or preserve the blocker and reset time. If the current provider is unavailable, inspect available capabilities and use a suitable configured fallback in the same thread only after reconciling uncertain work. Never broaden permissions or substitute a provider for a permission refusal. Persist cooldown/reset times rather than polling a model. A completed turn is not a completed goal.`;
+      const [created] = await createCloudAgentWake(
+        tx,
+        agent,
+        prompt,
+        `${SCOPED_GOAL_NONCE}${goal.id}:${goal.attempt}`,
+      );
+      if (!created) return;
+      await transition(
+        tx,
+        goal,
+        {
+          activeRunId: created,
+          activeEpoch: goal.controlEpoch,
+          attempt: { increment: 1 },
+          status: "active",
+          nextAttemptAt: now,
+        },
+        { action: "continue", runId: created },
+      );
+      return created;
+    })
+    .catch((error: unknown) => {
+      getLogger().error("scoped goal reconciliation", error);
+      return undefined;
+    });
+  if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
 }
 
 /**
@@ -856,10 +885,27 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
     const changed = new Error("Cloud agent changed before the follow-up was recorded.");
     const queued = await deps.prisma
       .$transaction(async (tx) => {
+        // A write still running or of unknown outcome stops another one, as at the tool gate.
+        const uncertain = await uncertainEffect(tx, goal);
+        if (uncertain) {
+          const reason = `Effect ${uncertain.id} is not reconciled; the follow-up waits for it.`;
+          const blocked = (goal.blocker ?? {}) as { reason?: string };
+          if (blocked.reason !== reason)
+            await transition(
+              tx,
+              goal,
+              {
+                status: "waiting",
+                blocker: json({ category: "uncertain_effect", reason }),
+              },
+              { action: "followup_deferred", source: "code", gate: current.gate, reason },
+            );
+          return false;
+        }
         await transition(
           tx,
           goal,
-          { activeEpoch: goal.controlEpoch },
+          { activeEpoch: goal.controlEpoch, status: "active", blocker: DbPrisma.DbNull },
           { action: "followup_sent", source: "code", gate: current.gate },
         );
         const result = await queueCloudAgentFollowupInTransaction(
@@ -869,14 +915,14 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
           false,
         );
         if (!result.count) throw changed;
+        return true;
       })
-      .then(() => true)
       .catch((error: unknown) => {
         if (error !== changed) throw error;
         return false;
       });
-    if (!queued) return wait();
     goal = await deps.prisma.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
+    if (!queued) return wait();
     await enqueueCloudAgent(deps, fresh.id);
     return wait();
   }

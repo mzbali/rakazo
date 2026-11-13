@@ -66,6 +66,7 @@ const payloadSchemas = {
   "team_chat.engage": z.object({ externalMessageId: z.string().min(1) }),
   "team_chat.ambient": z.object({ conversationId: z.string().min(1) }),
   "cloud_agent.poll": z.object({ agentId: z.string().min(1) }),
+  "scoped_goal.advance": z.object({ goalId: z.string().min(1) }),
   "purchase.poll": z.object({ purchaseId: z.string().min(1) }),
   "media.poll": z.object({ jobId: z.string().min(1) }),
   "push.receipt": z.object({
@@ -344,6 +345,16 @@ export function cloudAgentPollJob(
     payload,
     replaceKey: cloudAgentPollJobKey(payload.agentId),
     ...(availableAt ? { availableAt } : {}),
+  };
+}
+
+export function scopedGoalAdvanceJob(
+  payload: BackgroundJobPayloads["scoped_goal.advance"],
+): BackgroundJob {
+  return {
+    name: "scoped_goal.advance",
+    payload,
+    replaceKey: `scoped_goal.advance:${payload.goalId}`,
   };
 }
 

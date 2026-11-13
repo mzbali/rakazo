@@ -1414,6 +1414,10 @@ model CloudAgent {
   unreachableSince    DateTime?
   /// Wake runs created for the current generation, counting retries of failed ones.
   wakeAttempts        Int      @default(0)
+  /// The hidden helper thread that handles this agent's wakes, created on its first one.
+  jobThreadId         String?
+  /// The launch prompt, kept for that helper once the launch request itself is cleared.
+  launchBrief         String?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])

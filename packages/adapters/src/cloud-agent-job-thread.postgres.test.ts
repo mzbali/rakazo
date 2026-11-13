@@ -1,0 +1,406 @@
+import { randomUUID } from "node:crypto";
+import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
+import { runContinueJob } from "@rakazo/adapter-kit";
+import { BACKGROUND_HELPER_TRIGGER, HELPER_RESULT_TRIGGER, isJobHelperRun } from "@rakazo/core";
+import type { PrismaClient } from "@rakazo/db";
+import { asSystem, createDb, runAsSystem } from "@rakazo/db";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { returnHelperOutcome } from "./background-helpers.js";
+import { CursorCloudAgentEmulator } from "./cloud-agent-emulator.js";
+import type { CloudAgentConnection } from "./cloud-agent-factory.js";
+import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
+import { executeCloudAgentTool } from "./cloud-agent-service.js";
+import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
+import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
+import { helperToolAllowed } from "./run-tool-selection.js";
+
+const describePostgres =
+  process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
+
+describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () => {
+  let prisma: PrismaClient;
+  let db: ReturnType<typeof createDb>;
+  const users: string[] = [];
+  beforeAll(() => {
+    db = createDb(process.env.DATABASE_URL!);
+    prisma = db.prisma;
+  });
+  afterEach(() => vi.unstubAllEnvs());
+  afterAll(async () => {
+    if (!db) return;
+    await prisma.cloudAgent.deleteMany({ where: { userId: { in: users } } });
+    await prisma.organization.deleteMany({ where: { id: { in: users } } });
+    await prisma.user.deleteMany({ where: { id: { in: users } } });
+    await db.prisma.$disconnect();
+    await db.pool.end();
+  });
+
+  async function setup(mainMessages = 0) {
+    const id = randomUUID();
+    users.push(id);
+    const { bot, thread, run } = await runAsSystem("test fixture", async () => {
+      await prisma.user.create({
+        data: { id, name: "Job test", email: `${id}@example.test`, emailVerified: true },
+      });
+      await prisma.organization.create({
+        data: { id, name: "Job test", slug: id, createdAt: new Date() },
+      });
+      await prisma.space.create({
+        data: { id, organizationId: id, name: "Job test", isDefault: true },
+      });
+      await prisma.member.create({
+        data: { id, organizationId: id, userId: id, role: "owner", createdAt: new Date() },
+      });
+      const bot = await prisma.bot.create({
+        data: { spaceId: id, userId: id, name: "Job test", color: "test-color" },
+      });
+      const thread = await asSystem(prisma).thread.create({
+        data: { spaceId: id, userId: id, botId: bot.id, nextMessageSeq: mainMessages },
+      });
+      const task = await asSystem(prisma).task.create({
+        data: {
+          spaceId: id,
+          userId: id,
+          botId: bot.id,
+          threadId: thread.id,
+          prompt: "Test",
+          status: "completed",
+        },
+      });
+      const run = await asSystem(prisma).run.create({
+        data: {
+          spaceId: id,
+          userId: id,
+          botId: bot.id,
+          threadId: thread.id,
+          taskId: task.id,
+          status: "completed",
+          trigger: "user",
+        },
+      });
+      // The owner's long chat: every message mentions something the job record must not carry.
+      await asSystem(prisma).message.createMany({
+        data: Array.from({ length: mainMessages }, (_, seq) => ({
+          threadId: thread.id,
+          seq,
+          role: seq % 2 ? "bot" : "user",
+          blocks: [{ kind: "text", text: `OWNER-CHAT-LINE-${seq} ${"lorem ipsum ".repeat(30)}` }],
+        })),
+      });
+      return { bot, thread, run };
+    });
+    const wire = new CursorCloudAgentEmulator();
+    const connection: CloudAgentConnection = {
+      key: `test-connection:${id}`,
+      spaceId: id,
+      provider: new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch }),
+    };
+    const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
+    const jobs: JobPublisher = {
+      enqueue,
+      enqueueIn: async () => undefined,
+      cancelIn: async () => undefined,
+      cancel: async () => undefined,
+      close: async () => undefined,
+    };
+    const notify = vi.fn(async () => undefined);
+    const deps = { prisma, jobs, events: { notify }, cloudAgent: connection };
+    const context: AdapterContext & { botId: string } = {
+      operationId: randomUUID(),
+      traceId: "test",
+      spaceId: id,
+      userId: id,
+      botId: bot.id,
+      signal: new AbortController().signal,
+    };
+    const launch = async (prompt = "Add a README with install steps") => {
+      const result = await runAsSystem("agent run tool call", () =>
+        executeCloudAgentTool(
+          deps,
+          { ...context, operationId: randomUUID() },
+          run,
+          "cloud_agent_launch",
+          { prompt, repository: "https://github.com/example/demo", openPr: true },
+        ),
+      );
+      if (!("id" in result)) throw new Error("Launch failed");
+      return result.id;
+    };
+    const state = (agentId: string) =>
+      prisma.cloudAgent.findUniqueOrThrow({ where: { id: agentId } });
+    const poll = (agentId: string) =>
+      runAsSystem("cloud agent poll job", () => pollCloudAgent(deps, { agentId }));
+    const finish = async (agentId: string) => {
+      wire.complete((await state(agentId)).remoteId!);
+      await poll(agentId);
+    };
+    const runsIn = (threadId: string) =>
+      runAsSystem("test read", () =>
+        asSystem(prisma).run.findMany({ where: { threadId }, orderBy: { createdAt: "asc" } }),
+      );
+    const messagesIn = (threadId: string) =>
+      runAsSystem("test read", () =>
+        asSystem(prisma).message.findMany({ where: { threadId }, orderBy: { seq: "asc" } }),
+      );
+    return {
+      id,
+      bot,
+      thread,
+      deps,
+      launch,
+      state,
+      poll,
+      finish,
+      runsIn,
+      messagesIn,
+      enqueue,
+      notify,
+    };
+  }
+
+  /** The agent finished once; one more piece of work follows, for a second wake. */
+  async function restart(h: Awaited<ReturnType<typeof setup>>, agentId: string) {
+    await prisma.cloudAgent.update({
+      where: { id: agentId },
+      data: {
+        status: "running",
+        generation: { increment: 1 },
+        verdict: null,
+        nextPollAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
+    await h.finish(agentId);
+  }
+
+  it("runs a terminal wake in a hidden helper thread, with one card in the main chat", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(40);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    const before = (await h.messagesIn(h.thread.id)).length;
+    await h.finish(agentId);
+
+    const agent = await h.state(agentId);
+    expect(agent.jobThreadId).toBeTruthy();
+    expect(agent.jobThreadId).not.toBe(h.thread.id);
+    const helperThread = await asSystem(prisma).thread.findUniqueOrThrow({
+      where: { id: agent.jobThreadId! },
+    });
+    expect(helperThread).toMatchObject({ helperBotId: h.bot.id, botId: null });
+
+    // Nothing in the main chat runs for the wake.
+    const mainRuns = await h.runsIn(h.thread.id);
+    expect(mainRuns.map((run) => run.trigger)).toEqual(["user"]);
+    const [helperRun, ...rest] = await h.runsIn(helperThread.id);
+    expect(rest).toHaveLength(0);
+    expect(helperRun).toMatchObject({
+      trigger: BACKGROUND_HELPER_TRIGGER,
+      status: "queued",
+      cloudAgentWakeNonces: [`cloud-agent-wake-run:${agentId}:0`],
+    });
+    expect(isJobHelperRun(helperRun!)).toBe(true);
+    expect(h.enqueue).toHaveBeenCalledWith(runContinueJob(helperRun!.id));
+
+    // The main chat gained exactly the helper's running card.
+    const added = (await h.messagesIn(h.thread.id)).slice(before);
+    expect(added).toHaveLength(1);
+    expect(added[0]!.blocks).toMatchObject([{ kind: "subagent", status: "running" }]);
+    expect(helperRun!.sourceMessageId).toBe(added[0]!.id);
+
+    // Its result settles that card and does not start a main chat run.
+    await runAsSystem("helper ends", () =>
+      asSystem(prisma).run.update({ where: { id: helperRun!.id }, data: { status: "completed" } }),
+    );
+    await runAsSystem("helper result", () =>
+      returnHelperOutcome(
+        h.deps,
+        { ...helperRun!, botId: h.bot.id },
+        { status: "completed", text: "Accepted: the README covers install." },
+      ),
+    );
+    const settled = await h.messagesIn(h.thread.id);
+    expect(settled).toHaveLength(before + 1);
+    expect(settled.at(-1)!.blocks).toMatchObject([
+      { kind: "subagent", status: "completed", result: "Accepted: the README covers install." },
+    ]);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+  });
+
+  it("feeds the helper the job record, not the owner's chat", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(1200);
+    const agentId = await h.launch("Add a README with install steps");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const agent = await h.state(agentId);
+    const [helperRun] = await h.runsIn(agent.jobThreadId!);
+    const task = await asSystem(prisma).task.findUniqueOrThrow({
+      where: { id: helperRun!.taskId },
+    });
+
+    expect(task.prompt).toContain("Add a README with install steps");
+    expect(task.prompt).toContain(`id: ${agentId}`);
+    expect(task.prompt).toContain("status: finished");
+    expect(task.prompt).toContain("is finished");
+    expect(task.prompt).not.toContain("OWNER-CHAT-LINE");
+    expect(await h.messagesIn(agent.jobThreadId!)).toHaveLength(0);
+
+    // What a main chat wake carries: the chat's history (what the executor loads for it).
+    const chat = (await h.messagesIn(h.thread.id))
+      .map((message) => JSON.stringify(message.blocks))
+      .join("\n");
+    process.stdout.write(
+      `job helper wake: ${task.prompt.length} chars (~${Math.ceil(task.prompt.length / 4)} tokens); main chat history it replaces: ${chat.length} chars (~${Math.ceil(chat.length / 4)} tokens)\n`,
+    );
+    expect(task.prompt.length).toBeLessThan(chat.length / 50);
+  });
+
+  it("reuses the same helper thread for the next wake", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(4);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const first = (await h.state(agentId)).jobThreadId!;
+    const [firstRun] = await h.runsIn(first);
+    // The first wake's helper runs and ends before the agent is sent back to work.
+    await runAsSystem("helper ends", () =>
+      asSystem(prisma).run.update({ where: { id: firstRun!.id }, data: { status: "completed" } }),
+    );
+    await restart(h, agentId);
+
+    const agent = await h.state(agentId);
+    expect(agent.jobThreadId).toBe(first);
+    expect(agent.wakeGeneration).toBe(1);
+    const runs = await h.runsIn(first);
+    expect(runs.map((run) => run.cloudAgentWakeNonces)).toEqual([
+      [`cloud-agent-wake-run:${agentId}:0`],
+      [`cloud-agent-wake-run:${agentId}:1`],
+    ]);
+    expect(await asSystem(prisma).thread.count({ where: { helperBotId: h.bot.id } })).toBe(1);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+  });
+
+  it("folds a second wake into the helper run that has not started", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(2);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const agent = await h.state(agentId);
+    const created = await runAsSystem("second wake", () =>
+      prisma.$transaction((tx) =>
+        createCloudAgentWake(
+          tx,
+          agent,
+          `Cloud agent ${agentId} needs input (req-1). Use cloud_agent_status.`,
+          `cloud-agent-attention:${agentId}:req-1`,
+          { jobThread: true },
+        ),
+      ),
+    );
+    const runs = await h.runsIn(agent.jobThreadId!);
+    expect(runs).toHaveLength(1);
+    expect(created).toEqual([runs[0]!.id]);
+    expect(runs[0]!.cloudAgentWakeNonces).toHaveLength(2);
+    const task = await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[0]!.taskId } });
+    expect(task.prompt).toContain("needs input (req-1)");
+  });
+
+  it("brings an unanswered question to the main chat", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(2);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    await prisma.cloudAgent.update({
+      where: { id: agentId },
+      data: { attention: [{ requestId: "req-1", kind: "question" }] },
+    });
+    const agent = await h.state(agentId);
+    const [id] = await runAsSystem("attention wake", () =>
+      prisma.$transaction((tx) =>
+        createCloudAgentWake(
+          tx,
+          agent,
+          `Cloud agent ${agentId} needs input (req-1).`,
+          `cloud-agent-attention:${agentId}:req-1`,
+          { jobThread: true },
+        ),
+      ),
+    );
+    const helperRun = await asSystem(prisma).run.findUniqueOrThrow({ where: { id: id! } });
+    expect(helperRun.threadId).toBe((await h.state(agentId)).jobThreadId);
+    await runAsSystem("helper ends", () =>
+      asSystem(prisma).run.update({ where: { id: helperRun.id }, data: { status: "completed" } }),
+    );
+    await runAsSystem("helper result", () =>
+      returnHelperOutcome(
+        h.deps,
+        { ...helperRun, botId: h.bot.id },
+        { status: "completed", text: "The agent asks which license to use." },
+      ),
+    );
+    const mainRuns = await h.runsIn(h.thread.id);
+    expect(mainRuns.map((run) => run.trigger)).toEqual(["user", HELPER_RESULT_TRIGGER]);
+  });
+
+  it("settles the card and cancels a wake that became stale", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup(2);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const agent = await h.state(agentId);
+    const [helperRun] = await h.runsIn(agent.jobThreadId!);
+    // The agent was sent back to work before its helper started.
+    await prisma.cloudAgent.update({
+      where: { id: agentId },
+      data: { status: "running", generation: { increment: 1 } },
+    });
+    await asSystem(prisma).run.update({
+      where: { id: helperRun!.id },
+      data: { status: "running", leaseOwner: "w1", leaseFence: 1 },
+    });
+    const cancelled = await runAsSystem("stale wake", () =>
+      cancelStaleCloudAgentWake(
+        h.deps,
+        { ...(helperRun as NonNullable<typeof helperRun>), status: "running" },
+        { owner: "w1", fence: 1 },
+      ),
+    );
+    expect(cancelled).toBe(true);
+    expect((await h.runsIn(agent.jobThreadId!)).map((run) => run.status)).toEqual(["cancelled"]);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+    const card = (await h.messagesIn(h.thread.id)).at(-1)!;
+    expect(card.blocks).toMatchObject([{ kind: "subagent", status: "failed", result: "stopped" }]);
+  });
+
+  it("changes nothing while the flag is off", async () => {
+    const h = await setup(2);
+    const agentId = await h.launch();
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const agent = await h.state(agentId);
+    expect(agent.jobThreadId).toBeNull();
+    expect(agent.launchBrief).toBeNull();
+    const runs = await h.runsIn(h.thread.id);
+    expect(runs.map((run) => run.trigger)).toEqual(["user", "cloud_agent"]);
+    const task = await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[1]!.taskId } });
+    expect(task.prompt).toBe(
+      `Cloud agent ${agentId} is finished. Use cloud_agent_status to inspect its result, then cloud_agent_report your verdict.`,
+    );
+    expect(await asSystem(prisma).thread.count({ where: { helperBotId: h.bot.id } })).toBe(0);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(2 + 1);
+  });
+
+  it("offers a job helper the cloud-agent tools a plain helper lacks", () => {
+    for (const name of ["cloud_agent_reply", "cloud_agent_report", "cloud_agent_cancel"]) {
+      expect(helperToolAllowed(name, false)).toBe(false);
+      expect(helperToolAllowed(name, true)).toBe(true);
+    }
+    expect(helperToolAllowed("cloud_agent_launch", true)).toBe(false);
+    expect(helperToolAllowed("message_user", true)).toBe(false);
+    expect(helperToolAllowed("cloud_agent_status", false)).toBe(true);
+  });
+});

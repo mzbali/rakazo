@@ -1,6 +1,6 @@
 import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
-import { cloudAgentBlockFromPayload } from "@rakazo/core";
+import { BACKGROUND_HELPER_TRIGGER, cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -15,6 +15,7 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
+import { cloudAgentJobThreadsEnabled, MAX_LAUNCH_BRIEF } from "./cloud-agent-job-thread.js";
 import {
   attentionIds,
   cloudAgentWakeNonceWhere,
@@ -194,6 +195,10 @@ export async function executeCloudAgentTool(
           threadId: run.threadId,
           title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
           launchRequest,
+          // The launch request is cleared once sent; a job thread's helper still needs the brief.
+          ...(cloudAgentJobThreadsEnabled()
+            ? { launchBrief: request.prompt.slice(0, MAX_LAUNCH_BRIEF) }
+            : {}),
           requestKey,
           agreement,
           acceptance,
@@ -470,7 +475,8 @@ export async function enqueueCloudAgent(
   });
 }
 
-type Reconciled = Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent" | "userCloudAgents">;
+type Reconciled = Pick<CloudAgentDeps, "prisma" | "jobs" | "cloudAgent" | "userCloudAgents"> &
+  Partial<Pick<CloudAgentDeps, "events">>;
 
 /** The agents this deployment polls: its own connection's, and every user-connected environment's. */
 function reconciledKeys(deps: Pick<CloudAgentDeps, "cloudAgent" | "userCloudAgents">) {
@@ -560,6 +566,7 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
       select: { status: true },
     });
     if (last?.status !== "failed" || !(await canWake(deps, agent))) continue;
+    const seqs: number[] = [];
     const runId = await deps.prisma.$transaction(async (tx) => {
       await lockCloudAgentWakeThread(tx, agent);
       const claimed = await tx.cloudAgent.updateMany({
@@ -580,9 +587,11 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
         agent,
         terminalWakePrompt(agent),
         `${base}:r${agent.wakeAttempts}`,
+        { jobThread: true, seqs },
       );
       return created;
     });
+    if (seqs.length) await notifyJobCards(deps, agent, seqs);
     if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
   }
   await retryFailedAttentionWakes(deps);
@@ -629,12 +638,17 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
     if (madeNonces.has(nonce) || !agent || !attentionIds(agent.attention).includes(requestId))
       continue;
     if (!(await canWake(deps, agent))) continue;
+    const seqs: number[] = [];
     const runId = await deps.prisma
       .$transaction((tx) =>
-        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce),
+        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce, {
+          jobThread: true,
+          seqs,
+        }),
       )
       // A concurrent reconciler made the same retry; the nonce is unique per space.
       .catch(() => []);
+    if (seqs.length && runId.length) await notifyJobCards(deps, agent, seqs);
     for (const id of runId) await deps.jobs.enqueue(runContinueJob(id)).catch(() => undefined);
   }
 }
@@ -646,7 +660,8 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
 async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: string) {
   const runs = await deps.prisma.run.findMany({
     where: {
-      trigger: "cloud_agent",
+      // A job helper's wake is a helper run; only wakes carry nonces.
+      trigger: { in: ["cloud_agent", BACKGROUND_HELPER_TRIGGER] },
       status: "failed",
       updatedAt: { gte: new Date(Date.now() - WAKE_RETRY_WINDOW_MS) },
     },
@@ -657,6 +672,15 @@ async function recentFailedWakes(deps: Pick<CloudAgentDeps, "prisma">, prefix: s
       clientNonce?.startsWith(prefix) ? [{ clientNonce }] : [],
     ),
   );
+}
+
+/** Announce the cards a retried job wake posted to the chat. */
+async function notifyJobCards(
+  deps: Partial<Pick<CloudAgentDeps, "events">>,
+  agent: CloudAgent,
+  seqs: number[],
+) {
+  await deps.events?.notify(agent.threadId, Math.max(...seqs)).catch(() => undefined);
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */

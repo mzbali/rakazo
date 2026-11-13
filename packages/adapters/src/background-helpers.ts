@@ -13,6 +13,7 @@ import {
   appendEventInTransaction,
   assertRunCanWriteHistory,
   createThreadMessageInTransaction,
+  markThreadUnreadForMembers,
   THREAD_LOCK_TRANSACTION_OPTIONS,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -224,7 +225,7 @@ export async function returnHelperOutcome(
     if (claimed.count !== 1 || !source || !run.sourceMessageId) return null;
     const card = await tx.message.findFirst({
       where: { id: run.sourceMessageId, threadId: source.threadId },
-      select: { id: true, threadId: true, blocks: true },
+      select: { id: true, threadId: true, seq: true, blocks: true },
     });
     const blocks = Array.isArray(card?.blocks) ? (card.blocks as MessageBlock[]) : [];
     const helper = blocks.find((block): block is HelperBlock => block.kind === "subagent");
@@ -253,6 +254,16 @@ export async function returnHelperOutcome(
       payload: { messageId: card.id, role: "bot", blocks: nextBlocks },
     });
     if (outcome.status === "stopped") return { threadId: card.threadId, eventSeq: event.seq };
+    // A cloud agent's job helper answers on the card alone, so the main chat does not run for a
+    // result unless the helper failed or left the owner something to decide.
+    if (await jobResultSettlesAlone(tx, helper.agentId)) {
+      await markThreadUnreadForMembers(tx, {
+        threadId: card.threadId,
+        spaceId: run.spaceId,
+        seq: card.seq,
+      });
+      return { threadId: card.threadId, eventSeq: event.seq };
+    }
     // Like the cloud-agent wake: only for a person still in the space and a bot still active
     // there. In a shared space that bot may be another member's; the turn runs as this person.
     const [member, bot] = await Promise.all([
@@ -301,6 +312,23 @@ export async function returnHelperOutcome(
       getLogger().error("background helper result enqueue", error);
     });
   }
+}
+
+/**
+ * A job helper's result stays on its card, a failure included (the wake retries on its own),
+ * unless it left an open question or approval the owner has to decide. Its card carries the wake
+ * identity (`cloud-agent-wake-run:<agent>:...`) as its execution id.
+ */
+async function jobResultSettlesAlone(tx: Prisma.TransactionClient, executionId: string) {
+  const [kind, agentId] = executionId.split(":");
+  if (kind !== "cloud-agent-wake-run" && kind !== "cloud-agent-attention") return false;
+  const agent = await tx.cloudAgent.findUnique({
+    where: { id: agentId },
+    select: { attention: true, followup: true },
+  });
+  if (!agent) return false;
+  const open = Array.isArray(agent.attention) && agent.attention.length > 0;
+  return !open || agent.followup != null;
 }
 
 export function resultPrompt(name: string, status: "completed" | "failed", result: string) {

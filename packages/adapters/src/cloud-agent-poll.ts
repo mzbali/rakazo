@@ -107,7 +107,8 @@ export async function pollCloudAgent(
           agent,
           {
             ...snapshotData(snapshot),
-            ...(snapshot.launchNote ? { launchNote: snapshot.launchNote } : {}),
+            // A wait for quota left its note; the started agent replaces it.
+            launchNote: snapshot.launchNote ?? null,
             remoteId: snapshot.id,
             launchRequest: {},
             cancelRequested: abandoned || agent.cancelRequested,
@@ -116,7 +117,12 @@ export async function pollCloudAgent(
         );
       } catch (error) {
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
-        await finishPoll(deps, agent, { ...rejectedData(error), launchRequest: {} }, abandoned);
+        await finishPoll(
+          deps,
+          agent,
+          { ...rejectedData(error), launchNote: null, launchRequest: {} },
+          abandoned,
+        );
       }
       return;
     }
@@ -288,6 +294,10 @@ export async function pollCloudAgent(
       });
       return;
     }
+    if (error instanceof CloudAgentRetryLater && error.reason === "quota") {
+      await quotaPoll(deps, agent, error);
+      return;
+    }
     // Provider response bodies and secrets never enter logs, cards, or model context.
     if (error instanceof CloudAgentRetryLater && error.reason === "credential")
       getLogger().warn("cloud agent credential rejected; check the provider connection");
@@ -360,6 +370,30 @@ async function retryPoll(
   });
   if (saved.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
   return saved.count > 0;
+}
+
+/**
+ * A launch waiting for model quota. Nothing was sent, so the launch can start over or be
+ * cancelled while it waits, and it is no outage: the note says why and until when.
+ */
+async function quotaPoll(deps: CloudAgentDeps, agent: CloudAgent, error: CloudAgentRetryLater) {
+  const nextPollAt = new Date(Date.now() + (error.retryAfterMs ?? 15 * 60_000));
+  // Only our lease guards this, so a cancel that moved the version still finds nothing dispatched.
+  await deps.prisma.cloudAgent.updateMany({
+    where: { id: agent.id, leaseToken: agent.leaseToken },
+    data: { launchDispatched: false, launchNote: error.note ?? null },
+  });
+  const saved = await deps.prisma.cloudAgent.updateMany({
+    where: fence(agent),
+    data: {
+      nextPollAt,
+      errorCount: 0,
+      retryingSince: null,
+      leaseToken: null,
+      leaseExpiresAt: null,
+    },
+  });
+  if (saved.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
 }
 
 /**

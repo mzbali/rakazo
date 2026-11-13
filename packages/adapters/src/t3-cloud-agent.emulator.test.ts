@@ -235,4 +235,164 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       expect(agent).not.toHaveProperty("launchNote");
     });
   });
+
+  describe("model routes", () => {
+    const routes = {
+      hard: [
+        { instanceId: "pool-a", model: "model-1" },
+        { instanceId: "pool-b", model: "model-2", options: [{ id: "effort", value: "high" }] },
+      ],
+    };
+    const reset = new Date(Date.now() + 2 * 3_600_000).toISOString();
+    const hardRequest = (key: string, extra = {}) => ({
+      idempotencyKey: key,
+      prompt: "Task",
+      workKind: "hard" as const,
+      ...extra,
+    });
+    function routed() {
+      const { emulator, provider: _plain } = setup();
+      emulator.providers = [
+        { providerInstanceId: "pool-a", models: [{ id: "model-1" }], constraints: [] },
+        { providerInstanceId: "pool-b", models: [{ id: "model-2" }], constraints: [] },
+      ];
+      return { emulator, provider: t3EmulatedProvider(emulator, routes) };
+    }
+    const retryAfter = async (promise: Promise<unknown>) => {
+      const error = await promise.then(
+        () => undefined,
+        (caught: unknown) => caught,
+      );
+      expect(error).toBeInstanceOf(CloudAgentRetryLater);
+      return error as CloudAgentRetryLater;
+    };
+
+    it("picks the first route when it has quota room", async () => {
+      const { emulator, provider } = routed();
+      const agent = await provider.launch(hardRequest("route-first-123"), context);
+      expect(launched(emulator)[0]!.args.modelSelection).toEqual({
+        instanceId: "pool-a",
+        model: "model-1",
+      });
+      expect(agent.launchNote).toBe("Picked model-1 on pool-a (hard).");
+    });
+
+    it("skips an exhausted model and says so", async () => {
+      const { emulator, provider } = routed();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: reset }];
+      const agent = await provider.launch(hardRequest("route-skip-1234"), context);
+      expect(launched(emulator)[0]!.args.modelSelection).toEqual({
+        instanceId: "pool-b",
+        model: "model-2",
+        options: [{ id: "effort", value: "high" }],
+      });
+      expect(agent.launchNote).toMatch(
+        /^Picked model-2 on pool-b \(hard; model-1 out of quota until \d\d:\d\d UTC\)\.$|^Picked model-2 on pool-b \(hard; model-1 out of quota until \d{4}-\d\d-\d\d \d\d:\d\d UTC\)\.$/,
+      );
+    });
+
+    it("waits for the earliest reset when every route is out, then launches", async () => {
+      const { emulator, provider } = routed();
+      const soon = new Date(Date.now() + 30 * 60_000).toISOString();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: reset }];
+      emulator.providers[1]!.models = [{ id: "model-2", exhausted: true, resetsAt: soon }];
+      const waiting = await retryAfter(provider.launch(hardRequest("route-wait-1234"), context));
+      expect(waiting.reason).toBe("quota");
+      expect(waiting.retryAfterMs).toBeGreaterThan(29 * 60_000);
+      expect(waiting.retryAfterMs).toBeLessThanOrEqual(30 * 60_000);
+      expect(waiting.note).toMatch(/^Waiting for quota until \d/);
+      expect(launched(emulator)).toHaveLength(0);
+      // The reset passes: the retry launches on the first route again.
+      emulator.providers[0]!.models = [{ id: "model-1" }];
+      const agent = await provider.launch(hardRequest("route-wait-1234"), context);
+      expect(agent.launchNote).toBe("Picked model-1 on pool-a (hard).");
+    });
+
+    it("bounds a wait to six hours and at least a minute", async () => {
+      const { emulator, provider } = routed();
+      const week = new Date(Date.now() + 7 * 86_400_000).toISOString();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: week }];
+      emulator.providers[1]!.models = [{ id: "model-2", exhausted: true, resetsAt: week }];
+      expect(
+        (await retryAfter(provider.launch(hardRequest("route-cap-12345"), context))).retryAfterMs,
+      ).toBe(6 * 3_600_000);
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true }];
+      emulator.providers[1]!.models = [
+        { id: "model-2", exhausted: true, resetsAt: new Date(Date.now() + 1_000).toISOString() },
+      ];
+      expect(
+        (await retryAfter(provider.launch(hardRequest("route-min-12345"), context))).retryAfterMs,
+      ).toBe(60_000);
+    });
+
+    it("reads the reset from the provider's window or T3's earliest when the model has none", async () => {
+      const { emulator, provider } = routed();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true }];
+      emulator.providers[0]!.usage = {
+        windows: [{ id: "primary", usedPercent: 100, resetsAt: reset, exhausted: true }],
+      };
+      emulator.providers[1]!.models = [{ id: "model-2", exhausted: true }];
+      emulator.earliestResetAt = new Date(Date.now() + 3 * 3_600_000).toISOString();
+      const waiting = await retryAfter(provider.launch(hardRequest("route-window-12"), context));
+      expect(waiting.retryAfterMs).toBeGreaterThan(110 * 60_000);
+      expect(waiting.retryAfterMs).toBeLessThanOrEqual(120 * 60_000);
+    });
+
+    it("honours a named model over the routes", async () => {
+      const { emulator, provider } = routed();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: reset }];
+      const agent = await provider.launch(
+        hardRequest("route-named-123", {
+          modelSelection: { instanceId: "pool-b", model: "model-2" },
+        }),
+        context,
+      );
+      expect(launched(emulator)[0]!.args.modelSelection).toEqual({
+        instanceId: "pool-b",
+        model: "model-2",
+      });
+      expect(agent.launchNote).toBe("Started model-2 on pool-b.");
+    });
+
+    it("waits when the named model is out of quota", async () => {
+      const { emulator, provider } = routed();
+      emulator.providers[1]!.models = [{ id: "model-2", exhausted: true, resetsAt: reset }];
+      const waiting = await retryAfter(
+        provider.launch(
+          hardRequest("route-named-out", {
+            modelSelection: { instanceId: "pool-b", model: "model-2" },
+          }),
+          context,
+        ),
+      );
+      expect(waiting.note).toContain("model-2 is out of quota");
+      expect(launched(emulator)).toHaveLength(0);
+    });
+
+    it("takes the first route when T3 reports no quota", async () => {
+      const { emulator, provider } = routed();
+      const agent = await provider.launch(hardRequest("route-nousage-12"), context);
+      expect(launched(emulator)[0]!.args.modelSelection).toMatchObject({ model: "model-1" });
+      expect(agent.launchNote).toBe("Picked model-1 on pool-a (hard).");
+    });
+
+    it("leaves a launch without a work kind, or a kind without routes, as it was", async () => {
+      const { emulator, provider } = routed();
+      emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: reset }];
+      const plain = await provider.launch(
+        { idempotencyKey: "route-plain-123", prompt: "Task" },
+        context,
+      );
+      expect(plain).not.toHaveProperty("launchNote");
+      const unrouted = await provider.launch(
+        { idempotencyKey: "route-simple-12", prompt: "Task", workKind: "simple" },
+        context,
+      );
+      expect(unrouted).not.toHaveProperty("launchNote");
+      expect(launched(emulator).map((call) => call.args.modelSelection)).toEqual([
+        { instanceId: "pool-a", model: "model-1" },
+        { instanceId: "pool-a", model: "model-1" },
+      ]);
+    });
+  });
 });

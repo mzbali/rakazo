@@ -385,8 +385,18 @@ export class T3McpEmulator {
   /** Providers and models `orchestrator_capabilities` offers; constraints mean it cannot run. */
   providers: Array<{
     providerInstanceId: string;
-    models: { id: string }[];
+    models: { id: string; exhausted?: true; resetsAt?: string }[];
     constraints?: string[];
+    usage?: {
+      checkedAt?: string;
+      windows: Array<{
+        id: string;
+        label?: string;
+        usedPercent: number;
+        resetsAt?: string;
+        exhausted?: boolean;
+      }>;
+    };
   }> = [
     {
       providerInstanceId: "off",
@@ -400,6 +410,8 @@ export class T3McpEmulator {
       constraints: [],
     },
   ];
+  /** The soonest quota reset, when a T3 build that reports usage says so. */
+  earliestResetAt?: string;
   /** Launch replays are keyed by the token's session, as T3 Code keys them. */
   private launches = new Map<string, string>();
   private sessions = 0;
@@ -578,6 +590,7 @@ export class T3McpEmulator {
         result: {
           inheritedProviderInstanceId: null,
           inheritedModel: null,
+          ...(this.earliestResetAt ? { earliestResetAt: this.earliestResetAt } : {}),
           providers: this.providers.map((provider) => ({
             ...provider,
             canRunChildTask: !provider.constraints?.length,

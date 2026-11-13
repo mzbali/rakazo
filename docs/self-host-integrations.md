@@ -333,6 +333,8 @@ CLOUD_AGENT_MCP_SERVER=t3
 
 `CLOUD_AGENT_MCP_SERVER` is the connection's slug. The tools are offered only to bots whose assignment to that server allows its thread tools, and every call goes through that bot's connection. It needs a T3 Code server with `t3_thread_events`, which reports run and question status, holds unread events through pruning, and says when history is missing. A question or approval shows the agent as needing input and wakes the bot once per request; the bot answers questions with `cloud_agent_reply`, and approvals stay with the owner in T3. Only agents launched this way are tracked; threads started in T3 directly are not.
 
+To pick models by quota, set `T3_MODEL_ROUTES` to JSON listing models per kind of work, best first (`hard`, `normal`, `simple`, `ui`), each `{ "instanceId", "model", "options"? }`. A launch that passes `workKind` and no `modelSelection` takes the first model whose instance has quota; a T3 that does not report quota counts every model as available. When every model is out, or the named model is, the launch waits for the earliest reset (between one minute and six hours per attempt) and the agent's note says so. Unset or invalid JSON turns routing off.
+
 ### Recovery
 
 The database stores ownership and pending operations independently of chat cards. The worker and reconciler recover queue failures and interrupted launches. Cursor creates use a stable client agent ID, so retrying an accepted create does not create another remote agent. T3 Code launches use a stable request key the same way, unless the server is reconnected while one is in flight.

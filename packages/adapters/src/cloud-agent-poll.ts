@@ -26,6 +26,7 @@ import {
 import { cloudAgentLaunchSchema, cloudAgentPromptSchema } from "./cloud-agent-tools.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
+const MAX_FAILURE_REASON = 1_000;
 
 /** Reconcile one persisted intent. A fenced lease serializes remote mutations. */
 export async function pollCloudAgent(
@@ -112,12 +113,7 @@ export async function pollCloudAgent(
         );
       } catch (error) {
         if (!(error instanceof CloudAgentRequestRejected)) throw error;
-        await finishPoll(
-          deps,
-          agent,
-          { status: rejectedStatus(error), launchRequest: {} },
-          abandoned,
-        );
+        await finishPoll(deps, agent, { ...rejectedData(error), launchRequest: {} }, abandoned);
       }
       return;
     }
@@ -232,7 +228,7 @@ export async function pollCloudAgent(
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
           // A refused answer (the owner answered first, say) leaves the work running.
           await finishPoll(deps, agent, {
-            ...(question ? {} : { status: rejectedStatus(error) }),
+            ...(question ? {} : rejectedData(error)),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
@@ -252,10 +248,10 @@ export async function pollCloudAgent(
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
       // The remote agent or run is gone. Polling it again can never succeed.
       await finishPoll(deps, agent, {
-        status:
-          agent.cancelRequested && error.reason === "not_found"
-            ? "cancelled"
-            : rejectedStatus(error),
+        ...rejectedData(error),
+        ...(agent.cancelRequested && error.reason === "not_found"
+          ? { status: "cancelled", failureReason: null }
+          : {}),
         followup: Prisma.DbNull,
         followupDispatchedAt: null,
       });
@@ -288,6 +284,7 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
   return {
     ...(snapshot.title ? { title: snapshot.title } : {}),
     status: snapshot.status,
+    failureReason: null,
     url: cloudAgentHttpsUrl(snapshot.url) ?? "",
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
@@ -304,8 +301,12 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
   };
 }
 
-function rejectedStatus(error: CloudAgentRequestRejected) {
-  return error.reason === "expired" ? "expired" : "failed";
+/** The provider's own reason travels with the terminal status, so the bot can say why. */
+function rejectedData(error: CloudAgentRequestRejected) {
+  return {
+    status: error.reason === "expired" ? "expired" : "failed",
+    failureReason: error.detail?.slice(0, MAX_FAILURE_REASON) || null,
+  };
 }
 
 async function retryPoll(

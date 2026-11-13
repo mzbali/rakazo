@@ -27,7 +27,7 @@ const routes = z
 export type T3ModelRoutes = z.infer<typeof routes>;
 
 /**
- * Read `T3_MODEL_ROUTES`. Nothing is built in: an unset or invalid value turns routing off, so a
+ * Read `CLOUD_AGENT_MODEL_ROUTES`. Nothing is built in: an unset or invalid value turns routing off, so a
  * launch behaves as it does without it. The value is never logged.
  */
 export function parseT3ModelRoutes(raw: string | undefined): T3ModelRoutes | undefined {
@@ -35,7 +35,7 @@ export function parseT3ModelRoutes(raw: string | undefined): T3ModelRoutes | und
   try {
     return routes.parse(JSON.parse(raw));
   } catch {
-    getLogger().warn("T3_MODEL_ROUTES is not valid; model routing is off");
+    getLogger().warn("CLOUD_AGENT_MODEL_ROUTES is not valid; model routing is off");
     return undefined;
   }
 }

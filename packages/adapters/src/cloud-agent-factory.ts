@@ -76,7 +76,7 @@ export function createCloudAgentConnection(
         connector,
         server,
         holdKey: `rakazo:${spaceId}`,
-        routes: parseT3ModelRoutes(source.T3_MODEL_ROUTES),
+        routes: parseT3ModelRoutes(source.CLOUD_AGENT_MODEL_ROUTES),
       }),
       key,
       spaceId,

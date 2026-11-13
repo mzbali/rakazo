@@ -47,7 +47,7 @@ test("a visual that fits works in the chat and expands; a tall one previews and 
   page,
 }, testInfo) => {
   await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
-  await page.setViewportSize({ width: 1280, height: 860 });
+  await page.setViewportSize({ width: 390, height: 844 });
   await signup(page, `visuals-${Date.now()}@rakazo.test`, "password12", "Visual Reader");
   await completeOnboarding(page);
 
@@ -68,11 +68,14 @@ test("a visual that fits works in the chat and expands; a tall one previews and 
   await card.getByRole("button", { name: `Expand ${small}` }).click();
   const dialog = page.getByRole("dialog", { name: small });
   await expect(visualFrame(dialog, small).getByText("Your message", { exact: true })).toBeVisible();
+  await expect(visualFrame(dialog, small).getByText("Count: 1")).toBeVisible();
+  await visualFrame(dialog, small).getByRole("button", { name: "Add one" }).click();
+  await expect(visualFrame(dialog, small).getByText("Count: 2")).toBeVisible();
   await captureScreenshot(page, testInfo, "visual-open");
   await dialog.getByRole("button", { name: "Close preview" }).click();
   await expect(dialog).toBeHidden();
-  // The chat's copy kept its state.
-  await expect(frame.getByText("Count: 1")).toBeVisible();
+  // Changes made while expanded persist in the chat.
+  await expect(frame.getByText("Count: 2")).toBeVisible();
 
   const tall = "Quarter report";
   await showVisual(page, tall, "The quarter, team by team.", REPORT);

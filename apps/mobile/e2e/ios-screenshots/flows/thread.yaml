@@ -90,7 +90,7 @@ name: Thread
     timeout: 3000
 - takeScreenshot: 07-quote-actions
 - tapOn: "Copy as Markdown"
-# A visual that fits works in the chat; only its Expand button opens it whole in a sheet.
+# A visual that fits works in the chat; its Expand button grows it in place.
 - openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
 - extendedWaitUntil:
     visible: "Expand Launch path"
@@ -107,7 +107,7 @@ name: Thread
 - extendedWaitUntil:
     visible: "Close"
     timeout: 10000
-# The sheet shows the summary until its full-size document draws.
+# The same document remains visible after expansion.
 - extendedWaitUntil:
     notVisible: ".*general availability after the review.*"
     timeout: 15000

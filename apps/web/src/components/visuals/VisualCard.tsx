@@ -2,7 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
 import { visualFit } from "@rakazo/core";
-import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
+import { Button } from "@rakazo/ui-web";
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLiveNearView } from "../../lib/live-previews";
@@ -27,8 +27,11 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const live = useLiveNearView(box);
   const viewer = usePageDocument(block.code, "card", false, 0, "card");
   const [open, setOpen] = useState(false);
-  // Built only once opened: each document carries the whole page runtime.
-  const opened = usePageDocument(open ? block.code : undefined, "card", false, 0, "full");
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (open) dialog.current?.showModal();
+    else if (dialog.current?.open) dialog.current.close();
+  }, [open]);
   const summaryId = useId();
   // The last height the visual reported; kept while it is out of the live set, so the chat
   // does not jump when it scrolls back and draws again.
@@ -49,94 +52,91 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   // An inline visual that grew past the card scrolls in its frame instead of fading out.
   const clipped = !inline && height !== null && height > MAX_INLINE_HEIGHT;
   return (
-    <>
+    <div
+      data-testid="visual-card"
+      className="relative w-full max-w-[561px] overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
+    >
       <div
-        data-testid="visual-card"
-        className="relative w-full max-w-[561px] overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
+        ref={box}
+        aria-hidden={inline || open ? undefined : "true"}
+        className={`relative w-full overflow-hidden ${inline || open ? "" : "pointer-events-none"}`}
+        style={{ height: shown }}
       >
-        <div
-          ref={box}
-          aria-hidden={inline ? undefined : "true"}
-          className={`relative w-full overflow-hidden ${inline ? "" : "pointer-events-none"}`}
-          style={{ height: shown }}
+        <dialog
+          ref={dialog}
+          role={open ? "dialog" : "generic"}
+          aria-label={open ? block.title : undefined}
+          onClose={() => setOpen(false)}
+          onCancel={() => setOpen(false)}
+          className={
+            open
+              ? "fixed inset-0 m-auto h-[88dvh] max-h-none w-[94vw] max-w-[960px] overflow-hidden rounded-2xl border-0 bg-card p-0 text-foreground backdrop:bg-overlay"
+              : "relative m-0 block h-full w-full max-w-none border-0 bg-transparent p-0 text-foreground"
+          }
         >
-          {live && viewer.document !== null ? (
+          {open ? (
+            <header className="flex h-14 items-center border-b border-border px-5">
+              <span className="min-w-0 flex-1 truncate text-body font-medium">{block.title}</span>
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                aria-label={t`Close preview`}
+                onClick={() => setOpen(false)}
+              >
+                <X />
+              </Button>
+            </header>
+          ) : null}
+          {(live || open) && viewer.document !== null ? (
             // Never taller than the card shows: the reported height is the content's, not the frame's.
-            <div inert={!inline} className="absolute inset-x-0 top-0" style={{ height: shown }}>
+            <div
+              inert={!inline && !open}
+              className="absolute inset-x-0"
+              style={open ? { top: 56, bottom: 0 } : { top: 0, height: shown }}
+            >
               <PageFrame
                 document={viewer.document}
                 title={block.title}
-                interactive={inline}
+                interactive={inline || open}
                 onHeight={onHeight}
               />
             </div>
           ) : null}
-          {drawn ? null : (
-            <div
-              className={`absolute inset-0 flex flex-col justify-end gap-2 p-5 ${viewer.failed ? "" : "motion-safe:animate-pulse"}`}
-            >
-              <p className="line-clamp-4 text-body text-muted-foreground">{block.text}</p>
-            </div>
-          )}
-          {clipped ? (
-            <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-card" />
-          ) : null}
-        </div>
-        <span id={summaryId} hidden>
-          {block.text}
-        </span>
-        {inline ? (
-          <Button
-            variant="secondary"
-            size="icon-sm"
-            aria-label={t`Expand ${block.title}`}
-            aria-describedby={summaryId}
-            onClick={() => setOpen(true)}
-            className="absolute top-3 right-3 rounded-full"
+        </dialog>
+        {drawn ? null : (
+          <div
+            className={`absolute inset-0 flex flex-col justify-end gap-2 p-5 ${viewer.failed ? "" : "motion-safe:animate-pulse"}`}
           >
-            <Maximize2 />
-          </Button>
-        ) : (
-          <button
-            type="button"
-            aria-label={t`Open ${block.title}`}
-            aria-describedby={summaryId}
-            onClick={() => setOpen(true)}
-            className="absolute inset-0 rounded-[24px] outline-none"
-          />
-        )}
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          showCloseButton={false}
-          className="flex h-[min(88vh,900px)] w-[min(960px,94vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
-        >
-          <header className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-5">
-            <DialogTitle className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
-              {block.title}
-            </DialogTitle>
-            <DialogClose
-              aria-label={t`Close preview`}
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  className="rounded-full text-muted-foreground"
-                />
-              }
-            >
-              <X />
-            </DialogClose>
-          </header>
-          <div className="min-h-0 flex-1">
-            {opened.document !== null ? (
-              <PageFrame document={opened.document} title={block.title} interactive />
-            ) : (
-              <p className="p-5 text-body text-muted-foreground">{block.text}</p>
-            )}
+            <p className="line-clamp-4 text-body text-muted-foreground">{block.text}</p>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+        {clipped && !open ? (
+          <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-card" />
+        ) : null}
+      </div>
+      <span id={summaryId} hidden>
+        {block.text}
+      </span>
+      {inline ? (
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          aria-label={t`Expand ${block.title}`}
+          aria-describedby={summaryId}
+          onClick={() => setOpen(true)}
+          className="absolute top-3 right-3 rounded-full"
+        >
+          <Maximize2 />
+        </Button>
+      ) : (
+        <button
+          type="button"
+          aria-label={t`Open ${block.title}`}
+          aria-describedby={summaryId}
+          onClick={() => setOpen(true)}
+          className="absolute inset-0 rounded-[24px] outline-none"
+        />
+      )}
+    </div>
   );
 }

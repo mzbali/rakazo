@@ -15,6 +15,9 @@ import {
   LOGIN_FIELD_LIMIT,
   PAID_REQUEST_METHODS,
   PURCHASE_CARD_FIELDS,
+  ScopedGoalControl,
+  ScopedGoalReport,
+  ScopedGoalScope,
   SecretAskPurpose,
   SecretHttpRequest,
   ThinkingLevelSchema,
@@ -876,6 +879,31 @@ export const builtinAgentTools: ConnectorTool[] = [
       required: ["service", "max_cost_usd"],
     },
     readOnly: false,
+  },
+  {
+    name: "scoped_goal_authorize",
+    description:
+      "Propose exact durable md/mdi scope for the owner to approve. Track the existing coding thread first. Include revision-bound structured observation contracts for merge, health, live deploy and applicable install. Never treat prose as evidence.",
+    inputSchema: z.toJSONSchema(ScopedGoalScope),
+  },
+  {
+    name: "scoped_goal_report",
+    description:
+      "Advance an authorized goal with recorded observation effect ids, or preserve a blocker and its reset time. Read status for its current version first.",
+    inputSchema: z.toJSONSchema(ScopedGoalReport),
+  },
+  {
+    name: "scoped_goal_control",
+    description:
+      "Pause, resume or cancel a durable goal after an owner decision. Does not roll back in-flight work.",
+    inputSchema: z.toJSONSchema(ScopedGoalControl),
+  },
+  {
+    name: "scoped_goal_status",
+    description:
+      "Read a durable goal's exact approved scope, gate, blockers, evidence and version.",
+    readOnly: true,
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   },
   {
     name: "cloud_agent_launch",

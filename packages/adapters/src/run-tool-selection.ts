@@ -17,6 +17,7 @@ import {
 import { SKILL_TOOL_NAMES } from "./skill-tools.js";
 
 export const READ_ONLY_AGENT_TOOLS = new Set([
+  "scoped_goal_status",
   "computer_observe",
   "list_files",
   "list_fleet",

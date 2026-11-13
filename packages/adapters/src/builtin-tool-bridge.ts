@@ -77,7 +77,7 @@ const AREAS: Array<[area: string, matches: (name: string) => boolean]> = [
       name === "save_page" ||
       name === "show_visual",
   ],
-  ["cloud agents", (name) => name.startsWith("cloud_agent_")],
+  ["cloud agents", (name) => name.startsWith("cloud_agent_") || name.startsWith("scoped_goal_")],
   ["purchases", (name) => name.includes("purchase") || name === "paid_request"],
   ["email", (name) => name.includes("email")],
 ];

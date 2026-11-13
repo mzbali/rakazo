@@ -33,6 +33,7 @@ import {
 } from "./cloud-agent-wake-start.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { runLeaseFor } from "./run-messages.js";
+import { goalDrivesAgent, SCOPED_GOAL_NONCE } from "./scoped-goal-service.js";
 
 export interface CloudAgentDeps {
   prisma: PrismaClient;
@@ -121,7 +122,13 @@ export async function executeCloudAgentTool(
   /** `deployment`: the deployment's connection when the run's own is the user's environment. */
   deps: CloudAgentDeps & { deployment?: CloudAgentConnection | null },
   context: AdapterContext & { botId: string; botName?: string },
-  run: { id: string; threadId: string; spaceId?: string; userId?: string },
+  run: {
+    id: string;
+    threadId: string;
+    spaceId?: string;
+    userId?: string;
+    clientNonce?: string | null;
+  },
   name: string,
   args: Record<string, unknown>,
   origin?: CloudAgentOrigin,
@@ -241,7 +248,11 @@ export async function executeCloudAgentTool(
       ) {
         return { error: "Wait for the current cloud agent operation to finish." };
       }
-      const { id: _id, ...followup } = cloudAgentReplySchema.parse(args);
+      const { id: _id, ...prompt } = cloudAgentReplySchema.parse(args);
+      // A goal continuation's follow-up is dropped if the owner stops the goal before it is sent.
+      const followup = run.clientNonce?.startsWith(SCOPED_GOAL_NONCE)
+        ? { ...prompt, goalRunId: run.id }
+        : prompt;
       const current = agent;
       const updated = await deps.prisma.$transaction(async (tx) => {
         // A follow-up restarts finished work, so it takes a slot like a launch; an answer keeps its own.
@@ -526,6 +537,8 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
     },
   });
   for (const agent of candidates) {
+    if (goalDrivesAgent(await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })))
+      continue;
     if (agent.wakeGeneration !== agent.generation) continue;
     const base = `cloud-agent-wake-run:${agent.id}:${agent.generation}`;
     const nonce = agent.wakeAttempts === 1 ? base : `${base}:r${agent.wakeAttempts - 1}`;

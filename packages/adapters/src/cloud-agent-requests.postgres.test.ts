@@ -703,6 +703,67 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     ]);
   });
 
+  it("drops a stopped goal's unsent follow-up but still sends the owner's own", async () => {
+    const t = await setup();
+    t.provider.agents.set("remote:goal", { status: "finished", attention: [], cursor: 0 });
+    await runAsSystem("agent run tool call", () =>
+      trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        remoteId: "remote:goal",
+        title: "Existing thread",
+      }),
+    );
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    await t.poll(id);
+    const continuation = await asSystem(prisma).run.update({
+      where: { id: t.run.id },
+      data: { clientNonce: `scoped-goal:test:${id}` },
+    });
+    const goal = await asSystem(prisma).scopedGoal.create({
+      data: {
+        spaceId: t.context.spaceId,
+        userId: t.context.userId,
+        botId: t.lead.id,
+        threadId: t.thread.id,
+        agentId: id,
+        approvalEffectId: randomUUID(),
+        approval: {},
+        scope: {},
+        gate: "merge",
+        activeRunId: continuation.id,
+      },
+    });
+    const reply = (run: typeof continuation) =>
+      runAsSystem("agent run tool call", () =>
+        executeCloudAgentTool(
+          t.deps,
+          { ...t.context, operationId: randomUUID() },
+          run,
+          "cloud_agent_reply",
+          { id, prompt: "Merge it" },
+        ),
+      );
+    await reply(continuation);
+    expect((await t.state(id)).followup).toMatchObject({ goalRunId: continuation.id });
+    // The owner paused the goal before the poller sent it.
+    await asSystem(prisma).scopedGoal.update({
+      where: { id: goal.id },
+      data: { status: "paused", controlEpoch: 1, activeRunId: null },
+    });
+    await t.poll(id);
+    expect(t.provider.replies).toBe(0);
+    expect((await t.state(id)).followup).toBeNull();
+    // The owner's own follow-up is not the goal's to drop, and its end wakes the owner's bot.
+    await reply({ ...continuation, clientNonce: null });
+    await t.poll(id);
+    expect(t.provider.replies).toBe(1);
+    t.provider.agents.get("remote:goal")!.status = "finished";
+    await t.poll(id);
+    expect((await t.wakes()).at(-1)?.clientNonce).toBe(`cloud-agent-wake-run:${id}:2`);
+  });
+
   it("does not retry an earlier piece's failed wake once a continuation has finished", async () => {
     const t = await setup();
     t.provider.agents.set("remote:again", { status: "running", attention: [], cursor: 0 });

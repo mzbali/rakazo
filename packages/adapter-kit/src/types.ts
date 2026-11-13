@@ -16,6 +16,7 @@ export interface AdapterContext {
   spaceId: string;
   userId: string;
   botId?: string;
+  pinnedTools?: readonly string[];
   runId?: string;
   /** Opaque fence for releasing a graphical screen without tearing down its replacement. */
   screenLeaseId?: string;
@@ -267,6 +268,8 @@ export interface ConnectorTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** Expose this available built-in directly for this run. */
+  pinned?: boolean;
   /** Declared effect. `false` forces approval; `true` never relaxes the name-based gate. */
   readOnly?: boolean;
   /** Set when the tool runs other actions named in its arguments; see ToolBatch. */

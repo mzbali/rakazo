@@ -7,8 +7,11 @@ import {
   ServerError,
   TooManyRequestsError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import type { AdapterContext } from "@rakazo/adapter-kit";
 import { createLogger, createTestSink, getLogger, installLogger } from "@rakazo/logging";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { partitionTools } from "./builtin-tool-bridge.js";
+import { builtinAgentTools } from "./builtin-tools.js";
 import { ConnectorRegistry } from "./connector-registry.js";
 import { InfisicalSecretStore } from "./infisical-secret-store.js";
 import { InstalledConnectorProvider } from "./installed-connectors.js";
@@ -570,7 +573,8 @@ describe("MCP connector session cache", () => {
     const state = {
       failNext: false,
       initializations: 0,
-      tools: Array.from({ length: 30 }, (_, index) => ({
+      calls: [] as string[],
+      tools: Array.from({ length: 25 }, (_, index) => ({
         name: `tool_${String(index).padStart(2, "0")}`,
         description: `Tool ${index}`,
         inputSchema: {
@@ -596,7 +600,7 @@ describe("MCP connector session cache", () => {
       userId: "u1",
       botId: "bot-1",
       signal: new AbortController().signal,
-    } as never;
+    } as AdapterContext;
 
     const tools = await connector.discoverTools(context);
 
@@ -606,6 +610,31 @@ describe("MCP connector session cache", () => {
       "connectors_load_tool",
       "connectors_execute_tool",
     ]);
+    const pinnedContext = { ...context, pinnedTools: ["mcp__demo__tool_00", "unknown"] };
+    const pinned = await connector.discoverTools(pinnedContext);
+    const direct = pinned.find((tool) => tool.name === "mcp__demo__tool_00")!;
+    expect(pinned).toHaveLength(4);
+    expect(direct.inputSchema).toEqual(state.tools[0]!.inputSchema);
+    const builtin = builtinAgentTools.find((tool) => tool.name === "cloud_agent_status")!;
+    const run = partitionTools([{ ...builtin, pinned: true }, ...pinned]);
+    expect(run.listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: builtin.name, inputSchema: builtin.inputSchema }),
+        expect.objectContaining({ name: direct.name, inputSchema: direct.inputSchema }),
+      ]),
+    );
+    expect(run.deferred).not.toContainEqual(builtin);
+    expect(pinned.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(tools.map((tool) => tool.name)),
+    );
+    const events = [];
+    for await (const event of connector.execute(
+      { tool: direct.name, executionId: "call-1", route: direct.route, args: { value: "hello" } },
+      pinnedContext,
+    ))
+      events.push(event);
+    expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ type: "result" })]));
+    expect(state.calls).toContain("tool_00");
     // Anthropic rejects Claude Code OAuth requests carrying any `mcp_`-prefixed tool name.
     expect(tools.every((tool) => !tool.name.startsWith("mcp_"))).toBe(true);
     expect(JSON.stringify(tools)).not.toContain("schema-marker");

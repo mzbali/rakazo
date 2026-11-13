@@ -10,6 +10,7 @@ import {
   readOwnBotSettings,
   resolveVoiceChoice,
 } from "./own-bot-settings.js";
+import { parseUpdateBotPatch } from "./update-bot-patch.js";
 
 vi.mock("./model-selection.js", async (importOriginal) => ({
   ...(await importOriginal<typeof ModelSelection>()),
@@ -340,4 +341,31 @@ it("update_bot persists a daily check-in opt-out and returns the saved value", a
   expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { dailyCheckIns: false } }));
   expect(result).toMatchObject({ ok: true, dailyCheckIns: false });
   expect((await readSettings({ ...bot, dailyCheckIns: false })).dailyCheckIns).toBe(false);
+});
+
+it("persists pinned tools and rejects an oversized list", async () => {
+  const update = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+    id: "bot-1",
+    name: "Bot",
+    description: "",
+    color: "#000",
+    notifyOnFinish: false,
+    dailyCheckIns: true,
+    ...data,
+  }));
+  const result = await updateOwnBotFromTool(
+    { prisma: { bot: { update } }, events: { append: async () => {} } } as never,
+    { id: "run", spaceId: "space", userId: "user", sourceMessageId: null },
+    "thread",
+    { id: "bot-1", name: "Bot" },
+    { pinnedTools: ["cloud_agent_status", "mcp__demo__tool_00"] },
+    {} as never,
+  );
+  expect(update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: { pinnedTools: ["cloud_agent_status", "mcp__demo__tool_00"] },
+    }),
+  );
+  expect(result).toMatchObject({ ok: true });
+  expect(parseUpdateBotPatch({ pinnedTools: Array(13).fill("tool") })).toHaveProperty("error");
 });

@@ -98,6 +98,7 @@ function inboxBot(): Bot {
     runErrorId: null,
     fleetManagement: true,
     disabledBuiltinTools: [],
+    pinnedTools: [],
   };
 }
 

@@ -91,8 +91,8 @@ export function partitionTools(tools: readonly ConnectorTool[]): {
   listed: ConnectorTool[];
   deferred: ConnectorTool[];
 } {
-  const deferred = tools.filter((tool) => isDeferredTool(tool.name));
-  const listed = tools.filter((tool) => !isDeferredTool(tool.name));
+  const deferred = tools.filter((tool) => isDeferredTool(tool.name) && !tool.pinned);
+  const listed = tools.filter((tool) => !isDeferredTool(tool.name) || tool.pinned);
   return { listed: deferred.length ? [...listed, ...bridgeTools(deferred)] : listed, deferred };
 }
 

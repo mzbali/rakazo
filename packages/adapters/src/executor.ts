@@ -708,6 +708,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           spaceId: run.spaceId,
           userId: run.userId,
           botId: bot.id,
+          pinnedTools: (bot.pinnedTools ?? []).slice(0, 12),
           runId,
           screenLeaseId: screenLeaseIdForRun(computerLease, runId, fence),
           signal: runAbortController.signal,
@@ -1433,6 +1434,9 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           run.trigger === "created"
             ? strategicBuiltins
             : [...strategicBuiltins, ...strategicConnectorTools];
+        for (const [index, tool] of tools.entries()) {
+          if (context.pinnedTools.includes(tool.name)) tools[index] = { ...tool, pinned: true };
+        }
         const taskCatalogInstruction = tools.some((tool) => tool.name === "task_catalog")
           ? TASK_CATALOG_GUIDANCE
           : undefined;

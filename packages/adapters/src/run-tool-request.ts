@@ -606,6 +606,7 @@ const OWN_FIELDS = new Set([
   "use_attached_image",
   "notifyOnFinish",
   "dailyCheckIns",
+  "pinnedTools",
   "notify_on_finish",
   "bot_id",
 ]);
@@ -658,6 +659,7 @@ async function prepareOwnBotUpdate(
       color: true,
       notifyOnFinish: true,
       dailyCheckIns: true,
+      pinnedTools: true,
       modelProvider: true,
       modelId: true,
       thinkingLevel: true,

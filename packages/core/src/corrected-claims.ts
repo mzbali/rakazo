@@ -18,21 +18,24 @@ export const CORRECTED_CLAIMS: readonly CorrectedClaimRule[] = [
     evidence:
       "rakazo@1b2618fea PR #17, cloud_agent_launch forwards modelSelection incl. effort, projectId, workspaceStrategy, runtimeMode, interactionMode",
     forbid: [
-      "it does not forward those fields",
+      "the wake path, but as of 12 nov 2026 it does not forward those fields",
       "cloud_agent_launch does not forward those fields",
-      "until that passthrough is deployed",
+      "until that passthrough is deployed, a launch that needs",
       "cannot set a per-task provider or model",
     ],
     examples: [
       "`cloud_agent_launch` is the wake path, but as of 12 Nov 2026 it does not forward those fields.",
       "That tool cannot set a per-task provider or model.",
-      "Use it only until that passthrough is deployed.",
+      "Until that passthrough is deployed, a launch that needs a named model uses the other launch tool.",
+      "`cloud_agent_launch` does not forward those fields.",
     ],
     nonExamples: [
       "`cloud_agent_launch` forwards the model, project and workspace fields.",
       "A task can set a per-task provider or model through `cloud_agent_launch`.",
       "The old build did not forward the effort field.",
       "The webhook relay does not forward those fields.",
+      "The webhook relay drops metadata; it does not forward those fields.",
+      "Wait until that passthrough is deployed.",
     ],
   },
   {

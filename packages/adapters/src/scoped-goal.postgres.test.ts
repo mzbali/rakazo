@@ -368,44 +368,55 @@ suite("durable scoped continuation", () => {
       expect((await t.goal()).attempt).toBe(1);
     }));
 
+  /** Reports every requirement as done; the merge names no commit, so none is known. */
+  async function reportAll(t: Awaited<ReturnType<typeof fixture>>, deployRevision: string) {
+    await t.authorize();
+    await reconcileScopedGoals(t.deps);
+    const g = await t.goal();
+    const observations = [];
+    for (const requirement of t.scope.requirements) {
+      const proof = await t.p.externalEffect.create({
+        data: {
+          spaceId: t.owner.spaceId,
+          runId: g.activeRunId!,
+          kind: requirement.tool,
+          idempotencyKey: randomUUID(),
+          status: "completed",
+          request: requirement.request,
+          result: {
+            revision: requirement.gate === "deploy" ? deployRevision : "revision-1",
+            passed: true,
+          },
+        },
+      });
+      observations.push({ requirementId: requirement.id, effectId: proof.id });
+    }
+    await scopedGoalTool(
+      t.deps,
+      t.owner,
+      "scoped_goal_report",
+      { id: g.id, version: g.version, observations },
+      "report",
+    );
+    return t.goal();
+  }
+
   it("refuses a reported deploy that pins no revision when the merged commit is unknown", async () =>
     runAsSystem("goal unpinned deploy", async () => {
-      const t = await fixture({ pinDeploy: false });
-      await t.authorize();
-      await reconcileScopedGoals(t.deps);
-      const g = await t.goal();
-      const observations = [];
-      for (const requirement of t.scope.requirements) {
-        const proof = await t.p.externalEffect.create({
-          data: {
-            spaceId: t.owner.spaceId,
-            runId: g.activeRunId!,
-            kind: requirement.tool,
-            idempotencyKey: randomUUID(),
-            status: "completed",
-            request: requirement.request,
-            // The deploy names another revision, and nothing approved says which is right.
-            result: {
-              revision: requirement.gate === "deploy" ? "other" : "revision-1",
-              passed: true,
-            },
-          },
-        });
-        observations.push({ requirementId: requirement.id, effectId: proof.id });
-      }
-      await scopedGoalTool(
-        t.deps,
-        t.owner,
-        "scoped_goal_report",
-        { id: g.id, version: g.version, observations },
-        "report",
-      );
-      const after = await t.goal();
+      // The deploy names another revision, and nothing approved says which is right.
+      const after = await reportAll(await fixture({ pinDeploy: false }), "other");
       expect(after).toMatchObject({ status: "blocked", gate: "deploy" });
       expect(JSON.stringify(after.blocker)).toContain("pins no revision");
       expect(
         (after.evidence as Array<{ requirementId: string }>).map((e) => e.requirementId),
       ).toEqual(["merge", "health"]);
+    }));
+
+  it("completes on a reported deploy of the owner-approved revision when no merged commit is known", async () =>
+    runAsSystem("goal pinned deploy", async () => {
+      const after = await reportAll(await fixture(), "revision-1");
+      expect(after).toMatchObject({ status: "completed", gate: "complete", blocker: null });
+      expect((after.evidence as unknown[]).length).toBe(3);
     }));
 
   it("persists long cooldowns without spending continuation attempts", async () =>

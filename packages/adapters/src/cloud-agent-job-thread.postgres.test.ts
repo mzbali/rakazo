@@ -486,7 +486,13 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     await sendDirect(h, bot, "Now bump the build number");
     expect((await h.state(agentId)).waitingRunId).toBeNull();
     await h.finish(agentId);
-    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(1);
+    // Judged against the follow-up, not the launch brief.
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[0]!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: Now bump the build number");
   });
 
   it("still wakes for a follow-up its sender did not stay for", async () => {

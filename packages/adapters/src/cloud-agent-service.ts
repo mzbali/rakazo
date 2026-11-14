@@ -747,7 +747,7 @@ async function notifyJobCards(
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */
-async function canWake(deps: Pick<CloudAgentDeps, "prisma">, agent: CloudAgent) {
+export async function canWake(deps: Pick<CloudAgentDeps, "prisma">, agent: CloudAgent) {
   const [card, member, bot] = await Promise.all([
     deps.prisma.message.findFirst({
       where: { id: agent.messageId ?? "", threadId: agent.threadId },

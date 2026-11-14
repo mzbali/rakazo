@@ -8,7 +8,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { returnHelperOutcome } from "./background-helpers.js";
 import { CursorCloudAgentEmulator } from "./cloud-agent-emulator.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
+import {
+  checkCloudAgentReporter,
+  createCloudAgentWake,
+  expediteCloudAgentReporterCheck,
+  pollCloudAgent,
+  REPORTER_CHECK_MS,
+} from "./cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
   markCloudAgentWaiting,
@@ -100,9 +106,10 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       provider: new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch }),
     };
     const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
+    const enqueueIn = vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined);
     const jobs: JobPublisher = {
       enqueue,
-      enqueueIn: async () => undefined,
+      enqueueIn,
       cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
@@ -160,6 +167,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       runsIn,
       messagesIn,
       enqueue,
+      enqueueIn,
       notify,
     };
   }
@@ -391,6 +399,77 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(await h.state(agentId)).toMatchObject({ wakeGeneration: 2 });
     expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
     expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+  });
+
+  /** A piece finishes while a run that waited on its thread is still going; the wake is held. */
+  async function heldWake(status: "running" | "completed" | "failed") {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await settleHelper(h, agentId);
+    const before = (await h.messagesIn(h.thread.id)).length;
+    await sendDirect(h, h.run, "What is the latest commit on main?");
+    const waiter = await turn(h, "running");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, waiter, (await h.state(agentId)).remoteId!),
+    );
+    await h.finish(agentId);
+    const generation = (await h.state(agentId)).generation;
+    const helperRuns = async () => (await h.runsIn((await h.state(agentId)).jobThreadId!)).length;
+    // Held back, with a durable backup job for after the run's own time.
+    expect(await helperRuns()).toBe(1);
+    const backup = h.enqueueIn.mock.calls
+      .map(([, job]) => job)
+      .filter((job) => job.name === "cloud_agent.reporter_check")
+      .at(-1);
+    expect(backup).toMatchObject({
+      payload: { agentId, generation },
+      replaceKey: `cloud_agent.reporter_check:${agentId}:${generation}`,
+    });
+    expect(backup!.availableAt!.getTime()).toBeGreaterThan(Date.now() + REPORTER_CHECK_MS - 60_000);
+    if (status !== "running")
+      await runAsSystem("run ends", () =>
+        asSystem(prisma).run.update({ where: { id: waiter.id }, data: { status } }),
+      );
+    const check = () =>
+      runAsSystem("reporter check", () => checkCloudAgentReporter(h.deps, { agentId, generation }));
+    return { h, agentId, generation, before, helperRuns, check, waiter };
+  }
+
+  it("makes no wake when the reporting run completed normally", async () => {
+    const { h, helperRuns, check, before } = await heldWake("completed");
+    await check();
+    expect(await helperRuns()).toBe(1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+  });
+
+  it("wakes at once when the reporting run fails, and only once", async () => {
+    const { h, agentId, generation, helperRuns, check, before, waiter } = await heldWake("failed");
+    h.enqueue.mockClear();
+    await runAsSystem("run fails", () => expediteCloudAgentReporterCheck(h.deps, waiter.id));
+    // The backup job is moved up to now, under the same key.
+    const [expedited] = h.enqueue.mock.calls.map(([job]) => job);
+    expect(expedited).toMatchObject({
+      name: "cloud_agent.reporter_check",
+      replaceKey: `cloud_agent.reporter_check:${agentId}:${generation}`,
+    });
+    expect(expedited!.availableAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+    // Running again, as the backup would at its own run-at, adds nothing.
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+  });
+
+  it("wakes at the backup's run-at when the reporting run is still going", async () => {
+    const { h, helperRuns, check, before } = await heldWake("running");
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
   });
 
   it("still wakes for a follow-up its sender did not stay for", async () => {

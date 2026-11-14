@@ -20,6 +20,7 @@ import { sanitizedError } from "@rakazo/logging/monitoring";
 import { returnHelperOutcome } from "./background-helpers.js";
 import { returnBotMessageOutcome } from "./bot-messages.js";
 import { VaultKeyUnavailableError } from "./bot-secrets.js";
+import { expediteCloudAgentReporterCheck } from "./cloud-agent-poll.js";
 import { sleepDeferReason } from "./computer-idle.js";
 import type { ComputerExecutionLease } from "./computer-lifecycle.js";
 import { ComputerBusyError, releaseComputerExecutionLease } from "./computer-lifecycle.js";
@@ -108,6 +109,7 @@ export async function failRunBeforeTurn(
     error: message,
   });
   if (!failed) return false;
+  await expediteCloudAgentReporterCheck(deps, run.id).catch(() => undefined);
   await enqueueSteeringContinuation(deps, failed.continuationRunId);
   if (run.trigger === "bot_message") {
     await returnBotMessageOutcome(

@@ -1430,6 +1430,7 @@ model CloudAgent {
   @@index([providerKey, nextPollAt])
   @@index([botId, queuedAt])
   @@index([spaceId, userId, id])
+  @@index([waitingRunId])
   @@map("cloud_agents")
 }
 

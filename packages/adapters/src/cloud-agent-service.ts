@@ -21,8 +21,10 @@ import {
   cloudAgentWakeNonceWhere,
   createCloudAgentWake,
   lockCloudAgentWakeThread,
+  repaintCloudAgentCard,
 } from "./cloud-agent-poll.js";
 import {
+  CLOUD_AGENT_REPORT_USAGE,
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
   cloudAgentReportSchema,
@@ -321,6 +323,7 @@ export async function queueCloudAgentFollowupInTransaction(
             generation: { increment: 1 },
             wakeAttempts: 0,
             verdict: null,
+            ownerQuestion: null,
             followupBrief: followupBriefOf((followup as { prompt?: unknown } | null)?.prompt),
             waitingRunId: null,
           }),
@@ -413,7 +416,14 @@ export async function trackDirectCloudAgent(
       const updated = await tx.cloudAgent.updateMany({
         where: { id: existing.id, version: existing.version },
         data: {
-          ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+          ...(running
+            ? {}
+            : {
+                generation: { increment: 1 },
+                wakeAttempts: 0,
+                verdict: null,
+                ownerQuestion: null,
+              }),
           // Whatever was sent last is what the result is judged against, running or not. Sending
           // is not waiting: only a run that then waits on or reads the thread reports the result
           // itself (`markCloudAgentWaiting`).
@@ -830,7 +840,9 @@ export async function reportCloudAgent(
 ) {
   const connection = cloudAgentsEnabled(deps.cloudAgent, context.spaceId) ? deps.cloudAgent : null;
   if (!connection) return { error: "Cloud agents are not configured for this space." };
-  const report = cloudAgentReportSchema.parse(args);
+  const parsed = cloudAgentReportSchema.safeParse(args);
+  if (!parsed.success) return { error: CLOUD_AGENT_REPORT_USAGE };
+  const report = parsed.data;
   const agent = await deps.prisma.cloudAgent.findFirst({
     where: {
       id: report.id,
@@ -865,7 +877,11 @@ export async function reportCloudAgent(
       status: { not: "running" },
       verdict: null,
     },
-    data: { verdict: report.verdict, verdictSummary: report.summary },
+    data: {
+      verdict: report.verdict,
+      verdictSummary: report.summary,
+      ownerQuestion: report.ownerQuestion ?? null,
+    },
   });
   if (!recorded.count) {
     const current = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
@@ -874,6 +890,8 @@ export async function reportCloudAgent(
     if (current.verdict !== report.verdict || current.verdictSummary !== report.summary)
       return { error: `Already reported ${current.verdict} for this work.` };
   }
+  // The question belongs on the job's card too, whatever the helper's own result says.
+  if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
   let delivered: boolean | undefined;
   if (agent.originBotId && agent.originBotId !== agent.botId) {
     const sent = await messageBot(
@@ -890,7 +908,7 @@ export async function reportCloudAgent(
       { id: agent.botId, name: context.botName ?? "" },
       {
         bot_id: agent.originBotId,
-        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}`,
+        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}${report.ownerQuestion ? `\nQuestion for the owner: ${report.ownerQuestion}` : ""}`,
         intent: "result",
         deliveryKey: `cloud-agent-report:${agent.id}:${agent.generation}`,
       },
@@ -898,5 +916,16 @@ export async function reportCloudAgent(
     delivered = sent.ok;
     if (!sent.ok) return { error: `Recorded, but not delivered: ${sent.error}` };
   }
-  return { id: agent.id, verdict: report.verdict, ...(delivered ? { delivered } : {}) };
+  return {
+    id: agent.id,
+    verdict: report.verdict,
+    ...(delivered ? { delivered } : {}),
+    // The owner reads the result, so it ends with the decision they are asked to make.
+    ...(report.ownerQuestion
+      ? {
+          ownerQuestion: report.ownerQuestion,
+          note: "End your result with this question for the owner, word for word.",
+        }
+      : {}),
+  };
 }

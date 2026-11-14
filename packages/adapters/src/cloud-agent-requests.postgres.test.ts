@@ -22,6 +22,7 @@ import {
   reportCloudAgent,
   trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
+import { CLOUD_AGENT_REPORT_USAGE } from "./cloud-agent-tools.js";
 import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
 import { createRunExecutor } from "./executor.js";
 import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
@@ -217,6 +218,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
             prompt: `Request ${n}`,
             requestKey: `request-${n}`,
             agreement: "Owner said yes",
+            scratch: true,
             ...extra,
           },
           origin,
@@ -1169,9 +1171,40 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           id,
           verdict: "rejected",
           summary: "Changed my mind",
+          ownerQuestion: "Try again?",
         }),
       ),
     ).toEqual({ error: "Already reported accepted for this work." });
     expect((await t.state(id)).verdict).toBe("accepted");
+  });
+
+  it("refuses a verdict other than accepted without an owner question, and passes it on with one", async () => {
+    const t = await setup();
+    const id = await t.launch(1, { botId: t.asker.id, messageId: "message:ask" });
+    await t.poll(id);
+    (await t.remote(id)).status = "finished";
+    await t.poll(id);
+    const report = (extra: Record<string, unknown>) =>
+      runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, t.context, t.run, {
+          id,
+          verdict: "rejected",
+          summary: "The app is already gone",
+          ...extra,
+        }),
+      );
+    for (const extra of [{}, { ownerQuestion: "  " }])
+      expect(await report(extra)).toEqual({ error: CLOUD_AGENT_REPORT_USAGE });
+    expect((await t.state(id)).verdict).toBeNull();
+    const question = "Clear Homebrew's record and install it with default settings? (recommended)";
+    expect(await report({ ownerQuestion: question })).toMatchObject({
+      verdict: "rejected",
+      ownerQuestion: question,
+    });
+    expect((await t.state(id)).verdict).toBe("rejected");
+    const received = await asSystem(prisma).message.findMany({
+      where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
+    });
+    expect(JSON.stringify(received.map((message) => message.blocks))).toContain(question);
   });
 });

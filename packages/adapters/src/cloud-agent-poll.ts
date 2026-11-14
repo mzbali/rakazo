@@ -4,10 +4,12 @@ import type {
   BackgroundJobPayloads,
   CloudAgentAttention,
   CloudAgentSnapshot,
+  JobPublisher,
 } from "@rakazo/adapter-kit";
 import {
   CloudAgentRequestRejected,
   CloudAgentRetryLater,
+  cloudAgentRelayPointerJob,
   cloudAgentReporterCheckJob,
   runContinueJob,
 } from "@rakazo/adapter-kit";
@@ -16,6 +18,7 @@ import { BACKGROUND_HELPER_TRIGGER, cloudAgentHttpsUrl, cloudAgentUrl } from "@r
 import type { CloudAgent } from "@rakazo/db";
 import { appendEventInTransaction, Prisma } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { postRelayPointer } from "./bot-messages.js";
 import {
   cloudAgentJobThreadsEnabled,
   jobHelperTaskPrompt,
@@ -46,6 +49,8 @@ const MAX_FAILURE_REASON = 1_000;
 export const UNREACHABLE_AFTER_MS = 5 * 60_000;
 /** How long a bot run that reports a finished piece itself has before its wake is made anyway. */
 export const REPORTER_CHECK_MS = 15 * 60_000;
+/** How long a report run has to post its pointer directly before the backup does. */
+const RELAY_POINTER_BACKUP_MS = 15 * 60_000;
 
 /** Reconcile one persisted intent. A fenced lease serializes remote mutations. */
 export async function pollCloudAgent(
@@ -464,7 +469,7 @@ export async function checkCloudAgentReporter(
       agent,
       terminalWakePrompt(agent),
       `cloud-agent-wake-run:${agent.id}:${agent.generation}`,
-      { jobThread: true, seqs },
+      { jobThread: true, seqs, jobs: deps.jobs },
     );
   });
   await deps.prisma.cloudAgent.updateMany({
@@ -504,7 +509,7 @@ export async function expediteCloudAgentReporterCheck(
 }
 
 /** The card follows the row when only its outage state changed. */
-async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
+export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
   const seq = await deps.prisma.$transaction(async (tx) => {
     const saved = await tx.cloudAgent.findUnique({ where: { id: agentId } });
     if (!saved) return undefined;
@@ -604,7 +609,7 @@ async function finishPoll(
     let goalBackupKey: string | undefined;
     // Events for the cards a job helper's wakes left in the chat, announced with the rest.
     const wakeSeqs: number[] = [];
-    const wakeOptions = { jobThread: true, seqs: wakeSeqs };
+    const wakeOptions = { jobThread: true, seqs: wakeSeqs, jobs: deps.jobs };
     if (message && !detached) {
       const nextBlock = cloudAgentBlock(saved);
       const blocks = (message.blocks as MessageBlock[]).map((block) =>
@@ -738,6 +743,8 @@ export interface CloudAgentWakeOptions {
   jobThread?: boolean;
   /** Collects the event seq of each card posted to the chat, for the caller to announce. */
   seqs?: number[];
+  /** Records the pointer backup for a report on another bot's request in the wake's transaction. */
+  jobs?: Pick<JobPublisher, "enqueueIn">;
 }
 
 /**
@@ -789,6 +796,7 @@ export async function createCloudAgentWake(
         where: { id: task.id },
         data: { prompt: `${task.prompt}\n\n${prompt}` },
       });
+      await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
       return [queued.id];
     }
   }
@@ -819,7 +827,101 @@ export async function createCloudAgentWake(
       ...(card ? { sourceMessageId: card.messageId } : {}),
     },
   });
+  await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
   return [run.id];
+}
+
+const TERMINAL_WAKE_NONCE = "cloud-agent-wake-run";
+
+/**
+ * Records, in the transaction that makes a bot's report run for finished work, the backup that
+ * leaves the pointer in the asking chat if posting it directly after that run fails. Only the wake
+ * for the finished piece reports; one for a question or approval does not.
+ */
+async function recordRelayPointerBackup(
+  tx: Tx,
+  agent: CloudAgent,
+  clientNonce: string,
+  jobs: Pick<JobPublisher, "enqueueIn"> | undefined,
+) {
+  if (!jobs || !agent.originMessageId || agent.originBotId === agent.botId) return;
+  if (clientNonce !== `${TERMINAL_WAKE_NONCE}:${agent.id}:${agent.generation}`) return;
+  await jobs.enqueueIn(
+    tx,
+    cloudAgentRelayPointerJob(
+      { agentId: agent.id, generation: agent.generation },
+      new Date(Date.now() + RELAY_POINTER_BACKUP_MS),
+    ),
+  );
+}
+
+/**
+ * The bot's report run for work another bot asked for has completed: point the asking chat at it,
+ * then retire the backup. A failed post makes the backup runnable now; a crash leaves it to fire.
+ */
+export async function postCloudAgentRelayPointers(
+  deps: Pick<CloudAgentDeps, "prisma" | "events" | "jobs">,
+  run: { id: string },
+  bot: { id: string; name: string },
+) {
+  const woken = await deps.prisma.run.findUnique({
+    where: { id: run.id },
+    select: { clientNonce: true, cloudAgentWakeNonces: true },
+  });
+  const pieces = [...(woken?.cloudAgentWakeNonces ?? []), woken?.clientNonce ?? ""].flatMap(
+    (nonce) => {
+      const [kind, agentId, generation] = nonce.split(":");
+      return kind === TERMINAL_WAKE_NONCE && agentId && generation
+        ? [{ agentId, generation: Number(generation) }]
+        : [];
+    },
+  );
+  for (const piece of pieces) {
+    const agent = await deps.prisma.cloudAgent.findFirst({
+      where: { id: piece.agentId, botId: bot.id, originMessageId: { not: null } },
+      select: { originMessageId: true },
+    });
+    if (!agent) continue;
+    const job = cloudAgentRelayPointerJob(piece, new Date());
+    try {
+      await postRelayPointer(deps, { sourceMessageId: agent.originMessageId!, bot });
+    } catch (error) {
+      await deps.jobs.enqueue(job).catch(() => undefined);
+      throw error;
+    }
+    await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, job.replaceKey!));
+  }
+}
+
+/**
+ * The backup for that pointer: it posts once the report run has completed, and asks the queue to
+ * retry while that run is still going. A run that failed or was cancelled reported nothing.
+ */
+export async function runRelayPointerBackup(
+  deps: Pick<CloudAgentDeps, "prisma" | "events">,
+  payload: BackgroundJobPayloads["cloud_agent.relay_pointer"],
+) {
+  const agent = await deps.prisma.cloudAgent.findUnique({
+    where: { id: payload.agentId },
+    select: { spaceId: true, botId: true, originMessageId: true },
+  });
+  if (!agent?.originMessageId) return;
+  const report = await deps.prisma.run.findFirst({
+    where: {
+      spaceId: agent.spaceId,
+      ...cloudAgentWakeNonceWhere(
+        `${TERMINAL_WAKE_NONCE}:${payload.agentId}:${payload.generation}`,
+      ),
+    },
+    select: { status: true },
+  });
+  if (!report || report.status === "failed" || report.status === "cancelled") return;
+  if (report.status !== "completed") throw new Error("The report run has not completed yet");
+  const bot = await deps.prisma.bot.findUnique({
+    where: { id: agent.botId },
+    select: { id: true, name: true },
+  });
+  if (bot) await postRelayPointer(deps, { sourceMessageId: agent.originMessageId, bot });
 }
 
 /** Primary nonces also cover runs written by the previous release. */

@@ -70,6 +70,10 @@ const payloadSchemas = {
     agentId: z.string().min(1),
     generation: z.number().int().min(0),
   }),
+  "cloud_agent.relay_pointer": z.object({
+    agentId: z.string().min(1),
+    generation: z.number().int().min(0),
+  }),
   "scoped_goal.advance": z.object({ goalId: z.string().min(1) }),
   "purchase.poll": z.object({ purchaseId: z.string().min(1) }),
   "media.poll": z.object({ jobId: z.string().min(1) }),
@@ -364,6 +368,19 @@ export function cloudAgentReporterCheckJob(
     name: "cloud_agent.reporter_check",
     payload,
     replaceKey: `cloud_agent.reporter_check:${payload.agentId}:${payload.generation}`,
+    availableAt,
+  };
+}
+
+/** The key is the agent and piece of work, which is one relayed request's report, so it posts once. */
+export function cloudAgentRelayPointerJob(
+  payload: BackgroundJobPayloads["cloud_agent.relay_pointer"],
+  availableAt: Date,
+): BackgroundJob {
+  return {
+    name: "cloud_agent.relay_pointer",
+    payload,
+    replaceKey: `cloud_agent.relay_pointer:${payload.agentId}:${payload.generation}`,
     availableAt,
   };
 }

@@ -937,6 +937,8 @@ export interface BackgroundJobPayloads {
   "cloud_agent.poll": { agentId: string };
   /** Wake for a finished piece of work whose reporting bot run did not complete; see `cloudAgentReporterCheckJob`. */
   "cloud_agent.reporter_check": { agentId: string; generation: number };
+  /** Backup for the pointer left in the asking chat once a cloud agent's report run for another bot's request completes. */
+  "cloud_agent.relay_pointer": { agentId: string; generation: number };
   /** Observe and advance one scoped goal; its gates' remote reads never wait on another goal. */
   "scoped_goal.advance": { goalId: string };
   "purchase.poll": { purchaseId: string };
@@ -1490,6 +1492,10 @@ export interface CloudAgentLaunchRequest {
   workKind?: CloudAgentWorkKind;
   /** The provider's own project id, from its project list. */
   projectId?: string;
+  /** A project named as the owner knows it: its title, repository name or folder name. */
+  project?: string;
+  /** Work that belongs to no project. A provider with projects refuses a launch with neither. */
+  scratch?: boolean;
   workspaceStrategy?: CloudAgentWorkspaceStrategy;
   runtimeMode?: CloudAgentRuntimeMode;
   interactionMode?: CloudAgentInteractionMode;

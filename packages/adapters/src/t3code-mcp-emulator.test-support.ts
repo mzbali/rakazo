@@ -34,6 +34,8 @@ export interface Thread {
   /** The model and instance the thread runs on. */
   model: string;
   providerInstanceId: string;
+  /** What `t3_thread_read` lists as the timeline, oldest first. */
+  timeline: Array<{ type: string; runId: string; text: string }>;
 }
 type Args = Record<string, unknown>;
 type Outcome =
@@ -525,9 +527,14 @@ export class T3McpEmulator {
 
   /** Ends the running run; a finished agent that was asked to opens its pull request. The next
    * queued message starts, or after a failure or a Stop waits held. */
-  complete(threadId: string, status = "completed") {
+  complete(threadId: string, status = "completed", finalMessage?: string) {
     const thread = this.threads.get(threadId)!;
-    for (const run of thread.runs) if (ACTIVE.includes(run.status)) end(run, status);
+    for (const run of thread.runs) {
+      if (!ACTIVE.includes(run.status)) continue;
+      end(run, status);
+      if (finalMessage)
+        thread.timeline.push({ type: "assistant_message", runId: run.runId, text: finalMessage });
+    }
     if (status !== "completed") {
       for (const run of thread.runs) if (run.status === "queued") run.held = true;
       return;
@@ -637,7 +644,15 @@ export class T3McpEmulator {
               ...run,
               model: "model",
             })),
-          items: [],
+          // Oldest first, paged by position, with an item's text bounded as T3 bounds it.
+          items: thread.timeline
+            .map((item, position) => ({
+              ...item,
+              position,
+              text: item.text.slice(0, Number(args.maxCharsPerItem ?? 20_000)),
+            }))
+            .filter(({ position }) => position > Number(args.afterPosition ?? -1))
+            .slice(0, Number(args.limit ?? 20)),
           nextPosition: null,
           hasMore: false,
         },
@@ -731,6 +746,7 @@ export class T3McpEmulator {
         branch: null,
         prUrl: null,
         pullRequests: [],
+        timeline: [],
         pendingRequestCount: 0,
         worktree: (args.workspaceStrategy as { type?: string } | undefined)?.type === "worktree",
         worktreePath: null,

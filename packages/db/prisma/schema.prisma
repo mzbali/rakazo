@@ -1418,6 +1418,8 @@ model CloudAgent {
   jobThreadId         String?
   /// The launch prompt, kept for that helper once the launch request itself is cleared.
   launchBrief         String?
+  /// The finished run's final message, bounded, as the provider reported it; untrusted job output.
+  resultText          String?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])

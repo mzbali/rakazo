@@ -63,6 +63,33 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     emulator.complete(first.id, "failed");
   });
 
+  it("returns the finished run's final message, bounded, from the thread timeline", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { idempotencyKey: "result-key-123456", prompt: "Task" },
+      context,
+    );
+    expect(await provider.get(agent.id, context)).not.toHaveProperty("result");
+    emulator.complete(agent.id, "completed", `Done. ${"x".repeat(5_000)}`);
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done.result).toHaveLength(4_000);
+    expect(done.result).toMatch(/^Done\. x/);
+  });
+
+  it("finishes without a result when the timeline cannot be read", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { idempotencyKey: "noresult-key-12345", prompt: "Task" },
+      context,
+    );
+    emulator.complete(agent.id, "completed", "Done.");
+    emulator.failNext = { invalidParams: true, tool: "t3_thread_read" };
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done).not.toHaveProperty("result");
+  });
+
   it("reports a failed run as failed", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(

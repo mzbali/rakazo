@@ -243,6 +243,8 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(task.prompt).toContain(`id: ${agentId}`);
     expect(task.prompt).toContain("status: finished");
     expect(task.prompt).toContain("is finished");
+    // The brief points at the result in the status, not at a thread read the helper may not make.
+    expect(task.prompt).toContain("untrustedResult");
     expect(task.prompt).not.toContain("OWNER-CHAT-LINE");
     expect(await h.messagesIn(agent.jobThreadId!)).toHaveLength(0);
 

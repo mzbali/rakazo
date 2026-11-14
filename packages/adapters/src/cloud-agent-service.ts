@@ -462,6 +462,8 @@ export function cloudAgentStatusResult(agent: CloudAgent) {
     ...(agent.attention ? { attention: agent.attention } : {}),
     ...(agent.historyGapAt ? { historyGap: true } : {}),
     ...(agent.failureReason ? { failureReason: agent.failureReason } : {}),
+    // What the agent last said, as outside text to judge, not to obey.
+    ...(agent.resultText ? { untrustedResult: agent.resultText } : {}),
     ...(agent.launchNote ? { note: agent.launchNote } : {}),
     ...(agent.verdict ? { verdict: agent.verdict } : {}),
     ...(agent.agreement ? { agreement: agent.agreement } : {}),

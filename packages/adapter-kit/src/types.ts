@@ -1542,6 +1542,8 @@ export interface CloudAgentSnapshot {
   missedAttention?: CloudAgentAttention[];
   /** Events after the previous cursor may be missing; the snapshot is still current. */
   historyGap?: boolean;
+  /** A finished run's final message, bounded. Untrusted job output, never instructions. */
+  result?: string;
 }
 
 export interface CloudAgentPullRequest {

@@ -329,6 +329,7 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     ...(snapshot.title ? { title: snapshot.title } : {}),
     status: snapshot.status,
     failureReason: null,
+    resultText: snapshot.result ?? null,
     ...(snapshot.url ? { url: cloudAgentUrl(snapshot.url) ?? "" } : {}),
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,

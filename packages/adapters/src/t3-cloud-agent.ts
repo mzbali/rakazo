@@ -810,15 +810,32 @@ export function t3DirectThread(
   return remoteId ? { remoteId, title, ...(sent ? { brief: text(args.message) } : {}) } : undefined;
 }
 
-/** The thread a bot is waiting on or reading, whose result it then reports to the owner itself. */
+/**
+ * The thread whose finished result a bot just received by waiting on or reading it, so it reports
+ * that result to the owner itself. A refused call, a timed-out wait or a read of a thread still at
+ * work showed the bot no result, so it is nothing.
+ */
 export function t3WatchedThread(
   server: string,
   tool: string,
   args: Record<string, unknown>,
+  result: unknown,
 ): string | undefined {
-  const watched =
-    tool === `mcp__${server}__t3_thread_wait` || tool === `mcp__${server}__t3_thread_read`;
-  return watched && typeof args.threadId === "string" ? args.threadId : undefined;
+  if (typeof args.threadId !== "string") return undefined;
+  const data = result as { isError?: boolean; error?: unknown; structuredContent?: unknown } | null;
+  if (!data || data.isError || data.error !== undefined) return undefined;
+  const content = (data.structuredContent ?? {}) as {
+    status?: unknown;
+    timedOut?: unknown;
+    thread?: { status?: unknown; activeRunId?: unknown };
+  };
+  const finished =
+    tool === `mcp__${server}__t3_thread_wait`
+      ? content.status === "completed" && content.timedOut === false
+      : tool === `mcp__${server}__t3_thread_read`
+        ? content.thread?.status === "completed" && content.thread.activeRunId == null
+        : false;
+  return finished ? args.threadId : undefined;
 }
 
 function attentionOf(requestId: string, kind: string, threadId?: string): CloudAgentAttention {

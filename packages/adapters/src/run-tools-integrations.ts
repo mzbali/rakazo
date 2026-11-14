@@ -49,16 +49,6 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
   const { name, args, effectKey, connectorCall } = call;
   if (deps.connector) {
     let result: unknown = { error: `unknown tool ${name}` };
-    // A run that waits on a thread it follows reports the result itself; no wake needs to say it.
-    const watched = ctx.providers.cloudAgent?.watchedThread?.(name, args);
-    if (watched) {
-      await markCloudAgentWaiting(
-        { ...deps, cloudAgent: ctx.providers.cloudAgent },
-        { ...context, operationId: effectKey, botId: bot.id },
-        run,
-        watched,
-      ).catch(() => getLogger().warn("cloud_agent.waiting_mark_failed"));
-    }
     // Background work posts no cards, so it does not fetch the app either.
     const withApp = Boolean(deps.artifacts) && !isBackgroundRunTrigger(run.trigger);
     for await (const event of deps.connector.execute(
@@ -96,6 +86,16 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
           });
         }
       }
+    }
+    // A run that just received a thread's finished result reports it itself; no wake needs to.
+    const watched = ctx.providers.cloudAgent?.watchedThread?.(name, args, result);
+    if (watched) {
+      await markCloudAgentWaiting(
+        { ...deps, cloudAgent: ctx.providers.cloudAgent },
+        { ...context, operationId: effectKey, botId: bot.id },
+        run,
+        watched,
+      ).catch(() => getLogger().warn("cloud_agent.waiting_mark_failed"));
     }
     const direct = ctx.providers.cloudAgent?.directThread?.(name, args, result);
     if (direct) {

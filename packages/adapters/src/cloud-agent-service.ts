@@ -438,8 +438,8 @@ export async function trackDirectCloudAgent(
 }
 
 /**
- * The bot's run waits on or reads a thread it follows, so it reports that thread's result to the
- * owner itself while it runs. The agent's version stays, so the poll's own write is not fenced.
+ * The bot's run just received a followed thread's finished result by waiting on or reading it, so
+ * it reports that result to the owner itself while it runs. The agent's version stays, so the poll's own write is not fenced.
  */
 export async function markCloudAgentWaiting(
   deps: CloudAgentDeps,

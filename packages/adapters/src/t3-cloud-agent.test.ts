@@ -403,11 +403,29 @@ describe("T3 cloud agent provider (offline conformance)", () => {
   });
 
   it("finds the thread a bot waits on or reads", () => {
-    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_wait", { threadId: "t-1" })).toBe("t-1");
-    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_read", { threadId: "t-1" })).toBe("t-1");
-    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-1" })).toBeUndefined();
+    const args = { threadId: "t-1" };
+    const waited = { structuredContent: { status: "completed", timedOut: false } };
+    const read = { structuredContent: { thread: { status: "completed", activeRunId: null } } };
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, waited)).toBe("t-1");
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, read)).toBe("t-1");
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_send", args, waited)).toBeUndefined();
+    expect(t3WatchedThread("t3", "mcp__other__t3_thread_wait", args, waited)).toBeUndefined();
+    // No finished result reached the bot: a refusal, a timed-out wait, a read of a busy thread.
     expect(
-      t3WatchedThread("t3", "mcp__other__t3_thread_wait", { threadId: "t-1" }),
+      t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, { error: "unreachable" }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, { ...read, isError: true }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, {
+        structuredContent: { status: "running", timedOut: true },
+      }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, {
+        structuredContent: { thread: { status: "running", activeRunId: "run-2" } },
+      }),
     ).toBeUndefined();
   });
 

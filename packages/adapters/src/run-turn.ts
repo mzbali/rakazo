@@ -32,8 +32,11 @@ import { sanitizedError } from "@rakazo/logging/monitoring";
 import { MAX_APPROVAL_DETAIL_LENGTH, truncate } from "./approval-ask.js";
 import { isToolPauseResult } from "./approval-effect.js";
 import { returnHelperOutcome } from "./background-helpers.js";
-import { postCloudAgentRelayPointers, returnBotMessageOutcome } from "./bot-messages.js";
-import { expediteCloudAgentReporterCheck } from "./cloud-agent-poll.js";
+import { returnBotMessageOutcome } from "./bot-messages.js";
+import {
+  expediteCloudAgentReporterCheck,
+  postCloudAgentRelayPointers,
+} from "./cloud-agent-poll.js";
 import { scheduleComputerSleep } from "./computer-idle.js";
 import { holdComputerExecutionLeaseForTakeover } from "./computer-lifecycle.js";
 import { resolveBotWorkspacePath } from "./computer-support.js";

@@ -4,11 +4,12 @@ import type { MessageBlock } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { messageBot, returnBotMessageOutcome } from "./bot-messages.js";
 import {
-  messageBot,
+  createCloudAgentWake,
   postCloudAgentRelayPointers,
-  returnBotMessageOutcome,
-} from "./bot-messages.js";
+  runRelayPointerBackup,
+} from "./cloud-agent-poll.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
@@ -125,10 +126,14 @@ describePostgres("relay pointer in the asking chat (PostgreSQL)", () => {
       const run = await runFor("bot_message", "completed", inbound.id);
       return { botA, botB, threadA, threadB, inbound, run, runFor };
     });
+    // The queue, as far as these tests need it: what was enqueued and not cancelled still fires.
+    const queued = new Map<string, BackgroundJob>();
     const jobs: JobPublisher = {
-      enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
-      enqueueIn: vi.fn(async () => undefined),
-      cancelIn: async () => undefined,
+      enqueue: vi.fn(async (job: BackgroundJob) => void queued.set(job.replaceKey!, job)),
+      enqueueIn: vi.fn(
+        async (_tx: unknown, job: BackgroundJob) => void queued.set(job.replaceKey!, job),
+      ),
+      cancelIn: vi.fn(async (_tx: unknown, key: string) => void queued.delete(key)),
       cancel: async () => undefined,
       close: async () => undefined,
     };
@@ -167,7 +172,7 @@ describePostgres("relay pointer in the asking chat (PostgreSQL)", () => {
           },
         }),
       );
-    return { ...fixture, deps, sender, runInput, pointers, agent };
+    return { ...fixture, deps, sender, runInput, pointers, agent, queued };
   }
 
   it("leaves one pointer in the asking chat when the relayed question is answered", async () => {
@@ -241,5 +246,75 @@ describePostgres("relay pointer in the asking chat (PostgreSQL)", () => {
     await wake(`cloud-agent-wake-run:${agent.id}:0`);
     await wake(`cloud-agent-wake-run:${agent.id}:1`);
     expect(await t.pointers()).toHaveLength(1);
+  });
+
+  /** B's report run for a finished job: the wake is made, the run completes, then the post is tried. */
+  async function reportRun(t: Awaited<ReturnType<typeof setup>>) {
+    const agent = await t.agent("finished");
+    const wakeRunIds = await runAsSystem("wake", () =>
+      prisma.$transaction((tx) =>
+        createCloudAgentWake(
+          tx,
+          agent,
+          "The agent finished.",
+          `cloud-agent-wake-run:${agent.id}:${agent.generation}`,
+          { jobs: t.deps.jobs },
+        ),
+      ),
+    );
+    await runAsSystem("complete the report run", () =>
+      asSystem(prisma).run.update({ where: { id: wakeRunIds[0]! }, data: { status: "completed" } }),
+    );
+    return { agent, run: { id: wakeRunIds[0]! } };
+  }
+
+  /** Fires what the queue still holds, as the worker would once a job is due. */
+  async function fireQueued(t: Awaited<ReturnType<typeof setup>>) {
+    for (const job of [...t.queued.values()]) {
+      if (job.name !== "cloud_agent.relay_pointer") continue;
+      await runAsSystem("relay pointer backup", () =>
+        runRelayPointerBackup(t.deps as never, job.payload as never),
+      );
+    }
+  }
+
+  it("still leaves one pointer when posting it fails after the report run completed", async () => {
+    const t = await setup();
+    const { run } = await reportRun(t);
+    // The backup was recorded with the wake, before anything could go wrong.
+    expect([...t.queued.keys()]).toHaveLength(1);
+    let failures = 1;
+    const flaky = new Proxy(prisma, {
+      get: (target, key) =>
+        key === "$transaction" && failures-- > 0
+          ? () => Promise.reject(new Error("database went away"))
+          : Reflect.get(target, key),
+    });
+    await expect(
+      runAsSystem("direct post", () =>
+        postCloudAgentRelayPointers({ ...t.deps, prisma: flaky } as never, run, t.sender),
+      ),
+    ).rejects.toThrow("database went away");
+    expect(await t.pointers()).toHaveLength(0);
+    await fireQueued(t);
+    await fireQueued(t);
+    expect(await t.pointers()).toHaveLength(1);
+  });
+
+  it("leaves one pointer when the process dies before posting, and retires the job when it posts", async () => {
+    const crashed = await setup();
+    await reportRun(crashed);
+    await fireQueued(crashed);
+    expect(await crashed.pointers()).toHaveLength(1);
+
+    const posted = await setup();
+    const { run } = await reportRun(posted);
+    await runAsSystem("direct post", () =>
+      postCloudAgentRelayPointers(posted.deps as never, run, posted.sender),
+    );
+    expect(await posted.pointers()).toHaveLength(1);
+    expect(posted.queued.size).toBe(0);
+    await fireQueued(posted);
+    expect(await posted.pointers()).toHaveLength(1);
   });
 });

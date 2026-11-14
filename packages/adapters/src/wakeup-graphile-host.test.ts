@@ -61,6 +61,7 @@ function handlers(): BackgroundJobHandlers {
     "team_chat.ambient": vi.fn(async () => undefined),
     "cloud_agent.poll": vi.fn(async () => undefined),
     "cloud_agent.reporter_check": vi.fn(async () => undefined),
+    "cloud_agent.relay_pointer": vi.fn(async () => undefined),
     "scoped_goal.advance": vi.fn(async () => undefined),
     "purchase.poll": vi.fn(async () => undefined),
     "media.poll": vi.fn(async () => undefined),

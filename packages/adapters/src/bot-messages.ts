@@ -426,7 +426,7 @@ const RELAY_POINTER_REQUEST_MAX = 100;
  * key is the relayed request, so any number of reports for it leave a single pointer.
  */
 export async function postRelayPointer(
-  deps: Pick<ExecutorDeps, "prisma" | "events">,
+  deps: { prisma: PrismaClient; events: Pick<ExecutorDeps["events"], "notify"> },
   input: { sourceMessageId: string; bot: { id: string; name: string } },
 ) {
   let posted: { threadId: string; seq: number } | undefined;
@@ -504,35 +504,6 @@ export async function postRelayPointer(
     await deps.events.notify(posted.threadId, posted.seq).catch((error) => {
       getLogger().error("relay pointer realtime notification", error);
     });
-}
-
-/**
- * A finished cloud-agent wake run is the bot's report on the work it started for another bot's
- * request: point the asking chat at it. Only the wake for the finished piece counts, not one for a
- * question or approval along the way.
- */
-export async function postCloudAgentRelayPointers(
-  deps: Pick<ExecutorDeps, "prisma" | "events">,
-  run: { id: string },
-  bot: { id: string; name: string },
-) {
-  const woken = await deps.prisma.run.findUnique({
-    where: { id: run.id },
-    select: { clientNonce: true, cloudAgentWakeNonces: true },
-  });
-  const agentIds = [...(woken?.cloudAgentWakeNonces ?? []), woken?.clientNonce ?? ""].flatMap(
-    (nonce) => {
-      const [kind, agentId] = nonce.split(":");
-      return kind === "cloud-agent-wake-run" && agentId ? [agentId] : [];
-    },
-  );
-  if (!agentIds.length) return;
-  const agents = await deps.prisma.cloudAgent.findMany({
-    where: { id: { in: agentIds }, botId: bot.id, originMessageId: { not: null } },
-    select: { originMessageId: true },
-  });
-  for (const agent of agents)
-    await postRelayPointer(deps, { sourceMessageId: agent.originMessageId!, bot });
 }
 
 async function markBotOutcomeReturned(prisma: PrismaClient, runId: string) {

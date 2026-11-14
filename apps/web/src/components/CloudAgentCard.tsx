@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl } from "@rakazo/core";
+import { cloudAgentHttpsUrl, cloudAgentState, cloudAgentTone } from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
 import { Card, CardContent } from "@rakazo/ui-web/components/ui/card";
 
@@ -16,6 +16,8 @@ export function CloudAgentCard({
         minute: "2-digit",
       })
     : "";
+  const state = cloudAgentState(block);
+  const tone = cloudAgentTone(state);
   const prHref = cloudAgentHttpsUrl(block.prUrl);
   const href = prHref ?? cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
   const content = (
@@ -28,33 +30,35 @@ export function CloudAgentCard({
           <Badge
             variant="secondary"
             className={
-              block.status === "failed"
+              tone === "danger"
                 ? "text-destructive"
-                : block.status === "finished"
+                : tone === "success"
                   ? "text-success"
-                  : "text-muted-foreground"
+                  : tone === "attention"
+                    ? "text-warning"
+                    : "text-muted-foreground"
             }
           >
-            {block.status === "running" && block.unreachableSince ? (
+            {state === "unreachable" ? (
               <Trans>unreachable</Trans>
-            ) : block.status === "running" && block.needsInput ? (
+            ) : state === "needsInput" ? (
               <Trans>needs input</Trans>
-            ) : block.status === "running" && block.queued ? (
+            ) : state === "queued" ? (
               <Trans>queued</Trans>
-            ) : block.status === "running" ? (
+            ) : state === "running" ? (
               <Trans>running</Trans>
-            ) : block.status === "finished" ? (
+            ) : state === "finished" ? (
               <Trans>finished</Trans>
-            ) : block.status === "cancelled" ? (
+            ) : state === "cancelled" ? (
               <Trans>cancelled</Trans>
-            ) : block.status === "expired" ? (
+            ) : state === "expired" ? (
               <Trans>expired</Trans>
             ) : (
               <Trans>failed</Trans>
             )}
           </Badge>
         </div>
-        {block.status === "running" && block.unreachableSince ? (
+        {state === "unreachable" ? (
           <span className="text-muted-foreground">
             <Trans>Resumes when it's back · since {since}</Trans>
           </span>
@@ -66,6 +70,11 @@ export function CloudAgentCard({
         ) : block.branch ? (
           <span className="text-muted-foreground" dir="auto">
             {block.branch}
+          </span>
+        ) : null}
+        {block.note ? (
+          <span className="text-muted-foreground" dir="auto">
+            {block.note}
           </span>
         ) : null}
       </CardContent>

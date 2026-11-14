@@ -1,0 +1,202 @@
+import { useLingui } from "@lingui/react/macro";
+import type { MessageBlock } from "@rakazo/contracts";
+import { cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import { typeScale } from "@rakazo/ui-tokens";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { mobileTokens } from "../../lib/appearance";
+import { hapticSelection } from "../../lib/haptics";
+import { stateCounts } from "../../lib/job-format";
+import type { UserBubble } from "../../lib/user-bubble";
+import { withUserBubble } from "../../lib/user-bubble";
+import { JobRow } from "../job-row";
+import { JobStatusDot, jobToneColor, useJobStateLabel } from "../job-status";
+import { NativeSymbol } from "../native-symbol";
+import type { MessageActionProps } from "./message-bubble";
+
+type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
+
+const BAR = 2;
+
+/** A slim bar that sweeps along the card's foot while a job runs, still under reduced motion. */
+function LiveBar({ color }: { color: string }) {
+  const reducedMotion = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const sweep = useSharedValue(0);
+  useEffect(() => {
+    if (reducedMotion || width === 0) return;
+    sweep.value = 0;
+    sweep.value = withRepeat(withTiming(1, { duration: 1600 }), -1);
+    return () => cancelAnimation(sweep);
+  }, [reducedMotion, width, sweep]);
+  const segment = width * 0.3;
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: reducedMotion ? 0 : -segment + sweep.value * (width + segment) }],
+  }));
+  return (
+    <View
+      accessible={false}
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: BAR,
+        overflow: "hidden",
+      }}
+    >
+      <Animated.View
+        style={[
+          { width: segment || "30%", height: BAR, backgroundColor: color, opacity: 0.7 },
+          style,
+        ]}
+      />
+    </View>
+  );
+}
+
+/**
+ * Cloud-agent jobs in a chat, as T3 draws its subagents: a bordered block of rows, each a status
+ * dot, title, coloured state and elapsed time. Opening a row shows the job; several from one
+ * message fold behind a header that counts them by state.
+ */
+export function CloudAgentCards({
+  jobs,
+  actionProps,
+  userBubble,
+}: {
+  jobs: Job[];
+  actionProps: MessageActionProps;
+  userBubble?: UserBubble;
+}) {
+  const tokens = withUserBubble(mobileTokens(), userBubble);
+  const { t } = useLingui();
+  const router = useRouter();
+  const windowWidth = useWindowDimensions().width;
+  const stateLabel = useJobStateLabel();
+  const [open, setOpen] = useState(false);
+  const grouped = jobs.length > 1;
+  const states = jobs.map(cloudAgentState);
+  const running = states.includes("running");
+  const tones = states.map(cloudAgentTone);
+  const headline = tones.includes("attention")
+    ? "attention"
+    : running
+      ? "active"
+      : tones.includes("danger")
+        ? "danger"
+        : "success";
+  const counts = [...stateCounts(states)]
+    .map(([state, count]) => `${count} ${stateLabel(state)}`)
+    .join(" · ");
+  const heading = t`${jobs.length} jobs`;
+  return (
+    <View
+      {...actionProps}
+      testID="cloud-agent-card"
+      style={{
+        width: Math.min(windowWidth - 40, 560),
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: tokens.border,
+        backgroundColor: tokens.card,
+        padding: 4,
+        overflow: "hidden",
+      }}
+    >
+      {grouped ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${heading}, ${counts}`}
+          accessibilityState={{ expanded: open }}
+          onPress={() => {
+            hapticSelection();
+            setOpen((value) => !value);
+          }}
+          style={({ pressed }) => ({
+            minHeight: 56,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            backgroundColor: pressed ? tokens.muted : "transparent",
+          })}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {jobs.slice(0, 3).map((job, index) => (
+              <View
+                key={job.agentId}
+                style={{
+                  marginLeft: index === 0 ? 0 : -7,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: tokens.border,
+                  backgroundColor: tokens.card,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <JobStatusDot state={states[index]!} tokens={tokens} />
+              </View>
+            ))}
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <Text
+              numberOfLines={1}
+              style={{ color: tokens.foreground, ...typeScale.secondary, fontWeight: "500" }}
+            >
+              {heading}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{ color: jobToneColor(tokens, headline), ...typeScale.footnote }}
+            >
+              {counts}
+            </Text>
+          </View>
+          <NativeSymbol
+            ios={open ? "chevron.up" : "chevron.down"}
+            android={open ? "chevron-up" : "chevron-down"}
+            size={11}
+            color={tokens.faintForeground}
+          />
+        </Pressable>
+      ) : null}
+      {!grouped || open
+        ? jobs.map((job) => (
+            <Pressable
+              key={job.agentId}
+              accessibilityRole="button"
+              accessibilityLabel={`${job.title}: ${stateLabel(cloudAgentState(job))}`}
+              onPress={() => {
+                hapticSelection();
+                router.push({ pathname: "/job", params: { agentId: job.agentId } });
+              }}
+              style={({ pressed }) => ({
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                backgroundColor: pressed ? tokens.muted : "transparent",
+              })}
+            >
+              <JobRow job={job} chevron />
+            </Pressable>
+          ))
+        : null}
+      {running ? <LiveBar color={tokens.statusWorking} /> : null}
+    </View>
+  );
+}

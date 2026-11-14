@@ -352,6 +352,8 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["threads/answerCall"],
       ["threads/declineCall"],
       ["threads/answer"],
+      ["cloudAgents/list"],
+      ["cloudAgents/detail", { agentId: "missing-agent" }],
       ["computer/status", { botId: "missing-bot" }],
       ["computer/boot", { botId: "missing-bot" }],
       ["computer/stop", { botId: "missing-bot" }],

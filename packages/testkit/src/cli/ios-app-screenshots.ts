@@ -276,7 +276,13 @@ function startMetro(apiUrl: string, outDir: string) {
     ],
     port: METRO_PORT,
     log: path.join(outDir, "metro.log"),
-    env: { EXPO_PUBLIC_API_URL: apiUrl, EXPO_NO_TELEMETRY: "1", CI: "1" },
+    env: {
+      EXPO_PUBLIC_API_URL: apiUrl,
+      // Keeps the debug build's warning toast out of the screenshots.
+      EXPO_PUBLIC_HIDE_DEV_WARNINGS: "1",
+      EXPO_NO_TELEMETRY: "1",
+      CI: "1",
+    },
     ready: () =>
       fetch(`${METRO_URL}/status`).then(
         async (response) => (await response.text()).includes("packager-status:running"),

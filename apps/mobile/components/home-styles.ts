@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { mobileTokens } from "../lib/appearance";
 import { native } from "../lib/native";
 
-export const INBOX_ROW = { padding: 16, gap: 12, avatarSize: 62 };
+export const INBOX_ROW = { padding: 16, gap: 12, avatarSize: 56 };
 export const COMPACT_INBOX_ROW = { padding: 12, gap: 10 };
 // Drops the Android create menu below the header pill; the trigger's negative margin keeps the layout.
 export const CREATE_MENU_GAP = 6;
@@ -66,6 +66,19 @@ export function createHomeStyles() {
     headerButtonAccent: {
       backgroundColor: tokens.primary,
     },
+    headerBadge: {
+      position: "absolute",
+      top: 3,
+      right: 3,
+      minWidth: 15,
+      height: 15,
+      paddingHorizontal: 4,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.warning,
+    },
+    headerBadgeText: { color: tokens.primaryForeground, fontSize: 10, fontWeight: "700" },
     profileInitials: {
       color: native.label,
       fontSize: 15,
@@ -93,8 +106,17 @@ export function createHomeStyles() {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: INBOX_ROW.padding,
-      paddingVertical: 14,
+      paddingVertical: 11,
       gap: INBOX_ROW.gap,
+    },
+    // T3's hairline: it starts under the text, not under the avatar.
+    rowDivider: {
+      position: "absolute",
+      bottom: 0,
+      left: INBOX_ROW.padding + INBOX_ROW.avatarSize + INBOX_ROW.gap,
+      right: INBOX_ROW.padding,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: tokens.border,
     },
     rowSelected: {
       marginHorizontal: 12,

@@ -148,6 +148,9 @@ export function ThreadMessageList({
               </View>
             }
             renderItem={renderItem}
+            // Bound offscreen work and spread new rows across smaller rendering batches.
+            windowSize={15}
+            maxToRenderPerBatch={5}
           />
         </ThreadScrollSurface>
       )}

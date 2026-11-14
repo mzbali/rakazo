@@ -20,6 +20,7 @@ import {
   spaceSelectionSeq,
   writeStoredValue,
 } from "./api";
+import { resetCloudJobs } from "./cloud-jobs-store";
 import type { EndpointResult } from "./endpoint";
 import { defaultApiBase, normalizeApiBase } from "./endpoint";
 import { resumeLiveNotifications } from "./live-notifications";
@@ -78,6 +79,7 @@ export async function loadApiBase() {
   return currentApiBase();
 }
 export async function selectSpace(id: string) {
+  resetCloudJobs();
   const requestGeneration = nextSpaceSelectionRequest();
   if (!(await clearStoredValue(SPACE_ROLLBACK_KEY))) return false;
   // Rollback cleanup is the first await. A newer selection may have claimed

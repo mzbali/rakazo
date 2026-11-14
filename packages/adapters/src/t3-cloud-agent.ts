@@ -41,7 +41,12 @@ const EVENTS_CONTRACT_VERSION = 1;
 const IDLE_CONFIRM_MS = 1_000;
 const MAX_EVENT_PAGES = 10;
 /** The final message is kept to this many characters, from a timeline read this many pages deep. */
-const MAX_RESULT_CHARS = 4_000;
+const MAX_RESULT_CHARS = 12_000;
+/** A longer one keeps its start and its end, where conclusions usually are. */
+const RESULT_HEAD_CHARS = 8_000;
+const RESULT_TAIL_CHARS = 3_500;
+/** T3's own per-item cap, so it never cuts the message before the end can be kept. */
+const T3_ITEM_CHARS = 50_000;
 const MAX_RESULT_PAGES = 10;
 
 const INTERNAL_SERVER_ERROR = "Tool execution failed due to an internal server error.";
@@ -117,6 +122,9 @@ const projectsSchema = z.object({
   projects: z.array(
     z.object({
       id: z.string(),
+      title: z.string().optional(),
+      workspaceRoot: z.string().optional(),
+      archivedAt: z.string().nullish(),
       defaultModelSelection: z.record(z.string(), z.unknown()).nullish(),
       repositoryIdentity: z
         .object({ webUrl: z.string().optional(), canonicalKey: z.string().optional() })
@@ -316,8 +324,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     );
     const found = listed.threads.find((thread) => thread.title.endsWith(`· ${tag}`));
     if (found) return this.handle(found.threadId, context);
-    const project =
-      request.projectId || request.repository ? await this.projectFor(request, context) : undefined;
+    const project = await this.projectFor(request, context);
     // A workspace is a project's checkout; a scratch thread has none.
     if (request.workspaceStrategy && !project) throw new CloudAgentRequestRejected("invalid");
     const chosen = await this.chooseModel(request, context);
@@ -486,7 +493,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
               threadId: id,
               limit: 100,
               runLimit: 1,
-              maxCharsPerItem: MAX_RESULT_CHARS,
+              maxCharsPerItem: T3_ITEM_CHARS,
               ...(afterPosition === undefined ? {} : { afterPosition }),
             },
             context,
@@ -507,7 +514,10 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       if (error instanceof CloudAgentRetryLater) throw error;
     }
     // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
-    return complete ? text : undefined;
+    if (!complete || text === undefined) return undefined;
+    return text.length > MAX_RESULT_CHARS
+      ? `${text.slice(0, RESULT_HEAD_CHARS)}\n…\n${text.slice(-RESULT_TAIL_CHARS)}`
+      : text;
   }
 
   /** The current state without moving the poller's cursor or hold. */
@@ -683,27 +693,41 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return { instanceId: provider.providerInstanceId, model: provider.models[0]!.id };
   }
 
-  /** The named project, or the one for the repository; both named must be the same project. */
+  /**
+   * The project the work belongs to, by id, repository or name; all that are given must name the
+   * same one. No project is a scratch thread, and only when the launch asks for it: a refusal
+   * lists the candidates so the bot can pick.
+   */
   private async projectFor(
-    request: Pick<CloudAgentLaunchRequest, "projectId" | "repository">,
+    request: Pick<CloudAgentLaunchRequest, "projectId" | "repository" | "project" | "scratch">,
     context: AdapterContext,
   ) {
-    const { projects } = projectsSchema.parse(
+    const named = request.projectId || request.repository || request.project;
+    if (request.scratch) {
+      if (named) throw new CloudAgentRequestRejected("invalid", "scratch cannot name a project.");
+      return undefined;
+    }
+    const { projects: listed } = projectsSchema.parse(
       await this.call("t3_project_list", { limit: 100 }, context),
     );
-    const wanted = request.repository && normalizeRepository(request.repository);
-    const holds = (project: (typeof projects)[number]) => {
-      const identity = project.repositoryIdentity;
-      return [identity?.webUrl, identity?.canonicalKey].some(
-        (value) => value && normalizeRepository(value) === wanted,
+    const projects = listed.filter((project) => !project.archivedAt);
+    const refuse = (problem: string) =>
+      new CloudAgentRequestRejected("invalid", `${problem} ${candidateNames(projects)}`);
+    if (!named)
+      throw refuse(
+        "No project given. Pass project (a project or repository name) or repository, or scratch: true for work that belongs to no project.",
       );
-    };
-    const match = projects.find((project) =>
-      request.projectId ? project.id === request.projectId : holds(project),
+    const wanted = request.repository && normalizeRepository(request.repository);
+    const name = request.project?.trim().toLowerCase();
+    const matches = projects.filter(
+      (project) =>
+        (!request.projectId || project.id === request.projectId) &&
+        (!wanted || repositoryKeys(project).includes(wanted)) &&
+        (!name || projectNames(project).includes(name)),
     );
-    if (!match || (request.projectId && wanted && !holds(match)))
-      throw new CloudAgentRequestRejected("invalid");
-    return match;
+    if (!matches.length) throw refuse(`No project matches "${named}".`);
+    if (name && matches.length > 1) throw refuse(`"${request.project}" matches several projects.`);
+    return matches[0]!;
   }
 
   /**
@@ -850,6 +874,40 @@ function terminalStatus(status: string): CloudAgentStatus {
   if (status === "completed") return "finished";
   if (status === "cancelled" || status === "rolled_back") return "cancelled";
   return "failed";
+}
+
+type T3Project = z.infer<typeof projectsSchema>["projects"][number];
+
+function repositoryKeys(project: T3Project): string[] {
+  const identity = project.repositoryIdentity;
+  return [identity?.webUrl, identity?.canonicalKey]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeRepository);
+}
+
+/** What the owner may call a project: its title, repository name or workspace folder. */
+function projectNames(project: T3Project): string[] {
+  const last = (value: string) => value.split("/").filter(Boolean).at(-1) ?? "";
+  return [
+    project.title,
+    last(project.workspaceRoot ?? ""),
+    ...repositoryKeys(project).flatMap((key) => [last(key), key.split("/").slice(-2).join("/")]),
+  ]
+    .map((value) => value?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value));
+}
+
+/** Titles that fit the failure reason's limit, so a refusal shows the bot what it can choose. */
+function candidateNames(projects: T3Project[]): string {
+  const titles: string[] = [];
+  let length = 0;
+  for (const project of projects) {
+    const title = project.title || project.id;
+    if (length + title.length > 600) return `Projects: ${titles.join(", ")}, …`;
+    titles.push(title);
+    length += title.length + 2;
+  }
+  return titles.length ? `Projects: ${titles.join(", ")}.` : "There are no projects.";
 }
 
 function normalizeRepository(value: string): string {

@@ -23,6 +23,7 @@ import {
   lockCloudAgentWakeThread,
 } from "./cloud-agent-poll.js";
 import {
+  CLOUD_AGENT_REPORT_USAGE,
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
   cloudAgentReportSchema,
@@ -830,7 +831,9 @@ export async function reportCloudAgent(
 ) {
   const connection = cloudAgentsEnabled(deps.cloudAgent, context.spaceId) ? deps.cloudAgent : null;
   if (!connection) return { error: "Cloud agents are not configured for this space." };
-  const report = cloudAgentReportSchema.parse(args);
+  const parsed = cloudAgentReportSchema.safeParse(args);
+  if (!parsed.success) return { error: CLOUD_AGENT_REPORT_USAGE };
+  const report = parsed.data;
   const agent = await deps.prisma.cloudAgent.findFirst({
     where: {
       id: report.id,
@@ -890,7 +893,7 @@ export async function reportCloudAgent(
       { id: agent.botId, name: context.botName ?? "" },
       {
         bot_id: agent.originBotId,
-        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}`,
+        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}${report.ownerQuestion ? `\nQuestion for the owner: ${report.ownerQuestion}` : ""}`,
         intent: "result",
         deliveryKey: `cloud-agent-report:${agent.id}:${agent.generation}`,
       },
@@ -898,5 +901,16 @@ export async function reportCloudAgent(
     delivered = sent.ok;
     if (!sent.ok) return { error: `Recorded, but not delivered: ${sent.error}` };
   }
-  return { id: agent.id, verdict: report.verdict, ...(delivered ? { delivered } : {}) };
+  return {
+    id: agent.id,
+    verdict: report.verdict,
+    ...(delivered ? { delivered } : {}),
+    // The owner reads the result, so it ends with the decision they are asked to make.
+    ...(report.ownerQuestion
+      ? {
+          ownerQuestion: report.ownerQuestion,
+          note: "End your result with this question for the owner, word for word.",
+        }
+      : {}),
+  };
 }

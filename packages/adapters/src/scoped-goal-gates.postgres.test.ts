@@ -150,7 +150,7 @@ suite("scoped goal gates advance in code", () => {
         context,
         run,
         "cloud_agent_launch",
-        { prompt: "Ship the approved change", requestKey: "ship" },
+        { prompt: "Ship the approved change", requestKey: "ship", scratch: true },
         undefined,
       ),
     );
@@ -610,6 +610,7 @@ suite("scoped goal gates advance in code", () => {
             id: t.agentId,
             verdict,
             summary: "All shipped",
+            ...(verdict === "accepted" ? {} : { ownerQuestion: "Retry the deploy?" }),
           }),
         );
       expect(await report("accepted")).toEqual({

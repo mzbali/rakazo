@@ -103,7 +103,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
     });
     const launched = await fresh.provider.launch(
-      { idempotencyKey: "abcdef123456", prompt: "Fix it" },
+      { scratch: true, idempotencyKey: "abcdef123456", prompt: "Fix it" },
       context,
     );
     expect(launched).toMatchObject({ id: "thread:1", status: "running" });
@@ -123,7 +123,10 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     });
     // Already finished, it still reads as running until a poll has read its events.
     expect(
-      await retried.provider.launch({ idempotencyKey: "abcdef123456", prompt: "Fix it" }, context),
+      await retried.provider.launch(
+        { scratch: true, idempotencyKey: "abcdef123456", prompt: "Fix it" },
+        context,
+      ),
     ).toMatchObject({ id: "thread:1", status: "running" });
     expect(retried.calls.map((call) => call.tool)).not.toContain("t3_thread_launch");
   });
@@ -480,7 +483,12 @@ describe("thread links", () => {
       }),
       t3_thread_events: () => state({ link: "<t3-thread://v2/env/thread%3A1>" }),
     });
-    const request = { idempotencyKey: "key", prompt: "task", modelSelection: { model: "m" } };
+    const request = {
+      scratch: true,
+      idempotencyKey: "key",
+      prompt: "task",
+      modelSelection: { model: "m" },
+    };
     expect((await fixture.provider.launch(request, context)).url).toBe(
       "t3code://threads/env/thread%3A1",
     );
@@ -541,6 +549,7 @@ describe("T3 launch model", () => {
 
 describe("T3 launch model reporting", () => {
   const request = {
+    scratch: true,
     idempotencyKey: "abcdef123456",
     prompt: "Fix it",
     modelSelection: { provider: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },

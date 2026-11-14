@@ -71,10 +71,10 @@ export const ENCRYPTED_MODELS: Record<string, ModelSpec> = {
     space: { column: "spaceId" },
     ownerRelation: "user",
   },
-  /** The launch prompt a job helper starts from: chat-derived, so sealed like the chat. */
+  /** The launch prompt a job helper starts from and the job's final message: chat-derived, so sealed like the chat. */
   CloudAgent: {
     table: "cloud_agents",
-    fields: { launchBrief: {} },
+    fields: { launchBrief: {}, resultText: {} },
     space: { column: "spaceId" },
     ownerRelation: "user",
   },

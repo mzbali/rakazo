@@ -928,6 +928,26 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
   });
 
+  it("gives cloud_agent_status the final message of a finished T3 thread, as untrusted text", async () => {
+    const emulator = new T3ThreadEventsEmulator();
+    const t = await setup(t3EmulatedProvider(emulator));
+    const id = await t.launch(1);
+    await t.poll(id);
+    const { remoteId } = await t.state(id);
+    const status = () =>
+      runAsSystem("status tool call", () =>
+        executeCloudAgentTool(t.deps, t.context, t.run, "cloud_agent_status", { id }),
+      );
+    expect(await status()).not.toHaveProperty("untrustedResult");
+
+    emulator.complete(remoteId!, "completed", "Added the README; tests pass.");
+    await t.poll(id);
+    expect(await status()).toMatchObject({
+      status: "finished",
+      untrustedResult: "Added the README; tests pass.",
+    });
+  });
+
   describe("when the provider cannot be reached", () => {
     afterEach(() => vi.useRealTimers());
 

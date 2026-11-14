@@ -40,6 +40,9 @@ export const T3_CLOUD_AGENT_TOOLS = [
 const EVENTS_CONTRACT_VERSION = 1;
 const IDLE_CONFIRM_MS = 1_000;
 const MAX_EVENT_PAGES = 10;
+/** The final message is kept to this many characters, from a timeline read this many pages deep. */
+const MAX_RESULT_CHARS = 4_000;
+const MAX_RESULT_PAGES = 10;
 
 const INTERNAL_SERVER_ERROR = "Tool execution failed due to an internal server error.";
 
@@ -97,6 +100,13 @@ const pullRequestsSchema = z.object({
       )
       .default([]),
   }),
+});
+const timelineSchema = z.object({
+  items: z
+    .array(z.object({ type: z.string(), runId: z.string(), text: z.string().nullish() }))
+    .default([]),
+  nextPosition: z.number().nullish().default(null),
+  hasMore: z.boolean().default(false),
 });
 const listSchema = z.object({
   threads: z.array(
@@ -437,6 +447,8 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       .map(([requestId, request]) => attentionOf(requestId, request.kind));
     const status: CloudAgentStatus =
       !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
+    const result =
+      status === "finished" && run ? await this.finalMessage(id, run.runId, context) : undefined;
     return {
       id,
       url: t3CanonicalLink(state.link, id),
@@ -453,7 +465,49 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       ),
       missedAttention,
       historyGap,
+      ...(result ? { result } : {}),
     };
+  }
+
+  /**
+   * The run's last assistant message. The events feed carries no text, and a bot's helper may not
+   * read the thread itself, so it is read here. The timeline pages oldest first.
+   */
+  private async finalMessage(id: string, runId: string, context: AdapterContext) {
+    let text: string | undefined;
+    let complete = false;
+    try {
+      let afterPosition: number | undefined;
+      for (let read = 0; read < MAX_RESULT_PAGES; read += 1) {
+        const page = timelineSchema.parse(
+          await this.call(
+            "t3_thread_read",
+            {
+              threadId: id,
+              limit: 100,
+              runLimit: 1,
+              maxCharsPerItem: MAX_RESULT_CHARS,
+              ...(afterPosition === undefined ? {} : { afterPosition }),
+            },
+            context,
+            { optional: true },
+          ),
+        );
+        for (const item of page.items)
+          if (item.type === "assistant_message" && item.runId === runId && item.text?.trim())
+            text = item.text;
+        if (!page.hasMore || page.nextPosition === null) {
+          complete = true;
+          break;
+        }
+        afterPosition = page.nextPosition;
+      }
+    } catch (error) {
+      // A refused or unreadable result leaves the agent finished without one; an outage is retried.
+      if (error instanceof CloudAgentRetryLater) throw error;
+    }
+    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
+    return complete ? text : undefined;
   }
 
   /** The current state without moving the poller's cursor or hold. */
@@ -685,13 +739,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     tool: string,
     args: Record<string, unknown>,
     context: AdapterContext,
-    options?: { modeEscalation?: boolean },
+    options?: { modeEscalation?: boolean; optional?: boolean },
   ): Promise<unknown> {
     const name = `mcp__${this.options.server}__${tool}`;
     const { connector } = this.options;
     const resolved = await connector
       .resolveCall?.({ tool: name, args, executionId: context.operationId }, context)
+      .then((call) => call ?? null)
       .catch(() => undefined);
+    // An optional tool the bot's assignment leaves out is refused, not an outage to wait out.
+    if (resolved === null && options?.optional)
+      throw new CloudAgentRequestRejected("invalid", `${tool} is not assigned`);
     if (!resolved) throw new CloudAgentRetryLater("unavailable");
     if (resolved.tool.unavailable === true) throw new CloudAgentRetryLater("unavailable");
     let data: unknown;

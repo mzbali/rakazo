@@ -1,7 +1,12 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
+import { T3CloudAgentProvider } from "./t3-cloud-agent.js";
+import {
+  T3ThreadEventsEmulator,
+  t3EmulatedProvider,
+  t3EmulatorConnector,
+} from "./t3-cloud-agent.test-support.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -61,6 +66,75 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const done = await provider.get(first.id, context);
     expect(done).toMatchObject({ status: "finished", latestRunId: first.latestRunId });
     emulator.complete(first.id, "failed");
+  });
+
+  it("returns the finished run's final message, bounded, from the thread timeline", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { idempotencyKey: "result-key-123456", prompt: "Task" },
+      context,
+    );
+    expect(await provider.get(agent.id, context)).not.toHaveProperty("result");
+    emulator.complete(agent.id, "completed", `Done. ${"x".repeat(5_000)}`);
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done.result).toHaveLength(4_000);
+    expect(done.result).toMatch(/^Done\. x/);
+  });
+
+  it("finishes without a result when the timeline cannot be read", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { idempotencyKey: "noresult-key-12345", prompt: "Task" },
+      context,
+    );
+    emulator.complete(agent.id, "completed", "Done.");
+    emulator.failNext = { invalidParams: true, tool: "t3_thread_read" };
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done).not.toHaveProperty("result");
+  });
+
+  it("finishes without a result when the bot's assignment leaves out the timeline read", async () => {
+    const emulator = new T3ThreadEventsEmulator();
+    const connector = t3EmulatorConnector(emulator);
+    const provider = new T3CloudAgentProvider({
+      connector: {
+        ...connector,
+        resolveCall: async (call, callContext) =>
+          call.tool === "mcp__t3__t3_thread_read"
+            ? undefined
+            : connector.resolveCall!(call, callContext),
+      },
+      server: "t3",
+      holdKey: "hold",
+    });
+    const agent = await provider.launch(
+      { idempotencyKey: "unassigned-key-1234", prompt: "Task" },
+      context,
+    );
+    emulator.complete(agent.id, "completed", "Done.");
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done).not.toHaveProperty("result");
+  });
+
+  it("finishes without a result when the timeline runs past the read cap", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { idempotencyKey: "longthread-key-1234", prompt: "Task" },
+      context,
+    );
+    const thread = emulator.threads.get(agent.id)!;
+    const runId = thread.runs.at(-1)!.runId;
+    // An early message from this run, then more than ten pages of other items.
+    thread.timeline.push({ type: "assistant_message", runId, text: "Halfway there." });
+    for (let item = 0; item < 1_000; item += 1)
+      thread.timeline.push({ type: "tool_call", runId, text: "" });
+    emulator.complete(agent.id, "completed", "Done.");
+    const done = await provider.get(agent.id, context);
+    expect(done.status).toBe("finished");
+    expect(done).not.toHaveProperty("result");
   });
 
   it("reports a failed run as failed", async () => {

@@ -114,13 +114,15 @@ const TABLES: TableSpec[] = [
   {
     model: "CloudAgent",
     delegate: "cloudAgent",
-    columns: ["launchBrief"],
+    columns: ["launchBrief", "resultText"],
     json: false,
     scan: (cursor, limit) => Prisma.sql`
-      SELECT id, jsonb_build_array("launchBrief") AS values, "spaceId", "userId" AS owner FROM cloud_agents
-      WHERE id > ${cursor} AND "launchBrief" IS NOT NULL ORDER BY id LIMIT ${limit}`,
+      SELECT id, jsonb_build_array("launchBrief", "resultText") AS values, "spaceId", "userId" AS owner
+      FROM cloud_agents WHERE id > ${cursor} AND ("launchBrief" IS NOT NULL OR "resultText" IS NOT NULL)
+      ORDER BY id LIMIT ${limit}`,
     writePlaintext: (id, row) =>
-      Prisma.sql`UPDATE cloud_agents SET "launchBrief" = ${row.launchBrief as string} WHERE id = ${id}`,
+      Prisma.sql`UPDATE cloud_agents SET "launchBrief" = ${row.launchBrief as string | null},
+        "resultText" = ${row.resultText as string | null} WHERE id = ${id}`,
   },
   {
     model: "BotEmailMessage",

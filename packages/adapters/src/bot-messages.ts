@@ -373,8 +373,14 @@ export async function returnBotMessageOutcome(
   // The pointer comes before the run is marked returned, so a failure here is retried by the
   // reconciler. Work this run handed to a cloud agent is reported by that agent's own wake.
   const pointToOutcome = async () => {
+    // A finished agent this very run was waiting on was reported by this run, which is what its
+    // wake was held back for; any other agent for the request is reported by its own wake.
     const handedOn = await deps.prisma.cloudAgent.findFirst({
-      where: { botId: run.botId, originMessageId: run.sourceMessageId },
+      where: {
+        botId: run.botId,
+        originMessageId: run.sourceMessageId,
+        NOT: { waitingRunId: run.id, status: { not: "running" } },
+      },
       select: { id: true },
     });
     if (!handedOn)
@@ -471,12 +477,10 @@ export async function postRelayPointer(
           request.length > RELAY_POINTER_REQUEST_MAX
             ? `${request.slice(0, RELAY_POINTER_REQUEST_MAX - 1).trimEnd()}…`
             : request;
-        const name = input.bot.name.replace(/[[\]]/g, "");
+        // The bot is a mention block, which web and mobile both open as that bot's chat.
         const blocks: MessageBlock[] = [
-          {
-            kind: "text",
-            text: `${name} finished: ${summary} [Open ${name}](/app/${input.bot.id})`,
-          },
+          { kind: "text", text: `${input.bot.name} finished: ${summary}` },
+          { kind: "child_bot", botId: input.bot.id, name: input.bot.name, status: "created" },
         ];
         const message = await createThreadMessageInTransaction(tx, {
           threadId: asked.threadId,

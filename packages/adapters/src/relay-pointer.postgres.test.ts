@@ -190,13 +190,19 @@ describePostgres("relay pointer in the asking chat (PostgreSQL)", () => {
     const pointers = await t.pointers();
     expect(pointers).toHaveLength(1);
     expect(pointers[0]).toMatchObject({ role: "bot", botId: t.botA.id });
-    const [block] = pointers[0]!.blocks as Array<{ kind: string; text: string }>;
-    expect(block!.kind).toBe("text");
-    expect(block!.text).toContain("Engineering Lead finished");
-    expect(block!.text).toContain("Which services still use the old queue?");
-    expect(block!.text).toContain(`(/app/${t.botB.id})`);
+    const [line, mention] = pointers[0]!.blocks as Array<Record<string, string>>;
+    expect(line).toMatchObject({ kind: "text" });
+    expect(line!.text).toContain("Engineering Lead finished");
+    expect(line!.text).toContain("Which services still use the old queue?");
     // A pointer, not the answer.
-    expect(block!.text).not.toContain("Billing and Search");
+    expect(line!.text).not.toContain("Billing and Search");
+    // A bot mention, which web and mobile both open as that bot's chat.
+    expect(mention).toMatchObject({
+      kind: "child_bot",
+      botId: t.botB.id,
+      name: "Engineering Lead",
+      status: "created",
+    });
   });
 
   it("leaves nothing for a report that was not a relayed request", async () => {
@@ -245,6 +251,22 @@ describePostgres("relay pointer in the asking chat (PostgreSQL)", () => {
     expect(await t.pointers()).toHaveLength(0);
     await wake(`cloud-agent-wake-run:${agent.id}:0`);
     await wake(`cloud-agent-wake-run:${agent.id}:1`);
+    expect(await t.pointers()).toHaveLength(1);
+  });
+
+  it("points when the run that waited for the agent's result reports it itself", async () => {
+    const t = await setup();
+    const agent = await t.agent("finished");
+    // The agent finished while this run waited for it, so no wake was made: this run reports it.
+    await runAsSystem("waiting run", () =>
+      asSystem(prisma).cloudAgent.update({
+        where: { id: agent.id },
+        data: { waitingRunId: t.run.id },
+      }),
+    );
+    await runAsSystem("outcome return", () =>
+      returnBotMessageOutcome(t.deps as never, t.runInput(t.run), t.sender, "Billing and Search."),
+    );
     expect(await t.pointers()).toHaveLength(1);
   });
 

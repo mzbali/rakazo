@@ -37,10 +37,17 @@ function deps(
   const notify = vi.fn().mockResolvedValue(undefined);
   const messageFindUnique = vi
     .fn()
-    .mockImplementation(async (args: { where?: { threadId_clientNonce?: unknown } }) =>
-      args?.where?.threadId_clientNonce
-        ? (options.alreadyDelivered ?? null)
-        : { blocks: options.hopBlocks ?? [] },
+    .mockImplementation(
+      async (args: {
+        where?: { threadId_clientNonce?: unknown };
+        select?: { thread?: unknown };
+      }) =>
+        args?.where?.threadId_clientNonce
+          ? (options.alreadyDelivered ?? null)
+          : // The relay pointer's lookup of the asking chat; covered by the PostgreSQL test.
+            args?.select?.thread
+            ? null
+            : { blocks: options.hopBlocks ?? [] },
     );
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([{ id: "thread" }]),
@@ -89,6 +96,7 @@ function deps(
     },
     message: { findUnique: messageFindUnique, findMany: vi.fn().mockResolvedValue([]) },
     run: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    cloudAgent: { findFirst: vi.fn().mockResolvedValue(null) },
     $transaction: vi.fn(async (fn: (client: unknown) => unknown) => {
       transactionAttempts += 1;
       if (options.transactionConflictOnce && transactionAttempts === 1) {

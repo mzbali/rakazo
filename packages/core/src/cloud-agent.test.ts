@@ -127,3 +127,14 @@ describe("cloud agent job summary", () => {
     expect(cloudAgentModelLabel(undefined)).toBeUndefined();
   });
 });
+
+describe("reported owner questions after completion", () => {
+  it("keeps a completed job on Needs you until its owner question is cleared", () => {
+    const job = { status: "finished" as const, ownerQuestion: "Which branch should ship?" };
+    expect(cloudAgentState(job)).toBe("needsInput");
+    expect(cloudAgentShelf(cloudAgentState(job))).toBe("needsYou");
+    expect(cloudAgentState({ ...job, ownerQuestion: undefined, needsInput: true })).toBe(
+      "finished",
+    );
+  });
+});

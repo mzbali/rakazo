@@ -804,6 +804,7 @@ const SCREENSHOT_JOBS: {
   title: string;
   status: "running" | "finished" | "failed";
   needsInput?: boolean;
+  ownerQuestion?: string;
   branch?: string;
   prUrl?: string;
   note?: string;
@@ -844,6 +845,7 @@ const SCREENSHOT_JOBS: {
   },
   {
     key: "finished",
+    ownerQuestion: "Which branch should ship?",
     title: "Fix the export button",
     status: "finished",
     prUrl: "https://github.example.com/acme/app/pull/42",
@@ -937,6 +939,7 @@ async function ensureRequestCards(
         launchNote: job.note ?? null,
         launchBrief: job.brief ?? null,
         resultText: job.result ?? null,
+        ownerQuestion: job.ownerQuestion ?? null,
         attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
         createdAt: startedAt,
       },
@@ -951,6 +954,7 @@ async function ensureRequestCards(
         url,
         startedAt: startedAt.toISOString(),
         ...(job.needsInput ? { needsInput: true } : {}),
+        ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
         ...(job.branch ? { branch: job.branch } : {}),
         ...(job.prUrl ? { prUrl: job.prUrl } : {}),
         ...(job.note ? { note: job.note } : {}),

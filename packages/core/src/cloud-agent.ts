@@ -57,8 +57,9 @@ export function cloudAgentState(
     "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion"
   >,
 ): CloudAgentState {
+  if (job.ownerQuestion) return "needsInput";
   if (job.status !== "running") return job.status;
-  if (job.needsInput || job.ownerQuestion) return "needsInput";
+  if (job.needsInput) return "needsInput";
   if (job.unreachableSince) return "unreachable";
   return job.queued ? "queued" : "running";
 }

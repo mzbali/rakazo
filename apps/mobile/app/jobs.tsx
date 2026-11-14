@@ -13,6 +13,7 @@ import { mobileTokens } from "../lib/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
 import { refreshCloudJobs } from "../lib/cloud-jobs-store";
 import { hapticSelection } from "../lib/haptics";
+import { jobChatTarget } from "../lib/job-chat-target";
 import type { JobListItem } from "../lib/job-shelves";
 import { jobListItems } from "../lib/job-shelves";
 import { native, useThemedStyles } from "../lib/native";
@@ -98,8 +99,7 @@ export default function JobsScreen() {
   const items = useMemo(() => (jobs ? jobListItems(jobs, doneExpanded) : []), [jobs, doneExpanded]);
 
   const open = useCallback(
-    (job: CloudAgentJob) =>
-      router.push({ pathname: "/thread", params: { botId: job.botId, name: job.botName } }),
+    (job: CloudAgentJob) => router.push({ pathname: "/thread", params: jobChatTarget(job) }),
     [router],
   );
   const renderItem = useCallback(

@@ -151,20 +151,23 @@ const CloudAgentFields = z.object({
   ownerQuestion: z.string().optional(),
 });
 
-/** What opening a job shows beyond its card: the brief it was given and what it reported. */
-export const CloudAgentDetailSchema = z.object({
-  brief: z.string().optional(),
-  result: z.string().optional(),
-});
-export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
-
 /** One job in the jobs list: the card's fields and the chat that holds it. */
 export const CloudAgentJobSchema = CloudAgentFields.extend({
   botId: z.string(),
   botName: z.string(),
   threadId: z.string(),
+  groupId: z.string().optional(),
+  groupName: z.string().optional(),
 });
 export type CloudAgentJob = z.infer<typeof CloudAgentJobSchema>;
+
+/** What opening a job shows beyond its card: the brief it was given and what it reported. */
+export const CloudAgentDetailSchema = z.object({
+  job: CloudAgentJobSchema,
+  brief: z.string().optional(),
+  result: z.string().optional(),
+});
+export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),

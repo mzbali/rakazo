@@ -46,7 +46,8 @@ import { forgetAppBadge, syncInboxAppBadge, unreadChatCount } from "../lib/app-b
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { explicitSignInRoute } from "../lib/auth-routing";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/avatar-life";
-import { needsYouCount, useCloudJobs } from "../lib/cloud-jobs";
+import { useCloudJobs } from "../lib/cloud-jobs";
+import { needsYouCount } from "../lib/cloud-jobs-store";
 import type { CreateAction } from "../lib/create-chooser";
 import { useHeaderHeightIfAny } from "../lib/floating-header";
 import { useForegroundPoll } from "../lib/foreground-poll";

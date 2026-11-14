@@ -477,6 +477,7 @@ describePostgres("content encryption (PostgreSQL)", () => {
           title: "Brief",
           launchRequest: {},
           launchBrief: "Ship the PERIWINKLE release",
+          followupBrief: "Now tag it MAGENTA",
         },
       });
       const stored = async () =>
@@ -486,6 +487,13 @@ describePostgres("content encryption (PostgreSQL)", () => {
           ])
         ).rows[0].brief as string;
       expect(await stored()).not.toMatch(/periwinkle/i);
+      const storedFollowup = async () =>
+        (
+          await raw.query(`SELECT "followupBrief" AS brief FROM cloud_agents WHERE id = $1`, [
+            agent.id,
+          ])
+        ).rows[0].brief as string;
+      expect(await storedFollowup()).not.toMatch(/magenta/i);
       expect(
         (await prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } })).launchBrief,
       ).toBe("Ship the PERIWINKLE release");
@@ -508,7 +516,9 @@ describePostgres("content encryption (PostgreSQL)", () => {
       await migrateContent(prisma, { mode: "decrypt" });
       expect(await stored()).toBe("Ship the PERIWINKLE release");
       expect(await storedResult()).toBe("Shipped CERULEAN");
+      expect(await storedFollowup()).toBe("Now tag it MAGENTA");
       await migrateContent(prisma, { mode: "encrypt" });
+      expect(await storedFollowup()).not.toMatch(/magenta/i);
       expect(await stored()).not.toMatch(/periwinkle/i);
       expect(await storedResult()).not.toMatch(/cerulean/i);
       expect(

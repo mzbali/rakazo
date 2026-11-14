@@ -7,6 +7,7 @@ import {
   T3CloudAgentProvider,
   t3CanonicalLink,
   t3DirectThread,
+  t3WatchedThread,
 } from "./t3-cloud-agent.js";
 
 const context: AdapterContext = {
@@ -401,6 +402,33 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     expect(refused).toMatchObject({ reason: "invalid", detail: "Project is archived." });
   });
 
+  it("finds the thread a bot waits on or reads", () => {
+    const args = { threadId: "t-1" };
+    const waited = { structuredContent: { status: "completed", timedOut: false } };
+    const read = { structuredContent: { thread: { status: "completed", activeRunId: null } } };
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, waited)).toBe("t-1");
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, read)).toBe("t-1");
+    expect(t3WatchedThread("t3", "mcp__t3__t3_thread_send", args, waited)).toBeUndefined();
+    expect(t3WatchedThread("t3", "mcp__other__t3_thread_wait", args, waited)).toBeUndefined();
+    // No finished result reached the bot: a refusal, a timed-out wait, a read of a busy thread.
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, { error: "unreachable" }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, { ...read, isError: true }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_wait", args, {
+        structuredContent: { status: "running", timedOut: true },
+      }),
+    ).toBeUndefined();
+    expect(
+      t3WatchedThread("t3", "mcp__t3__t3_thread_read", args, {
+        structuredContent: { thread: { status: "running", activeRunId: "run-2" } },
+      }),
+    ).toBeUndefined();
+  });
+
   it("finds the thread a bot launched or messaged with T3's own tools", () => {
     const launched = { structuredContent: { threadId: "t-new", runId: null } };
     expect(
@@ -408,7 +436,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     ).toEqual({ remoteId: "t-new", title: "Fix login" });
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old", message: "Go on" }, {}),
-    ).toEqual({ remoteId: "t-old", title: "Go on" });
+    ).toEqual({ remoteId: "t-old", title: "Go on", brief: "Go on" });
     // Every way of sending is followed; the bot's arguments reach T3 untouched.
     for (const extra of [{ mode: "steer" }, { mode: "restart" }, { freshContext: true }])
       expect(
@@ -418,7 +446,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
           { threadId: "t-old", message: "Go on", ...extra },
           {},
         ),
-      ).toEqual({ remoteId: "t-old", title: "Go on" });
+      ).toEqual({ remoteId: "t-old", title: "Go on", brief: "Go on" });
     // A failed call, another server, a read or a compaction starts no work.
     expect(
       t3DirectThread(

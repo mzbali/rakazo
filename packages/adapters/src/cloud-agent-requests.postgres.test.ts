@@ -158,7 +158,19 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           trigger: "user",
         },
       });
-      return { lead, asker, thread, run };
+      // An earlier turn of the same chat, over by the time its work finishes.
+      const endedRun = await prisma.run.create({
+        data: {
+          spaceId: id,
+          userId: id,
+          botId: lead.id,
+          threadId: thread.id,
+          taskId: task.id,
+          status: "completed",
+          trigger: "user",
+        },
+      });
+      return { lead, asker, thread, run, endedRun };
     });
     const provider = new ScriptedProvider();
     const connection: CloudAgentConnection = {
@@ -585,7 +597,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const remote = t.provider.agents.get("remote:direct")!;
     const track = () =>
       runAsSystem("agent run tool call", () =>
-        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
           remoteId: "remote:direct",
           title: "Owner's thread",
         }),
@@ -623,7 +635,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const remote = t.provider.agents.get("remote:sent")!;
     const send = () =>
       runAsSystem("agent run tool call", () =>
-        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
           remoteId: "remote:sent",
           title: "Existing thread",
         }),
@@ -672,7 +684,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const remote = t.provider.agents.get("remote:busy")!;
     const send = () =>
       runAsSystem("agent run tool call", () =>
-        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
           remoteId: "remote:busy",
           title: "Existing thread",
         }),
@@ -722,7 +734,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const t = await setup();
     t.provider.agents.set("remote:goal", { status: "finished", attention: [], cursor: 0 });
     await runAsSystem("agent run tool call", () =>
-      trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+      trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
         remoteId: "remote:goal",
         title: "Existing thread",
       }),
@@ -785,7 +797,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const remote = t.provider.agents.get("remote:again")!;
     const send = () =>
       runAsSystem("agent run tool call", () =>
-        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.run, {
+        trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
           remoteId: "remote:again",
           title: "Existing thread",
         }),

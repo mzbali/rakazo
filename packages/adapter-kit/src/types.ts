@@ -935,6 +935,8 @@ export interface BackgroundJobPayloads {
   "team_chat.ambient": { conversationId: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };
+  /** Wake for a finished piece of work whose reporting bot run did not complete; see `cloudAgentReporterCheckJob`. */
+  "cloud_agent.reporter_check": { agentId: string; generation: number };
   /** Observe and advance one scoped goal; its gates' remote reads never wait on another goal. */
   "scoped_goal.advance": { goalId: string };
   "purchase.poll": { purchaseId: string };

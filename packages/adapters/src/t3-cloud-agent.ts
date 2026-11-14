@@ -792,7 +792,7 @@ export function t3DirectThread(
   tool: string,
   args: Record<string, unknown>,
   result: unknown,
-): { remoteId: string; title: string } | undefined {
+): { remoteId: string; title: string; brief?: string } | undefined {
   const data = result as { isError?: boolean; error?: unknown; structuredContent?: unknown } | null;
   // A refused call, from the server or the connector, changed nothing to track.
   if (!data || data.isError || data.error !== undefined) return undefined;
@@ -806,7 +806,36 @@ export function t3DirectThread(
       : tool === `mcp__${server}__t3_thread_send`
         ? text(args.threadId)
         : undefined;
-  return remoteId ? { remoteId, title } : undefined;
+  const sent = tool === `mcp__${server}__t3_thread_send`;
+  return remoteId ? { remoteId, title, ...(sent ? { brief: text(args.message) } : {}) } : undefined;
+}
+
+/**
+ * The thread whose finished result a bot just received by waiting on or reading it, so it reports
+ * that result to the owner itself. A refused call, a timed-out wait or a read of a thread still at
+ * work showed the bot no result, so it is nothing.
+ */
+export function t3WatchedThread(
+  server: string,
+  tool: string,
+  args: Record<string, unknown>,
+  result: unknown,
+): string | undefined {
+  if (typeof args.threadId !== "string") return undefined;
+  const data = result as { isError?: boolean; error?: unknown; structuredContent?: unknown } | null;
+  if (!data || data.isError || data.error !== undefined) return undefined;
+  const content = (data.structuredContent ?? {}) as {
+    status?: unknown;
+    timedOut?: unknown;
+    thread?: { status?: unknown; activeRunId?: unknown };
+  };
+  const finished =
+    tool === `mcp__${server}__t3_thread_wait`
+      ? content.status === "completed" && content.timedOut === false
+      : tool === `mcp__${server}__t3_thread_read`
+        ? content.thread?.status === "completed" && content.thread.activeRunId == null
+        : false;
+  return finished ? args.threadId : undefined;
 }
 
 function attentionOf(requestId: string, kind: string, threadId?: string): CloudAgentAttention {

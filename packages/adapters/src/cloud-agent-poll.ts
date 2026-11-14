@@ -8,6 +8,7 @@ import type {
 import {
   CloudAgentRequestRejected,
   CloudAgentRetryLater,
+  cloudAgentReporterCheckJob,
   runContinueJob,
 } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
@@ -23,6 +24,7 @@ import {
 } from "./cloud-agent-job-thread.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
+  canWake,
   cloudAgentBlock,
   cloudAgentFor,
   enqueueCloudAgent,
@@ -42,6 +44,8 @@ const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const MAX_FAILURE_REASON = 1_000;
 /** Retryable failures this long in a row mean the agent's provider is unreachable, not blipping. */
 export const UNREACHABLE_AFTER_MS = 5 * 60_000;
+/** How long a bot run that reports a finished piece itself has before its wake is made anyway. */
+export const REPORTER_CHECK_MS = 15 * 60_000;
 
 /** Reconcile one persisted intent. A fenced lease serializes remote mutations. */
 export async function pollCloudAgent(
@@ -425,6 +429,80 @@ async function outagePoll(deps: CloudAgentDeps, agent: CloudAgent, retryAfterMs?
   ).catch(() => getLogger().warn("cloud agent unreachable notice failed"));
 }
 
+/**
+ * The backup for a wake held back because the bot's own run reports the result: the wake is made
+ * unless that run completed normally. It uses the unsuppressed path's wake key, so it fires once.
+ */
+export async function checkCloudAgentReporter(
+  deps: CloudAgentDeps,
+  payload: BackgroundJobPayloads["cloud_agent.reporter_check"],
+) {
+  const agent = await deps.prisma.cloudAgent.findUnique({ where: { id: payload.agentId } });
+  // A newer piece of work, a verdict or a running agent has its own wake.
+  if (!agent || agent.generation !== payload.generation || agent.status === "running") return;
+  if (agent.verdict || !(await canWake(deps, agent))) return;
+  const reporter = agent.waitingRunId
+    ? await deps.prisma.run.findUnique({
+        where: { id: agent.waitingRunId },
+        select: { status: true },
+      })
+    : null;
+  if (reporter?.status === "completed") return;
+  const seqs: number[] = [];
+  const wakeRunIds = await deps.prisma.$transaction(async (tx) => {
+    // Under the lock chat clearing takes: a chat cleared since `canWake` gets no new card.
+    await lockCloudAgentWakeThread(tx, agent);
+    const card = agent.messageId
+      ? await tx.message.findFirst({
+          where: { id: agent.messageId, threadId: agent.threadId },
+          select: { id: true },
+        })
+      : null;
+    if (!card) return [];
+    return createCloudAgentWake(
+      tx,
+      agent,
+      terminalWakePrompt(agent),
+      `cloud-agent-wake-run:${agent.id}:${agent.generation}`,
+      { jobThread: true, seqs },
+    );
+  });
+  await deps.prisma.cloudAgent.updateMany({
+    where: { id: agent.id, generation: agent.generation, wakeAttempts: 0 },
+    data: { wakeAttempts: 1 },
+  });
+  if (seqs.length)
+    await deps.events.notify(agent.threadId, Math.max(...seqs)).catch(() => undefined);
+  for (const wakeRunId of new Set(wakeRunIds))
+    await deps.jobs.enqueue(runContinueJob(wakeRunId)).catch(() => {
+      getLogger().warn("cloud agent wake deferred to reconciliation");
+    });
+}
+
+/**
+ * A bot run that was reporting a finished piece itself has failed or been cancelled: its backup
+ * job runs now instead of after its delay.
+ */
+export async function expediteCloudAgentReporterCheck(
+  deps: Pick<CloudAgentDeps, "prisma" | "jobs">,
+  runId: string,
+) {
+  const agents = await deps.prisma.cloudAgent.findMany({
+    where: { waitingRunId: runId, status: { not: "running" } },
+    select: { id: true, generation: true, wakeGeneration: true },
+  });
+  for (const agent of agents)
+    if (agent.wakeGeneration === agent.generation)
+      await deps.jobs
+        .enqueue(
+          cloudAgentReporterCheckJob(
+            { agentId: agent.id, generation: agent.generation },
+            new Date(),
+          ),
+        )
+        .catch(() => getLogger().warn("cloud agent reporter check deferred to its backup"));
+}
+
 /** The card follows the row when only its outage state changed. */
 async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
   const seq = await deps.prisma.$transaction(async (tx) => {
@@ -552,19 +630,37 @@ async function finishPoll(
         goalBackupKey = await recordScopedGoalBackup(deps, tx, goal.id);
       }
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
-        // Provider text is untrusted. Wake with local identity and status only.
-        wakeRunIds.push(
-          ...(await createCloudAgentWake(
+        // A bot run that messaged or waited on this work and is still going reports its result
+        // itself, so waking again would only judge the same answer a second time.
+        const reporting = saved.waitingRunId
+          ? await tx.run.findFirst({
+              where: { id: saved.waitingRunId, status: "running" },
+              select: { id: true },
+            })
+          : null;
+        // If that run fails or stalls instead, its backup job makes the wake after all.
+        if (reporting)
+          await deps.jobs.enqueueIn(
             tx,
-            saved,
-            terminalWakePrompt(saved),
-            `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
-            wakeOptions,
-          )),
-        );
+            cloudAgentReporterCheckJob(
+              { agentId: agent.id, generation: saved.generation },
+              new Date(Date.now() + REPORTER_CHECK_MS),
+            ),
+          );
+        // Provider text is untrusted. Wake with local identity and status only.
+        else
+          wakeRunIds.push(
+            ...(await createCloudAgentWake(
+              tx,
+              saved,
+              terminalWakePrompt(saved),
+              `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
+              wakeOptions,
+            )),
+          );
         await tx.cloudAgent.update({
           where: { id: agent.id },
-          data: { wakeGeneration: saved.generation, wakeAttempts: 1 },
+          data: { wakeGeneration: saved.generation, wakeAttempts: reporting ? 0 : 1 },
         });
       }
       // Each new question or approval wakes the bot once; the request id is the dedupe key.

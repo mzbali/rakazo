@@ -4,6 +4,7 @@ import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
 import {
   executeCloudAgentTool,
+  markCloudAgentWaiting,
   reportCloudAgent,
   trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
@@ -85,6 +86,16 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
           });
         }
       }
+    }
+    // A run that just received a thread's finished result reports it itself; no wake needs to.
+    const watched = ctx.providers.cloudAgent?.watchedThread?.(name, args, result);
+    if (watched) {
+      await markCloudAgentWaiting(
+        { ...deps, cloudAgent: ctx.providers.cloudAgent },
+        { ...context, operationId: effectKey, botId: bot.id },
+        run,
+        watched,
+      ).catch(() => getLogger().warn("cloud_agent.waiting_mark_failed"));
     }
     const direct = ctx.providers.cloudAgent?.directThread?.(name, args, result);
     if (direct) {

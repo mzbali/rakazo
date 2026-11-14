@@ -1420,12 +1420,17 @@ model CloudAgent {
   launchBrief         String?
   /// The finished run's final message, bounded, as the provider reported it; untrusted job output.
   resultText          String?
+  /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
+  followupBrief       String?
+  /// The bot's run that messaged or is waiting on this agent's thread; it reports the result itself while it runs.
+  waitingRunId        String?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])
   @@index([providerKey, nextPollAt])
   @@index([botId, queuedAt])
   @@index([spaceId, userId, id])
+  @@index([waitingRunId])
   @@map("cloud_agents")
 }
 

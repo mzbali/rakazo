@@ -33,6 +33,7 @@ import { MAX_APPROVAL_DETAIL_LENGTH, truncate } from "./approval-ask.js";
 import { isToolPauseResult } from "./approval-effect.js";
 import { returnHelperOutcome } from "./background-helpers.js";
 import { returnBotMessageOutcome } from "./bot-messages.js";
+import { expediteCloudAgentReporterCheck } from "./cloud-agent-poll.js";
 import { scheduleComputerSleep } from "./computer-idle.js";
 import { holdComputerExecutionLeaseForTakeover } from "./computer-lifecycle.js";
 import { resolveBotWorkspacePath } from "./computer-support.js";
@@ -1144,6 +1145,7 @@ export async function failRun(
     ...(partialReply.length > 0 ? { partialReply } : {}),
   });
   if (!failed) return;
+  await expediteCloudAgentReporterCheck(deps, runId).catch(() => undefined);
   if (
     error instanceof TransientModelError ||
     error instanceof ModelAccountError ||

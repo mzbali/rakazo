@@ -66,6 +66,10 @@ const payloadSchemas = {
   "team_chat.engage": z.object({ externalMessageId: z.string().min(1) }),
   "team_chat.ambient": z.object({ conversationId: z.string().min(1) }),
   "cloud_agent.poll": z.object({ agentId: z.string().min(1) }),
+  "cloud_agent.reporter_check": z.object({
+    agentId: z.string().min(1),
+    generation: z.number().int().min(0),
+  }),
   "scoped_goal.advance": z.object({ goalId: z.string().min(1) }),
   "purchase.poll": z.object({ purchaseId: z.string().min(1) }),
   "media.poll": z.object({ jobId: z.string().min(1) }),
@@ -345,6 +349,22 @@ export function cloudAgentPollJob(
     payload,
     replaceKey: cloudAgentPollJobKey(payload.agentId),
     ...(availableAt ? { availableAt } : {}),
+  };
+}
+
+/**
+ * The backup for a finished piece whose wake was held back because the bot's own run reports it:
+ * one job per agent and piece of work, so running it again changes nothing.
+ */
+export function cloudAgentReporterCheckJob(
+  payload: BackgroundJobPayloads["cloud_agent.reporter_check"],
+  availableAt: Date,
+): BackgroundJob {
+  return {
+    name: "cloud_agent.reporter_check",
+    payload,
+    replaceKey: `cloud_agent.reporter_check:${payload.agentId}:${payload.generation}`,
+    availableAt,
   };
 }
 

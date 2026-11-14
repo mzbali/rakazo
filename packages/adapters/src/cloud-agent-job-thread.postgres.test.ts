@@ -8,8 +8,18 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { returnHelperOutcome } from "./background-helpers.js";
 import { CursorCloudAgentEmulator } from "./cloud-agent-emulator.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { createCloudAgentWake, pollCloudAgent } from "./cloud-agent-poll.js";
-import { executeCloudAgentTool } from "./cloud-agent-service.js";
+import {
+  checkCloudAgentReporter,
+  createCloudAgentWake,
+  expediteCloudAgentReporterCheck,
+  pollCloudAgent,
+  REPORTER_CHECK_MS,
+} from "./cloud-agent-poll.js";
+import {
+  executeCloudAgentTool,
+  markCloudAgentWaiting,
+  trackDirectCloudAgent,
+} from "./cloud-agent-service.js";
 import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
 import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
 import { helperToolAllowed } from "./run-tool-selection.js";
@@ -96,9 +106,10 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       provider: new CursorCloudAgentProvider({ apiKey: "fake-key", fetch: wire.fetch }),
     };
     const enqueue = vi.fn(async (_job: BackgroundJob) => undefined);
+    const enqueueIn = vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined);
     const jobs: JobPublisher = {
       enqueue,
-      enqueueIn: async () => undefined,
+      enqueueIn,
       cancelIn: async () => undefined,
       cancel: async () => undefined,
       close: async () => undefined,
@@ -146,6 +157,8 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       id,
       bot,
       thread,
+      run,
+      context,
       deps,
       launch,
       state,
@@ -154,6 +167,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       runsIn,
       messagesIn,
       enqueue,
+      enqueueIn,
       notify,
     };
   }
@@ -256,6 +270,276 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       `job helper wake: ${task.prompt.length} chars (~${Math.ceil(task.prompt.length / 4)} tokens); main chat history it replaces: ${chat.length} chars (~${Math.ceil(chat.length / 4)} tokens)\n`,
     );
     expect(task.prompt.length).toBeLessThan(chat.length / 50);
+  });
+
+  /** The bot messages the finished agent's thread itself, as its own run's tool call. */
+  async function sendDirect(
+    h: Awaited<ReturnType<typeof setup>>,
+    run: { id: string; threadId: string },
+    brief: string,
+  ) {
+    const agent = (await asSystem(prisma).cloudAgent.findFirstOrThrow({
+      where: { userId: h.id },
+    })) as { remoteId: string | null };
+    await runAsSystem("agent run tool call", () =>
+      trackDirectCloudAgent(h.deps, { ...h.context, operationId: randomUUID() }, run, {
+        remoteId: agent.remoteId!,
+        title: "Follow-up",
+        brief,
+      }),
+    );
+  }
+
+  /** The helper's earlier run is over, so the next wake starts one of its own. */
+  const settleHelper = async (h: Awaited<ReturnType<typeof setup>>, agentId: string) => {
+    const { jobThreadId } = await h.state(agentId);
+    await runAsSystem("helper ends", () =>
+      asSystem(prisma).run.updateMany({
+        where: { threadId: jobThreadId! },
+        data: { status: "completed" },
+      }),
+    );
+  };
+
+  it("judges a follow-up's result against that follow-up, with the launch brief as background", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone and read the version back");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await settleHelper(h, agentId);
+    await sendDirect(h, h.run, "What is the latest commit on main?");
+    // The next piece's request is sealed at rest like the launch brief.
+    const stored = await prisma.$queryRaw<Array<{ brief: string }>>`
+      SELECT "followupBrief" AS brief FROM cloud_agents WHERE id = ${agentId}`;
+    expect(stored[0]!.brief).not.toContain("latest commit");
+    await h.finish(agentId);
+
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(2);
+    const [, second] = runs;
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: second!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: What is the latest commit on main?");
+    expect(prompt).toContain("launch brief (background): Reinstall the app on my phone");
+    expect(prompt).toContain("judge it against the current request");
+  });
+
+  it("judges a cloud_agent_reply's result against that reply", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await settleHelper(h, agentId);
+    await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(
+        h.deps,
+        { ...h.context, operationId: randomUUID() },
+        h.run,
+        "cloud_agent_reply",
+        { id: agentId, prompt: "Now bump the build number" },
+      ),
+    );
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(2);
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[1]!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: Now bump the build number");
+    expect(prompt).toContain("launch brief (background): Reinstall the app on my phone");
+  });
+
+  /** Another turn of the bot's main chat, as the run that waits on a thread. */
+  const turn = (h: Awaited<ReturnType<typeof setup>>, status: string) =>
+    runAsSystem("test fixture", () =>
+      asSystem(prisma).run.create({
+        data: {
+          spaceId: h.id,
+          userId: h.id,
+          botId: h.bot.id,
+          threadId: h.thread.id,
+          taskId: h.run.taskId,
+          status,
+          trigger: "user",
+        },
+      }),
+    );
+
+  it("starts no helper wake for a piece the bot's own run is still reporting", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const before = (await h.messagesIn(h.thread.id)).length;
+
+    await settleHelper(h, agentId);
+    // Sent by a run that then waits on the thread and is still going when it finishes.
+    const sender = await turn(h, "running");
+    await sendDirect(h, sender, "What is the latest commit on main?");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, sender, (await h.state(agentId)).remoteId!),
+    );
+    await h.finish(agentId);
+    expect(await h.state(agentId)).toMatchObject({ status: "finished", wakeGeneration: 1 });
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+
+    // A send the run ended after, then a later run waiting on the thread: also no wake.
+    await sendDirect(h, h.run, "And the one before it?");
+    const waiter = await turn(h, "running");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, waiter, (await h.state(agentId)).remoteId!),
+    );
+    await h.finish(agentId);
+    expect(await h.state(agentId)).toMatchObject({ wakeGeneration: 2 });
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+  });
+
+  /** A piece finishes while a run that waited on its thread is still going; the wake is held. */
+  async function heldWake(status: "running" | "completed" | "failed") {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await settleHelper(h, agentId);
+    const before = (await h.messagesIn(h.thread.id)).length;
+    await sendDirect(h, h.run, "What is the latest commit on main?");
+    const waiter = await turn(h, "running");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, waiter, (await h.state(agentId)).remoteId!),
+    );
+    await h.finish(agentId);
+    const generation = (await h.state(agentId)).generation;
+    const helperRuns = async () => (await h.runsIn((await h.state(agentId)).jobThreadId!)).length;
+    // Held back, with a durable backup job for after the run's own time.
+    expect(await helperRuns()).toBe(1);
+    const backup = h.enqueueIn.mock.calls
+      .map(([, job]) => job)
+      .filter((job) => job.name === "cloud_agent.reporter_check")
+      .at(-1);
+    expect(backup).toMatchObject({
+      payload: { agentId, generation },
+      replaceKey: `cloud_agent.reporter_check:${agentId}:${generation}`,
+    });
+    expect(backup!.availableAt!.getTime()).toBeGreaterThan(Date.now() + REPORTER_CHECK_MS - 60_000);
+    if (status !== "running")
+      await runAsSystem("run ends", () =>
+        asSystem(prisma).run.update({ where: { id: waiter.id }, data: { status } }),
+      );
+    const check = () =>
+      runAsSystem("reporter check", () => checkCloudAgentReporter(h.deps, { agentId, generation }));
+    return { h, agentId, generation, before, helperRuns, check, waiter };
+  }
+
+  it("makes no wake when the reporting run completed normally", async () => {
+    const { h, helperRuns, check, before } = await heldWake("completed");
+    await check();
+    expect(await helperRuns()).toBe(1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+  });
+
+  it("wakes at once when the reporting run fails, and only once", async () => {
+    const { h, agentId, generation, helperRuns, check, before, waiter } = await heldWake("failed");
+    h.enqueue.mockClear();
+    await runAsSystem("run fails", () => expediteCloudAgentReporterCheck(h.deps, waiter.id));
+    // The backup job is moved up to now, under the same key.
+    const [expedited] = h.enqueue.mock.calls.map(([job]) => job);
+    expect(expedited).toMatchObject({
+      name: "cloud_agent.reporter_check",
+      replaceKey: `cloud_agent.reporter_check:${agentId}:${generation}`,
+    });
+    expect(expedited!.availableAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+    // Running again, as the backup would at its own run-at, adds nothing.
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+  });
+
+  it("wakes at the backup's run-at when the reporting run is still going", async () => {
+    const { h, helperRuns, check, before } = await heldWake("running");
+    await check();
+    expect(await helperRuns()).toBe(2);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+  });
+
+  it("wakes for a follow-up sent after a result the run received before the poll saw it", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    // The bot's run reads the finished result while the agent is still running locally.
+    const bot = await turn(h, "running");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, bot, (await h.state(agentId)).remoteId!),
+    );
+    // It then sends a follow-up without waiting on it, and stays active.
+    await sendDirect(h, bot, "Now bump the build number");
+    expect((await h.state(agentId)).waitingRunId).toBeNull();
+    await h.finish(agentId);
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(1);
+    // Judged against the follow-up, not the launch brief.
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[0]!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: Now bump the build number");
+  });
+
+  it("judges a follow-up sent after the chat lost a running agent's card against that follow-up", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    // The chat was cleared while the agent still ran: its card is gone.
+    await asSystem(prisma).message.delete({ where: { id: (await h.state(agentId)).messageId! } });
+    await sendDirect(h, h.run, "Now bump the build number");
+    await h.finish(agentId);
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(1);
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[0]!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: Now bump the build number");
+  });
+
+  it("still wakes for a follow-up its sender did not stay for", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await settleHelper(h, agentId);
+    // Sent, then the run ended while the agent worked on.
+    await sendDirect(h, h.run, "Check the lockfile");
+    await h.finish(agentId);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(2);
+
+    // Sent by a run still going that never waits on the thread: sending is not reporting.
+    await settleHelper(h, agentId);
+    const sender = await turn(h, "running");
+    await sendDirect(h, sender, "Check the readme");
+    await h.finish(agentId);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(3);
+
+    // A run that waited on the thread but ended before the agent finished: it reports nothing.
+    await settleHelper(h, agentId);
+    await sendDirect(h, h.run, "Check the changelog");
+    const waiter = await turn(h, "completed");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, waiter, (await h.state(agentId)).remoteId!),
+    );
+    await h.finish(agentId);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(4);
   });
 
   it("reuses the same helper thread for the next wake", async () => {

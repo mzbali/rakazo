@@ -23,7 +23,7 @@ import { runAsSystem, runAsTenant } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { settleCallRequest } from "./call-request.js";
 import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
-import { pollCloudAgent } from "./cloud-agent-poll.js";
+import { checkCloudAgentReporter, pollCloudAgent } from "./cloud-agent-poll.js";
 import { expireComputerControl, scheduleComputerControlExpiry } from "./computer-control.js";
 import { rateLimitEnds, scheduleComputerSleep, sleepComputerIfIdle } from "./computer-idle.js";
 import { performComputerUpdate } from "./computer-update.js";
@@ -215,6 +215,19 @@ export function createBackgroundJobHandlers(deps: {
     }),
     "cloud_agent.poll": asOwner(cloudAgent, async (payload) => {
       await pollCloudAgent(
+        {
+          prisma: deps.prisma,
+          jobs: deps.jobs,
+          events: deps.events,
+          notifications: deps.notifications,
+          cloudAgent: deps.cloudAgent,
+          userCloudAgents: deps.userCloudAgents,
+        },
+        payload,
+      );
+    }),
+    "cloud_agent.reporter_check": asOwner(cloudAgent, async (payload) => {
+      await checkCloudAgentReporter(
         {
           prisma: deps.prisma,
           jobs: deps.jobs,

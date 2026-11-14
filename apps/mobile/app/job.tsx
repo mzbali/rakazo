@@ -1,42 +1,44 @@
 import { useLingui } from "@lingui/react/macro";
 import { allowedAppLink, ChatMarkdown } from "@rakazo/chat-ui/native";
-import type { CloudAgentDetail } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl, cloudAgentState } from "@rakazo/core";
+import { cloudAgentHttpsUrl } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { Linking, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
+import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
-import { rpc } from "../lib/api";
 import { mobileTokens } from "../lib/appearance";
-import { useCloudJobs } from "../lib/cloud-jobs";
+import { useCloudJob } from "../lib/cloud-job";
+import { jobChatTarget } from "../lib/job-chat-target";
 import { native, useResolvedAppearance } from "../lib/native";
+import { errorText } from "../lib/user-error";
 
 /** One job opened from its card: what it was asked, what it reported, and where to go next. */
 export default function JobSheet() {
+  const { agentId = "" } = useLocalSearchParams<{ agentId?: string }>();
+  return <JobDetails key={agentId} agentId={agentId} />;
+}
+
+function JobDetails({ agentId }: { agentId: string }) {
   const { t } = useLingui();
   const router = useRouter();
   const tokens = mobileTokens();
   const colorScheme = useResolvedAppearance();
-  const { agentId = "" } = useLocalSearchParams<{ agentId?: string }>();
-  const { jobs } = useCloudJobs(15_000);
-  const job = jobs?.find((candidate) => candidate.agentId === agentId);
-  const [detail, setDetail] = useState<CloudAgentDetail | null>(null);
-  const state = job ? cloudAgentState(job) : undefined;
-  // The result arrives when the job ends, so the text is read again when its state changes.
-  useEffect(() => {
-    if (!agentId || !state) return;
-    let live = true;
-    rpc("cloudAgents/detail", { agentId })
-      .then((next) => live && setDetail(next))
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [agentId, state]);
-
-  if (!job) return <View style={{ minHeight: 160, backgroundColor: native.groupedPage }} />;
+  const { detail, error, refresh } = useCloudJob(agentId);
+  const job = detail?.job;
+  if (!job)
+    return (
+      <View style={{ minHeight: 160, padding: 20, backgroundColor: native.groupedPage }}>
+        {error ? (
+          <LoadFailure
+            message={errorText(error, t`Could not load job`)}
+            onRetry={() => void refresh()}
+          />
+        ) : (
+          <ActivityIndicator />
+        )}
+      </View>
+    );
   const prHref = cloudAgentHttpsUrl(job.prUrl);
   const href = prHref ?? cloudAgentHttpsUrl(job.url) ?? allowedAppLink(job.url);
   const label = {
@@ -67,7 +69,7 @@ export default function JobSheet() {
           size="compact"
           onPress={() => {
             router.dismiss();
-            router.push({ pathname: "/thread", params: { botId: job.botId, name: job.botName } });
+            router.push({ pathname: "/thread", params: jobChatTarget(job) });
           }}
         />
       </View>

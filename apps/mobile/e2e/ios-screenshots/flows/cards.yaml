@@ -73,6 +73,9 @@ name: Request cards
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Fix the export button: needs input.*"
+    timeout: 20000
 - takeScreenshot: 07-jobs-list
 - openLink: "rakazo:///job?agentId=ios-screenshot-job-finished"
 - extendedWaitUntil:
@@ -80,4 +83,7 @@ name: Request cards
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Which branch should ship.*"
+    timeout: 20000
 - takeScreenshot: 08-job-sheet

@@ -42,3 +42,11 @@ it("folds finished jobs past the latest few until expanded", () => {
   expect(open.filter((item) => item.kind === "job")).toHaveLength(DONE_SHOWN + 3);
   expect(open.some((item) => item.kind === "more")).toBe(false);
 });
+
+it("counts a finished job with an owner question on Needs you", () => {
+  const items = jobListItems(
+    [job("blocked", { status: "finished", ownerQuestion: "Which branch?" })],
+    false,
+  );
+  expect(items[0]).toMatchObject({ kind: "header", shelf: "needsYou", count: 1 });
+});

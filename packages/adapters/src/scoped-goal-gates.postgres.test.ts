@@ -606,12 +606,17 @@ suite("scoped goal gates advance in code", () => {
       await t.finish();
       const report = (verdict: "accepted" | "rejected") =>
         runAsSystem("report", () =>
-          reportCloudAgent({ ...t.deps, events: {} as never }, t.context, t.run, {
-            id: t.agentId,
-            verdict,
-            summary: "All shipped",
-            ...(verdict === "accepted" ? {} : { ownerQuestion: "Retry the deploy?" }),
-          }),
+          reportCloudAgent(
+            { ...t.deps, events: { notify: async () => undefined } as never },
+            t.context,
+            t.run,
+            {
+              id: t.agentId,
+              verdict,
+              summary: "All shipped",
+              ...(verdict === "accepted" ? {} : { ownerQuestion: "Retry the deploy?" }),
+            },
+          ),
         );
       expect(await report("accepted")).toEqual({
         error:

@@ -370,9 +370,12 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     const before = (await h.messagesIn(h.thread.id)).length;
 
     await settleHelper(h, agentId);
-    // Sent by a run that is still going when the continuation finishes.
+    // Sent by a run that then waits on the thread and is still going when it finishes.
     const sender = await turn(h, "running");
     await sendDirect(h, sender, "What is the latest commit on main?");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, sender, (await h.state(agentId)).remoteId!),
+    );
     await h.finish(agentId);
     expect(await h.state(agentId)).toMatchObject({ status: "finished", wakeGeneration: 1 });
     expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
@@ -402,6 +405,13 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     await h.finish(agentId);
     expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(2);
 
+    // Sent by a run still going that never waits on the thread: sending is not reporting.
+    await settleHelper(h, agentId);
+    const sender = await turn(h, "running");
+    await sendDirect(h, sender, "Check the readme");
+    await h.finish(agentId);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(3);
+
     // A run that waited on the thread but ended before the agent finished: it reports nothing.
     await settleHelper(h, agentId);
     await sendDirect(h, h.run, "Check the changelog");
@@ -410,7 +420,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       markCloudAgentWaiting(h.deps, h.context, waiter, (await h.state(agentId)).remoteId!),
     );
     await h.finish(agentId);
-    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(3);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(4);
   });
 
   it("reuses the same helper thread for the next wake", async () => {

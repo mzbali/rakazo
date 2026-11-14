@@ -379,7 +379,6 @@ export async function trackDirectCloudAgent(
             launchRequest: {},
             launchDispatched: true,
             followupBrief: followupBriefOf(direct.brief),
-            waitingRunId: run.id,
           },
         });
         return postCloudAgentCard(tx, deps, context, run, created);
@@ -396,7 +395,7 @@ export async function trackDirectCloudAgent(
         // so a poll that read the thread before this message cannot commit it as finished.
         const fenced = await tx.cloudAgent.updateMany({
           where: { id: existing.id, version: existing.version },
-          data: { version: { increment: 1 }, nextPollAt: new Date(), waitingRunId: run.id },
+          data: { version: { increment: 1 }, nextPollAt: new Date() },
         });
         if (!fenced.count) continue;
         return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
@@ -412,9 +411,10 @@ export async function trackDirectCloudAgent(
                 wakeAttempts: 0,
                 verdict: null,
                 followupBrief: followupBriefOf(direct.brief),
+                // Sending is not waiting: only a run that then waits on or reads the thread
+                // reports the result itself (`markCloudAgentWaiting`).
+                waitingRunId: null,
               }),
-          // This run sent it, so it reports the result while it is still active.
-          waitingRunId: run.id,
           status: "running",
           threadId: run.threadId,
           ...(moved ? { messageId: null } : {}),

@@ -51,6 +51,8 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .optional(),
   workKind: z.enum(["hard", "normal", "simple", "ui"]).optional(),
   projectId: id.optional(),
+  project: id.optional(),
+  scratch: z.boolean().optional(),
   workspaceStrategy: z
     .discriminatedUnion("type", [
       z.object({ type: z.literal("root") }).strict(),
@@ -84,8 +86,16 @@ export const cloudAgentReportSchema = z
     id: z.string().trim().min(1),
     verdict: z.enum(["accepted", "rejected", "needs_owner"]),
     summary: z.string().trim().min(1).max(4_000),
+    /** What the owner has to decide, whenever the work was not accepted. */
+    ownerQuestion: z.string().trim().min(1).max(1_000).optional(),
   })
-  .strict();
+  .strict()
+  .refine((report) => report.verdict === "accepted" || report.ownerQuestion, {
+    path: ["ownerQuestion"],
+    message: "A verdict other than accepted needs an ownerQuestion.",
+  });
+export const CLOUD_AGENT_REPORT_USAGE =
+  "Invalid cloud agent report. Send id, verdict and summary; a verdict other than accepted also needs ownerQuestion: a short decision for the owner, with your recommendation and the options where sensible.";
 export const cloudAgentReplySchema = cloudAgentPromptSchema.extend({
   id: z.string().trim().min(1),
 });

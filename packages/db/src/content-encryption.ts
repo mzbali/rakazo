@@ -74,7 +74,7 @@ export const ENCRYPTED_MODELS: Record<string, ModelSpec> = {
   /** The launch prompt and latest follow-up a job helper starts from and the job's final message: chat-derived, so sealed like the chat. */
   CloudAgent: {
     table: "cloud_agents",
-    fields: { launchBrief: {}, resultText: {}, followupBrief: {} },
+    fields: { launchBrief: {}, resultText: {}, followupBrief: {}, ownerQuestion: {} },
     space: { column: "spaceId" },
     ownerRelation: "user",
   },

@@ -121,6 +121,7 @@ export function ConversationRow({
           {preview}
         </Text>
       </View>
+      {compact ? null : <View pointerEvents="none" style={styles.rowDivider} />}
     </DragSafePressable>
   );
 }

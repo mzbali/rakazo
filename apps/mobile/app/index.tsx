@@ -647,8 +647,11 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     [hasOrganizationMenu, organizations],
   );
 
-  const { jobs: cloudJobs } = useCloudJobs(30_000, hasSession && !onShareSelect && inboxShown);
-  const jobsEntry = cloudJobs?.length ? { needsYou: needsYouCount(cloudJobs) } : undefined;
+  const { jobs: cloudJobs } = useCloudJobs(
+    30_000,
+    Boolean(userId) && hasSession && !onShareSelect && inboxShown,
+  );
+  const jobsEntry = onShareSelect ? undefined : { needsYou: needsYouCount(cloudJobs) };
 
   useHomeHeader({
     nativeHeader,

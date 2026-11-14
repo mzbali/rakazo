@@ -6,6 +6,7 @@ type Snapshot = { jobs: CloudAgentJob[] | null; error: unknown };
 
 let snapshot: Snapshot = { jobs: null, error: null };
 let inFlight: Promise<void> | null = null;
+let contextGeneration = 0;
 const listeners = new Set<() => void>();
 
 function publish(next: Snapshot) {
@@ -26,17 +27,26 @@ export function subscribeCloudJobs(listener: () => void) {
 
 /** One load at a time, shared by the home header's count and the Jobs screen. */
 export function refreshCloudJobs(): Promise<void> {
-  inFlight ??= rpc("cloudAgents/list", undefined)
-    .then((jobs) => publish({ jobs, error: null }))
-    .catch((error: unknown) => publish({ jobs: snapshot.jobs, error }))
+  if (inFlight) return inFlight;
+  const generation = contextGeneration;
+  const request = rpc("cloudAgents/list", undefined)
+    .then((jobs) => {
+      if (generation === contextGeneration) publish({ jobs, error: null });
+    })
+    .catch((error: unknown) => {
+      if (generation === contextGeneration) publish({ jobs: snapshot.jobs, error });
+    })
     .finally(() => {
-      inFlight = null;
+      if (inFlight === request) inFlight = null;
     });
-  return inFlight;
+  inFlight = request;
+  return request;
 }
 
 /** Forget the jobs when the account changes, so another account never sees them. */
 export function resetCloudJobs() {
+  contextGeneration += 1;
+  inFlight = null;
   publish({ jobs: null, error: null });
 }
 

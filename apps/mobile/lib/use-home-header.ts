@@ -6,7 +6,7 @@ import type { CreateAction } from "./create-chooser";
 import { createMenuItems } from "./create-chooser";
 import { useUiLocale } from "./i18n";
 
-/** Liquid Glass home header: account on the left; jobs (once there are any), activity, search and create on the right. */
+/** Liquid Glass home header: account on the left; jobs, activity, search and create on the right. */
 export function useHomeHeader({
   nativeHeader,
   ready,
@@ -26,7 +26,7 @@ export function useHomeHeader({
   toggleActivityMode: () => void;
   runCreateAction: (action: CreateAction) => void;
   headerTitle?: () => ReactNode;
-  /** Set once the user has any jobs; `needsYou` is the badge. */
+  /** Shown outside the share picker; `needsYou` is the badge. */
   jobs?: { needsYou: number };
 }) {
   const navigation = useNavigation();

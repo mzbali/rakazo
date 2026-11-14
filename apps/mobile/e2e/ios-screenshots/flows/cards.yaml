@@ -16,6 +16,10 @@ name: Request cards
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 00-home
+- tapOn: "Jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"

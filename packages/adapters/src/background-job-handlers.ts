@@ -227,7 +227,8 @@ export function createBackgroundJobHandlers(deps: {
       );
     }),
     "scoped_goal.advance": asOwner(scopedGoal, async (payload) => {
-      await advanceScopedGoal(
+      // A swallowed failure fails the job, so the queue retries it.
+      const ok = await advanceScopedGoal(
         {
           prisma: deps.prisma,
           jobs: deps.jobs,
@@ -236,6 +237,7 @@ export function createBackgroundJobHandlers(deps: {
         },
         payload.goalId,
       );
+      if (!ok) throw new Error("Scoped goal advance failed; retrying.");
     }),
     "purchase.poll": asOwner(purchase, async (payload) => {
       await pollPurchase(

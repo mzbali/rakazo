@@ -539,9 +539,15 @@ export async function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, g
 export function startScopedGoal(deps: Deps, goalId: string, backupKey?: string) {
   if (advancing.has(goalId)) return;
   const started = runAsSystem("advance scoped goal", async () => {
-    await advanceScopedGoal(deps, goalId);
-    // This attempt ran, so its backup is not needed; a newer attempt's backup has its own key.
-    if (backupKey) await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, backupKey));
+    const ok = await advanceScopedGoal(deps, goalId);
+    if (!backupKey) return;
+    // A pass that ran retires its own backup; a newer attempt's backup has its own key. A pass
+    // that failed makes its backup runnable now instead of after the delay.
+    if (ok) await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, backupKey));
+    else
+      await deps.jobs.enqueue(
+        scopedGoalAdvanceJob({ goalId }, new Date(), backupKey.split(":backup:")[1]),
+      );
   })
     .catch((error: unknown) => getLogger().error("scoped goal direct start", error))
     .finally(() => advancing.delete(goalId));
@@ -559,8 +565,16 @@ export async function enqueueScopedGoal(deps: Pick<Deps, "jobs">, goalId: string
   });
 }
 
-/** One transaction owns the wake intent; Run leases own execution after commit. */
-export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Date()) {
+/**
+ * One transaction owns the wake intent; Run leases own execution after commit. Returns false
+ * when a failure was logged and swallowed, so the caller keeps its retry.
+ */
+export async function advanceScopedGoal(
+  deps: Deps,
+  goalId: string,
+  now = new Date(),
+): Promise<boolean> {
+  let failed = false;
   const candidate = await deps.prisma.scopedGoal.findFirst({
     where: {
       id: goalId,
@@ -568,14 +582,15 @@ export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Da
       nextAttemptAt: { lte: now },
     },
   });
-  if (!candidate) return;
+  if (!candidate) return true;
   // Gates that code can observe advance here, with no model. Remote reads stay out of the
   // transaction below, which only decides whether a model has to look.
   const advanced = await advanceInCode(deps, candidate, now).catch((error: unknown) => {
     getLogger().error("scoped goal observation", error);
+    failed = true;
     return { proceed: false, version: candidate.version };
   });
-  if (advanced && !advanced.proceed) return;
+  if (advanced && !advanced.proceed) return !failed;
   // One goal's conflict or bad row never holds back the others; the next pass retries it.
   const runId = await deps.prisma
     .$transaction(async (tx) => {
@@ -672,9 +687,11 @@ export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Da
     })
     .catch((error: unknown) => {
       getLogger().error("scoped goal reconciliation", error);
+      failed = true;
       return undefined;
     });
   if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+  return !failed;
 }
 
 /**

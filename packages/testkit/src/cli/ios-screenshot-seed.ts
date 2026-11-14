@@ -808,6 +808,8 @@ const SCREENSHOT_JOBS: {
   prUrl?: string;
   note?: string;
   projectName?: string;
+  /** Only the jobs list shows the job; the chat gets no card for it. */
+  listOnly?: boolean;
   minutesAgo: number;
 }[] = [
   {
@@ -833,6 +835,7 @@ const SCREENSHOT_JOBS: {
     key: "running2",
     title: "Speed up the product search query",
     status: "running",
+    listOnly: true,
     projectName: "storefront",
     minutesAgo: 95,
     note: "Picked sonnet-5-5 on main (simple).",
@@ -863,6 +866,7 @@ const SCREENSHOT_JOBS: {
     key: `old${index}`,
     title,
     status: "finished" as const,
+    listOnly: true,
     projectName: "storefront",
     minutesAgo: 2000 + index * 400,
   })),
@@ -929,6 +933,7 @@ async function ensureRequestCards(
         createdAt: startedAt,
       },
     });
+    if (job.listOnly) continue;
     await bot([
       {
         kind: "cloud_agent",

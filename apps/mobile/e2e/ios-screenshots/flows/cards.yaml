@@ -6,7 +6,12 @@ name: Request cards
     env:
       RAKAZO_ACTIVE_EMAIL: ${RAKAZO_SCREENSHOT_EMAIL}
 - extendedWaitUntil:
-    visible: "Support"
+    visible: ".*Support.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Jobs.*"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000

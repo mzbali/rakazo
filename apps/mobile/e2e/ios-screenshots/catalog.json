@@ -33,7 +33,7 @@
     "id": "cards",
     "title": "Request cards",
     "flow": "flows/cards.yaml",
-    "screens": ["thread"]
+    "screens": ["thread", "jobs"]
   },
   {
     "id": "search",

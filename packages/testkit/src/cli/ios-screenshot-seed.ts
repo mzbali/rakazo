@@ -369,7 +369,12 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
       botId: researcher.id,
     });
-    await ensureRequestCards(db.prisma, { threadId: support.threadId, botId: support.id });
+    await ensureRequestCards(db.prisma, {
+      threadId: support.threadId,
+      botId: support.id,
+      spaceId: me.spaceId,
+      userId: me.userId,
+    });
     await ensurePayments(db.prisma, {
       spaceId: me.spaceId,
       userId: me.userId,
@@ -793,10 +798,47 @@ async function ensurePlan(input: {
 
 const CARDS_READY = "Set up the weekly support digest.";
 
+/** Test jobs, newest first: each is a row in the jobs list and a card in the chat. */
+const SCREENSHOT_JOBS: {
+  key: string;
+  title: string;
+  status: "running" | "finished" | "failed";
+  needsInput?: boolean;
+  branch?: string;
+  prUrl?: string;
+  note?: string;
+  minutesAgo: number;
+}[] = [
+  {
+    key: "running",
+    title: "Add dark mode to the settings page",
+    status: "running",
+    branch: "feature/dark-mode",
+    minutesAgo: 12,
+    note: "Picked the fast model for a small UI change; it is the cheapest that has handled this before.",
+  },
+  {
+    key: "input",
+    title: "Migrate the billing tests",
+    status: "running",
+    needsInput: true,
+    branch: "chore/billing-tests",
+    minutesAgo: 47,
+  },
+  {
+    key: "finished",
+    title: "Fix the export button",
+    status: "finished",
+    prUrl: "https://github.example.com/acme/app/pull/42",
+    minutesAgo: 180,
+  },
+  { key: "failed", title: "Upgrade the build tooling", status: "failed", minutesAgo: 1500 },
+];
+
 /** The cards a bot shows when it needs something: a key, a sign-in, a site, an app, a choice. */
 async function ensureRequestCards(
   prisma: ReturnType<typeof createDb>["prisma"],
-  input: { threadId: string; botId: string },
+  input: { threadId: string; botId: string; spaceId: string; userId: string },
 ) {
   const messages = await prisma.message.findMany({
     where: { threadId: input.threadId },
@@ -826,53 +868,48 @@ async function ensureRequestCards(
       status: "pending",
     },
   ]);
-  const startedAt = (minutesAgo: number) =>
-    new Date(Date.now() - minutesAgo * 60_000).toISOString();
-  await bot([
-    {
-      kind: "cloud_agent",
-      agentId: "ios-screenshot-job-running",
-      title: "Add dark mode to the settings page",
-      status: "running",
-      url: "https://jobs.example.com/job-1",
-      branch: "feature/dark-mode",
-      startedAt: startedAt(12),
-      note: "Picked the fast model for a small UI change; it is the cheapest that has handled this before.",
-    },
-  ]);
-  await bot([
-    {
-      kind: "cloud_agent",
-      agentId: "ios-screenshot-job-input",
-      title: "Migrate the billing tests",
-      status: "running",
-      needsInput: true,
-      url: "https://jobs.example.com/job-2",
-      branch: "chore/billing-tests",
-      startedAt: startedAt(47),
-    },
-  ]);
-  await bot([
-    {
-      kind: "cloud_agent",
-      agentId: "ios-screenshot-job-finished",
-      title: "Fix the export button",
-      status: "finished",
-      url: "https://jobs.example.com/job-3",
-      prUrl: "https://github.example.com/acme/app/pull/42",
-      startedAt: startedAt(180),
-    },
-  ]);
-  await bot([
-    {
-      kind: "cloud_agent",
-      agentId: "ios-screenshot-job-failed",
-      title: "Upgrade the build tooling",
-      status: "failed",
-      url: "https://jobs.example.com/job-4",
-      startedAt: startedAt(1500),
-    },
-  ]);
+  for (const job of SCREENSHOT_JOBS) {
+    const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
+    const url = `https://jobs.example.com/${job.key}`;
+    await prisma.cloudAgent.create({
+      data: {
+        id: `ios-screenshot-job-${job.key}`,
+        operationKey: `ios-screenshot-job-${job.key}`,
+        providerKey: "emulator",
+        spaceId: input.spaceId,
+        userId: input.userId,
+        botId: input.botId,
+        threadId: input.threadId,
+        title: job.title,
+        status: job.status,
+        url,
+        branch: job.branch ?? null,
+        prUrl: job.prUrl ?? null,
+        launchRequest: {},
+        // Launched and never polled again, so the worker leaves these rows as they are.
+        launchDispatched: true,
+        remoteId: job.key,
+        nextPollAt: null,
+        launchNote: job.note ?? null,
+        attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
+        createdAt: startedAt,
+      },
+    });
+    await bot([
+      {
+        kind: "cloud_agent",
+        agentId: `ios-screenshot-job-${job.key}`,
+        title: job.title,
+        status: job.status,
+        url,
+        startedAt: startedAt.toISOString(),
+        ...(job.needsInput ? { needsInput: true } : {}),
+        ...(job.branch ? { branch: job.branch } : {}),
+        ...(job.prUrl ? { prUrl: job.prUrl } : {}),
+        ...(job.note ? { note: job.note } : {}),
+      },
+    ]);
+  }
   await bot([
     {
       kind: "ask",

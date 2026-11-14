@@ -52,3 +52,10 @@ name: Request cards
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 06-app-connect
+- openLink: "rakazo:///jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 07-jobs-list

@@ -126,6 +126,35 @@ export const AskReceipt = z.object({
 });
 export type AskReceipt = z.infer<typeof AskReceipt>;
 
+/** What a cloud-agent job shows: the chat card, and a row in the jobs list. */
+const CloudAgentFields = z.object({
+  agentId: z.string(),
+  title: z.string(),
+  status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
+  url: z.string(),
+  branch: z.string().optional(),
+  prUrl: z.string().optional(),
+  latestRunId: z.string().optional(),
+  /** Waiting for a free slot; still "running" for clients that predate it. */
+  queued: z.boolean().optional(),
+  /** An open question or approval; still "running" for clients that predate it. */
+  needsInput: z.boolean().optional(),
+  /** ISO time since the agent's provider could not be reached; polling resumes when it can. */
+  unreachableSince: z.string().optional(),
+  /** What was picked to run it and why, as the provider reported starting it. */
+  note: z.string().optional(),
+  /** ISO time the job was created. */
+  startedAt: z.string().optional(),
+});
+
+/** One job in the jobs list: the card's fields and the chat that holds it. */
+export const CloudAgentJobSchema = CloudAgentFields.extend({
+  botId: z.string(),
+  botName: z.string(),
+  threadId: z.string(),
+});
+export type CloudAgentJob = z.infer<typeof CloudAgentJobSchema>;
+
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({
@@ -290,27 +319,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     name: z.string(),
     status: z.enum(["created", "archived", "deleted"]),
   }),
-  z.object({
-    /** Compact card for a remote cloud coding agent (not the bot computer). */
-    kind: z.literal("cloud_agent"),
-    agentId: z.string(),
-    title: z.string(),
-    status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
-    url: z.string(),
-    branch: z.string().optional(),
-    prUrl: z.string().optional(),
-    latestRunId: z.string().optional(),
-    /** Waiting for a free slot; still "running" for clients that predate it. */
-    queued: z.boolean().optional(),
-    /** An open question or approval; still "running" for clients that predate it. */
-    needsInput: z.boolean().optional(),
-    /** ISO time since the agent's provider could not be reached; polling resumes when it can. */
-    unreachableSince: z.string().optional(),
-    /** What was picked to run it and why, as the provider reported starting it. */
-    note: z.string().optional(),
-    /** ISO time the job was created. */
-    startedAt: z.string().optional(),
-  }),
+  CloudAgentFields.extend({ kind: z.literal("cloud_agent") }),
   z.object({
     kind: z.literal("skill_draft"),
     skillId: Id,

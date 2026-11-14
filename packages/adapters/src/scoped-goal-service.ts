@@ -519,8 +519,6 @@ export async function reconcileScopedGoals(deps: Pick<Deps, "prisma" | "jobs">, 
 
 /** The backup job fires if the process that committed a due goal never gets to advance it. */
 const GOAL_BACKUP_MS = 2 * 60_000;
-/** Goals one process advances at once; any beyond wait for their backup job or the sweep. */
-const MAX_DIRECT_GOALS = 32;
 const advancing = new Map<string, Promise<void>>();
 
 /** Records the backup job in the transaction that makes the goal due. */
@@ -536,7 +534,7 @@ export function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, goalId:
  * queue's shared slots. The goal's version claim keeps this and its backup job from both acting.
  */
 export function startScopedGoal(deps: Deps, goalId: string) {
-  if (advancing.has(goalId) || advancing.size >= MAX_DIRECT_GOALS) return;
+  if (advancing.has(goalId)) return;
   const started = runAsSystem("advance scoped goal", () => advanceScopedGoal(deps, goalId))
     .catch((error: unknown) => getLogger().error("scoped goal direct start", error))
     .finally(() => advancing.delete(goalId));

@@ -15,7 +15,7 @@ queue or framework.
   on its structured result. Prose from an agent never completes a goal.
 - A completion wake only asks for a look at the goal. Only satisfied evidence completes a gate.
   The process that records the wake advances the goal right away, never behind the job queue's
-  shared slots (at most 32 goals at once; one pass per goal). The same transaction records a
+  shared slots (one pass per goal at a time). The same transaction records a
   delayed `scoped_goal.advance` backup job; if the process dies, that job (or the periodic
   sweep) advances the goal. The goal's version claim means the direct pass and the backup never
   both act, so the backup is a no-op once the goal has moved.

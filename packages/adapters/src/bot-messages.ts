@@ -370,7 +370,18 @@ export async function returnBotMessageOutcome(
         block.intent === "result",
     ),
   );
+  // The pointer comes before the run is marked returned, so a failure here is retried by the
+  // reconciler. Work this run handed to a cloud agent is reported by that agent's own wake.
+  const pointToOutcome = async () => {
+    const handedOn = await deps.prisma.cloudAgent.findFirst({
+      where: { botId: run.botId, originMessageId: run.sourceMessageId },
+      select: { id: true },
+    });
+    if (!handedOn)
+      await postRelayPointer(deps, { sourceMessageId: run.sourceMessageId!, bot: sender });
+  };
   if (alreadyReturned) {
+    await pointToOutcome();
     await markBotOutcomeReturned(deps.prisma, run.id);
     return true;
   }
@@ -400,8 +411,99 @@ export async function returnBotMessageOutcome(
       forceUnread: options?.forceUnread,
     },
   );
-  if (outcome.ok) await markBotOutcomeReturned(deps.prisma, run.id);
-  return outcome.ok;
+  if (!outcome.ok) return false;
+  await pointToOutcome();
+  await markBotOutcomeReturned(deps.prisma, run.id);
+  return true;
+}
+
+const RELAY_POINTER_REQUEST_MAX = 100;
+
+/**
+ * Tell the person, in the chat they asked in, that work one bot relayed to another has finished:
+ * one short line and a link to the bot that did it, not a copy of its answer. It is a plain
+ * message from the asking bot, so nothing wakes and it cannot start a reply chain. The delivery
+ * key is the relayed request, so any number of reports for it leave a single pointer.
+ */
+export async function postRelayPointer(
+  deps: { prisma: PrismaClient; events: Pick<ExecutorDeps["events"], "notify"> },
+  input: { sourceMessageId: string; bot: { id: string; name: string } },
+) {
+  let posted: { threadId: string; seq: number } | undefined;
+  try {
+    posted = await withTransactionRetry(() =>
+      deps.prisma.$transaction(async (tx) => {
+        const source = await tx.message.findUnique({
+          where: { id: input.sourceMessageId },
+          select: { blocks: true },
+        });
+        const context = botMessageContext(
+          Array.isArray(source?.blocks) ? (source.blocks as MessageBlock[]) : [],
+        );
+        if (!context?.returnToMessageId) return undefined;
+        if (context.intent && context.intent !== "request" && context.intent !== "question")
+          return undefined;
+        const asked = await tx.message.findUnique({
+          where: { id: context.returnToMessageId },
+          select: { threadId: true, thread: { select: { spaceId: true } } },
+        });
+        if (!asked) return undefined;
+        // The asking bot must still be active and own the chat the request was sent from.
+        const requester = await tx.bot.findFirst({
+          where: {
+            id: context.fromBotId,
+            spaceId: asked.thread.spaceId,
+            archivedAt: null,
+            thread: { id: asked.threadId },
+          },
+          select: { id: true },
+        });
+        if (!requester || !(await spaceTakesWork(tx, asked.thread.spaceId))) return undefined;
+        await tx.$queryRaw`SELECT id FROM threads WHERE id = ${asked.threadId} FOR UPDATE`;
+        const clientNonce = `relay-pointer:${input.sourceMessageId}`;
+        const already = await tx.message.findUnique({
+          where: { threadId_clientNonce: { threadId: asked.threadId, clientNonce } },
+          select: { id: true },
+        });
+        if (already) return undefined;
+        const request = clampBotMessage(context.text).replace(/\s+/g, " ");
+        const summary =
+          request.length > RELAY_POINTER_REQUEST_MAX
+            ? `${request.slice(0, RELAY_POINTER_REQUEST_MAX - 1).trimEnd()}…`
+            : request;
+        const name = input.bot.name.replace(/[[\]]/g, "");
+        const blocks: MessageBlock[] = [
+          {
+            kind: "text",
+            text: `${name} finished: ${summary} [Open ${name}](/app/${input.bot.id})`,
+          },
+        ];
+        const message = await createThreadMessageInTransaction(tx, {
+          threadId: asked.threadId,
+          role: "bot",
+          blocks,
+          botId: requester.id,
+          clientNonce,
+        });
+        const event = await appendEventInTransaction(tx, {
+          spaceId: asked.thread.spaceId,
+          threadId: asked.threadId,
+          botId: requester.id,
+          type: "thread.message.created",
+          payload: { messageId: message.id, role: "bot", blocks },
+        });
+        return { threadId: asked.threadId, seq: event.seq };
+      }, THREAD_LOCK_TRANSACTION_OPTIONS),
+    );
+  } catch (error) {
+    // A concurrent report claimed the same pointer first.
+    if (isUniqueViolation(error)) return;
+    throw error;
+  }
+  if (posted)
+    await deps.events.notify(posted.threadId, posted.seq).catch((error) => {
+      getLogger().error("relay pointer realtime notification", error);
+    });
 }
 
 async function markBotOutcomeReturned(prisma: PrismaClient, runId: string) {

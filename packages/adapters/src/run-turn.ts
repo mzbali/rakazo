@@ -33,7 +33,10 @@ import { MAX_APPROVAL_DETAIL_LENGTH, truncate } from "./approval-ask.js";
 import { isToolPauseResult } from "./approval-effect.js";
 import { returnHelperOutcome } from "./background-helpers.js";
 import { returnBotMessageOutcome } from "./bot-messages.js";
-import { expediteCloudAgentReporterCheck } from "./cloud-agent-poll.js";
+import {
+  expediteCloudAgentReporterCheck,
+  postCloudAgentRelayPointers,
+} from "./cloud-agent-poll.js";
 import { scheduleComputerSleep } from "./computer-idle.js";
 import { holdComputerExecutionLeaseForTakeover } from "./computer-lifecycle.js";
 import { resolveBotWorkspacePath } from "./computer-support.js";
@@ -1008,6 +1011,12 @@ export async function completeRun(ctx: RunContext) {
       botMessageOutcome.text,
       botMessageOutcome.intent,
     ).catch((error) => getLogger().error("bot message result return", error));
+  }
+  if (run.trigger === "cloud_agent" || run.trigger === BACKGROUND_HELPER_TRIGGER) {
+    // The report on work another bot asked for; its asking chat gets a pointer to it.
+    await postCloudAgentRelayPointers(deps, run, { id: bot.id, name: bot.name }).catch((error) =>
+      getLogger().error("cloud agent relay pointer", error),
+    );
   }
   if (run.trigger === BACKGROUND_HELPER_TRIGGER) {
     await returnHelperOutcome(deps, run, { status: "completed", text }).catch((error) =>

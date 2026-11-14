@@ -64,6 +64,13 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
     timeout: 60_000,
   });
   await expect(transcript.getByText("peer-exchange-alpha")).toHaveCount(3);
+  // The pointer names Researcher as a bot mention, which opens that bot's chat.
+  const pointer = transcript.getByTestId("bot-mention").filter({ hasText: "Researcher" });
+  await expect(pointer).toHaveCount(1);
+  await pointer.click();
+  await expect(page.getByRole("combobox", { name: "Message Researcher" })).toBeVisible();
+  await page.goto(`/app/${chiefId}`);
+  await expect(composer).toBeVisible();
   const assertChipCentered = async () => {
     const transcriptBox = await transcript.boundingBox();
     const chipBox = await chip.boundingBox();

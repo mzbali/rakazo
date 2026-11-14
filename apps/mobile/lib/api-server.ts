@@ -20,7 +20,7 @@ import {
   spaceSelectionSeq,
   writeStoredValue,
 } from "./api";
-import { resetCloudJobs } from "./cloud-jobs";
+import { resetCloudJobs } from "./cloud-jobs-store";
 import type { EndpointResult } from "./endpoint";
 import { defaultApiBase, normalizeApiBase } from "./endpoint";
 import { resumeLiveNotifications } from "./live-notifications";

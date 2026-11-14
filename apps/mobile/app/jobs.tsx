@@ -10,7 +10,8 @@ import { JobStatusDot, jobToneColor, useJobStateLabel } from "../components/job-
 import { LoadFailure } from "../components/load-failure";
 import { formatActivityRelativeTime } from "../lib/activity";
 import { mobileTokens } from "../lib/appearance";
-import { refreshCloudJobs, useCloudJobs } from "../lib/cloud-jobs";
+import { useCloudJobs } from "../lib/cloud-jobs";
+import { refreshCloudJobs } from "../lib/cloud-jobs-store";
 import { hapticSelection } from "../lib/haptics";
 import type { JobListItem } from "../lib/job-shelves";
 import { jobListItems } from "../lib/job-shelves";

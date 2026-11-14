@@ -22,7 +22,7 @@ import {
   selectedSpaceId,
 } from "./api";
 import { clearSpace } from "./api-server";
-import { resetCloudJobs } from "./cloud-jobs";
+import { resetCloudJobs } from "./cloud-jobs-store";
 import { getActiveUiLocale } from "./i18n";
 import { resumeLiveNotifications } from "./live-notifications";
 import { serverHeaders } from "./server-headers";

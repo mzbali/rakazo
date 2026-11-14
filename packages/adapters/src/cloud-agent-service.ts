@@ -109,6 +109,8 @@ export function cloudAgentBlock(agent: CloudAgent) {
   return cloudAgentBlockFromPayload({
     ...agent,
     agentId: agent.id,
+    note: agent.launchNote,
+    startedAt: agent.createdAt,
     queued: agent.queuedAt !== null,
     needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
   });

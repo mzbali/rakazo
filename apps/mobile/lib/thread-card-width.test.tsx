@@ -75,6 +75,9 @@ vi.mock("react-native-reanimated", async () => {
   const { View } = await import("react-native");
   return {
     default: { View },
+    cancelAnimation: () => undefined,
+    withRepeat: (value: number) => value,
+    withSequence: (value: number) => value,
     useAnimatedStyle: (style: () => unknown) => style(),
     useReducedMotion: () => true,
     useSharedValue: (value: number) => ({ value }),
@@ -301,7 +304,7 @@ describe("thread cards", () => {
       ["agent-1CompletedCheck the plan", "Ship Flow B"],
     ],
     ["text around a child", [text("Before"), child, text("After")], ["Before", "Planner", "After"]],
-    ["cloud then text", [cloud, text("Cloud result")], ["Remote taskfinished", "Cloud result"]],
+    ["cloud then text", [cloud, text("Cloud result")], ["Remote taskfinishedOpen", "Cloud result"]],
     [
       "two helpers",
       [helper(), helper("agent-2")],
@@ -389,14 +392,15 @@ describe("thread cards", () => {
     expect(container.querySelectorAll("button")).toHaveLength(1);
   });
 
-  it("keeps cloud links accessible alongside text", () => {
+  it("keeps cloud cards labelled, openable and long-pressable alongside text", () => {
     const onLongPress = vi.fn();
     renderBlocks([cloud, text("After")], { actionProps: { onLongPress } });
-    const link = container.querySelector('[role="link"]');
-    expect(link?.getAttribute("aria-label")).toBe("Remote task: finished");
-    act(() => (link as HTMLElement).click());
+    const card = container.querySelector('[aria-label="Remote task: finished"]');
+    expect(card).not.toBeNull();
+    const open = [...container.querySelectorAll("button")].find((b) => b.textContent === "Open");
+    act(() => (open as HTMLElement).click());
     expect(Linking.openURL).toHaveBeenCalledWith("https://example.test/task");
-    act(() => link!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })));
+    act(() => card!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })));
     expect(onLongPress).toHaveBeenCalledTimes(1);
   });
 

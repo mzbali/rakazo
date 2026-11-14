@@ -33,10 +33,60 @@ export function cloudAgentUrl(value: string | null | undefined): string | undefi
   }
 }
 
-export function cloudAgentBlockFromPayload(
-  payload: Record<string, unknown>,
-): Extract<MessageBlock, { kind: "cloud_agent" }> {
+type CloudAgentBlock = Extract<MessageBlock, { kind: "cloud_agent" }>;
+
+/**
+ * What a cloud-agent job is doing, in the order an owner cares: `needsInput` first, because it
+ * is the one state that waits on them. `tone` is the colour family every client uses.
+ */
+export type CloudAgentState =
+  | "needsInput"
+  | "unreachable"
+  | "queued"
+  | "running"
+  | "finished"
+  | "failed"
+  | "cancelled"
+  | "expired";
+
+export type CloudAgentTone = "attention" | "active" | "success" | "danger" | "muted";
+
+export function cloudAgentState(
+  job: Pick<CloudAgentBlock, "status" | "queued" | "needsInput" | "unreachableSince">,
+): CloudAgentState {
+  if (job.status !== "running") return job.status;
+  if (job.needsInput) return "needsInput";
+  if (job.unreachableSince) return "unreachable";
+  return job.queued ? "queued" : "running";
+}
+
+export function cloudAgentTone(state: CloudAgentState): CloudAgentTone {
+  switch (state) {
+    case "needsInput":
+      return "attention";
+    case "running":
+      return "active";
+    case "finished":
+      return "success";
+    case "failed":
+      return "danger";
+    default:
+      return "muted";
+  }
+}
+
+const CLOUD_AGENT_NOTE_MAX = 400;
+
+export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): CloudAgentBlock {
   const status = payload.status;
+  const note = typeof payload.note === "string" ? payload.note.trim() : "";
+  const started = payload.startedAt;
+  const startedAt =
+    started instanceof Date
+      ? started.toISOString()
+      : typeof started === "string" && !Number.isNaN(Date.parse(started))
+        ? started
+        : undefined;
   const since = payload.unreachableSince;
   const unreachableSince =
     since instanceof Date
@@ -59,5 +109,7 @@ export function cloudAgentBlockFromPayload(
     ...(payload.queued === true ? { queued: true } : {}),
     ...(payload.needsInput === true ? { needsInput: true } : {}),
     ...(unreachableSince ? { unreachableSince } : {}),
+    ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
+    ...(startedAt ? { startedAt } : {}),
   };
 }

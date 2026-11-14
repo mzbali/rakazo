@@ -37,10 +37,18 @@ name: Request cards
     timeout: 3000
 - takeScreenshot: 04-answered-requests
 - scrollUntilVisible:
+    element: ".*Add dark mode.*"
+    direction: UP
+    timeout: 15000
+    visibilityPercentage: 100
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05-jobs
+- scrollUntilVisible:
     element: ".*Gmail.*"
     direction: UP
     timeout: 15000
     visibilityPercentage: 100
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: 05-app-connect
+- takeScreenshot: 06-app-connect

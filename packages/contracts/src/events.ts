@@ -306,6 +306,10 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     needsInput: z.boolean().optional(),
     /** ISO time since the agent's provider could not be reached; polling resumes when it can. */
     unreachableSince: z.string().optional(),
+    /** What was picked to run it and why, as the provider reported starting it. */
+    note: z.string().optional(),
+    /** ISO time the job was created. */
+    startedAt: z.string().optional(),
   }),
   z.object({
     kind: z.literal("skill_draft"),

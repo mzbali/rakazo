@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { cloudAgentBlockFromPayload, cloudAgentHttpsUrl } from "./cloud-agent.js";
+import {
+  cloudAgentBlockFromPayload,
+  cloudAgentHttpsUrl,
+  cloudAgentState,
+  cloudAgentTone,
+} from "./cloud-agent.js";
 import { projectMessages } from "./events.js";
 
 describe("shared cloud agent projection", () => {
@@ -52,5 +57,38 @@ describe("shared cloud agent projection", () => {
       "invalid",
     ])
       expect(cloudAgentHttpsUrl(url)).toBeUndefined();
+  });
+});
+
+describe("cloud agent state", () => {
+  it("puts what waits on the owner first and settled statuses through unchanged", () => {
+    const running = { status: "running" as const };
+    expect(cloudAgentState({ ...running, needsInput: true, unreachableSince: "x" })).toBe(
+      "needsInput",
+    );
+    expect(cloudAgentState({ ...running, unreachableSince: "x", queued: true })).toBe(
+      "unreachable",
+    );
+    expect(cloudAgentState({ ...running, queued: true })).toBe("queued");
+    expect(cloudAgentState(running)).toBe("running");
+    expect(cloudAgentState({ status: "expired", needsInput: true })).toBe("expired");
+  });
+  it("colours attention, success and failure apart from everything else", () => {
+    expect(cloudAgentTone("needsInput")).toBe("attention");
+    expect(cloudAgentTone("finished")).toBe("success");
+    expect(cloudAgentTone("failed")).toBe("danger");
+    expect(cloudAgentTone("queued")).toBe("muted");
+  });
+  it("keeps a bounded pick note and the start time, and drops bad ones", () => {
+    const block = cloudAgentBlockFromPayload({
+      agentId: "a",
+      note: ` ${"n".repeat(500)} `,
+      startedAt: new Date("2026-01-02T03:04:05Z"),
+    });
+    expect(block.note).toHaveLength(400);
+    expect(block.startedAt).toBe("2026-01-02T03:04:05.000Z");
+    expect(
+      cloudAgentBlockFromPayload({ agentId: "a", note: "  ", startedAt: "nope" }),
+    ).not.toHaveProperty("note");
   });
 });

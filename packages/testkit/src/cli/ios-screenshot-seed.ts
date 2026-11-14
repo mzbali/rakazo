@@ -826,6 +826,53 @@ async function ensureRequestCards(
       status: "pending",
     },
   ]);
+  const startedAt = (minutesAgo: number) =>
+    new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  await bot([
+    {
+      kind: "cloud_agent",
+      agentId: "ios-screenshot-job-running",
+      title: "Add dark mode to the settings page",
+      status: "running",
+      url: "https://jobs.example.com/job-1",
+      branch: "feature/dark-mode",
+      startedAt: startedAt(12),
+      note: "Picked the fast model for a small UI change; it is the cheapest that has handled this before.",
+    },
+  ]);
+  await bot([
+    {
+      kind: "cloud_agent",
+      agentId: "ios-screenshot-job-input",
+      title: "Migrate the billing tests",
+      status: "running",
+      needsInput: true,
+      url: "https://jobs.example.com/job-2",
+      branch: "chore/billing-tests",
+      startedAt: startedAt(47),
+    },
+  ]);
+  await bot([
+    {
+      kind: "cloud_agent",
+      agentId: "ios-screenshot-job-finished",
+      title: "Fix the export button",
+      status: "finished",
+      url: "https://jobs.example.com/job-3",
+      prUrl: "https://github.example.com/acme/app/pull/42",
+      startedAt: startedAt(180),
+    },
+  ]);
+  await bot([
+    {
+      kind: "cloud_agent",
+      agentId: "ios-screenshot-job-failed",
+      title: "Upgrade the build tooling",
+      status: "failed",
+      url: "https://jobs.example.com/job-4",
+      startedAt: startedAt(1500),
+    },
+  ]);
   await bot([
     {
       kind: "ask",

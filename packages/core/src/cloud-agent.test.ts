@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   cloudAgentBlockFromPayload,
   cloudAgentHttpsUrl,
+  cloudAgentModelLabel,
+  cloudAgentProjectName,
+  cloudAgentShelf,
   cloudAgentState,
   cloudAgentTone,
 } from "./cloud-agent.js";
@@ -90,5 +93,37 @@ describe("cloud agent state", () => {
     expect(
       cloudAgentBlockFromPayload({ agentId: "a", note: "  ", startedAt: "nope" }),
     ).not.toHaveProperty("note");
+  });
+});
+
+describe("cloud agent job summary", () => {
+  it("shelves what waits on the owner first and everything over as done", () => {
+    expect(cloudAgentShelf("needsInput")).toBe("needsYou");
+    expect(
+      (["running", "queued", "unreachable"] as const).map((state) => cloudAgentShelf(state)),
+    ).toEqual(["working", "working", "working"]);
+    expect(
+      (["finished", "failed", "cancelled", "expired"] as const).map((state) =>
+        cloudAgentShelf(state),
+      ),
+    ).toEqual(["done", "done", "done", "done"]);
+  });
+  it("names the project from the repository link", () => {
+    expect(cloudAgentProjectName("https://git.example.com/acme/app.git")).toBe("app");
+    expect(cloudAgentProjectName("https://git.example.com/acme/app/")).toBe("app");
+    expect(cloudAgentProjectName("http://git.example.com/acme/app")).toBeUndefined();
+    expect(cloudAgentProjectName(undefined)).toBeUndefined();
+  });
+  it("shortens a pick note to the model and the kind of work", () => {
+    expect(cloudAgentModelLabel("Picked claude-sonnet-5-5 on main (simple).")).toBe(
+      "Sonnet · simple",
+    );
+    expect(cloudAgentModelLabel("Picked gpt-6-luna on box (hard; gpt-6-sol out of quota).")).toBe(
+      "Luna · hard",
+    );
+    expect(cloudAgentModelLabel("No simple route is available; the default was used.")).toBe(
+      undefined,
+    );
+    expect(cloudAgentModelLabel(undefined)).toBeUndefined();
   });
 });

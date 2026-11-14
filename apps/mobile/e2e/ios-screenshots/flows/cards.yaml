@@ -5,6 +5,12 @@ name: Request cards
     file: ../subflows/sign-in.yaml
     env:
       RAKAZO_ACTIVE_EMAIL: ${RAKAZO_SCREENSHOT_EMAIL}
+- extendedWaitUntil:
+    visible: "Support"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 00-home
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"

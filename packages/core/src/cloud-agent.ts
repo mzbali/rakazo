@@ -75,6 +75,51 @@ export function cloudAgentTone(state: CloudAgentState): CloudAgentTone {
   }
 }
 
+/** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
+export type CloudAgentShelf = "needsYou" | "working" | "done";
+
+export function cloudAgentShelf(state: CloudAgentState): CloudAgentShelf {
+  switch (state) {
+    case "needsInput":
+      return "needsYou";
+    case "finished":
+    case "failed":
+    case "cancelled":
+    case "expired":
+      return "done";
+    default:
+      return "working";
+  }
+}
+
+/**
+ * The repository's name from its link ("https://host/org/app.git" gives "app"), kept on the job
+ * when it launches because the launch request is cleared once sent.
+ */
+export function cloudAgentProjectName(repository: string | null | undefined): string | undefined {
+  const link = cloudAgentHttpsUrl(repository);
+  if (!link) return undefined;
+  const last = new URL(link).pathname.split("/").filter(Boolean).pop();
+  return last?.replace(/\.git$/, "") || undefined;
+}
+
+/**
+ * A model and the kind of work from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
+ * the model's last word, capitalised ("Sonnet"), and the first thing in the brackets ("simple").
+ */
+export function cloudAgentModelLabel(note: string | undefined): string | undefined {
+  const match = note?.match(/^Picked (\S+) on [^(]*\(([^;)]*)/);
+  if (!match) return undefined;
+  const word = match[1]!
+    .split(/[-_.\s]/)
+    .filter((part) => /^[A-Za-z]+$/.test(part))
+    .pop();
+  if (!word) return undefined;
+  const model = word[0]!.toUpperCase() + word.slice(1);
+  const kind = match[2]!.trim();
+  return kind ? `${model} · ${kind}` : model;
+}
+
 const CLOUD_AGENT_NOTE_MAX = 400;
 
 export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): CloudAgentBlock {
@@ -111,5 +156,8 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(unreachableSince ? { unreachableSince } : {}),
     ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
     ...(startedAt ? { startedAt } : {}),
+    ...(typeof payload.projectName === "string" && payload.projectName
+      ? { projectName: payload.projectName.slice(0, 100) }
+      : {}),
   };
 }

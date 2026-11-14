@@ -6,7 +6,7 @@ import type { CreateAction } from "./create-chooser";
 import { createMenuItems } from "./create-chooser";
 import { useUiLocale } from "./i18n";
 
-/** Liquid Glass home header: account on the left; activity, search and create on the right. */
+/** Liquid Glass home header: account on the left; jobs (once there are any), activity, search and create on the right. */
 export function useHomeHeader({
   nativeHeader,
   ready,
@@ -16,6 +16,7 @@ export function useHomeHeader({
   toggleActivityMode,
   runCreateAction,
   headerTitle,
+  jobs,
 }: {
   nativeHeader: boolean;
   ready: boolean;
@@ -25,6 +26,8 @@ export function useHomeHeader({
   toggleActivityMode: () => void;
   runCreateAction: (action: CreateAction) => void;
   headerTitle?: () => ReactNode;
+  /** Set once the user has any jobs; `needsYou` is the badge. */
+  jobs?: { needsYou: number };
 }) {
   const navigation = useNavigation();
   const router = useRouter();
@@ -49,6 +52,18 @@ export function useHomeHeader({
         },
       ],
       unstable_headerRightItems: () => [
+        ...(jobs
+          ? [
+              {
+                type: "button" as const,
+                label: t`Jobs`,
+                accessibilityLabel: t`Jobs`,
+                icon: { type: "sfSymbol" as const, name: "checklist" },
+                ...(jobs.needsYou > 0 ? { badge: { value: jobs.needsYou } } : {}),
+                onPress: () => router.push("/jobs"),
+              },
+            ]
+          : []),
         {
           type: "button" as const,
           label: t`Activity`,
@@ -91,6 +106,7 @@ export function useHomeHeader({
     toggleActivityMode,
     runCreateAction,
     headerTitle,
+    jobs?.needsYou,
     router,
     t,
     locale,

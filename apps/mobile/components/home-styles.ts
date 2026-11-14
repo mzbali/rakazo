@@ -66,6 +66,19 @@ export function createHomeStyles() {
     headerButtonAccent: {
       backgroundColor: tokens.primary,
     },
+    headerBadge: {
+      position: "absolute",
+      top: 3,
+      right: 3,
+      minWidth: 15,
+      height: 15,
+      paddingHorizontal: 4,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.warning,
+    },
+    headerBadgeText: { color: tokens.primaryForeground, fontSize: 10, fontWeight: "700" },
     profileInitials: {
       color: native.label,
       fontSize: 15,

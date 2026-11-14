@@ -807,6 +807,7 @@ const SCREENSHOT_JOBS: {
   branch?: string;
   prUrl?: string;
   note?: string;
+  projectName?: string;
   minutesAgo: number;
 }[] = [
   {
@@ -814,8 +815,9 @@ const SCREENSHOT_JOBS: {
     title: "Add dark mode to the settings page",
     status: "running",
     branch: "feature/dark-mode",
+    projectName: "storefront",
     minutesAgo: 12,
-    note: "Picked the fast model for a small UI change; it is the cheapest that has handled this before.",
+    note: "Picked sonnet-5-5 on main (simple).",
   },
   {
     key: "input",
@@ -823,16 +825,47 @@ const SCREENSHOT_JOBS: {
     status: "running",
     needsInput: true,
     branch: "chore/billing-tests",
+    projectName: "billing-api",
     minutesAgo: 47,
+    note: "Picked opus-5-5 on main (hard).",
+  },
+  {
+    key: "running2",
+    title: "Speed up the product search query",
+    status: "running",
+    projectName: "storefront",
+    minutesAgo: 95,
+    note: "Picked sonnet-5-5 on main (simple).",
   },
   {
     key: "finished",
     title: "Fix the export button",
     status: "finished",
     prUrl: "https://github.example.com/acme/app/pull/42",
+    projectName: "storefront",
     minutesAgo: 180,
+    note: "Picked sonnet-5-5 on main (simple).",
   },
-  { key: "failed", title: "Upgrade the build tooling", status: "failed", minutesAgo: 1500 },
+  {
+    key: "failed",
+    title: "Upgrade the build tooling",
+    status: "failed",
+    projectName: "billing-api",
+    minutesAgo: 1500,
+  },
+  ...[
+    "Rename the checkout events",
+    "Document the webhook retries",
+    "Remove the unused feature flags",
+    "Add alt text to product images",
+    "Tidy the release script",
+  ].map((title, index) => ({
+    key: `old${index}`,
+    title,
+    status: "finished" as const,
+    projectName: "storefront",
+    minutesAgo: 2000 + index * 400,
+  })),
 ];
 
 /** The cards a bot shows when it needs something: a key, a sign-in, a site, an app, a choice. */
@@ -884,6 +917,7 @@ async function ensureRequestCards(
         status: job.status,
         url,
         branch: job.branch ?? null,
+        projectName: job.projectName ?? null,
         prUrl: job.prUrl ?? null,
         launchRequest: {},
         // Launched and never polled again, so the worker leaves these rows as they are.
@@ -907,6 +941,7 @@ async function ensureRequestCards(
         ...(job.branch ? { branch: job.branch } : {}),
         ...(job.prUrl ? { prUrl: job.prUrl } : {}),
         ...(job.note ? { note: job.note } : {}),
+        ...(job.projectName ? { projectName: job.projectName } : {}),
       },
     ]);
   }

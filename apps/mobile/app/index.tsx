@@ -46,6 +46,7 @@ import { forgetAppBadge, syncInboxAppBadge, unreadChatCount } from "../lib/app-b
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { explicitSignInRoute } from "../lib/auth-routing";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/avatar-life";
+import { needsYouCount, useCloudJobs } from "../lib/cloud-jobs";
 import type { CreateAction } from "../lib/create-chooser";
 import { useHeaderHeightIfAny } from "../lib/floating-header";
 import { useForegroundPoll } from "../lib/foreground-poll";
@@ -645,6 +646,9 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     [hasOrganizationMenu, organizations],
   );
 
+  const { jobs: cloudJobs } = useCloudJobs(30_000, hasSession && !onShareSelect && inboxShown);
+  const jobsEntry = cloudJobs?.length ? { needsYou: needsYouCount(cloudJobs) } : undefined;
+
   useHomeHeader({
     nativeHeader,
     ready,
@@ -654,6 +658,7 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     toggleActivityMode,
     runCreateAction,
     headerTitle,
+    jobs: jobsEntry,
   });
 
   const openBot = useCallback(
@@ -834,6 +839,7 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
           runCreateAction={runCreateAction}
           columnInsets={columnInsets}
           title={headerTitle?.()}
+          jobs={jobsEntry}
         />
       )}
 

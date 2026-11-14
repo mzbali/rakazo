@@ -145,6 +145,8 @@ const CloudAgentFields = z.object({
   note: z.string().optional(),
   /** ISO time the job was created. */
   startedAt: z.string().optional(),
+  /** The repository or project the work is for. */
+  projectName: z.string().optional(),
 });
 
 /** One job in the jobs list: the card's fields and the chat that holds it. */

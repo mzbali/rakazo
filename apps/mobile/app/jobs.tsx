@@ -1,17 +1,19 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CloudAgentJob } from "@rakazo/contracts";
-import { cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import type { CloudAgentShelf } from "@rakazo/core";
+import { cloudAgentModelLabel, cloudAgentState, cloudAgentTone } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { JobStatusDot, jobToneColor, useJobStateLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { formatActivityRelativeTime } from "../lib/activity";
-import { rpc } from "../lib/api";
 import { mobileTokens } from "../lib/appearance";
-import { useForegroundPoll } from "../lib/foreground-poll";
+import { refreshCloudJobs, useCloudJobs } from "../lib/cloud-jobs";
 import { hapticSelection } from "../lib/haptics";
+import type { JobListItem } from "../lib/job-shelves";
+import { jobListItems } from "../lib/job-shelves";
 import { native, useThemedStyles } from "../lib/native";
 import { useSideInsets } from "../lib/side-insets";
 import { errorText } from "../lib/user-error";
@@ -29,6 +31,9 @@ const JobRow = memo(function JobRow({
   const stateLabel = useJobStateLabel();
   const state = cloudAgentState(job);
   const started = job.startedAt ? formatActivityRelativeTime(job.startedAt) : "";
+  const detail = [job.projectName, cloudAgentModelLabel(job.note), job.botName, started]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <Pressable
       onPress={() => {
@@ -50,56 +55,110 @@ const JobRow = memo(function JobRow({
         <JobStatusDot state={state} tokens={tokens} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={2} style={{ color: native.label, ...typeScale.cardTitle }}>
-          {job.title}
-        </Text>
-        <Text numberOfLines={1} style={{ color: tokens.mutedForeground, ...typeScale.caption }}>
-          <Text style={{ color: jobToneColor(tokens, cloudAgentTone(state)), fontWeight: "600" }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+          <Text numberOfLines={2} style={{ flex: 1, color: native.label, ...typeScale.cardTitle }}>
+            {job.title}
+          </Text>
+          <Text
+            style={{
+              color: jobToneColor(tokens, cloudAgentTone(state)),
+              fontWeight: "600",
+              ...typeScale.footnote,
+              lineHeight: typeScale.cardTitle.lineHeight,
+            }}
+          >
             {stateLabel(state)}
           </Text>
-          {job.botName ? ` · ${job.botName}` : ""}
-          {started ? ` · ${started}` : ""}
-        </Text>
+        </View>
+        {detail ? (
+          <Text numberOfLines={1} style={{ color: tokens.mutedForeground, ...typeScale.caption }}>
+            {detail}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
 });
 
-/** Every cloud-agent job the user has, newest first; a row opens the chat that holds it. */
+const ShelfHeader = memo(function ShelfHeader({
+  shelf,
+  count,
+}: {
+  shelf: CloudAgentShelf;
+  count: number;
+}) {
+  const { t } = useLingui();
+  const tokens = mobileTokens();
+  const label = shelf === "needsYou" ? t`Needs you` : shelf === "working" ? t`Working` : t`Done`;
+  return (
+    <View
+      accessibilityRole="header"
+      style={{
+        flexDirection: "row",
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingTop: 20,
+        paddingBottom: 4,
+      }}
+    >
+      <Text
+        style={{
+          color: shelf === "needsYou" ? tokens.warning : tokens.mutedForeground,
+          fontWeight: "600",
+          ...typeScale.footnote,
+        }}
+      >
+        {label}
+      </Text>
+      <Text style={{ color: tokens.faintForeground, ...typeScale.footnote }}>{count}</Text>
+    </View>
+  );
+});
+
+/** Every cloud-agent job the user has, on shelves: what needs them, what runs, what is done. */
 export default function JobsScreen() {
   const { t } = useLingui();
   const router = useRouter();
   const sideInsets = useSideInsets();
   const styles = useThemedStyles(createStyles);
-  const [jobs, setJobs] = useState<CloudAgentJob[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { jobs, error } = useCloudJobs(REFRESH_MS);
   const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setJobs(await rpc("cloudAgents/list", undefined));
-      setError(null);
-    } catch (cause) {
-      setError(errorText(cause, t`Could not load jobs`));
-    }
-  }, [t]);
-  // Jobs change while the screen is open; the poll stops with the screen or the app.
-  useForegroundPoll(load, REFRESH_MS, true);
-  useEffect(() => {
-    if (jobs) setRefreshing(false);
-  }, [jobs]);
+  const [doneExpanded, setDoneExpanded] = useState(false);
+  const items = useMemo(() => (jobs ? jobListItems(jobs, doneExpanded) : []), [jobs, doneExpanded]);
 
   const open = useCallback(
     (job: CloudAgentJob) =>
       router.push({ pathname: "/thread", params: { botId: job.botId, name: job.botName } }),
     [router],
   );
+  const renderItem = useCallback(
+    ({ item }: { item: JobListItem }) => {
+      if (item.kind === "header") return <ShelfHeader shelf={item.shelf} count={item.count} />;
+      if (item.kind === "job") return <JobRow job={item.job} onOpen={open} />;
+      return (
+        <Pressable
+          onPress={() => {
+            hapticSelection();
+            setDoneExpanded(true);
+          }}
+          accessibilityRole="button"
+          style={styles.more}
+        >
+          <Text style={styles.moreLabel}>{t`Show ${item.count} more`}</Text>
+        </Pressable>
+      );
+    },
+    [open, styles, t],
+  );
 
   if (!jobs) {
     return (
       <View style={[styles.empty, sideInsets]}>
         {error ? (
-          <LoadFailure message={error} onRetry={() => void load()} />
+          <LoadFailure
+            message={errorText(error, t`Could not load jobs`)}
+            onRetry={() => void refreshCloudJobs()}
+          />
         ) : (
           <ActivityIndicator />
         )}
@@ -117,10 +176,11 @@ export default function JobsScreen() {
     <FlatList
       style={[styles.screen, sideInsets]}
       contentInsetAdjustmentBehavior="automatic"
-      data={jobs}
-      keyExtractor={(job) => job.agentId}
-      renderItem={({ item }) => <JobRow job={item} onOpen={open} />}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      data={items}
+      keyExtractor={(item) =>
+        item.kind === "header" ? item.shelf : item.kind === "job" ? item.job.agentId : "more"
+      }
+      renderItem={renderItem}
       initialNumToRender={14}
       windowSize={7}
       refreshControl={
@@ -128,7 +188,7 @@ export default function JobsScreen() {
           refreshing={refreshing}
           onRefresh={() => {
             setRefreshing(true);
-            void load();
+            void refreshCloudJobs().finally(() => setRefreshing(false));
           }}
         />
       }
@@ -148,6 +208,7 @@ function createStyles() {
       backgroundColor: native.page,
     },
     message: { color: tokens.mutedForeground, ...typeScale.body },
-    separator: { height: 0.5, marginLeft: 36, backgroundColor: tokens.border },
+    more: { paddingHorizontal: 16, paddingVertical: 12, paddingLeft: 36 },
+    moreLabel: { color: tokens.link, ...typeScale.secondary },
   };
 }

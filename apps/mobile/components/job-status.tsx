@@ -16,13 +16,13 @@ import type { mobileTokens } from "../lib/appearance";
 
 type MobileTokens = ReturnType<typeof mobileTokens>;
 
-/** The colour for a job's tone: the monochrome app's status colours, ink while it works. */
+/** The colour for a job's tone: the monochrome app's status colours, sky while it works. */
 export function jobToneColor(tokens: MobileTokens, tone: CloudAgentTone): string {
   switch (tone) {
     case "attention":
       return tokens.warning;
     case "active":
-      return tokens.primary;
+      return tokens.statusWorking;
     case "success":
       return tokens.success;
     case "danger":

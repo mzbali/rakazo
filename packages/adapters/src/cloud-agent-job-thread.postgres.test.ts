@@ -495,6 +495,23 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(prompt).toContain("current request: Now bump the build number");
   });
 
+  it("judges a follow-up sent after the chat lost a running agent's card against that follow-up", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    // The chat was cleared while the agent still ran: its card is gone.
+    await asSystem(prisma).message.delete({ where: { id: (await h.state(agentId)).messageId! } });
+    await sendDirect(h, h.run, "Now bump the build number");
+    await h.finish(agentId);
+    const runs = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    expect(runs).toHaveLength(1);
+    const prompt = (
+      await asSystem(prisma).task.findUniqueOrThrow({ where: { id: runs[0]!.taskId } })
+    ).prompt;
+    expect(prompt).toContain("current request: Now bump the build number");
+  });
+
   it("still wakes for a follow-up its sender did not stay for", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup();

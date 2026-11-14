@@ -409,20 +409,16 @@ export async function trackDirectCloudAgent(
         return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
       }
       const moved = card?.threadId !== run.threadId;
+      const brief = followupBriefOf(direct.brief);
       const updated = await tx.cloudAgent.updateMany({
         where: { id: existing.id, version: existing.version },
         data: {
-          ...(running
-            ? {}
-            : {
-                generation: { increment: 1 },
-                wakeAttempts: 0,
-                verdict: null,
-                followupBrief: followupBriefOf(direct.brief),
-                // Sending is not waiting: only a run that then waits on or reads the thread
-                // reports the result itself (`markCloudAgentWaiting`).
-                waitingRunId: null,
-              }),
+          ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+          // Whatever was sent last is what the result is judged against, running or not. Sending
+          // is not waiting: only a run that then waits on or reads the thread reports the result
+          // itself (`markCloudAgentWaiting`).
+          ...(brief || !running ? { followupBrief: brief } : {}),
+          waitingRunId: null,
           status: "running",
           threadId: run.threadId,
           ...(moved ? { messageId: null } : {}),

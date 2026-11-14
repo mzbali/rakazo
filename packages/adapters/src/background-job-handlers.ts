@@ -23,7 +23,11 @@ import { runAsSystem, runAsTenant } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { settleCallRequest } from "./call-request.js";
 import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
-import { checkCloudAgentReporter, pollCloudAgent } from "./cloud-agent-poll.js";
+import {
+  checkCloudAgentReporter,
+  pollCloudAgent,
+  runRelayPointerBackup,
+} from "./cloud-agent-poll.js";
 import { expireComputerControl, scheduleComputerControlExpiry } from "./computer-control.js";
 import { rateLimitEnds, scheduleComputerSleep, sleepComputerIfIdle } from "./computer-idle.js";
 import { performComputerUpdate } from "./computer-update.js";
@@ -238,6 +242,9 @@ export function createBackgroundJobHandlers(deps: {
         },
         payload,
       );
+    }),
+    "cloud_agent.relay_pointer": asOwner(cloudAgent, async (payload) => {
+      await runRelayPointerBackup({ prisma: deps.prisma, events: deps.events }, payload);
     }),
     "scoped_goal.advance": asOwner(scopedGoal, async (payload) => {
       // A swallowed failure fails the job, so the queue retries it.

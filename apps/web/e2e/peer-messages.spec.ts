@@ -58,11 +58,19 @@ test("shows peer lines in transcript and opens view-only peer chat", async ({ pa
   await expect(chip).not.toContainText("{peer}");
   // User bubble still contains the phrase; peer body must not appear outside the chip.
   await expect(chip).not.toContainText("peer-exchange-alpha");
-  // Only the user's ask and Chief's own relay of Researcher's result carry the phrase.
+  // The user's ask, Chief's own relay of Researcher's result, and the pointer Chief leaves for the
+  // finished request carry the phrase.
   await expect(transcript.getByText(/^Here's what Researcher found: /)).toBeVisible({
     timeout: 60_000,
   });
-  await expect(transcript.getByText("peer-exchange-alpha")).toHaveCount(2);
+  await expect(transcript.getByText("peer-exchange-alpha")).toHaveCount(3);
+  // The pointer names Researcher as a bot mention, which opens that bot's chat.
+  const pointer = transcript.getByTestId("bot-mention").filter({ hasText: "Researcher" });
+  await expect(pointer).toHaveCount(1);
+  await pointer.click();
+  await expect(page.getByRole("combobox", { name: "Message Researcher" })).toBeVisible();
+  await page.goto(`/app/${chiefId}`);
+  await expect(composer).toBeVisible();
   const assertChipCentered = async () => {
     const transcriptBox = await transcript.boundingBox();
     const chipBox = await chip.boundingBox();

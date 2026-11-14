@@ -467,7 +467,7 @@ describePostgres("content encryption (PostgreSQL)", () => {
       ).rejects.toThrow(/nested write/);
     }));
 
-  it("encrypts a cloud agent's launch brief, migrates a plaintext one and writes it back", () =>
+  it("encrypts a cloud agent's launch brief and result, migrates plaintext ones and writes them back", () =>
     runAsSystem("test fixture", async () => {
       const agent = await prisma.cloudAgent.create({
         data: {
@@ -489,11 +489,28 @@ describePostgres("content encryption (PostgreSQL)", () => {
       expect(
         (await prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } })).launchBrief,
       ).toBe("Ship the PERIWINKLE release");
+      // The poller records a finished run's final message with updateMany.
+      await prisma.cloudAgent.updateMany({
+        where: { id: agent.id },
+        data: { resultText: "Shipped CERULEAN" },
+      });
+      const storedResult = async () =>
+        (
+          await raw.query(`SELECT "resultText" AS result FROM cloud_agents WHERE id = $1`, [
+            agent.id,
+          ])
+        ).rows[0].result as string;
+      expect(await storedResult()).not.toMatch(/cerulean/i);
+      expect(
+        (await prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } })).resultText,
+      ).toBe("Shipped CERULEAN");
 
       await migrateContent(prisma, { mode: "decrypt" });
       expect(await stored()).toBe("Ship the PERIWINKLE release");
+      expect(await storedResult()).toBe("Shipped CERULEAN");
       await migrateContent(prisma, { mode: "encrypt" });
       expect(await stored()).not.toMatch(/periwinkle/i);
+      expect(await storedResult()).not.toMatch(/cerulean/i);
       expect(
         (
           await prisma.cloudAgent.findUniqueOrThrow({

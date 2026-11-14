@@ -124,7 +124,7 @@ suite("scoped goal gates advance in code", () => {
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
       enqueueIn: vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined),
-      cancelIn: async () => undefined,
+      cancelIn: vi.fn(async (_tx: unknown, _key: string) => undefined),
       cancel: async () => undefined,
       close: async () => undefined,
     };
@@ -501,11 +501,16 @@ suite("scoped goal gates advance in code", () => {
       expect(backups).toEqual([
         expect.objectContaining({
           payload: { goalId },
-          replaceKey: `scoped_goal.advance:${goalId}`,
+          replaceKey: expect.stringMatching(new RegExp(`^scoped_goal\\.advance:${goalId}:backup:`)),
           availableAt: expect.any(Date),
         }),
       ]);
       expect(backups[0]!.availableAt!.getTime()).toBeGreaterThan(Date.now());
+      // The direct pass ran, so it retired its own backup, and only that one.
+      await settleScopedGoalStarts();
+      expect(vi.mocked(a.deps.jobs.cancelIn).mock.calls.map(([, key]) => key)).toEqual([
+        backups[0]!.replaceKey,
+      ]);
 
       // When the backup fires after the direct start did the work, it changes nothing.
       const before = (await a.history()).length;

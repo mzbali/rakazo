@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob, scopedGoalAdvanceJob } from "@rakazo/adapter-kit";
@@ -521,21 +522,27 @@ export async function reconcileScopedGoals(deps: Pick<Deps, "prisma" | "jobs">, 
 const GOAL_BACKUP_MS = 2 * 60_000;
 const advancing = new Map<string, Promise<void>>();
 
-/** Records the backup job in the transaction that makes the goal due. */
-export function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, goalId: string) {
-  return deps.jobs.enqueueIn(
-    tx,
-    scopedGoalAdvanceJob({ goalId }, new Date(Date.now() + GOAL_BACKUP_MS)),
-  );
+/**
+ * Records the backup job in the transaction that makes the goal due. Returns its key, which the
+ * direct pass retires once it has run.
+ */
+export async function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, goalId: string) {
+  const job = scopedGoalAdvanceJob({ goalId }, new Date(Date.now() + GOAL_BACKUP_MS), randomUUID());
+  await deps.jobs.enqueueIn(tx, job);
+  return job.replaceKey!;
 }
 
 /**
  * Advances a goal from this process right after the commit that made it due, never behind the
  * queue's shared slots. The goal's version claim keeps this and its backup job from both acting.
  */
-export function startScopedGoal(deps: Deps, goalId: string) {
+export function startScopedGoal(deps: Deps, goalId: string, backupKey?: string) {
   if (advancing.has(goalId)) return;
-  const started = runAsSystem("advance scoped goal", () => advanceScopedGoal(deps, goalId))
+  const started = runAsSystem("advance scoped goal", async () => {
+    await advanceScopedGoal(deps, goalId);
+    // This attempt ran, so its backup is not needed; a newer attempt's backup has its own key.
+    if (backupKey) await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, backupKey));
+  })
     .catch((error: unknown) => getLogger().error("scoped goal direct start", error))
     .finally(() => advancing.delete(goalId));
   advancing.set(goalId, started);

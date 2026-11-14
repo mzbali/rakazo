@@ -522,6 +522,7 @@ async function finishPoll(
     let seq: number | undefined;
     const wakeRunIds: string[] = [];
     let goalId: string | undefined;
+    let goalBackupKey: string | undefined;
     // Events for the cards a job helper's wakes left in the chat, announced with the rest.
     const wakeSeqs: number[] = [];
     const wakeOptions = { jobThread: true, seqs: wakeSeqs };
@@ -547,7 +548,7 @@ async function finishPoll(
       if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt) {
         goalId = goal.id;
         await tx.scopedGoal.update({ where: { id: goal.id }, data: { nextAttemptAt: new Date() } });
-        await recordScopedGoalBackup(deps, tx, goal.id);
+        goalBackupKey = await recordScopedGoalBackup(deps, tx, goal.id);
       }
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
@@ -602,6 +603,7 @@ async function finishPoll(
       nextPollAt,
       promotedId,
       goalId,
+      goalBackupKey,
     };
   });
   if (!committed) return;
@@ -616,7 +618,7 @@ async function finishPoll(
   }
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
   // Only this agent's goal is looked at, from here; its backup job and the reconciler cover a crash.
-  else if (committed.goalId) startScopedGoal(deps, committed.goalId);
+  else if (committed.goalId) startScopedGoal(deps, committed.goalId, committed.goalBackupKey);
 }
 
 type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];

@@ -475,6 +475,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
    */
   private async finalMessage(id: string, runId: string, context: AdapterContext) {
     let text: string | undefined;
+    let complete = false;
     try {
       let afterPosition: number | undefined;
       for (let read = 0; read < MAX_RESULT_PAGES; read += 1) {
@@ -489,19 +490,24 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
               ...(afterPosition === undefined ? {} : { afterPosition }),
             },
             context,
+            { optional: true },
           ),
         );
         for (const item of page.items)
           if (item.type === "assistant_message" && item.runId === runId && item.text?.trim())
             text = item.text;
-        if (!page.hasMore || page.nextPosition === null) break;
+        if (!page.hasMore || page.nextPosition === null) {
+          complete = true;
+          break;
+        }
         afterPosition = page.nextPosition;
       }
     } catch (error) {
       // A refused or unreadable result leaves the agent finished without one; an outage is retried.
       if (error instanceof CloudAgentRetryLater) throw error;
     }
-    return text;
+    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
+    return complete ? text : undefined;
   }
 
   /** The current state without moving the poller's cursor or hold. */
@@ -733,13 +739,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     tool: string,
     args: Record<string, unknown>,
     context: AdapterContext,
-    options?: { modeEscalation?: boolean },
+    options?: { modeEscalation?: boolean; optional?: boolean },
   ): Promise<unknown> {
     const name = `mcp__${this.options.server}__${tool}`;
     const { connector } = this.options;
     const resolved = await connector
       .resolveCall?.({ tool: name, args, executionId: context.operationId }, context)
+      .then((call) => call ?? null)
       .catch(() => undefined);
+    // An optional tool the bot's assignment leaves out is refused, not an outage to wait out.
+    if (resolved === null && options?.optional)
+      throw new CloudAgentRequestRejected("invalid", `${tool} is not assigned`);
     if (!resolved) throw new CloudAgentRetryLater("unavailable");
     if (resolved.tool.unavailable === true) throw new CloudAgentRetryLater("unavailable");
     let data: unknown;

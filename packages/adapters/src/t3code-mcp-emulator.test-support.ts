@@ -360,6 +360,20 @@ export const T3_TOOLS: Array<{
 
 /** T3 Code's orchestrator MCP endpoint on the wire: streamable HTTP, JSON responses,
  * structured results, and failures as `isError` text carrying `{_tag, code, message}`. */
+/** Oldest first, paged by position, with an item's text bounded as T3 bounds it. */
+function timelinePage(timeline: Thread["timeline"], args: Args) {
+  const after = timeline
+    .map((item, position) => ({
+      ...item,
+      position,
+      text: item.text.slice(0, Number(args.maxCharsPerItem ?? 20_000)),
+    }))
+    .filter(({ position }) => position > Number(args.afterPosition ?? -1));
+  const items = after.slice(0, Number(args.limit ?? 20));
+  const hasMore = after.length > items.length;
+  return { items, nextPosition: hasMore ? items.at(-1)!.position : null, hasMore };
+}
+
 export class T3McpEmulator {
   token = T3_TOKEN;
   tools = structuredClone(T3_TOOLS);
@@ -644,17 +658,7 @@ export class T3McpEmulator {
               ...run,
               model: "model",
             })),
-          // Oldest first, paged by position, with an item's text bounded as T3 bounds it.
-          items: thread.timeline
-            .map((item, position) => ({
-              ...item,
-              position,
-              text: item.text.slice(0, Number(args.maxCharsPerItem ?? 20_000)),
-            }))
-            .filter(({ position }) => position > Number(args.afterPosition ?? -1))
-            .slice(0, Number(args.limit ?? 20)),
-          nextPosition: null,
-          hasMore: false,
+          ...timelinePage(thread.timeline, args),
         },
       };
     }

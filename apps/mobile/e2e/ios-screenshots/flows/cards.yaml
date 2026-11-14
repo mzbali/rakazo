@@ -5,6 +5,21 @@ name: Request cards
     file: ../subflows/sign-in.yaml
     env:
       RAKAZO_ACTIVE_EMAIL: ${RAKAZO_SCREENSHOT_EMAIL}
+- extendedWaitUntil:
+    visible: ".*Support.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Jobs.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 00-home
+- tapOn: "Jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"
@@ -37,10 +52,38 @@ name: Request cards
     timeout: 3000
 - takeScreenshot: 04-answered-requests
 - scrollUntilVisible:
+    element: ".*Add dark mode.*"
+    direction: UP
+    timeout: 15000
+    visibilityPercentage: 100
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05-jobs
+- scrollUntilVisible:
     element: ".*Gmail.*"
     direction: UP
     timeout: 15000
     visibilityPercentage: 100
 - waitForAnimationToEnd:
     timeout: 3000
-- takeScreenshot: 05-app-connect
+- takeScreenshot: 06-app-connect
+- openLink: "rakazo:///jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Fix the export button: needs input.*"
+    timeout: 20000
+- takeScreenshot: 07-jobs-list
+- openLink: "rakazo:///job?agentId=ios-screenshot-job-finished"
+- extendedWaitUntil:
+    visible: ".*Fix the export button.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Which branch should ship.*"
+    timeout: 20000
+- takeScreenshot: 08-job-sheet

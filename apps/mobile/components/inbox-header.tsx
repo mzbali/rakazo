@@ -24,6 +24,7 @@ export function InboxHeader({
   columnInsets,
   title,
   embedded = false,
+  jobs,
 }: {
   initials: string;
   activityMode: boolean;
@@ -32,6 +33,7 @@ export function InboxHeader({
   columnInsets: { left: number; right: number };
   title?: ReactNode;
   embedded?: boolean;
+  jobs?: { needsYou: number };
 }) {
   const tokens = mobileTokens();
   const appearance = resolveMobileAppearance();
@@ -62,6 +64,16 @@ export function InboxHeader({
       </GlassSurface>
       {title}
       <GlassSurface style={styles.headerActions} fallbackStyle={styles.headerFill}>
+        {jobs ? (
+          <HeaderButton accessibilityLabel={t`Jobs`} onPress={() => router.push("/jobs")}>
+            <NativeSymbol ios="checklist" android="list" size={17} />
+            {jobs.needsYou > 0 ? (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{jobs.needsYou}</Text>
+              </View>
+            ) : null}
+          </HeaderButton>
+        ) : null}
         <HeaderButton
           accessibilityLabel={t`Activity`}
           active={activityMode}

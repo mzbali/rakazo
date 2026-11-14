@@ -234,6 +234,11 @@ export default function Account() {
       href: "/artifacts",
       icon: { ios: "folder", android: "folder-outline" },
     },
+    {
+      title: t`Jobs`,
+      href: "/jobs",
+      icon: { ios: "checklist", android: "list-outline" },
+    },
     ...(me?.ticketBoardEnabled
       ? [
           {

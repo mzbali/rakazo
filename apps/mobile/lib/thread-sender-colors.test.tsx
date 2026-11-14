@@ -6,6 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
 import type { MobileBot, MobileSnapshot } from "./mobile-types";
 
+vi.mock("expo-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("./haptics", () => ({ hapticSelection: vi.fn() }));
 vi.mock("react-native", () => ({
   Alert: { alert: vi.fn() },
   Appearance: { getColorScheme: () => "dark", addChangeListener: () => ({ remove() {} }) },

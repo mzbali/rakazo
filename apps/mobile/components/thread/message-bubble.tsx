@@ -55,6 +55,7 @@ import { NativeSymbol } from "../native-symbol";
 import { PageCard } from "../pages/page-card";
 import { PeerReceiptLine } from "../peer-receipt-line";
 import { AskBlock } from "./ask-block";
+import { CloudAgentCards } from "./cloud-agent-card";
 import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
 import { isSpecialMessageBlock, SpecialMessageCard } from "./special-message-card";
@@ -159,7 +160,10 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   const pieces: MessageBlock[][] = [];
   for (const block of message.blocks) {
     const previous = pieces.at(-1);
-    if (isOwnCardBlock(block) || !previous || isOwnCardBlock(previous[0]!)) {
+    // Jobs launched together sit in one group, as T3 groups its subagents.
+    if (block.kind === "cloud_agent" && previous?.[0]?.kind === "cloud_agent") {
+      previous.push(block);
+    } else if (isOwnCardBlock(block) || !previous || isOwnCardBlock(previous[0]!)) {
       pieces.push([block]);
     } else {
       previous.push(block);
@@ -176,6 +180,15 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           key={`app-${index}`}
           block={first}
           target={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
+        />
+      );
+    if (first.kind === "cloud_agent")
+      return (
+        <CloudAgentCards
+          key={`cloud-${index}`}
+          jobs={blocks.filter((block) => block.kind === "cloud_agent")}
+          actionProps={props.actionProps}
+          userBubble={props.userBubble}
         />
       );
     return isSpecialMessageBlock(first) ? (

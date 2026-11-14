@@ -369,7 +369,12 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
       botId: researcher.id,
     });
-    await ensureRequestCards(db.prisma, { threadId: support.threadId, botId: support.id });
+    await ensureRequestCards(db.prisma, {
+      threadId: support.threadId,
+      botId: support.id,
+      spaceId: me.spaceId,
+      userId: me.userId,
+    });
     await ensurePayments(db.prisma, {
       spaceId: me.spaceId,
       userId: me.userId,
@@ -793,10 +798,92 @@ async function ensurePlan(input: {
 
 const CARDS_READY = "Set up the weekly support digest.";
 
+/** Test jobs, newest first: each is a row in the jobs list and a card in the chat. */
+const SCREENSHOT_JOBS: {
+  key: string;
+  title: string;
+  status: "running" | "finished" | "failed";
+  needsInput?: boolean;
+  ownerQuestion?: string;
+  branch?: string;
+  prUrl?: string;
+  note?: string;
+  projectName?: string;
+  /** Only the jobs list shows the job; the chat gets no card for it. */
+  listOnly?: boolean;
+  brief?: string;
+  result?: string;
+  minutesAgo: number;
+}[] = [
+  {
+    key: "running",
+    title: "Add dark mode to the settings page",
+    status: "running",
+    branch: "feature/dark-mode",
+    projectName: "storefront",
+    minutesAgo: 12,
+    note: "Picked sonnet-5-5 on main (simple).",
+  },
+  {
+    key: "input",
+    title: "Migrate the billing tests",
+    status: "running",
+    needsInput: true,
+    branch: "chore/billing-tests",
+    projectName: "billing-api",
+    minutesAgo: 47,
+    note: "Picked opus-5-5 on main (hard).",
+  },
+  {
+    key: "running2",
+    title: "Speed up the product search query",
+    status: "running",
+    listOnly: true,
+    projectName: "storefront",
+    minutesAgo: 95,
+    note: "Picked sonnet-5-5 on main (simple).",
+  },
+  {
+    key: "finished",
+    ownerQuestion: "Which branch should ship?",
+    title: "Fix the export button",
+    status: "finished",
+    prUrl: "https://github.example.com/acme/app/pull/42",
+    projectName: "storefront",
+    minutesAgo: 180,
+    brief:
+      "The export button on the orders page does nothing on the second click. Find why, fix it, and add a test that clicks twice.",
+    result:
+      "**Fixed.** The button disabled itself after the first click and never re-enabled.\n\n- Re-enable it when the export finishes or fails\n- Added a test that clicks twice\n\nOpened a pull request with the change.",
+    note: "Picked sonnet-5-5 on main (simple).",
+  },
+  {
+    key: "failed",
+    title: "Upgrade the build tooling",
+    status: "failed",
+    projectName: "billing-api",
+    minutesAgo: 1500,
+  },
+  ...[
+    "Rename the checkout events",
+    "Document the webhook retries",
+    "Remove the unused feature flags",
+    "Add alt text to product images",
+    "Tidy the release script",
+  ].map((title, index) => ({
+    key: `old${index}`,
+    title,
+    status: "finished" as const,
+    listOnly: true,
+    projectName: "storefront",
+    minutesAgo: 2000 + index * 400,
+  })),
+];
+
 /** The cards a bot shows when it needs something: a key, a sign-in, a site, an app, a choice. */
 async function ensureRequestCards(
   prisma: ReturnType<typeof createDb>["prisma"],
-  input: { threadId: string; botId: string },
+  input: { threadId: string; botId: string; spaceId: string; userId: string },
 ) {
   const messages = await prisma.message.findMany({
     where: { threadId: input.threadId },
@@ -826,6 +913,55 @@ async function ensureRequestCards(
       status: "pending",
     },
   ]);
+  for (const job of SCREENSHOT_JOBS) {
+    const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
+    const url = `https://jobs.example.com/${job.key}`;
+    await prisma.cloudAgent.create({
+      data: {
+        id: `ios-screenshot-job-${job.key}`,
+        operationKey: `ios-screenshot-job-${job.key}`,
+        providerKey: "emulator",
+        spaceId: input.spaceId,
+        userId: input.userId,
+        botId: input.botId,
+        threadId: input.threadId,
+        title: job.title,
+        status: job.status,
+        url,
+        branch: job.branch ?? null,
+        projectName: job.projectName ?? null,
+        prUrl: job.prUrl ?? null,
+        launchRequest: {},
+        // Launched and never polled again, so the worker leaves these rows as they are.
+        launchDispatched: true,
+        remoteId: job.key,
+        nextPollAt: null,
+        launchNote: job.note ?? null,
+        launchBrief: job.brief ?? null,
+        resultText: job.result ?? null,
+        ownerQuestion: job.ownerQuestion ?? null,
+        attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
+        createdAt: startedAt,
+      },
+    });
+    if (job.listOnly) continue;
+    await bot([
+      {
+        kind: "cloud_agent",
+        agentId: `ios-screenshot-job-${job.key}`,
+        title: job.title,
+        status: job.status,
+        url,
+        startedAt: startedAt.toISOString(),
+        ...(job.needsInput ? { needsInput: true } : {}),
+        ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
+        ...(job.branch ? { branch: job.branch } : {}),
+        ...(job.prUrl ? { prUrl: job.prUrl } : {}),
+        ...(job.note ? { note: job.note } : {}),
+        ...(job.projectName ? { projectName: job.projectName } : {}),
+      },
+    ]);
+  }
   await bot([
     {
       kind: "ask",

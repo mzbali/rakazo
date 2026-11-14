@@ -787,6 +787,7 @@ it.each([false, true])(
         "Integrations",
         "Skills",
         "Artifacts",
+        "Jobs",
         "General",
         "Models",
         "Approvals",

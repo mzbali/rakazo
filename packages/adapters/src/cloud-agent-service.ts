@@ -1,6 +1,10 @@
 import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
-import { BACKGROUND_HELPER_TRIGGER, cloudAgentBlockFromPayload } from "@rakazo/core";
+import {
+  BACKGROUND_HELPER_TRIGGER,
+  cloudAgentBlockFromPayload,
+  cloudAgentProjectName,
+} from "@rakazo/core";
 import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -111,6 +115,9 @@ export function cloudAgentBlock(agent: CloudAgent) {
   return cloudAgentBlockFromPayload({
     ...agent,
     agentId: agent.id,
+    note: agent.launchNote,
+    startedAt: agent.createdAt,
+    projectName: agent.projectName,
     queued: agent.queuedAt !== null,
     needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
   });
@@ -196,6 +203,7 @@ export async function executeCloudAgentTool(
           botId: context.botId,
           threadId: run.threadId,
           title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
+          projectName: cloudAgentProjectName(request.repository) ?? null,
           launchRequest,
           // The launch request is cleared once sent; a job thread's helper still needs the brief.
           ...(cloudAgentJobThreadsEnabled()

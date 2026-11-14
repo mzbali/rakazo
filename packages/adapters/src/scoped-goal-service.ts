@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob, scopedGoalAdvanceJob } from "@rakazo/adapter-kit";
@@ -7,6 +8,7 @@ import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   Prisma as DbPrisma,
+  runAsSystem,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
@@ -122,13 +124,21 @@ const sameRevision = (a: string, b: string) => {
   return Math.min(x.length, y.length) >= 7 && (x.startsWith(y) || y.startsWith(x));
 };
 
-/** A deploy observation has to name the commit that was merged. */
+/** Without a merged commit, deploy evidence counts only on a revision the owner approved. */
+const pinsRevision = (r: Requirement) =>
+  r.revisionCheck || r.assertions.some((a) => a.path.length === 1 && a.path[0] === "revision");
+
+/** A deploy observation has to name the commit that was merged, or an approved revision. */
 function revisionProblem(
   requirement: Requirement,
   result: ObservedResult,
   sha: string | undefined,
 ) {
-  if (requirement.gate !== "deploy" || !sha) return undefined;
+  if (requirement.gate !== "deploy") return undefined;
+  if (!sha)
+    return pinsRevision(requirement)
+      ? undefined
+      : "Deploy evidence names no merged commit and the approved requirement pins no revision.";
   const revision = typeof result.revision === "string" ? result.revision : undefined;
   if (!revision) return `Deploy evidence names no revision; the merged commit is ${sha}.`;
   if (!sameRevision(revision, sha))
@@ -148,10 +158,6 @@ function staleDeploys(
     return reason ? [{ id: r.id, reason }] : [];
   });
 }
-
-/** Without a merged commit, deploy passes in code only on a revision the owner approved. */
-const pinsRevision = (r: Requirement) =>
-  r.revisionCheck || r.assertions.some((a) => a.path.length === 1 && a.path[0] === "revision");
 
 /** The evidence a live goal still lacks, for refusing a "done" the evidence does not back. */
 export async function missingGoalEvidence(prisma: PrismaClient, agentId: string) {
@@ -512,14 +518,63 @@ export async function reconcileScopedGoals(deps: Pick<Deps, "prisma" | "jobs">, 
     await enqueueScopedGoal(deps, goalId);
 }
 
+/** The backup job fires if the process that committed a due goal never gets to advance it. */
+const GOAL_BACKUP_MS = 2 * 60_000;
+const advancing = new Map<string, Promise<void>>();
+
+/**
+ * Records the backup job in the transaction that makes the goal due. Returns its key, which the
+ * direct pass retires once it has run.
+ */
+export async function recordScopedGoalBackup(deps: Pick<Deps, "jobs">, tx: Tx, goalId: string) {
+  const job = scopedGoalAdvanceJob({ goalId }, new Date(Date.now() + GOAL_BACKUP_MS), randomUUID());
+  await deps.jobs.enqueueIn(tx, job);
+  return job.replaceKey!;
+}
+
+/**
+ * Advances a goal from this process right after the commit that made it due, never behind the
+ * queue's shared slots. The goal's version claim keeps this and its backup job from both acting.
+ */
+export function startScopedGoal(deps: Deps, goalId: string, backupKey?: string) {
+  if (advancing.has(goalId)) return;
+  const started = runAsSystem("advance scoped goal", async () => {
+    const ok = await advanceScopedGoal(deps, goalId);
+    if (!backupKey) return;
+    // A pass that ran retires its own backup; a newer attempt's backup has its own key. A pass
+    // that failed makes its backup runnable now instead of after the delay.
+    if (ok) await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, backupKey));
+    else
+      await deps.jobs.enqueue(
+        scopedGoalAdvanceJob({ goalId }, new Date(), backupKey.split(":backup:")[1]),
+      );
+  })
+    .catch((error: unknown) => getLogger().error("scoped goal direct start", error))
+    .finally(() => advancing.delete(goalId));
+  advancing.set(goalId, started);
+}
+
+/** Resolves once the goals this process started directly have finished their pass. */
+export async function settleScopedGoalStarts() {
+  await Promise.all(advancing.values());
+}
+
 export async function enqueueScopedGoal(deps: Pick<Deps, "jobs">, goalId: string) {
   await deps.jobs.enqueue(scopedGoalAdvanceJob({ goalId })).catch(() => {
     getLogger().warn("scoped goal advance deferred to reconciliation");
   });
 }
 
-/** One transaction owns the wake intent; Run leases own execution after commit. */
-export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Date()) {
+/**
+ * One transaction owns the wake intent; Run leases own execution after commit. Returns false
+ * when a failure was logged and swallowed, so the caller keeps its retry.
+ */
+export async function advanceScopedGoal(
+  deps: Deps,
+  goalId: string,
+  now = new Date(),
+): Promise<boolean> {
+  let failed = false;
   const candidate = await deps.prisma.scopedGoal.findFirst({
     where: {
       id: goalId,
@@ -527,14 +582,15 @@ export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Da
       nextAttemptAt: { lte: now },
     },
   });
-  if (!candidate) return;
+  if (!candidate) return true;
   // Gates that code can observe advance here, with no model. Remote reads stay out of the
   // transaction below, which only decides whether a model has to look.
   const advanced = await advanceInCode(deps, candidate, now).catch((error: unknown) => {
     getLogger().error("scoped goal observation", error);
+    failed = true;
     return { proceed: false, version: candidate.version };
   });
-  if (advanced && !advanced.proceed) return;
+  if (advanced && !advanced.proceed) return !failed;
   // One goal's conflict or bad row never holds back the others; the next pass retries it.
   const runId = await deps.prisma
     .$transaction(async (tx) => {
@@ -631,9 +687,11 @@ export async function advanceScopedGoal(deps: Deps, goalId: string, now = new Da
     })
     .catch((error: unknown) => {
       getLogger().error("scoped goal reconciliation", error);
+      failed = true;
       return undefined;
     });
   if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+  return !failed;
 }
 
 /**
@@ -777,8 +835,7 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
     if (!observationMatches(requirement, result)) break;
     const sha = mergedSha(scope, await evidenceResults(deps.prisma, evidence));
     mismatch = revisionProblem(requirement, result, sha);
-    // Without a merged commit, only a revision the owner approved can pass the deploy gate.
-    if (mismatch || (requirement.gate === "deploy" && !sha && !pinsRevision(requirement))) break;
+    if (mismatch) break;
     const added = [
       ...evidence,
       {
@@ -900,7 +957,7 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
               },
               { action: "followup_deferred", source: "code", gate: current.gate, reason },
             );
-          return false;
+          return "uncertain" as const;
         }
         await transition(
           tx,
@@ -922,9 +979,13 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
         return false;
       });
     goal = await deps.prisma.scopedGoal.findUniqueOrThrow({ where: { id: goal.id } });
-    if (!queued) return wait();
-    await enqueueCloudAgent(deps, fresh.id);
-    return wait();
+    if (queued === false) return wait();
+    // A write that stays unreconciled holds the follow-up back, not the goal: past the stuck
+    // window the checks below hand it to a continuation that reconciles the effect.
+    if (queued === true) {
+      await enqueueCloudAgent(deps, fresh.id);
+      return wait();
+    }
   }
   if (fresh.status === "failed") return proceed();
   const since = [...history].find(

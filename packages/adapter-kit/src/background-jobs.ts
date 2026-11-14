@@ -348,13 +348,17 @@ export function cloudAgentPollJob(
   };
 }
 
+/** `backup` names one direct attempt's backup job, so that attempt can retire only its own. */
 export function scopedGoalAdvanceJob(
   payload: BackgroundJobPayloads["scoped_goal.advance"],
+  availableAt?: Date,
+  backup?: string,
 ): BackgroundJob {
   return {
     name: "scoped_goal.advance",
     payload,
-    replaceKey: `scoped_goal.advance:${payload.goalId}`,
+    replaceKey: `scoped_goal.advance:${payload.goalId}${backup ? `:backup:${backup}` : ""}`,
+    ...(availableAt ? { availableAt } : {}),
   };
 }
 

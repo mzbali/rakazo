@@ -231,10 +231,17 @@ export async function returnHelperOutcome(
     const helper = blocks.find((block): block is HelperBlock => block.kind === "subagent");
     // The chat was cleared since: nothing is left to settle or answer.
     if (!card || !helper) return null;
-    const result =
+    const question =
+      outcome.status === "stopped" ? undefined : await jobOwnerQuestion(tx, helper.agentId);
+    const helperText =
       outcome.status === "stopped"
         ? STOPPED_HELPER_RESULT
         : helperResultText(outcome.text.trim() || "done.", undefined, RESULT_LIMIT);
+    // The owner must see what they are asked to decide, even when the helper left it out.
+    const result =
+      question && !helperText.includes(question)
+        ? `${helperText}\n\nNeeds you: ${question}`
+        : helperText;
     const settled: HelperBlock = {
       ...helper,
       status: outcome.status === "completed" ? "completed" : "failed",
@@ -312,6 +319,17 @@ export async function returnHelperOutcome(
       getLogger().error("background helper result enqueue", error);
     });
   }
+}
+
+/** The decision a job helper's last verdict left for the owner, if this card is a job helper's. */
+async function jobOwnerQuestion(tx: Prisma.TransactionClient, executionId: string) {
+  const [kind, agentId] = executionId.split(":");
+  if (kind !== "cloud-agent-wake-run" && kind !== "cloud-agent-attention") return undefined;
+  const agent = await tx.cloudAgent.findUnique({
+    where: { id: agentId },
+    select: { ownerQuestion: true },
+  });
+  return agent?.ownerQuestion ?? undefined;
 }
 
 /**

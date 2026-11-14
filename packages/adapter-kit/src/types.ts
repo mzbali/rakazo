@@ -1492,6 +1492,10 @@ export interface CloudAgentLaunchRequest {
   workKind?: CloudAgentWorkKind;
   /** The provider's own project id, from its project list. */
   projectId?: string;
+  /** A project named as the owner knows it: its title, repository name or folder name. */
+  project?: string;
+  /** Work that belongs to no project. A provider with projects refuses a launch with neither. */
+  scratch?: boolean;
   workspaceStrategy?: CloudAgentWorkspaceStrategy;
   runtimeMode?: CloudAgentRuntimeMode;
   interactionMode?: CloudAgentInteractionMode;

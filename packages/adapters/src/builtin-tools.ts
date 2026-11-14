@@ -908,7 +908,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "cloud_agent_launch",
     description:
-      "Launch a remote cloud coding agent on a connected repository. Returns immediately with a tracking id and status; the agent link appears when launched. Opens a PR when openPr is true. Not the bot computer.",
+      "Launch a remote cloud coding agent on a connected repository. Returns immediately with a tracking id and status; the agent link appears when launched. Opens a PR when openPr is true. Name the project (or the repository) the work is about; where the provider has projects, a launch with neither is refused unless scratch is true. Not the bot computer.",
     inputSchema: {
       type: "object",
       properties: {
@@ -955,9 +955,18 @@ export const builtinAgentTools: ConnectorTool[] = [
           description:
             "The kind of work, so the deployment can pick a model with quota; ignored when modelSelection is given.",
         },
+        project: {
+          type: "string",
+          description:
+            'The project the work belongs to, by the name the owner uses (its title, repository or folder name, such as "Mac" for their Mac setup work). Always give this or repository, or scratch.',
+        },
+        scratch: {
+          type: "boolean",
+          description: "True only for work that belongs to no project.",
+        },
         projectId: {
           type: "string",
-          description: "The provider's project id; omit to find it from repository.",
+          description: "The provider's project id, when you already have it.",
         },
         workspaceStrategy: {
           type: "object",
@@ -1040,6 +1049,11 @@ export const builtinAgentTools: ConnectorTool[] = [
         id: { type: "string", description: "Cloud agent id." },
         verdict: { type: "string", enum: ["accepted", "rejected", "needs_owner"] },
         summary: { type: "string", description: "What was checked and the result." },
+        ownerQuestion: {
+          type: "string",
+          description:
+            "Required unless accepted: a short decision for the owner, with your recommendation and the options where sensible.",
+        },
       },
       required: ["id", "verdict", "summary"],
     },

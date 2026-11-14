@@ -269,6 +269,11 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
             {t`Resumes when it's back · since ${since}`}
           </Text>
         ) : null}
+        {special.ownerQuestion ? (
+          <Text style={{ color: tokens.warning, marginTop: 8, ...typeScale.secondary }}>
+            {t`Needs you: ${special.ownerQuestion}`}
+          </Text>
+        ) : null}
         {prHref ? (
           <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
             {t`Pull request`}

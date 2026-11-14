@@ -66,6 +66,7 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     if (
       request.modelSelection ||
       request.projectId ||
+      request.project ||
       request.workspaceStrategy ||
       request.runtimeMode ||
       request.interactionMode

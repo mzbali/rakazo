@@ -41,7 +41,11 @@ const launched = (emulator: T3ThreadEventsEmulator, tool = "t3_thread_launch") =
 describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("launches, reports running, finishes, and replays a launch by its title tag", async () => {
     const { emulator, provider } = setup();
-    const request = { idempotencyKey: "abcdef1234567890", prompt: "Add a README\nwith details" };
+    const request = {
+      scratch: true,
+      idempotencyKey: "abcdef1234567890",
+      prompt: "Add a README\nwith details",
+    };
     const first = await provider.launch(request, context);
     expect(first).toMatchObject({
       status: "running",
@@ -71,21 +75,39 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("returns the finished run's final message, bounded, from the thread timeline", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "result-key-123456", prompt: "Task" },
+      { scratch: true, idempotencyKey: "result-key-123456", prompt: "Task" },
       context,
     );
     expect(await provider.get(agent.id, context)).not.toHaveProperty("result");
     emulator.complete(agent.id, "completed", `Done. ${"x".repeat(5_000)}`);
     const done = await provider.get(agent.id, context);
     expect(done.status).toBe("finished");
-    expect(done.result).toHaveLength(4_000);
+    expect(done.result).toHaveLength(5_006);
     expect(done.result).toMatch(/^Done\. x/);
+  });
+
+  it("keeps the start and the end of a result longer than the limit", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "long-result-1234", prompt: "Task" },
+      context,
+    );
+    emulator.complete(
+      agent.id,
+      "completed",
+      `START ${"x".repeat(20_000)} CONCLUSION: the app is already gone.`,
+    );
+    const { result } = await provider.get(agent.id, context);
+    expect(result).toHaveLength(8_000 + "\n…\n".length + 3_500);
+    expect(result).toMatch(/^START x/);
+    expect(result).toMatch(/\n…\n/);
+    expect(result).toMatch(/CONCLUSION: the app is already gone\.$/);
   });
 
   it("finishes without a result when the timeline cannot be read", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "noresult-key-12345", prompt: "Task" },
+      { scratch: true, idempotencyKey: "noresult-key-12345", prompt: "Task" },
       context,
     );
     emulator.complete(agent.id, "completed", "Done.");
@@ -110,7 +132,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       holdKey: "hold",
     });
     const agent = await provider.launch(
-      { idempotencyKey: "unassigned-key-1234", prompt: "Task" },
+      { scratch: true, idempotencyKey: "unassigned-key-1234", prompt: "Task" },
       context,
     );
     emulator.complete(agent.id, "completed", "Done.");
@@ -122,7 +144,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("finishes without a result when the timeline runs past the read cap", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "longthread-key-1234", prompt: "Task" },
+      { scratch: true, idempotencyKey: "longthread-key-1234", prompt: "Task" },
       context,
     );
     const thread = emulator.threads.get(agent.id)!;
@@ -140,7 +162,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("reports a failed run as failed", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "failing-key-1", prompt: "Task" },
+      { scratch: true, idempotencyKey: "failing-key-1", prompt: "Task" },
       context,
     );
     emulator.complete(agent.id, "failed");
@@ -151,6 +173,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
       {
+        scratch: true,
         idempotencyKey: "pool-key-123456",
         prompt: "Task",
         modelSelection: { provider: "claude-pool", model: "claude-model" },
@@ -169,6 +192,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     emulator.startsOn = { model: "fallback-model", providerInstanceId: "agent-b" };
     const agent = await provider.launch(
       {
+        scratch: true,
         idempotencyKey: "mismatch-key-1",
         prompt: "Task",
         modelSelection: { instanceId: "claude-pool", model: "claude-model" },
@@ -184,7 +208,12 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const { emulator, provider } = setup();
     emulator.runtimeCeiling = "auto";
     const agent = await provider.launch(
-      { idempotencyKey: "ceiling-key-12", prompt: "Task", runtimeMode: "full-access" },
+      {
+        scratch: true,
+        idempotencyKey: "ceiling-key-12",
+        prompt: "Task",
+        runtimeMode: "full-access",
+      },
       context,
     );
     const launches = launched(emulator);
@@ -192,7 +221,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     expect(emulator.threads.has(agent.id)).toBe(true);
     // A mode within the ceiling is passed on as asked.
     await provider.launch(
-      { idempotencyKey: "within-key-123", prompt: "Task", runtimeMode: "auto" },
+      { scratch: true, idempotencyKey: "within-key-123", prompt: "Task", runtimeMode: "auto" },
       context,
     );
     expect(launched(emulator).at(-1)!.args.runtimeMode).toBe("auto");
@@ -201,7 +230,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("follows a reply up as the next run and cancels", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "reply-key-1234", prompt: "Task" },
+      { scratch: true, idempotencyKey: "reply-key-1234", prompt: "Task" },
       context,
     );
     emulator.complete(agent.id);
@@ -229,7 +258,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     emulator.linkOf = (threadId) =>
       `https://app.example.test/threads/env-1/${encodeURIComponent(threadId)}`;
     const agent = await provider.launch(
-      { idempotencyKey: "weblink-key-123", prompt: "Task" },
+      { scratch: true, idempotencyKey: "weblink-key-123", prompt: "Task" },
       context,
     );
     const url = `t3code://threads/env-1/${encodeURIComponent(agent.id)}`;
@@ -240,7 +269,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
   it("reports a pending approval as attention", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
-      { idempotencyKey: "attention-key-1", prompt: "Task" },
+      { scratch: true, idempotencyKey: "attention-key-1", prompt: "Task" },
       context,
     );
     emulator.awaitApproval(agent.id);
@@ -253,7 +282,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     it("asks to retry later when the server is unreachable or fails, on every call", async () => {
       const { emulator, provider, unreachable } = setup();
       const agent = await provider.launch(
-        { idempotencyKey: "down-key-12345", prompt: "Task" },
+        { scratch: true, idempotencyKey: "down-key-12345", prompt: "Task" },
         context,
       );
       // A server error, a refused sign-in and a lost response each leave the call to be retried.
@@ -268,7 +297,10 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       );
       await expect(provider.cancel(agent.id, context)).rejects.toBeInstanceOf(CloudAgentRetryLater);
       await expect(
-        provider.launch({ idempotencyKey: "down-key-67890", prompt: "Task" }, context),
+        provider.launch(
+          { scratch: true, idempotencyKey: "down-key-67890", prompt: "Task" },
+          context,
+        ),
       ).rejects.toBeInstanceOf(CloudAgentRetryLater);
       expect(launched(emulator)).toHaveLength(1);
     });
@@ -280,14 +312,17 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       });
       emulator.failNext = { failure: "invalid_request" };
       await expect(
-        provider.launch({ idempotencyKey: "refused-key-12", prompt: "Task" }, context),
+        provider.launch(
+          { scratch: true, idempotencyKey: "refused-key-12", prompt: "Task" },
+          context,
+        ),
       ).rejects.toBeInstanceOf(CloudAgentRequestRejected);
     });
 
     it("retries T3's codeless internal server error instead of rejecting it", async () => {
       const { emulator, provider } = setup();
       const agent = await provider.launch(
-        { idempotencyKey: "internal-key-12", prompt: "Task" },
+        { scratch: true, idempotencyKey: "internal-key-12", prompt: "Task" },
         context,
       );
       emulator.failNext = { internal: true };
@@ -300,6 +335,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       emulator.failNext = { failure: "orchestration_error", tool: "t3_thread_read" } as never;
       const agent = await provider.launch(
         {
+          scratch: true,
           idempotencyKey: "noread-key-123",
           prompt: "Task",
           modelSelection: { instanceId: "claude-pool", model: "claude-model" },
@@ -319,6 +355,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     };
     const reset = new Date(Date.now() + 2 * 3_600_000).toISOString();
     const hardRequest = (key: string, extra = {}) => ({
+      scratch: true,
       idempotencyKey: key,
       prompt: "Task",
       workKind: "hard" as const,
@@ -454,12 +491,12 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       const { emulator, provider } = routed();
       emulator.providers[0]!.models = [{ id: "model-1", exhausted: true, resetsAt: reset }];
       const plain = await provider.launch(
-        { idempotencyKey: "route-plain-123", prompt: "Task" },
+        { scratch: true, idempotencyKey: "route-plain-123", prompt: "Task" },
         context,
       );
       expect(plain).not.toHaveProperty("launchNote");
       const unrouted = await provider.launch(
-        { idempotencyKey: "route-simple-12", prompt: "Task", workKind: "simple" },
+        { scratch: true, idempotencyKey: "route-simple-12", prompt: "Task", workKind: "simple" },
         context,
       );
       expect(unrouted).not.toHaveProperty("launchNote");
@@ -468,5 +505,83 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
         { instanceId: "pool-a", model: "model-1" },
       ]);
     });
+  });
+});
+
+describe("T3 thread placement over the T3 MCP emulator (offline)", () => {
+  const launchOn = (
+    emulator: T3ThreadEventsEmulator,
+    provider: ReturnType<typeof setup>["provider"],
+    key: string,
+    extra: Record<string, unknown>,
+  ) => provider.launch({ idempotencyKey: `${key}-123456789`, prompt: "Task", ...extra }, context);
+  const projectOfLaunch = (emulator: T3ThreadEventsEmulator) =>
+    launched(emulator).at(-1)!.args.projectId;
+
+  it("finds the project by title, repository name or folder name, ignoring case", async () => {
+    const { emulator, provider } = setup();
+    emulator.projects.push({
+      id: "project-mac",
+      title: "Mac",
+      workspaceRoot: "/Users/someone/.dotfiles",
+      repositoryIdentity: { canonicalKey: "github.com/example/dotfiles" },
+    });
+    for (const [name, id] of [
+      ["DEMO", "project-demo"],
+      ["Example/Demo", "project-demo"],
+      ["mac", "project-mac"],
+      ["Dotfiles", "project-mac"],
+      [".dotfiles", "project-mac"],
+    ] as const) {
+      await launchOn(emulator, provider, name.replace(/\W/g, ""), { project: name });
+      expect(projectOfLaunch(emulator)).toBe(id);
+    }
+  });
+
+  it("refuses an unknown or ambiguous name with the candidates, before launching", async () => {
+    const { emulator, provider } = setup();
+    emulator.projects.push({
+      id: "project-demo-2",
+      title: "Demo",
+      workspaceRoot: "/srv/demo-copy",
+      repositoryIdentity: null,
+    });
+    const refusals = [
+      [{ project: "nothing" }, /No project matches "nothing"\..*Projects: other, demo, Demo/],
+      [{ project: "demo" }, /matches several projects\..*Projects: other, demo, Demo/],
+    ] as const;
+    for (const [extra, detail] of refusals) {
+      const error = (await launchOn(emulator, provider, "refused", extra).catch(
+        (caught: unknown) => caught,
+      )) as CloudAgentRequestRejected;
+      expect(error).toBeInstanceOf(CloudAgentRequestRejected);
+      expect(error.detail).toMatch(detail);
+    }
+    expect(launched(emulator)).toHaveLength(0);
+  });
+
+  it("refuses a launch with no project unless it asks for scratch", async () => {
+    const { emulator, provider } = setup();
+    const error = (await launchOn(emulator, provider, "noproject", {}).catch(
+      (caught: unknown) => caught,
+    )) as CloudAgentRequestRejected;
+    expect(error).toBeInstanceOf(CloudAgentRequestRejected);
+    expect(error.detail).toMatch(/No project given.*scratch: true.*Projects: other, demo/);
+    expect(launched(emulator)).toHaveLength(0);
+    await launchOn(emulator, provider, "scratch", { scratch: true });
+    expect(launched(emulator).at(-1)!.args).toMatchObject({ scratch: true });
+    expect(launched(emulator).at(-1)!.args).not.toHaveProperty("projectId");
+  });
+
+  it("keeps an explicit projectId working, and passes over archived projects", async () => {
+    const { emulator, provider } = setup();
+    await launchOn(emulator, provider, "byid", { projectId: "project-other" });
+    expect(projectOfLaunch(emulator)).toBe("project-other");
+    emulator.projects.find((project) => project.id === "project-demo")!.archivedAt =
+      "2026-01-01T00:00:00.000Z";
+    const error = (await launchOn(emulator, provider, "archived", { project: "demo" }).catch(
+      (caught: unknown) => caught,
+    )) as CloudAgentRequestRejected;
+    expect(error.detail).toMatch(/No project matches "demo"\. Projects: other\./);
   });
 });

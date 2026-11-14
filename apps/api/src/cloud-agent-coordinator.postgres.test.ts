@@ -101,6 +101,7 @@ const coordinator = {
         id: ended[1],
         verdict: ended[2] === "finished" ? "accepted" : "needs_owner",
         summary: ended[2] === "finished" ? "Checked the result." : "It failed; the owner decides.",
+        ...(ended[2] === "finished" ? {} : { ownerQuestion: "Run it again? (recommended)" }),
       });
     }
     yield { type: "done" as const, text: "ok" };

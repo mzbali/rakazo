@@ -18,6 +18,7 @@ import {
 import {
   executeCloudAgentTool,
   markCloudAgentWaiting,
+  reportCloudAgent,
   trackDirectCloudAgent,
 } from "./cloud-agent-service.js";
 import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
@@ -259,6 +260,8 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(task.prompt).toContain("is finished");
     // The brief points at the result in the status, not at a thread read the helper may not make.
     expect(task.prompt).toContain("untrustedResult");
+    expect(task.prompt).toContain("needs an ownerQuestion");
+    expect(task.prompt).toContain("install LinearMouse with default settings? (recommended)");
     expect(task.prompt).not.toContain("OWNER-CHAT-LINE");
     expect(await h.messagesIn(agent.jobThreadId!)).toHaveLength(0);
 
@@ -324,6 +327,68 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(prompt).toContain("current request: What is the latest commit on main?");
     expect(prompt).toContain("launch brief (background): Reinstall the app on my phone");
     expect(prompt).toContain("judge it against the current request");
+  });
+
+  it("puts a rejected job's owner question on the card and the helper's result, even when the helper left it out", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Install LinearMouse");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const { jobThreadId } = await h.state(agentId);
+    const [helperRun] = await h.runsIn(jobThreadId!);
+    const question =
+      "Homebrew's record is all that is left. Clear it and install with default settings? (recommended)";
+    expect(
+      await runAsSystem("helper report", () =>
+        reportCloudAgent(h.deps as never, h.context, h.run, {
+          id: agentId,
+          verdict: "rejected",
+          summary: "The app is already gone",
+          ownerQuestion: question,
+        }),
+      ),
+    ).toMatchObject({ verdict: "rejected" });
+    // Sealed at rest like the result.
+    const stored = await prisma.$queryRaw<Array<{ question: string }>>`
+      SELECT "ownerQuestion" AS question FROM cloud_agents WHERE id = ${agentId}`;
+    expect(stored[0]!.question).not.toContain("Homebrew");
+
+    // The helper ends with a next step and no decision.
+    await settleHelper(h, agentId);
+    await runAsSystem("helper result", () =>
+      returnHelperOutcome(
+        h.deps,
+        { ...helperRun!, botId: h.bot.id },
+        { status: "completed", text: "Next, investigate the Homebrew record." },
+      ),
+    );
+    const blocks = (await h.messagesIn(h.thread.id)).flatMap(
+      (message) => message.blocks as Array<Record<string, unknown>>,
+    );
+    expect(blocks.find((block) => block.kind === "subagent")).toMatchObject({
+      result: `Next, investigate the Homebrew record.\n\nNeeds you: ${question}`,
+    });
+    expect(blocks.find((block) => block.kind === "cloud_agent")).toMatchObject({
+      ownerQuestion: question,
+    });
+
+    // New work on the agent clears it from the card.
+    await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(
+        h.deps,
+        { ...h.context, operationId: randomUUID() },
+        h.run,
+        "cloud_agent_reply",
+        { id: agentId, prompt: "Clear the record and reinstall" },
+      ),
+    );
+    expect((await h.state(agentId)).ownerQuestion).toBeNull();
+    await h.poll(agentId);
+    const after = (await h.messagesIn(h.thread.id)).flatMap(
+      (message) => message.blocks as Array<Record<string, unknown>>,
+    );
+    expect(after.find((block) => block.kind === "cloud_agent")).not.toHaveProperty("ownerQuestion");
   });
 
   it("judges a cloud_agent_reply's result against that reply", async () => {

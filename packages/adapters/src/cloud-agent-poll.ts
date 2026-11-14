@@ -552,19 +552,28 @@ async function finishPoll(
         goalBackupKey = await recordScopedGoalBackup(deps, tx, goal.id);
       }
       if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
+        // A bot run that messaged or waited on this work and is still going reports its result
+        // itself, so waking again would only judge the same answer a second time.
+        const reporting = saved.waitingRunId
+          ? await tx.run.findFirst({
+              where: { id: saved.waitingRunId, status: "running" },
+              select: { id: true },
+            })
+          : null;
         // Provider text is untrusted. Wake with local identity and status only.
-        wakeRunIds.push(
-          ...(await createCloudAgentWake(
-            tx,
-            saved,
-            terminalWakePrompt(saved),
-            `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
-            wakeOptions,
-          )),
-        );
+        if (!reporting)
+          wakeRunIds.push(
+            ...(await createCloudAgentWake(
+              tx,
+              saved,
+              terminalWakePrompt(saved),
+              `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
+              wakeOptions,
+            )),
+          );
         await tx.cloudAgent.update({
           where: { id: agent.id },
-          data: { wakeGeneration: saved.generation, wakeAttempts: 1 },
+          data: { wakeGeneration: saved.generation, wakeAttempts: reporting ? 0 : 1 },
         });
       }
       // Each new question or approval wakes the bot once; the request id is the dedupe key.

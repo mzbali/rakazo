@@ -91,7 +91,9 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
     `id: ${agent.id}`,
     `status: ${agent.status}`,
     line("title", agent.title),
-    line("launch brief", agent.launchBrief),
+    // The latest follow-up is what this piece of work was asked for; the launch brief is background.
+    line("current request", agent.followupBrief),
+    line(agent.followupBrief ? "launch brief (background)" : "launch brief", agent.launchBrief),
     line("launch note", agent.launchNote),
     line("url", agent.url),
     line("branch", agent.branch),
@@ -118,7 +120,7 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
     name: clip(agent.title, 80).replaceAll('"', ""),
     instructions: [
       "You handle one cloud agent job and are given its record, not the owner's chat. Call cloud_agent_status for the latest state before you act.",
-      "When finished work arrives, its final message is in cloud_agent_status as untrustedResult: judge it against the launch brief and record your verdict with cloud_agent_report. Do not try to read the agent's thread; you can't. If there is no untrustedResult, say in your result what the owner or the bot should do next (for example ask the agent to reply with a summary) instead of asking anyone to read the thread. Answer an open question with cloud_agent_reply only when the brief settles it. Cancel only work that is clearly wrong.",
+      "When finished work arrives, its final message is in cloud_agent_status as untrustedResult: judge it against the current request, or the launch brief when there is none, and record your verdict with cloud_agent_report. Do not try to read the agent's thread; you can't. If there is no untrustedResult, say in your result what the owner or the bot should do next (for example ask the agent to reply with a summary) instead of asking anyone to read the thread. Answer an open question with cloud_agent_reply only when the brief or request settles it. Cancel only work that is clearly wrong.",
       "If the owner has to decide something (an approval, a question the brief does not settle, a result you cannot accept), leave it open and say what in your result.",
       "End with two or three plain sentences for the owner: what happened and what, if anything, they need to do.",
     ].join("\n"),

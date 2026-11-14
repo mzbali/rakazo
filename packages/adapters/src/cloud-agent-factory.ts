@@ -4,7 +4,12 @@ import type { PrismaClient } from "@rakazo/db";
 import { EmulatorCloudAgentProvider } from "./cloud-agent-emulator.js";
 import { resolveCloudAgentProvider } from "./cloud-agent-provider-env.js";
 import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
-import { T3_CLOUD_AGENT_TOOLS, T3CloudAgentProvider, t3DirectThread } from "./t3-cloud-agent.js";
+import {
+  T3_CLOUD_AGENT_TOOLS,
+  T3CloudAgentProvider,
+  t3DirectThread,
+  t3WatchedThread,
+} from "./t3-cloud-agent.js";
 import { parseT3ModelRoutes } from "./t3-model-routes.js";
 
 /** The composition root binds a credential to exactly one authorized Space. */
@@ -23,7 +28,9 @@ export interface CloudAgentConnection {
     tool: string,
     args: Record<string, unknown>,
     result: unknown,
-  ) => { remoteId: string; title: string } | undefined;
+  ) => { remoteId: string; title: string; brief?: string } | undefined;
+  /** The remote thread this call waits on or reads, if it does. */
+  watchedThread?: (tool: string, args: Record<string, unknown>) => string | undefined;
 }
 
 export type CloudAgentActor = { spaceId: string; userId: string };
@@ -83,6 +90,7 @@ export function createCloudAgentConnection(
       enabledForBot: (prisma, botSpaceId, botId) =>
         botHasServerTools(prisma, botSpaceId, botId, server, T3_CLOUD_AGENT_TOOLS),
       directThread: (tool, args, result) => t3DirectThread(server, tool, args, result),
+      watchedThread: (tool, args) => t3WatchedThread(server, tool, args),
     };
   }
   if (kind !== "cursor") return null;

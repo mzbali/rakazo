@@ -290,6 +290,13 @@ export async function queueCloudAgentFollowup(
   );
 }
 
+/** What a follow-up asked for, kept for the job helper that judges the piece it starts. */
+function followupBriefOf(text: unknown) {
+  return cloudAgentJobThreadsEnabled() && typeof text === "string" && text.trim()
+    ? text.slice(0, MAX_LAUNCH_BRIEF)
+    : null;
+}
+
 /** The same, inside a transaction that records something else with it. */
 export async function queueCloudAgentFollowupInTransaction(
   tx: Prisma.TransactionClient,
@@ -308,7 +315,15 @@ export async function queueCloudAgentFollowupInTransaction(
       followupDispatchedAt: null,
       status: "running",
       // An answer continues the same piece of work; a follow-up starts the next one.
-      ...(answer ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+      ...(answer
+        ? {}
+        : {
+            generation: { increment: 1 },
+            wakeAttempts: 0,
+            verdict: null,
+            followupBrief: followupBriefOf((followup as { prompt?: unknown } | null)?.prompt),
+            waitingRunId: null,
+          }),
       version: { increment: 1 },
       ...(queued ? { queuedAt: new Date(), nextPollAt: null } : { nextPollAt: new Date() }),
       errorCount: 0,
@@ -326,7 +341,7 @@ export async function trackDirectCloudAgent(
   deps: CloudAgentDeps,
   context: AdapterContext & { botId: string },
   run: { id: string; threadId: string },
-  direct: { remoteId: string; title: string },
+  direct: { remoteId: string; title: string; brief?: string },
 ) {
   const connection = deps.cloudAgent;
   if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) return;
@@ -363,6 +378,8 @@ export async function trackDirectCloudAgent(
             title: direct.title.slice(0, 80),
             launchRequest: {},
             launchDispatched: true,
+            followupBrief: followupBriefOf(direct.brief),
+            waitingRunId: run.id,
           },
         });
         return postCloudAgentCard(tx, deps, context, run, created);
@@ -379,7 +396,7 @@ export async function trackDirectCloudAgent(
         // so a poll that read the thread before this message cannot commit it as finished.
         const fenced = await tx.cloudAgent.updateMany({
           where: { id: existing.id, version: existing.version },
-          data: { version: { increment: 1 }, nextPollAt: new Date() },
+          data: { version: { increment: 1 }, nextPollAt: new Date(), waitingRunId: run.id },
         });
         if (!fenced.count) continue;
         return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
@@ -388,7 +405,16 @@ export async function trackDirectCloudAgent(
       const updated = await tx.cloudAgent.updateMany({
         where: { id: existing.id, version: existing.version },
         data: {
-          ...(running ? {} : { generation: { increment: 1 }, wakeAttempts: 0, verdict: null }),
+          ...(running
+            ? {}
+            : {
+                generation: { increment: 1 },
+                wakeAttempts: 0,
+                verdict: null,
+                followupBrief: followupBriefOf(direct.brief),
+              }),
+          // This run sent it, so it reports the result while it is still active.
+          waitingRunId: run.id,
           status: "running",
           threadId: run.threadId,
           ...(moved ? { messageId: null } : {}),
@@ -409,6 +435,31 @@ export async function trackDirectCloudAgent(
       .notify(run.threadId, result.seq, result.firstResponseRunId)
       .catch(() => undefined);
   await enqueueCloudAgent(deps, result.agent.id);
+}
+
+/**
+ * The bot's run waits on or reads a thread it follows, so it reports that thread's result to the
+ * owner itself while it runs. The agent's version stays, so the poll's own write is not fenced.
+ */
+export async function markCloudAgentWaiting(
+  deps: CloudAgentDeps,
+  context: AdapterContext & { botId: string },
+  run: { id: string },
+  remoteId: string,
+) {
+  const connection = deps.cloudAgent;
+  if (!connection || !cloudAgentsEnabled(connection, context.spaceId)) return;
+  await deps.prisma.cloudAgent.updateMany({
+    where: {
+      providerKey: connection.key,
+      spaceId: context.spaceId,
+      userId: context.userId,
+      botId: context.botId,
+      remoteId,
+      status: "running",
+    },
+    data: { waitingRunId: run.id },
+  });
 }
 
 interface PostedCard {

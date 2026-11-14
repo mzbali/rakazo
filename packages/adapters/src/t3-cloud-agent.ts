@@ -792,7 +792,7 @@ export function t3DirectThread(
   tool: string,
   args: Record<string, unknown>,
   result: unknown,
-): { remoteId: string; title: string } | undefined {
+): { remoteId: string; title: string; brief?: string } | undefined {
   const data = result as { isError?: boolean; error?: unknown; structuredContent?: unknown } | null;
   // A refused call, from the server or the connector, changed nothing to track.
   if (!data || data.isError || data.error !== undefined) return undefined;
@@ -806,7 +806,19 @@ export function t3DirectThread(
       : tool === `mcp__${server}__t3_thread_send`
         ? text(args.threadId)
         : undefined;
-  return remoteId ? { remoteId, title } : undefined;
+  const sent = tool === `mcp__${server}__t3_thread_send`;
+  return remoteId ? { remoteId, title, ...(sent ? { brief: text(args.message) } : {}) } : undefined;
+}
+
+/** The thread a bot is waiting on or reading, whose result it then reports to the owner itself. */
+export function t3WatchedThread(
+  server: string,
+  tool: string,
+  args: Record<string, unknown>,
+): string | undefined {
+  const watched =
+    tool === `mcp__${server}__t3_thread_wait` || tool === `mcp__${server}__t3_thread_read`;
+  return watched && typeof args.threadId === "string" ? args.threadId : undefined;
 }
 
 function attentionOf(requestId: string, kind: string, threadId?: string): CloudAgentAttention {

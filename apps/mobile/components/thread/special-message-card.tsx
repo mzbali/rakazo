@@ -21,7 +21,7 @@ import { withUserBubble } from "../../lib/user-bubble";
 import { BotMention } from "../bot-mention";
 import { NativeActionButton } from "../native-action-button";
 import { NativeSymbol } from "../native-symbol";
-import { CloudAgentCard } from "./cloud-agent-card";
+import { CloudAgentCards } from "./cloud-agent-card";
 import type { MessageActionProps } from "./message-bubble";
 import type { MessageRowActions } from "./message-row";
 
@@ -207,7 +207,7 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
   const { t } = useLingui();
   if (special.kind === "subagent") return <HelperMessageCard {...props} special={special} />;
   if (special.kind === "cloud_agent")
-    return <CloudAgentCard job={special} actionProps={actionProps} userBubble={userBubble} />;
+    return <CloudAgentCards jobs={[special]} actionProps={actionProps} userBubble={userBubble} />;
   if (special.kind === "child_bot") {
     return (
       <Text

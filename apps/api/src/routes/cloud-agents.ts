@@ -1,7 +1,9 @@
+import { ORPCError } from "@orpc/server";
 import { cloudAgentBlock } from "@rakazo/adapters";
 import type { RouterContext } from "./context.js";
 
 const JOBS_LIMIT = 100;
+const DETAIL_TEXT_MAX = 6000;
 
 export function cloudAgentsRoutes(ctx: RouterContext) {
   const { deps, authed } = ctx;
@@ -28,6 +30,18 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
             threadId: agent.threadId,
           };
         });
+      }),
+      detail: authed.cloudAgents.detail.handler(async ({ context, input }) => {
+        const { spaceId, userId } = context.actor;
+        const agent = await deps.prisma.cloudAgent.findFirst({
+          where: { id: input.agentId, spaceId, userId },
+          select: { launchBrief: true, resultText: true },
+        });
+        if (!agent) throw new ORPCError("NOT_FOUND");
+        return {
+          ...(agent.launchBrief ? { brief: agent.launchBrief.slice(0, DETAIL_TEXT_MAX) } : {}),
+          ...(agent.resultText ? { result: agent.resultText.slice(0, DETAIL_TEXT_MAX) } : {}),
+        };
       }),
     },
   };

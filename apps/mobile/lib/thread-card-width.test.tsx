@@ -6,7 +6,6 @@ import type { ComponentProps, ReactNode, Ref } from "react";
 import { act, createContext } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
-import { Linking } from "react-native";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Api from "./api";
 import type { MobileMessage } from "./mobile-types";
@@ -28,6 +27,7 @@ vi.mock("react-native", async () => {
       accessibilityState,
       accessibilityRole,
       accessibilityLabel,
+      testID,
       ref,
     }: {
       children?: ReactNode;
@@ -38,6 +38,7 @@ vi.mock("react-native", async () => {
       accessibilityState?: { expanded?: boolean };
       accessibilityRole?: string;
       accessibilityLabel?: string;
+      testID?: string;
       ref?: Ref<unknown>;
     }) => {
       useImperativeHandle(ref, () => ({
@@ -51,6 +52,7 @@ vi.mock("react-native", async () => {
           "aria-expanded": accessibilityState?.expanded,
           role: accessibilityRole,
           "aria-label": accessibilityLabel,
+          "data-testid": testID,
           onClick: onPress,
           onContextMenu: onLongPress,
         },
@@ -85,6 +87,9 @@ vi.mock("react-native-reanimated", async () => {
   };
 });
 
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("expo-router", () => ({ useRouter: () => router }));
+vi.mock("./haptics", () => ({ hapticSelection: vi.fn() }));
 vi.mock("expo-secure-store", () => ({}));
 vi.mock("./live-notifications", () => ({ resumeLiveNotifications: vi.fn() }));
 vi.mock("./network-cache", () => ({ clearNetworkCache: vi.fn() }));
@@ -304,7 +309,7 @@ describe("thread cards", () => {
       ["agent-1CompletedCheck the plan", "Ship Flow B"],
     ],
     ["text around a child", [text("Before"), child, text("After")], ["Before", "Planner", "After"]],
-    ["cloud then text", [cloud, text("Cloud result")], ["Remote taskfinishedOpen", "Cloud result"]],
+    ["cloud then text", [cloud, text("Cloud result")], ["Remote taskfinished", "Cloud result"]],
     [
       "two helpers",
       [helper(), helper("agent-2")],
@@ -322,8 +327,8 @@ describe("thread cards", () => {
     renderBlocks([block]);
     expect(container.children).toHaveLength(1);
     expect(styleOf(container.firstElementChild)).toMatchObject({
-      width: "90%",
-      borderRadius: 18,
+      width: block.kind === "cloud_agent" ? 353 : "90%",
+      borderRadius: block.kind === "cloud_agent" ? 14 : 18,
     });
     if (block.kind === "subagent") {
       expect(styleOf(container.querySelector("button[aria-expanded]"))).toMatchObject({
@@ -337,10 +342,7 @@ describe("thread cards", () => {
         "false",
       );
     } else {
-      expect(styleOf(container.firstElementChild)).toMatchObject({
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-      });
+      expect(styleOf(container.firstElementChild)).toMatchObject({ padding: 4, borderWidth: 1 });
     }
   });
 
@@ -395,13 +397,24 @@ describe("thread cards", () => {
   it("keeps cloud cards labelled, openable and long-pressable alongside text", () => {
     const onLongPress = vi.fn();
     renderBlocks([cloud, text("After")], { actionProps: { onLongPress } });
-    const card = container.querySelector('[aria-label="Remote task: finished"]');
-    expect(card).not.toBeNull();
-    const open = [...container.querySelectorAll("button")].find((b) => b.textContent === "Open");
-    act(() => (open as HTMLElement).click());
-    expect(Linking.openURL).toHaveBeenCalledWith("https://example.test/task");
+    const row = container.querySelector('[aria-label="Remote task: finished"]');
+    expect(row).not.toBeNull();
+    act(() => (row as HTMLElement).click());
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/job", params: { agentId: "cloud-1" } });
+    const card = container.querySelector('[data-testid="cloud-agent-card"]');
     act(() => card!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })));
     expect(onLongPress).toHaveBeenCalledTimes(1);
+  });
+
+  it("groups jobs from one message behind a header that counts them by state", () => {
+    const other = { ...cloud, agentId: "cloud-2", title: "Second task", status: "failed" } as const;
+    renderBlocks([cloud, other]);
+    expect(container.querySelectorAll('[data-testid="cloud-agent-card"]')).toHaveLength(1);
+    const header = container.querySelector('[aria-label="2 jobs, 1 finished · 1 failed"]');
+    expect(header).not.toBeNull();
+    expect(container.textContent).not.toContain("Second task");
+    act(() => (header as HTMLElement).click());
+    expect(container.textContent).toContain("Second task");
   });
 
   it("opens helpers independently and keeps each header in view through the toggle callback", () => {

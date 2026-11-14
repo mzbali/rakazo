@@ -524,6 +524,16 @@ function LayoutContent() {
                     />
                     <Stack.Screen name="artifacts" options={glassHeaderOptions(t`Artifacts`)} />
                     <Stack.Screen name="jobs" options={glassHeaderOptions(t`Jobs`)} />
+                    <Stack.Screen
+                      name="job"
+                      options={{
+                        headerShown: false,
+                        presentation: Platform.OS === "ios" ? "formSheet" : "card",
+                        sheetAllowedDetents: [0.6, 1],
+                        sheetGrabberVisible: true,
+                        contentStyle: { backgroundColor: native.groupedPage },
+                      }}
+                    />
                     <Stack.Screen name="artifact" options={{ title: t`Artifact` }} />
                     <Stack.Screen name="pages" options={glassHeaderOptions(t`Pages`)} />
                     <Stack.Screen

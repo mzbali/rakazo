@@ -1,14 +1,14 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CloudAgentJob } from "@rakazo/contracts";
 import type { CloudAgentShelf } from "@rakazo/core";
-import { cloudAgentModelLabel, cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import { cloudAgentState } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import { memo, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { JobStatusDot, jobToneColor, useJobStateLabel } from "../components/job-status";
+import { JobRow } from "../components/job-row";
+import { useJobStateLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
-import { formatActivityRelativeTime } from "../lib/activity";
 import { mobileTokens } from "../lib/appearance";
 import { refreshCloudJobs, useCloudJobs } from "../lib/cloud-jobs";
 import { hapticSelection } from "../lib/haptics";
@@ -20,7 +20,7 @@ import { errorText } from "../lib/user-error";
 
 const REFRESH_MS = 15_000;
 
-const JobRow = memo(function JobRow({
+const JobListRow = memo(function JobListRow({
   job,
   onOpen,
 }: {
@@ -29,11 +29,6 @@ const JobRow = memo(function JobRow({
 }) {
   const tokens = mobileTokens();
   const stateLabel = useJobStateLabel();
-  const state = cloudAgentState(job);
-  const started = job.startedAt ? formatActivityRelativeTime(job.startedAt) : "";
-  const detail = [job.projectName, cloudAgentModelLabel(job.note), job.botName, started]
-    .filter(Boolean)
-    .join(" · ");
   return (
     <Pressable
       onPress={() => {
@@ -41,41 +36,16 @@ const JobRow = memo(function JobRow({
         onOpen(job);
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${job.title}: ${stateLabel(state)}`}
+      accessibilityLabel={`${job.title}: ${stateLabel(cloudAgentState(job))}`}
       style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 12,
-        paddingHorizontal: 16,
+        marginHorizontal: 8,
+        borderRadius: 10,
+        paddingHorizontal: 8,
         paddingVertical: 12,
-        backgroundColor: pressed ? native.fillPressed : "transparent",
+        backgroundColor: pressed ? tokens.muted : "transparent",
       })}
     >
-      <View style={{ height: typeScale.cardTitle.lineHeight, justifyContent: "center" }}>
-        <JobStatusDot state={state} tokens={tokens} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-          <Text numberOfLines={2} style={{ flex: 1, color: native.label, ...typeScale.cardTitle }}>
-            {job.title}
-          </Text>
-          <Text
-            style={{
-              color: jobToneColor(tokens, cloudAgentTone(state)),
-              fontWeight: "600",
-              ...typeScale.footnote,
-              lineHeight: typeScale.cardTitle.lineHeight,
-            }}
-          >
-            {stateLabel(state)}
-          </Text>
-        </View>
-        {detail ? (
-          <Text numberOfLines={1} style={{ color: tokens.mutedForeground, ...typeScale.caption }}>
-            {detail}
-          </Text>
-        ) : null}
-      </View>
+      <JobRow job={job} chevron />
     </Pressable>
   );
 });
@@ -134,7 +104,7 @@ export default function JobsScreen() {
   const renderItem = useCallback(
     ({ item }: { item: JobListItem }) => {
       if (item.kind === "header") return <ShelfHeader shelf={item.shelf} count={item.count} />;
-      if (item.kind === "job") return <JobRow job={item.job} onOpen={open} />;
+      if (item.kind === "job") return <JobListRow job={item.job} onOpen={open} />;
       return (
         <Pressable
           onPress={() => {

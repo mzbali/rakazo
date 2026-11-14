@@ -810,6 +810,8 @@ const SCREENSHOT_JOBS: {
   projectName?: string;
   /** Only the jobs list shows the job; the chat gets no card for it. */
   listOnly?: boolean;
+  brief?: string;
+  result?: string;
   minutesAgo: number;
 }[] = [
   {
@@ -847,6 +849,10 @@ const SCREENSHOT_JOBS: {
     prUrl: "https://github.example.com/acme/app/pull/42",
     projectName: "storefront",
     minutesAgo: 180,
+    brief:
+      "The export button on the orders page does nothing on the second click. Find why, fix it, and add a test that clicks twice.",
+    result:
+      "**Fixed.** The button disabled itself after the first click and never re-enabled.\n\n- Re-enable it when the export finishes or fails\n- Added a test that clicks twice\n\nOpened a pull request with the change.",
     note: "Picked sonnet-5-5 on main (simple).",
   },
   {
@@ -929,6 +935,8 @@ async function ensureRequestCards(
         remoteId: job.key,
         nextPollAt: null,
         launchNote: job.note ?? null,
+        launchBrief: job.brief ?? null,
+        resultText: job.result ?? null,
         attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
         createdAt: startedAt,
       },

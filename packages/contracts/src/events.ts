@@ -147,7 +147,16 @@ const CloudAgentFields = z.object({
   startedAt: z.string().optional(),
   /** The repository or project the work is for. */
   projectName: z.string().optional(),
+  /** A decision the owner has to make before the job can go on. */
+  ownerQuestion: z.string().optional(),
 });
+
+/** What opening a job shows beyond its card: the brief it was given and what it reported. */
+export const CloudAgentDetailSchema = z.object({
+  brief: z.string().optional(),
+  result: z.string().optional(),
+});
+export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
 
 /** One job in the jobs list: the card's fields and the chat that holds it. */
 export const CloudAgentJobSchema = CloudAgentFields.extend({

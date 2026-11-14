@@ -52,10 +52,13 @@ export type CloudAgentState =
 export type CloudAgentTone = "attention" | "active" | "success" | "danger" | "muted";
 
 export function cloudAgentState(
-  job: Pick<CloudAgentBlock, "status" | "queued" | "needsInput" | "unreachableSince">,
+  job: Pick<
+    CloudAgentBlock,
+    "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion"
+  >,
 ): CloudAgentState {
   if (job.status !== "running") return job.status;
-  if (job.needsInput) return "needsInput";
+  if (job.needsInput || job.ownerQuestion) return "needsInput";
   if (job.unreachableSince) return "unreachable";
   return job.queued ? "queued" : "running";
 }
@@ -156,6 +159,9 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(unreachableSince ? { unreachableSince } : {}),
     ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
     ...(startedAt ? { startedAt } : {}),
+    ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
+      ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }
+      : {}),
     ...(typeof payload.projectName === "string" && payload.projectName
       ? { projectName: payload.projectName.slice(0, 100) }
       : {}),

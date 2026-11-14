@@ -159,7 +159,12 @@ import {
   VoiceInfoSchema,
   VoiceStatusSchema,
 } from "./domain.js";
-import { CloudAgentJobSchema, ComputerCommandSchema, ProductEventSchema } from "./events.js";
+import {
+  CloudAgentDetailSchema,
+  CloudAgentJobSchema,
+  ComputerCommandSchema,
+  ProductEventSchema,
+} from "./events.js";
 import { Id, IsoDate, ThinkingLevelSchema } from "./ids.js";
 import {
   IntegrationProviderConfigSchema,
@@ -920,6 +925,7 @@ export const appContract = {
   cloudAgents: {
     /** The user's own cloud-agent jobs in the current space, newest first. */
     list: oc.output(z.array(CloudAgentJobSchema)),
+    detail: oc.input(z.object({ agentId: z.string() })).output(CloudAgentDetailSchema),
   },
   routines: {
     listForMentions: oc

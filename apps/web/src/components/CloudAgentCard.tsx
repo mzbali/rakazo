@@ -73,7 +73,7 @@ export function CloudAgentCard({
           </span>
         ) : null}
         {block.note ? (
-          <span className="text-muted-foreground text-xs" dir="auto">
+          <span className="text-muted-foreground" dir="auto">
             {block.note}
           </span>
         ) : null}

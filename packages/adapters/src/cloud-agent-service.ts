@@ -393,9 +393,10 @@ export async function trackDirectCloudAgent(
       if (running && card) {
         // Running work keeps waking the chat that already follows it. The version still moves,
         // so a poll that read the thread before this message cannot commit it as finished.
+        // A result the bot received earlier says nothing about this message's.
         const fenced = await tx.cloudAgent.updateMany({
           where: { id: existing.id, version: existing.version },
-          data: { version: { increment: 1 }, nextPollAt: new Date() },
+          data: { version: { increment: 1 }, nextPollAt: new Date(), waitingRunId: null },
         });
         if (!fenced.count) continue;
         return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };

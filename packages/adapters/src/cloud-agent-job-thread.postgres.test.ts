@@ -472,6 +472,23 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
   });
 
+  it("wakes for a follow-up sent after a result the run received before the poll saw it", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    // The bot's run reads the finished result while the agent is still running locally.
+    const bot = await turn(h, "running");
+    await runAsSystem("agent run tool call", async () =>
+      markCloudAgentWaiting(h.deps, h.context, bot, (await h.state(agentId)).remoteId!),
+    );
+    // It then sends a follow-up without waiting on it, and stays active.
+    await sendDirect(h, bot, "Now bump the build number");
+    expect((await h.state(agentId)).waitingRunId).toBeNull();
+    await h.finish(agentId);
+    expect(await h.runsIn((await h.state(agentId)).jobThreadId!)).toHaveLength(1);
+  });
+
   it("still wakes for a follow-up its sender did not stay for", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup();

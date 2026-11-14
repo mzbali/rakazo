@@ -449,15 +449,24 @@ export async function checkCloudAgentReporter(
     : null;
   if (reporter?.status === "completed") return;
   const seqs: number[] = [];
-  const wakeRunIds = await deps.prisma.$transaction(async (tx) =>
-    createCloudAgentWake(
+  const wakeRunIds = await deps.prisma.$transaction(async (tx) => {
+    // Under the lock chat clearing takes: a chat cleared since `canWake` gets no new card.
+    await lockCloudAgentWakeThread(tx, agent);
+    const card = agent.messageId
+      ? await tx.message.findFirst({
+          where: { id: agent.messageId, threadId: agent.threadId },
+          select: { id: true },
+        })
+      : null;
+    if (!card) return [];
+    return createCloudAgentWake(
       tx,
       agent,
       terminalWakePrompt(agent),
       `cloud-agent-wake-run:${agent.id}:${agent.generation}`,
       { jobThread: true, seqs },
-    ),
-  );
+    );
+  });
   await deps.prisma.cloudAgent.updateMany({
     where: { id: agent.id, generation: agent.generation, wakeAttempts: 0 },
     data: { wakeAttempts: 1 },

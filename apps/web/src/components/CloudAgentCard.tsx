@@ -59,6 +59,11 @@ export function CloudAgentCard({
             <Trans>Resumes when it's back · since {since}</Trans>
           </span>
         ) : null}
+        {block.ownerQuestion ? (
+          <span className="font-medium text-warning" dir="auto">
+            <Trans>Needs you: {block.ownerQuestion}</Trans>
+          </span>
+        ) : null}
         {prHref ? (
           <span className="text-muted-foreground">
             <Trans>Pull request</Trans>

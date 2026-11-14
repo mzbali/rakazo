@@ -504,7 +504,7 @@ export async function expediteCloudAgentReporterCheck(
 }
 
 /** The card follows the row when only its outage state changed. */
-async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
+export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
   const seq = await deps.prisma.$transaction(async (tx) => {
     const saved = await tx.cloudAgent.findUnique({ where: { id: agentId } });
     if (!saved) return undefined;

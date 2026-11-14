@@ -59,5 +59,6 @@ export function cloudAgentBlockFromPayload(
     ...(payload.queued === true ? { queued: true } : {}),
     ...(payload.needsInput === true ? { needsInput: true } : {}),
     ...(unreachableSince ? { unreachableSince } : {}),
+    ...(payload.ownerQuestion ? { ownerQuestion: String(payload.ownerQuestion) } : {}),
   };
 }

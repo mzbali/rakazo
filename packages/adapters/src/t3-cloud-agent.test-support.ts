@@ -14,9 +14,17 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
   constructor() {
     super();
     this.linkOf = (threadId) => `<t3-thread://v2/env-1/${encodeURIComponent(threadId)}>`;
-    for (const name of ["t3_thread_events", "t3_thread_list"])
+    for (const name of [
+      "t3_thread_events",
+      "t3_thread_list",
+      "t3_thread_organize",
+      "t3_thread_update",
+    ])
       this.tools.push({ name, inputSchema: { type: "object", properties: {} } });
   }
+
+  /** Threads settled through `t3_thread_organize`. */
+  readonly settled: string[] = [];
 
   /** The agent says something while its run is still going. */
   say(threadId: string, text: string) {
@@ -34,6 +42,14 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
             .map((thread) => ({ threadId: thread.threadId, title: thread.title })),
         },
       };
+    }
+    if (tool === "t3_thread_organize" || tool === "t3_thread_update") {
+      if (!this.tools.some((entry) => entry.name === tool)) return { invalidParams: true as const };
+      const thread = this.threads.get(String(args.threadId));
+      if (!thread) return { failure: "thread_not_found" };
+      if (tool === "t3_thread_update") thread.title = String(args.title);
+      else if (args.action === "settle") this.settled.push(thread.threadId);
+      return { result: {} };
     }
     if (tool !== "t3_thread_events") return super.handle(tool, args);
     const thread = this.threads.get(String(args.threadId));

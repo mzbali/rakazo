@@ -60,11 +60,13 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       modelSelection: { instanceId: "agent-b", model: "model-a" },
     });
     expect(first).not.toHaveProperty("launchNote");
-    expect((await provider.get(first.id, context)).status).toBe("running");
-
     // The same request again finds the thread by its title instead of launching a second.
     expect((await provider.launch(request, context)).id).toBe(first.id);
     expect(launched(emulator)).toHaveLength(1);
+
+    // Once polled, the thread is titled as the card is, and the tag is gone.
+    expect((await provider.get(first.id, context)).status).toBe("running");
+    expect(emulator.threads.get(first.id)!.title).toBe("Add a README");
 
     emulator.complete(first.id);
     const done = await provider.get(first.id, context);

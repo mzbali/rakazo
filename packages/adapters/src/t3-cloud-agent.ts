@@ -483,7 +483,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     // waiting reads them every poll; one that is working, only when it did something.
     const pullRequest =
       sawEvents || status !== "running" || run?.status !== "running"
-        ? shownPullRequest(await this.optionalPullRequests(id, context))
+        ? shownPullRequest(await this.optionalPullRequests(id, context), run)
         : {};
     return {
       id,

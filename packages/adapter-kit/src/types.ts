@@ -1545,6 +1545,8 @@ export interface CloudAgentSnapshot {
   prState?: "open" | "merged" | "closed";
   /** The agent is watching its open pull request and gets woken by what happens to it. */
   watching?: boolean;
+  /** Watching with no run working: only the watch keeps the job open. */
+  watchIdle?: boolean;
   latestRunId?: string;
   /** Providers with an event feed: the cursor this snapshot was read through. */
   cursor?: number;

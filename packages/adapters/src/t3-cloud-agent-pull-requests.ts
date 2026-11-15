@@ -32,10 +32,21 @@ export function parsePullRequests(read: unknown): ThreadPullRequest[] {
     }));
 }
 
-/** The pull request the card shows: the one being watched, else the newest the thread has. */
-export function shownPullRequest(all: ThreadPullRequest[]) {
+/** Run statuses after which nothing is working on the thread. */
+const ENDED_RUNS = new Set(["completed", "failed", "cancelled", "interrupted", "rolled_back"]);
+
+/**
+ * The pull request the card shows: the one being watched, else the newest the thread has. A watch
+ * is idle when its run has ended, so only the watch keeps the job open.
+ */
+export function shownPullRequest(all: ThreadPullRequest[], run: { status: string } | null) {
   const shown = all.findLast((pr) => pr.watching && pr.state === "open") ?? all.at(-1);
-  return shown
-    ? { prUrl: shown.url, prState: shown.state, watching: shown.watching && shown.state === "open" }
-    : {};
+  if (!shown) return {};
+  const watching = shown.watching && shown.state === "open";
+  return {
+    prUrl: shown.url,
+    prState: shown.state,
+    watching,
+    watchIdle: watching && run !== null && ENDED_RUNS.has(run.status),
+  };
 }

@@ -92,13 +92,21 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       prUrl: "https://github.com/example/demo/pull/72",
       prState: "open",
       watching: true,
+      watchIdle: true,
     });
     // A PR event wakes the thread: a new run, then a short "still waiting" end. Still no handback.
     for (let wake = 0; wake < 3; wake += 1) {
       emulator.continueRun(agent.id);
-      expect((await provider.get(agent.id, context)).status).toBe("running");
+      // The wake is work, so the watch's day-long clock does not count it.
+      expect(await provider.get(agent.id, context)).toMatchObject({
+        status: "running",
+        watchIdle: false,
+      });
       emulator.complete(agent.id, "completed", "Still waiting.");
-      expect((await provider.get(agent.id, context)).status).toBe("running");
+      expect(await provider.get(agent.id, context)).toMatchObject({
+        status: "running",
+        watchIdle: true,
+      });
     }
     // The handback: the agent unwatches and its run ends.
     emulator.continueRun(agent.id);

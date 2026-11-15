@@ -56,6 +56,14 @@ name: Request cards
     visible: ".*Which branch should ship.*"
     timeout: 20000
 - takeScreenshot: 08-job-sheet
+# A running job lists what its own thread has going: subagents, commands and watched pull requests.
+- openLink: "rakazo:///job?agentId=ios-screenshot-job-running"
+- extendedWaitUntil:
+    visible: ".*Working on.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 08b-job-sheet-work
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"

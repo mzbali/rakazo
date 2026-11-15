@@ -870,6 +870,11 @@ const SCREENSHOT_JOBS: {
   result?: string;
   /** The pull request's check result. */
   checks?: "passing" | "failing" | "running";
+  /** What the job's own thread has going, as the card and the job sheet show it. */
+  threadWork?: {
+    work: { kind: string; label: string; url?: string }[];
+    pullRequests: { url: string; number: number; state: string; watching: boolean }[];
+  };
   /** Shows the screenshots copied from the pull request. */
   proof?: boolean;
   /** What the running agent last said. */
@@ -889,6 +894,21 @@ const SCREENSHOT_JOBS: {
     key: "running",
     title: "Add dark mode to the settings page",
     status: "running",
+    prUrl: "https://github.com/example/storefront/pull/72",
+    checks: "running",
+    threadWork: {
+      work: [
+        { kind: "subagent", label: "Review the theme tokens", url: "t3code://threads/env/child-1" },
+        { kind: "subagent", label: "Write the settings tests", url: "t3code://threads/env/child-2" },
+        { kind: "command", label: "pnpm test --watch" },
+      ],
+      pullRequests: [71, 72, 73].map((number) => ({
+        url: `https://github.com/example/storefront/pull/${number}`,
+        number,
+        state: "open",
+        watching: true,
+      })),
+    },
     branch: "feature/dark-mode",
     projectName: "storefront",
     minutesAgo: 12,
@@ -1094,6 +1114,8 @@ async function ensureRequestCards(
         failureReason: job.failureReason ?? null,
         reviewingAt: job.checking ? new Date() : null,
         checksState: job.checks ?? null,
+        prWatching: Boolean(job.threadWork),
+        threadWork: job.threadWork,
         proofImages: job.proof
           ? input.proof.map((image) => ({ source: image.name, ...image }))
           : undefined,

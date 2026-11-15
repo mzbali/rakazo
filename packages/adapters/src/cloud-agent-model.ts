@@ -28,11 +28,12 @@ function modelMark(id: string): string | undefined {
 /**
  * The model and its effort from a job's pick note ("Picked claude-sonnet-5-5 on main (simple;
  * effort medium)."), as display data the apps show without knowing any maker. A job without a pick
- * note has none.
+ * note has none, and neither does one where T3 started a different model than was picked: the
+ * pick's model and effort would be wrong, so the note, which says so, stays the card's text.
  */
 export function cloudAgentModelDisplay(note: string | null | undefined) {
   const picked = note?.match(/^Picked (\S+) on [^(]*\(/);
-  if (!picked) return undefined;
+  if (!picked || /, T3 started /.test(note!)) return undefined;
   const name = modelName(picked[1]!);
   if (!name) return undefined;
   const mark = modelMark(picked[1]!.toLowerCase());

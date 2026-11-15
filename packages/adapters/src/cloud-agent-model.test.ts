@@ -19,6 +19,20 @@ describe("cloudAgentModelDisplay", () => {
       "Opus 4.1",
     );
   });
+  it("still reads the pick when T3 confirmed the same model", () => {
+    expect(
+      cloudAgentModelDisplay(
+        "Picked claude-opus-5-5 on a (hard; effort high). Started claude-opus-5-5 on b.",
+      ),
+    ).toEqual({ name: "Opus 5.5", effort: "High", mark: "claude" });
+  });
+  it("shows no model when T3 started a different one, so the note stays visible", () => {
+    expect(
+      cloudAgentModelDisplay(
+        "Picked claude-sonnet-5-5 on a (hard; effort high). Requested claude-sonnet-5-5 on a, T3 started claude-opus-5-5 on b.",
+      ),
+    ).toBeUndefined();
+  });
   it("gives an unknown maker no mark, and a note without a pick nothing", () => {
     expect(cloudAgentModelDisplay("Picked mystery-model on a (ui).")).toEqual({
       name: "Mystery Model",

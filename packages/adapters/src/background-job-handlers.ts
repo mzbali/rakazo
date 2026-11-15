@@ -100,6 +100,8 @@ export function createBackgroundJobHandlers(deps: {
   notifications?: ExpoPushProvider;
   mediaGeneration?: MediaGenerationProvider;
   maxUploadSizeBytes?: number;
+  /** Lets finished jobs show proof from private repositories. */
+  cloudAgentGithubToken?: string;
 }): BackgroundJobHandlers {
   const delivery = deps.messagingDelivery;
   const run = ({ runId }: { runId: string }) =>
@@ -227,6 +229,7 @@ export function createBackgroundJobHandlers(deps: {
           cloudAgent: deps.cloudAgent,
           userCloudAgents: deps.userCloudAgents,
           artifacts: deps.artifacts,
+          githubToken: deps.cloudAgentGithubToken,
         },
         payload,
       );

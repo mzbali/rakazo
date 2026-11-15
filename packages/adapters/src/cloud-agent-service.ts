@@ -56,6 +56,7 @@ export interface CloudAgentDeps {
   /** Where a finished job's screenshots are kept; without it the card shows none. */
   artifacts?: CloudAgentProofDeps["artifacts"];
   proofEgress?: CloudAgentProofDeps["proofEgress"];
+  githubToken?: CloudAgentProofDeps["githubToken"];
 }
 
 /** A bot runs at most this many requests at once; later ones wait their turn in order. */

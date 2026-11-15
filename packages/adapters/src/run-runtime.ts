@@ -58,6 +58,8 @@ export interface RunRuntimeEnv extends PipedreamEnvironmentValues {
   dataDir: string;
   composioApiKey: string | undefined;
   cursorApiKey: string | undefined;
+  /** Read-only token for proof from private repositories; unset keeps public repositories only. */
+  cloudAgentGithubToken?: string;
   deploymentModelKey: string | undefined;
   deploymentModelConfigured: boolean;
   /** The deployment model, which judges ambient team-chat messages unless overridden. */
@@ -87,6 +89,7 @@ export function runRuntimeEnvFromProcess(source: NodeJS.ProcessEnv): RunRuntimeE
     encryptionKey: resolveEncryptionKey(source),
     composioApiKey: source.COMPOSIO_API_KEY,
     cursorApiKey: source.CURSOR_API_KEY,
+    cloudAgentGithubToken: source.CLOUD_AGENT_GITHUB_TOKEN?.trim() || undefined,
     deploymentModelKey: deploymentModel.key,
     deploymentModelConfigured: deploymentModel.configured,
     defaultProvider: deploymentModel.provider,
@@ -296,6 +299,7 @@ export function createRunRuntime(
     paymentWallet: deps.paymentWallet,
     mediaGeneration: deps.mediaGeneration,
     maxUploadSizeBytes: env.maxUploadSizeBytes,
+    cloudAgentGithubToken: env.cloudAgentGithubToken,
   });
   return { runtime, executor, jobHandlers, messagingDelivery, teamChat };
 }

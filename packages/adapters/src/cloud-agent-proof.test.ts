@@ -1,7 +1,9 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import type { CloudAgent } from "@rakazo/db";
 import { describe, expect, it } from "vitest";
+import { USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
 import {
+  CHECKS_REFRESH_WITH_TOKEN_MS,
   checksFromRuns,
   parseGithubPullRequest,
   refreshCloudAgentProof,
@@ -34,6 +36,7 @@ function setup(routes: Record<string, () => Response>, initial: Partial<CloudAge
     botId: "bot",
     status: "running",
     prUrl: PR,
+    providerKey: "deployment",
     proofImages: null,
     checksState: null,
     checksAt: null,
@@ -178,6 +181,153 @@ describe("a finished job's proof", () => {
       snapshot,
       context,
       new Date(now.getTime() + 6 * 60_000),
+    );
+    expect(requested.length).toBeGreaterThan(reads);
+  });
+});
+
+describe("a private repository's proof", () => {
+  const blob = (name: string) =>
+    `https://github.com/acme/app/blob/pr-assets/pr-7/abc123/${name}.png?raw=true`;
+  const contents = "https://api.github.com/repos/acme/app/contents/";
+
+  /** Records the authorization header of every request, by host. */
+  function withAuth(routes: Record<string, () => Response>, initial: Partial<CloudAgent> = {}) {
+    const made = setup(routes, initial);
+    const auth: Array<{ host: string; authorization: string | null }> = [];
+    const inner = made.deps.proofEgress.fetch;
+    made.deps.proofEgress.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      auth.push({
+        host: new URL(String(input)).hostname,
+        authorization: new Headers(init?.headers).get("authorization"),
+      });
+      return inner(input, init);
+    }) as typeof fetch;
+    return { ...made, auth };
+  }
+
+  const privateRoutes = () => ({
+    ...github(),
+    [`${api}/pulls/7`]: json({
+      body: `![a](${blob("home")}) ![b](${asset("public")})`,
+      head: { sha: "a".repeat(40) },
+    }),
+    [`${api}/issues/7/comments`]: json([]),
+    [contents]: () => new Response(PNG),
+  });
+
+  it("sends the token to api.github.com only, and reads blob links through the contents API", async () => {
+    const { row, deps, auth, requested } = withAuth(privateRoutes());
+    await refreshCloudAgentProof(
+      { ...deps, githubToken: "secret-token" },
+      row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(storedProofImages(row).map((image) => image.source)).toEqual([
+      blob("home").replace("?raw=true", ""),
+      asset("public"),
+    ]);
+    expect(requested).toContain(`${contents}pr-7/abc123/home.png?ref=pr-assets`);
+    expect(auth.length).toBeGreaterThan(3);
+    for (const { host, authorization } of auth)
+      expect(authorization).toBe(host === "api.github.com" ? "Bearer secret-token" : null);
+    expect(auth.some((call) => call.host === "raw.githubusercontent.com")).toBe(true);
+  });
+
+  it("changes nothing without a token: no header, blob links ignored", async () => {
+    const { row, deps, auth, requested } = withAuth(privateRoutes());
+    await refreshCloudAgentProof(deps, row, { status: "finished", prUrl: PR }, context);
+    expect(storedProofImages(row).map((image) => image.source)).toEqual([asset("public")]);
+    expect(requested.some((url) => url.startsWith(contents))).toBe(false);
+    expect(auth.every((call) => call.authorization === null)).toBe(true);
+  });
+
+  it("recognises only the pull request's own blob links, and only for private repositories", () => {
+    const text = [
+      blob("home"),
+      "https://github.com/other/app/blob/pr-assets/pr-7/x/home.png?raw=true",
+      "https://github.com/acme/app/blob/main/logo.png?raw=true",
+      "https://github.com/acme/app/pull/7",
+    ].join("\n");
+    expect(trustedImageUrls(text, repo)).toEqual([]);
+    expect(trustedImageUrls(text, repo, true)).toEqual([blob("home").replace("?raw=true", "")]);
+  });
+
+  it("never uses the deployment's token for a user-connected provider's job", async () => {
+    const { row, deps, auth } = withAuth(privateRoutes(), {
+      providerKey: `${USER_CLOUD_AGENT_KEY_PREFIX}abc`,
+    });
+    await refreshCloudAgentProof(
+      { ...deps, githubToken: "secret-token" },
+      row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(auth.length).toBeGreaterThan(0);
+    expect(auth.every((call) => call.authorization === null)).toBe(true);
+    expect(storedProofImages(row).map((image) => image.source)).toEqual([asset("public")]);
+  });
+
+  it("reads the CI result from workflow runs with a token, falling back to check runs", async () => {
+    const runs = `${api}/actions/runs?head_sha=${"a".repeat(40)}&per_page=30`;
+    const failing = setup({
+      ...github(),
+      [runs]: json({ workflow_runs: [{ status: "completed", conclusion: "failure" }] }),
+    });
+    await refreshCloudAgentProof(
+      { ...failing.deps, githubToken: "t" },
+      failing.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(failing.row.checksState).toBe("failing");
+
+    // A page of runs over the usual JSON limit still reads.
+    const big = setup({
+      ...github(),
+      [runs]: json({
+        workflow_runs: [{ status: "completed", conclusion: "success", pad: "x".repeat(600_000) }],
+      }),
+    });
+    await refreshCloudAgentProof(
+      { ...big.deps, githubToken: "t" },
+      big.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(big.row.checksState).toBe("passing");
+    expect(failing.requested.some((url) => url.includes("/check-runs"))).toBe(false);
+
+    // The token cannot read workflow runs here, so check runs answer.
+    const denied = setup({ ...github(), [runs]: () => new Response("no", { status: 403 }) });
+    await refreshCloudAgentProof(
+      { ...denied.deps, githubToken: "t" },
+      denied.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(denied.row.checksState).toBe("passing");
+
+    // Without a token, check runs only, as before.
+    const none = setup(github());
+    await refreshCloudAgentProof(none.deps, none.row, { status: "finished", prUrl: PR }, context);
+    expect(none.requested.some((url) => url.includes("/actions/runs"))).toBe(false);
+  });
+
+  it("reads a running job's checks more often with a token", async () => {
+    const now = new Date("2026-11-15T12:00:00Z");
+    const { row, deps, requested } = setup(github([{ status: "in_progress" }]));
+    const withToken = { ...deps, githubToken: "t" };
+    const snapshot = { status: "running" as const, prUrl: PR };
+    await refreshCloudAgentProof(withToken, row, snapshot, context, now);
+    const reads = requested.length;
+    await refreshCloudAgentProof(
+      withToken,
+      row,
+      snapshot,
+      context,
+      new Date(now.getTime() + CHECKS_REFRESH_WITH_TOKEN_MS + 1),
     );
     expect(requested.length).toBeGreaterThan(reads);
   });

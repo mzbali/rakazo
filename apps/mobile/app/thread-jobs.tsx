@@ -3,6 +3,7 @@ import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
+import { SheetCloseButton } from "../components/sheet-close-button";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
 import { hapticSelection } from "../lib/haptics";
@@ -22,6 +23,23 @@ export default function ThreadJobsSheet() {
       style={{ backgroundColor: native.groupedPage }}
       contentContainerStyle={{ padding: 20, paddingTop: 24, gap: 4 }}
     >
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 8,
+          paddingBottom: 8,
+        }}
+      >
+        <Text
+          accessibilityRole="header"
+          style={{ color: tokens.foreground, ...typeScale.cardTitle }}
+        >
+          {t`Jobs in this chat`}
+        </Text>
+        <SheetCloseButton onPress={() => router.back()} />
+      </View>
       {active.length === 0 ? (
         <Text
           style={{ color: tokens.mutedForeground, textAlign: "center", ...typeScale.secondary }}

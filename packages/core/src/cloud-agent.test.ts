@@ -217,19 +217,16 @@ describe("cloud agent clock", () => {
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app")).toBeUndefined();
     expect(cloudAgentPullRequestNumber("http://github.com/acme/app/pull/12")).toBeUndefined();
   });
-  it("lists what the pull request line says after the number", () => {
-    expect(cloudAgentPullRequestParts({ checks: "running", watching: true })).toEqual([
-      "checksRunning",
-      "watching",
-    ]);
+  it("lists what a job says beside its pull request number", () => {
+    expect(cloudAgentPullRequestParts({ checks: "running" })).toEqual(["checksRunning"]);
     expect(cloudAgentPullRequestParts({ checks: "failing" })).toEqual(["checksFailing"]);
     expect(cloudAgentPullRequestParts({})).toEqual([]);
-    // Once it landed, old checks and the watch no longer say anything.
-    expect(
-      cloudAgentPullRequestParts({ prState: "merged", checks: "passing", watching: true }),
-    ).toEqual(["merged"]);
+    // Once it landed, old checks no longer say anything.
+    expect(cloudAgentPullRequestParts({ prState: "merged", checks: "passing" })).toEqual([
+      "merged",
+    ]);
   });
-  it("counts the thread's work by kind and its watched pull requests from two", () => {
+  it("counts the thread's work by kind and the pull requests it watches", () => {
     const pr = (number: number, watching = true, state = "open" as const) => ({
       url: `https://github.com/acme/app/pull/${number}`,
       number,
@@ -248,11 +245,12 @@ describe("cloud agent clock", () => {
       { kind: "command", count: 1 },
       { kind: "watchedPr", count: 3 },
     ]);
-    // One watched pull request is the pull request line's, and a landed one is not watched.
-    expect(cloudAgentWorkParts({ pullRequests: [pr(1)] })).toEqual([]);
-    expect(cloudAgentWorkParts({ pullRequests: [pr(1), pr(2, true, "merged" as never)] })).toEqual(
-      [],
-    );
+    // A landed pull request is not watched; a job that says it watches counts one at least.
+    expect(cloudAgentWorkParts({ pullRequests: [pr(1)] })).toEqual([
+      { kind: "watchedPr", count: 1 },
+    ]);
+    expect(cloudAgentWorkParts({ pullRequests: [pr(2, true, "merged" as never)] })).toEqual([]);
+    expect(cloudAgentWorkParts({ watching: true })).toEqual([{ kind: "watchedPr", count: 1 }]);
   });
   it("keeps only well formed work and pull requests from the row", () => {
     const block = cloudAgentBlockFromPayload({

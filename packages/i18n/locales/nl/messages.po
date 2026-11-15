@@ -97,7 +97,7 @@ msgstr "{0, plural, one {Wachten op aanmelding — de link verloopt over ongevee
 
 #. placeholder {0}: part.count
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "{0, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
 msgstr ""
 
 #. placeholder {0}: file.name
@@ -297,7 +297,7 @@ msgid "{count, plural, one {# subagent} other {# subagents}}"
 msgstr ""
 
 #: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
 msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
@@ -2469,31 +2469,19 @@ msgstr "Verbinding controleren…"
 msgid "Checking…"
 msgstr "Bezig met controleren…"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks failing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks passing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks running"
-msgstr ""
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
 msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
@@ -2711,7 +2699,7 @@ msgstr "Gebruikersinstellingen sluiten"
 msgid "Close voice settings"
 msgstr "Steminstellingen sluiten"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
@@ -6727,7 +6715,7 @@ msgstr "Noemt OpenClaw-functies"
 msgid "Mentions: {mentions}"
 msgstr "Noemt: {mentions}"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
@@ -8213,10 +8201,6 @@ msgstr "Plaats een chatbericht wanneer een controle geen wijzigingen vindt. De r
 #. placeholder {0}: pr.number
 #: apps/mobile/components/job-work.tsx
 msgid "PR #{0}"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
-msgid "PR #{number}"
 msgstr ""
 
 #: apps/mobile/components/job-row.tsx
@@ -11626,9 +11610,7 @@ msgstr "Wekken"
 msgid "Wallet"
 msgstr "Wallet"
 
-#: apps/mobile/components/job-pr-line.tsx
 #: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
 msgid "watching"
 msgstr ""
 

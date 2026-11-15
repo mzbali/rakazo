@@ -64,10 +64,8 @@ function PullRequestPart({ part }: { part: CloudAgentPullRequestPart }) {
       return <Trans>checks running</Trans>;
     case "checksPassing":
       return <Trans>checks passing</Trans>;
-    case "checksFailing":
-      return <Trans>checks failing</Trans>;
     default:
-      return <Trans>watching</Trans>;
+      return <Trans>checks failing</Trans>;
   }
 }
 
@@ -82,7 +80,7 @@ function WorkPart({ part }: { part: CloudAgentWorkPart }) {
     case "background_task":
       return <Plural value={part.count} one="# background task" other="# background tasks" />;
     default:
-      return <Plural value={part.count} one="watching # PR" other="watching # PRs" />;
+      return <Plural value={part.count} one="watching PR" other="watching # PRs" />;
   }
 }
 

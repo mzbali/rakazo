@@ -97,8 +97,8 @@ msgstr "{0, plural, one {Waiting for sign-in — the link expires in about # min
 
 #. placeholder {0}: part.count
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "{0, plural, one {watching # PR} other {watching # PRs}}"
-msgstr "{0, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr "{0, plural, one {watching PR} other {watching # PRs}}"
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -297,8 +297,8 @@ msgid "{count, plural, one {# subagent} other {# subagents}}"
 msgstr "{count, plural, one {# subagent} other {# subagents}}"
 
 #: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {watching # PR} other {watching # PRs}}"
-msgstr "{count, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr "{count, plural, one {watching PR} other {watching # PRs}}"
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -2469,32 +2469,20 @@ msgstr "Checking connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks failing"
 msgstr "checks failing"
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr "Checks failing"
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks passing"
 msgstr "checks passing"
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr "Checks passing"
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks running"
 msgstr "checks running"
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
-msgstr "Checks running"
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -2711,7 +2699,7 @@ msgstr "Close user settings"
 msgid "Close voice settings"
 msgstr "Close voice settings"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
@@ -6727,7 +6715,7 @@ msgstr "Mentions OpenClaw features"
 msgid "Mentions: {mentions}"
 msgstr "Mentions: {mentions}"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
@@ -8214,10 +8202,6 @@ msgstr "Post a chat message when a check finds no changes. The routine won't run
 #: apps/mobile/components/job-work.tsx
 msgid "PR #{0}"
 msgstr "PR #{0}"
-
-#: apps/mobile/components/job-pr-line.tsx
-msgid "PR #{number}"
-msgstr "PR #{number}"
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -11626,9 +11610,7 @@ msgstr "Wake"
 msgid "Wallet"
 msgstr "Wallet"
 
-#: apps/mobile/components/job-pr-line.tsx
 #: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
 msgid "watching"
 msgstr "watching"
 

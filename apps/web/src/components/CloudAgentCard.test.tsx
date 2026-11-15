@@ -132,7 +132,11 @@ it("shows one pull request line with the checks and the watch, and merged when i
     checks: "running" as const,
     watching: true,
   };
-  expect((await render(watched)).textContent).toContain("PR #72checks runningwatching");
+  const watchedText = (await render(watched)).textContent;
+  expect(watchedText).toContain("PR #72checks running");
+  // Watching is said once, in the activity line, and the pull request number once.
+  expect(watchedText).toContain("watching PR");
+  expect(watchedText?.match(/PR #72/g)).toHaveLength(1);
   const landed = { ...watched, status: "finished" as const, prState: "merged" as const };
   const text = (await render({ ...landed, watching: undefined })).textContent;
   expect(text).toContain("PR #72merged");

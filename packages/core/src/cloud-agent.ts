@@ -170,16 +170,14 @@ export type CloudAgentPullRequestPart =
   | "closed"
   | "checksRunning"
   | "checksPassing"
-  | "checksFailing"
-  | "watching";
+  | "checksFailing";
 
 /**
- * What the card's one pull request line says after "PR #12", in order: that it landed or was
- * closed, or else how its checks stand and whether the agent is still watching it. Each surface
- * gives the parts its own translated words.
+ * What a job says beside its "PR #12": that it landed or was closed, or else how its checks
+ * stand. Each surface gives the part its own translated words. Watching is the activity line's.
  */
 export function cloudAgentPullRequestParts(
-  job: Pick<CloudAgentBlock, "prState" | "checks" | "watching">,
+  job: Pick<CloudAgentBlock, "prState" | "checks">,
 ): CloudAgentPullRequestPart[] {
   if (job.prState) return [job.prState];
   const checks: Record<string, CloudAgentPullRequestPart> = {
@@ -187,10 +185,7 @@ export function cloudAgentPullRequestParts(
     failing: "checksFailing",
     running: "checksRunning",
   };
-  const parts: CloudAgentPullRequestPart[] = [];
-  if (job.checks) parts.push(checks[job.checks]!);
-  if (job.watching) parts.push("watching");
-  return parts;
+  return job.checks ? [checks[job.checks]!] : [];
 }
 
 export type CloudAgentWorkPart = {
@@ -202,18 +197,17 @@ const WORK_ORDER = ["subagent", "command", "monitor", "background_task"] as cons
 
 /**
  * What the card's second line counts: the thread's background work by kind, then the pull
- * requests it watches. One watched pull request is the pull request line's, so it counts only
- * from two.
+ * requests it watches (one at least, when the job says it watches but the list is not known).
  */
 export function cloudAgentWorkParts(
-  job: Pick<CloudAgentBlock, "work" | "pullRequests">,
+  job: Pick<CloudAgentBlock, "work" | "pullRequests" | "watching">,
 ): CloudAgentWorkPart[] {
   const parts: CloudAgentWorkPart[] = WORK_ORDER.map((kind) => ({
     kind,
     count: (job.work ?? []).filter((item) => item.kind === kind).length,
   }));
   const watched = (job.pullRequests ?? []).filter((pr) => pr.watching && pr.state === "open");
-  parts.push({ kind: "watchedPr", count: watched.length > 1 ? watched.length : 0 });
+  parts.push({ kind: "watchedPr", count: Math.max(watched.length, job.watching ? 1 : 0) });
   return parts.filter((part) => part.count > 0);
 }
 

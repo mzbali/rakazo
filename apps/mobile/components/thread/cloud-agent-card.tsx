@@ -21,7 +21,6 @@ import { phaseCounts } from "../../lib/job-format";
 import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
-import { JobPrLine } from "../job-pr-line";
 import { JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
@@ -238,7 +237,6 @@ export function CloudAgentCards({
                             }}
                           />
                         ) : null}
-                        {links.pr ? <JobPrLine job={job} /> : null}
                         <JobWorkLine job={job} />
                       </>
                     ) : undefined

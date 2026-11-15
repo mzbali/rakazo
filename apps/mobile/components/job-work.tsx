@@ -27,7 +27,7 @@ export function JobWorkLine({ job }: { job: JobWork }) {
       case "background_task":
         return t`${plural(count, { one: "# background task", other: "# background tasks" })}`;
       default:
-        return t`${plural(count, { one: "watching # PR", other: "watching # PRs" })}`;
+        return t`${plural(count, { one: "watching PR", other: "watching # PRs" })}`;
     }
   };
   return (

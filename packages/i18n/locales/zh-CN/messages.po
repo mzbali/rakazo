@@ -97,7 +97,7 @@ msgstr "{0, plural, one {正在等待登录，链接大约 # 分钟后过期。}
 
 #. placeholder {0}: part.count
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "{0, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
 msgstr ""
 
 #. placeholder {0}: file.name
@@ -297,7 +297,7 @@ msgid "{count, plural, one {# subagent} other {# subagents}}"
 msgstr ""
 
 #: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {watching # PR} other {watching # PRs}}"
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
 msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
@@ -2469,31 +2469,19 @@ msgstr "正在检查连接…"
 msgid "Checking…"
 msgstr "正在检查…"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks failing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks passing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks running"
-msgstr ""
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
 msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
@@ -2711,7 +2699,7 @@ msgstr "关闭用户设置"
 msgid "Close voice settings"
 msgstr "关闭语音设置"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
@@ -6727,7 +6715,7 @@ msgstr "提到了 OpenClaw 功能"
 msgid "Mentions: {mentions}"
 msgstr "提到：{mentions}"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
@@ -8213,10 +8201,6 @@ msgstr "检查未发现变化时发送一条聊天消息。例行任务不会运
 #. placeholder {0}: pr.number
 #: apps/mobile/components/job-work.tsx
 msgid "PR #{0}"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
-msgid "PR #{number}"
 msgstr ""
 
 #: apps/mobile/components/job-row.tsx
@@ -11626,9 +11610,7 @@ msgstr "唤醒"
 msgid "Wallet"
 msgstr "钱包"
 
-#: apps/mobile/components/job-pr-line.tsx
 #: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
 msgid "watching"
 msgstr ""
 

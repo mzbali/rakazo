@@ -5,7 +5,6 @@ import {
   cloudAgentHttpsUrl,
   cloudAgentJobTone,
   cloudAgentModel,
-  cloudAgentModelLabel,
   cloudAgentPhase,
   cloudAgentProjectName,
   cloudAgentPullRequestNumber,
@@ -123,26 +122,21 @@ describe("cloud agent job summary", () => {
     expect(cloudAgentProjectName("http://git.example.com/acme/app")).toBeUndefined();
     expect(cloudAgentProjectName(undefined)).toBeUndefined();
   });
-  it("shortens a pick note to the model and the kind of work", () => {
-    expect(cloudAgentModelLabel("Picked claude-sonnet-5-5 on main (simple).")).toBe(
-      "Sonnet 5.5 · simple",
-    );
-    expect(cloudAgentModelLabel("Picked gpt-6-luna on box (hard; gpt-6-sol out of quota).")).toBe(
-      "GPT-6 Luna · hard",
-    );
-    expect(cloudAgentModel("Picked claude-opus-4-1-20250805 on a (normal).")).toEqual({
-      name: "Opus 4.1",
+  it("reads a pick note as the model's name and maker", () => {
+    expect(cloudAgentModel("Picked claude-sonnet-5-5 on main (simple).")).toEqual({
+      name: "Sonnet 5.5",
       family: "claude",
-      kind: "normal",
     });
-    expect(cloudAgentModel("Picked mystery-model on a (ui).")).toEqual({
-      name: "Mystery Model",
-      kind: "ui",
+    expect(cloudAgentModel("Picked gpt-6-luna on box (hard; gpt-6-sol out of quota).")).toEqual({
+      name: "GPT-6 Luna",
+      family: "gpt",
     });
-    expect(cloudAgentModelLabel("No simple route is available; the default was used.")).toBe(
-      undefined,
+    expect(cloudAgentModel("Picked claude-opus-4-1-20250805 on a (normal).")?.name).toBe(
+      "Opus 4.1",
     );
-    expect(cloudAgentModelLabel(undefined)).toBeUndefined();
+    expect(cloudAgentModel("Picked mystery-model on a (ui).")).toEqual({ name: "Mystery Model" });
+    expect(cloudAgentModel("No simple route is available; the default was used.")).toBeUndefined();
+    expect(cloudAgentModel(undefined)).toBeUndefined();
   });
 });
 

@@ -239,12 +239,12 @@ function modelName(id: string): string {
 }
 
 /**
- * The model and the kind of work from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
- * a readable name ("Sonnet 5.5"), the maker when known, and the first thing in the brackets.
+ * The model from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
+ * a readable name ("Sonnet 5.5") and the maker when known.
  */
 export function cloudAgentModel(
   note: string | undefined,
-): { name: string; family?: CloudAgentModelFamily; kind?: string } | undefined {
+): { name: string; family?: CloudAgentModelFamily } | undefined {
   const match = note?.match(/^Picked (\S+) on [^(]*\(([^;)]*)/);
   if (!match) return undefined;
   const id = match[1]!.toLowerCase();
@@ -255,14 +255,7 @@ export function cloudAgentModel(
     : /^(gpt|o\d|codex)/.test(id)
       ? "gpt"
       : undefined;
-  const kind = match[2]!.trim();
-  return { name, ...(family ? { family } : {}), ...(kind ? { kind } : {}) };
-}
-
-/** The model's readable name and the kind of work on one line: "Sonnet 5.5 · simple". */
-export function cloudAgentModelLabel(note: string | undefined): string | undefined {
-  const model = cloudAgentModel(note);
-  return model && (model.kind ? `${model.name} · ${model.kind}` : model.name);
+  return { name, ...(family ? { family } : {}) };
 }
 
 const CLOUD_AGENT_NOTE_MAX = 400;

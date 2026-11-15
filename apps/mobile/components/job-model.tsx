@@ -38,7 +38,7 @@ function ModelLogo({ family, size }: { family: Model["family"]; size: number }) 
   );
 }
 
-/** A job's model as T3's composer chip shows it: the maker's mark, then "Sonnet 5.5 · simple". */
+/** A job's model as T3's composer chip shows it: the maker's mark, then "Sonnet 5.5". */
 export function JobModel({ note }: { note: string | undefined }) {
   const tokens = mobileTokens();
   const model = cloudAgentModel(note);
@@ -50,7 +50,7 @@ export function JobModel({ note }: { note: string | undefined }) {
         numberOfLines={1}
         style={{ flexShrink: 1, color: tokens.mutedForeground, ...typeScale.footnote }}
       >
-        {model.kind ? `${model.name} · ${model.kind}` : model.name}
+        {model.name}
       </Text>
     </View>
   );

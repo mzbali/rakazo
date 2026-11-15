@@ -13,6 +13,7 @@ import type {
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
+import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
 
 /** T3 Code's thread tools, reached through the space's MCP connection as the requesting bot. */
 export interface T3CloudAgentOptions {
@@ -226,8 +227,6 @@ function quotaWait(resets: Array<number | undefined>, now: number, detail?: stri
   const note = `Waiting for quota${at ? ` until ${utcStamp(at, now)}` : ""}${detail ? `: ${detail}` : ""}.`;
   return new CloudAgentRetryLater("quota", wait, note);
 }
-const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
-
 /**
  * The provider link is Markdown or an autolink and contains the environment identity, as a
  * `t3-thread://` link or the web form `https://<host>/threads/<environment>/<thread>`.
@@ -473,12 +472,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status,
       ...(run ? { latestRunId: run.runId } : {}),
       cursor: next,
-      attention: state.pendingRequests.map((request) =>
-        attentionOf(
-          request.requestId,
-          request.kind,
-          request.threadId !== id ? request.threadId : undefined,
-        ),
+      attention: await Promise.all(
+        state.pendingRequests.map(async (request) => ({
+          ...attentionOf(
+            request.requestId,
+            request.kind,
+            request.threadId !== id ? request.threadId : undefined,
+          ),
+          ...(hold && request.kind === "user_input"
+            ? await this.questionFor(request.threadId, request.requestId, context)
+            : {}),
+        })),
       ),
       missedAttention,
       historyGap,
@@ -545,6 +549,20 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return { text, complete };
   }
 
+  /** The options for the card's answer buttons; a question that cannot be read still shows as one. */
+  private async questionFor(threadId: string, requestId: string, context: AdapterContext) {
+    try {
+      const question = questionOf(
+        await this.call("t3_pending_request", { action: "read", threadId, requestId }, context),
+      );
+      return question ? { question } : {};
+    } catch (error) {
+      if (error instanceof CloudAgentRetryLater || error instanceof CloudAgentRequestRejected)
+        return {};
+      throw error;
+    }
+  }
+
   /** The current state without moving the poller's cursor or hold. */
   private async peek(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
     // Past the head and without the hold: only `state` is read, and the poller's cursor stays put.
@@ -587,7 +605,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
             action: "respond",
             threadId,
             requestId: request.questionId,
-            answers: Object.fromEntries(questions.map((question) => [question.id, request.prompt])),
+            answers: Object.fromEntries(
+              questions.map((question) => [question.id, answerFor(question, request.prompt)]),
+            ),
           },
           context,
         );

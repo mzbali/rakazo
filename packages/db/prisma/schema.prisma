@@ -1432,6 +1432,12 @@ model CloudAgent {
   followupBrief       String?
   /// What the owner has to decide after a verdict other than accepted; cleared when new work starts.
   ownerQuestion       String?
+  /// The provider's open question as JSON ({ requestId, text?, options }), for the card's answer buttons; cleared once it closes.
+  questionPrompt      String?
+  /// What the owner answered from the card, shown once while the job goes on.
+  ownerAnswer         String?
+  /// When the owner last sent the job an instruction from its card.
+  steeredAt           DateTime?
   /// The bot's run that messaged or is waiting on this agent's thread; it reports the result itself while it runs.
   waitingRunId        String?
   /// The earlier attempt this one replaces: the same request launched again after that one failed to start.

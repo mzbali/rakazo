@@ -155,6 +155,20 @@ const CloudAgentFields = z.object({
   projectName: z.string().optional(),
   /** A decision the owner has to make before the job can go on. */
   ownerQuestion: z.string().optional(),
+  /** The provider's open question with the answers it offers, the recommended one first; the card turns them into buttons. */
+  question: z
+    .object({
+      requestId: z.string(),
+      text: z.string().optional(),
+      options: z.array(z.object({ label: z.string(), recommended: z.boolean().optional() })),
+      /** False when only the offered options may be chosen. */
+      allowCustomAnswer: z.boolean().optional(),
+    })
+    .optional(),
+  /** What the owner answered from the card; shown while the job goes on. */
+  answered: z.string().optional(),
+  /** ISO time the owner last sent the job an instruction from its card. */
+  steeredAt: z.string().optional(),
   /** The launch itself was refused, so no remote work ever started and nothing waits on the owner. */
   launchFailed: z.boolean().optional(),
   /** Why the provider refused the launch or ended the work, when it said. */
@@ -190,6 +204,9 @@ export const CloudAgentDetailSchema = z.object({
   brief: z.string().optional(),
   result: z.string().optional(),
 });
+/** The outcome of an owner's action on a job; `duplicate` means this tap was already accepted. */
+export const CloudAgentOwnerActionSchema = z.object({ duplicate: z.boolean() });
+
 export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [

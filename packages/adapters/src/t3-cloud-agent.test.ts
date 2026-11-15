@@ -9,6 +9,7 @@ import {
   t3DirectThread,
   t3WatchedThread,
 } from "./t3-cloud-agent.js";
+import { questionOf } from "./t3-pending-question.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -298,17 +299,53 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     // The last page's state repeats, with nothing new: a finished thread is read twice before it
     // counts as stopped.
     const last = pages.at(-1)!;
-    const t3 = server({ t3_thread_events: () => pages.shift() ?? { ...last, events: [] } });
+    const t3 = server({
+      t3_thread_events: () => pages.shift() ?? { ...last, events: [] },
+      // The shape t3_pending_request returns: the recommended option first, marked in its label.
+      t3_pending_request: () => ({
+        requestId: "q1",
+        questions: [
+          {
+            id: "branch",
+            header: "Branch",
+            question: "Which branch should ship?",
+            options: [
+              { label: "main (Recommended)", description: "The default branch" },
+              { label: "release", description: "The release branch", value: "release/4" },
+              { label: "hotfix", description: "" },
+            ],
+            allowCustomAnswer: false,
+          },
+        ],
+      }),
+    });
     const snapshot = await t3.provider.get("thread:1", context, undefined, 1);
     expect(snapshot).toMatchObject({
       status: "failed",
       latestRunId: "run:2",
       cursor: 7,
       historyGap: false,
-      attention: [{ requestId: "q1", kind: "question", threadId: "child" }],
+      attention: [
+        {
+          requestId: "q1",
+          kind: "question",
+          threadId: "child",
+          question: {
+            text: "Which branch should ship?",
+            options: [
+              { label: "main", recommended: true },
+              { label: "release" },
+              { label: "hotfix" },
+            ],
+            allowCustomAnswer: false,
+          },
+        },
+      ],
       missedAttention: [{ requestId: "q0", kind: "question" }],
     });
-    expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7]);
+    // The last call reads the question's options.
+    expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7, undefined]);
+    expect(t3.calls.at(-1)).toMatchObject({ args: { action: "read", requestId: "q1" } });
     expect(t3.calls[0]!.args.retain).toEqual({ key: "hold" });
 
     // A finished thread with more events than one poll reads stays running until they are read.
@@ -355,6 +392,39 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       requestId: "q1",
       answers: { color: "Blue" },
     });
+
+    // An offered option goes in as T3 matches it: its value, else its label as T3 wrote it.
+    const choice = server({
+      t3_pending_request: (args) =>
+        args.action === "read"
+          ? {
+              requestId: "q1",
+              questions: [
+                {
+                  id: "branch",
+                  header: "Branch",
+                  question: "Which branch?",
+                  options: [
+                    { label: "main (Recommended)", description: "" },
+                    { label: "release", description: "", value: "release/4" },
+                  ],
+                },
+                {
+                  id: "tags",
+                  header: "Tags",
+                  question: "Which tags?",
+                  options: [{ label: "a", description: "" }],
+                  multiSelect: true,
+                },
+              ],
+            }
+          : { sequence: 1 },
+      t3_thread_events: () => state(),
+    });
+    await choice.provider.reply("thread:1", { prompt: "main", questionId: "q1" }, context);
+    expect(choice.calls[1]!.args.answers).toEqual({ branch: "main (Recommended)", tags: ["main"] });
+    await choice.provider.reply("thread:1", { prompt: "release", questionId: "q1" }, context);
+    expect(choice.calls[4]!.args.answers).toMatchObject({ branch: "release/4" });
 
     const answered = server(
       { t3_thread_events: () => state() },
@@ -590,5 +660,43 @@ describe("T3 launch model reporting", () => {
     const handle = await t3.provider.launch(request, context);
     expect(t3.calls.map((call) => call.tool)).toContain("t3_thread_read");
     expect(handle.launchNote).toBe("Started claude-sonnet-5-5 on claudeAgent_pool_ab.");
+  });
+});
+
+describe("the card's view of a pending question", () => {
+  const option = (label: string) => ({ label, description: "" });
+  it("offers one-tap answers only for a single-choice question, the recommended one marked once", () => {
+    expect(
+      questionOf({
+        requestId: "q",
+        questions: [
+          {
+            id: "a",
+            header: "H",
+            question: "Pick",
+            options: [option("Yes (Recommended)"), option("No")],
+          },
+        ],
+      }),
+    ).toEqual({
+      text: "Pick",
+      options: [{ label: "Yes", recommended: true }, { label: "No" }],
+    });
+    const many = questionOf({
+      requestId: "q",
+      questions: [
+        { id: "a", header: "H", question: "One", options: [option("x")] },
+        { id: "b", header: "H", question: "Two", options: [option("y")] },
+      ],
+    });
+    expect(many?.options).toEqual([]);
+    const multi = questionOf({
+      requestId: "q",
+      questions: [
+        { id: "a", header: "H", question: "Pick", options: [option("x")], multiSelect: true },
+      ],
+    });
+    expect(multi?.options).toEqual([]);
+    expect(questionOf({ questions: [] })).toBeUndefined();
   });
 });

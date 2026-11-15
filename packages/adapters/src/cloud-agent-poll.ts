@@ -219,9 +219,10 @@ export async function pollCloudAgent(
         // A goal's follow-up is dropped if the owner stops the goal first: a continuation's also
         // if that continuation was superseded (`goalRunId`), the reconciler's own (`goalGate`)
         // once its goal no longer drives the agent.
-        const { goalRunId, goalGate, ...followup } = agent.followup as {
+        const { goalRunId, goalGate, steerKey, ...followup } = agent.followup as {
           goalRunId?: string;
           goalGate?: string;
+          steerKey?: string;
         };
         const goal =
           goalRunId || goalGate
@@ -258,7 +259,8 @@ export async function pollCloudAgent(
               ...(question
                 ? { questionId: question.requestId, questionThreadId: question.threadId }
                 : {}),
-              idempotencyKey: `${agent.id}:${agent.generation}`,
+              // An owner's instruction keeps its own key: two of them in one generation are two messages.
+              idempotencyKey: steerKey ?? `${agent.id}:${agent.generation}`,
             },
             context,
           );
@@ -267,6 +269,7 @@ export async function pollCloudAgent(
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
             ...snapshotData(snapshot),
+            ...(steerKey ? { steeredAt: new Date() } : {}),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
@@ -357,13 +360,27 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
     ...(snapshot.attention !== undefined
       ? {
+          // The question's words are content, so they live in their own sealed column.
           attention: snapshot.attention.length
-            ? (snapshot.attention as unknown as Prisma.InputJsonValue)
+            ? (snapshot.attention.map(
+                ({ question: _question, ...item }) => item,
+              ) as Prisma.InputJsonValue)
             : Prisma.DbNull,
+          questionPrompt: questionPromptOf(snapshot.attention),
+          // An answer is shown while the job goes on, and gone when the next question or the end comes.
+          ...(snapshot.attention.length || snapshot.status !== "running"
+            ? { ownerAnswer: null }
+            : {}),
         }
       : {}),
     ...(snapshot.historyGap ? { historyGapAt: new Date() } : {}),
   };
+}
+
+/** The open question's id, words and options for the card, or nothing once none is open. */
+function questionPromptOf(attention: CloudAgentAttention[]) {
+  const open = attention.find((item) => item.kind === "question" && item.question);
+  return open ? JSON.stringify({ requestId: open.requestId, ...open.question }) : null;
 }
 
 /** The provider's own reason travels with the terminal status, so the bot can say why. */

@@ -1,10 +1,29 @@
 import { ORPCError } from "@orpc/server";
-import { cloudAgentBlock, previousAttempts } from "@rakazo/adapters";
+import {
+  answerCloudAgentQuestion,
+  CloudAgentOwnerActionError,
+  cloudAgentBlock,
+  previousAttempts,
+  steerCloudAgent,
+  stopCloudAgent,
+} from "@rakazo/adapters";
 import type { RouterContext } from "./context.js";
 
 const JOBS_LIMIT = 100;
 const DETAIL_TEXT_MAX = 6000;
 type JobRecord = Parameters<typeof cloudAgentBlock>[0] & { botId: string; threadId: string };
+
+/** A refused owner action reads as a plain message; a job that is not theirs is simply not found. */
+async function ownerAction<T>(run: () => Promise<T>) {
+  try {
+    return await run();
+  } catch (error) {
+    if (!(error instanceof CloudAgentOwnerActionError)) throw error;
+    throw new ORPCError(error.code === "not_found" ? "NOT_FOUND" : "CONFLICT", {
+      message: error.message,
+    });
+  }
+}
 
 export function cloudAgentsRoutes(ctx: RouterContext) {
   const { deps, authed } = ctx;
@@ -74,6 +93,15 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
           ...(agent.resultText ? { result: agent.resultText.slice(0, DETAIL_TEXT_MAX) } : {}),
         };
       }),
+      answer: authed.cloudAgents.answer.handler(({ context, input }) =>
+        ownerAction(() => answerCloudAgentQuestion(deps, context.actor, input)),
+      ),
+      steer: authed.cloudAgents.steer.handler(({ context, input }) =>
+        ownerAction(() => steerCloudAgent(deps, context.actor, input)),
+      ),
+      stop: authed.cloudAgents.stop.handler(({ context, input }) =>
+        ownerAction(() => stopCloudAgent(deps, context.actor, input)),
+      ),
     },
   };
 }

@@ -102,6 +102,51 @@ name: Request cards
     timeout: 3000
 - takeScreenshot: 05c-done-card-pr
 - scrollUntilVisible:
+    element: ".*Migrate the billing tests.*"
+    direction: UP
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05d-needs-you-answer-buttons
+- scrollUntilVisible:
+    element: ".*Add dark mode.*"
+    direction: DOWN
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "More options"
+    index: 0
+- extendedWaitUntil:
+    visible: "Stop job"
+    timeout: 8000
+- tapOn: "Stop job"
+- extendedWaitUntil:
+    visible: ".*Stop this job.*"
+    timeout: 8000
+- takeScreenshot: 05e-stop-confirm
+- tapOn: "Keep working"
+- waitForAnimationToEnd:
+    timeout: 3000
+- longPressOn:
+    text: ".*Add dark mode.*"
+- extendedWaitUntil:
+    visible: "Reply"
+    timeout: 8000
+- tapOn: "Reply"
+- extendedWaitUntil:
+    visible: ".*Sends to the job.*"
+    timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05f-reply-to-job
+- scrollUntilVisible:
     element: ".*Gmail.*"
     direction: UP
     timeout: 60000

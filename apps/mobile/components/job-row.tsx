@@ -130,9 +130,9 @@ export const JobRow = memo(function JobRow({
             {job.failureReason}
           </Text>
         ) : null}
-        {phase === "needsYou" && job.ownerQuestion ? (
+        {phase === "needsYou" && (job.ownerQuestion ?? job.question?.text) ? (
           <Text numberOfLines={3} style={{ color: tokens.warning, ...typeScale.footnote }}>
-            {job.ownerQuestion}
+            {job.ownerQuestion ?? job.question?.text}
           </Text>
         ) : null}
       </View>

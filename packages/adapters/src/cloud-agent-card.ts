@@ -31,6 +31,7 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
     // Refused before any remote work existed: there is nothing for the owner to open or answer.
     launchFailed: agent.status === "failed" && !agent.remoteId,
+    checks: agent.checksState,
     review,
     attempts: previous.map((attempt) => ({
       agentId: attempt.id,

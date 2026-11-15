@@ -33,6 +33,9 @@ describe("rosterChangeFor", () => {
     expect(rosterChangeFor(["threads", "markRead"], actor, { botId: "bot-1" }, undefined)).toEqual({
       userIds: ["user-1"],
     });
+    expect(
+      rosterChangeFor(["cloudAgents", "clear"], actor, { agentId: "agent-1" }, undefined),
+    ).toEqual({ userIds: ["user-1"] });
   });
 
   it("tells a named Space and the people it removes or admits", () => {

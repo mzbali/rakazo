@@ -20,6 +20,16 @@ name: Request cards
 - extendedWaitUntil:
     visible: ".*Add dark mode.*"
     timeout: 20000
+- openLink: "rakazo:///jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Fix the export button: needs input.*"
+    timeout: 20000
+- takeScreenshot: 07-jobs-list
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"
@@ -71,20 +81,10 @@ name: Request cards
     element: ".*Gmail.*"
     direction: UP
     timeout: 15000
-    visibilityPercentage: 100
+    visibilityPercentage: 1
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 06-app-connect
-- openLink: "rakazo:///jobs"
-- extendedWaitUntil:
-    visible: ".*Add dark mode.*"
-    timeout: 20000
-- waitForAnimationToEnd:
-    timeout: 3000
-- extendedWaitUntil:
-    visible: ".*Fix the export button: needs input.*"
-    timeout: 20000
-- takeScreenshot: 07-jobs-list
 - openLink: "rakazo:///job?agentId=ios-screenshot-job-finished"
 - extendedWaitUntil:
     visible: ".*Fix the export button.*"

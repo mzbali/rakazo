@@ -12,6 +12,7 @@ import { memo } from "react";
 import { Text, View } from "react-native";
 import { mobileTokens } from "../lib/appearance";
 import { useNow } from "../lib/job-format";
+import { JobModel } from "./job-model";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "./job-status";
 import { NativeSymbol } from "./native-symbol";
 
@@ -27,9 +28,12 @@ export type JobRowJob = Omit<CloudAgentJob, "botId" | "botName" | "threadId"> &
 export const JobRow = memo(function JobRow({
   job,
   chevron = false,
+  model = false,
 }: {
   job: JobRowJob;
   chevron?: boolean;
+  /** Adds the model, with its maker's mark, under the title. */
+  model?: boolean;
 }) {
   const { t } = useLingui();
   const tokens = mobileTokens();
@@ -115,6 +119,7 @@ export const JobRow = memo(function JobRow({
             {job.botName}
           </Text>
         ) : null}
+        {model ? <JobModel note={job.note} /> : null}
         {live && job.progress ? (
           <Text numberOfLines={3} style={muted}>
             {job.progress}

@@ -29,6 +29,7 @@ import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { CallKeyboardContext } from "../../lib/call-keyboard-context";
 import { useCallSession } from "../../lib/call-session";
 import { useCloudJobs } from "../../lib/cloud-jobs";
+import { refreshCloudJobs } from "../../lib/cloud-jobs-store";
 import { composerDraftScope } from "../../lib/composer-draft";
 import { useContentBottomInset } from "../../lib/content-bottom-inset";
 import { cronLabels } from "../../lib/cron";
@@ -536,14 +537,24 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const { jobs: cloudJobs } = useCloudJobs(!readOnly);
   const pill =
     workingBots.length > 0 || hasLiveProgress ? null : jobPill(cloudJobs, { botId, groupId });
+  // The cards come from the chat's own messages and the pill from the jobs list; read the list
+  // again whenever a card changes so the two never say different things.
+  const cardStates = (snap?.messages ?? [])
+    .flatMap((message) => message.blocks)
+    .flatMap((block) =>
+      block.kind === "cloud_agent"
+        ? [`${block.agentId}:${block.status}:${block.review ?? ""}:${block.needsInput ?? ""}`]
+        : [],
+    )
+    .join();
+  useEffect(() => {
+    if (cardStates) void refreshCloudJobs();
+  }, [cardStates]);
   const openPill = () => {
-    const { job } = pill ?? {};
-    if (!job) return;
-    if (job.messageId) {
-      void applyMessageJump({ botId, groupId, messageId: job.messageId }).catch(() => undefined);
-      return;
-    }
-    router.push({ pathname: "/job", params: { agentId: job.agentId } });
+    router.push({
+      pathname: "/thread-jobs",
+      params: groupId ? { groupId } : { botId },
+    });
   };
   const workingFooter = (
     <ThreadWorkingFooter

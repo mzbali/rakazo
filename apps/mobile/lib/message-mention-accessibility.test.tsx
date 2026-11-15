@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MobileSnapshot } from "./mobile-types";
 
+vi.mock("react-native-svg", () => ({ default: () => null, Path: () => null }));
 vi.mock("expo-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("./haptics", () => ({
   hapticImpact: vi.fn(),

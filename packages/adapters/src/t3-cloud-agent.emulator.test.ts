@@ -488,7 +488,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
         options: [{ id: "effort", value: "high" }],
       });
       expect(agent.launchNote).toMatch(
-        /^Picked model-2 on pool-b \(hard; model-1 out of quota until \d\d:\d\d UTC\)\.$|^Picked model-2 on pool-b \(hard; model-1 out of quota until \d{4}-\d\d-\d\d \d\d:\d\d UTC\)\.$/,
+        /^Picked model-2 on pool-b \(hard; model-1 out of quota until \d\d:\d\d UTC; effort high\)\.$|^Picked model-2 on pool-b \(hard; model-1 out of quota until \d{4}-\d\d-\d\d \d\d:\d\d UTC; effort high\)\.$/,
       );
     });
 

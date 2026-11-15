@@ -1,6 +1,6 @@
 import type { CloudAgentJob } from "@rakazo/contracts";
 import { expect, it } from "vitest";
-import { jobPill } from "./job-pill";
+import { activeChatJobs, jobPill } from "./job-pill";
 
 const job = (id: string, extra: Partial<CloudAgentJob> = {}): CloudAgentJob => ({
   agentId: id,
@@ -43,4 +43,25 @@ it("counts a finished job still being checked as working", () => {
     botId: "bot",
   });
   expect(pill).toMatchObject({ kind: "working", count: 1 });
+});
+
+it("counts a finished job that is still being checked, as its card says Checking", () => {
+  const pill = jobPill([job("a", { status: "finished", review: "checking" }), job("b")], {
+    botId: "bot",
+  });
+  expect(pill).toMatchObject({ kind: "working", count: 2 });
+});
+
+it("lists the jobs that need the owner first, then the oldest going", () => {
+  const jobs = [
+    job("late", { startedAt: "2026-11-15T10:10:00Z" }),
+    job("early", { startedAt: "2026-11-15T10:00:00Z" }),
+    job("asks", { startedAt: "2026-11-15T10:20:00Z", needsInput: true }),
+    job("over", { status: "finished" }),
+  ];
+  expect(activeChatJobs(jobs, { botId: "bot" }).map((item) => item.agentId)).toEqual([
+    "asks",
+    "early",
+    "late",
+  ]);
 });

@@ -733,7 +733,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           instanceId: route.instanceId,
           ...(route.options ? { options: route.options } : {}),
         },
-        note: `Picked ${route.model} on ${route.instanceId} (${[kind, ...why].join("; ")}).`,
+        note: `Picked ${route.model} on ${route.instanceId} (${[kind, ...why, ...(route.options ?? []).filter((option) => option.id === "effort").map((option) => `effort ${option.value}`)].join("; ")}).`,
       };
     }
     if (skipped.length)

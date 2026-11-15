@@ -731,6 +731,8 @@ export interface CloudAgentProvider {
     context: AdapterContext,
   ): Promise<CloudAgentHandle>;
   cancel(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
+  /** Marks accepted work as done in the provider's own list, for providers that keep one. */
+  settle?(id: string, context: AdapterContext): Promise<void>;
   /** The pull requests the agent's work opened, for providers that track them. */
   pullRequests?(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]>;
 }

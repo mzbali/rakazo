@@ -95,6 +95,7 @@ const launchSchema = z.object({
 const threadReadSchema = z.object({
   thread: z.object({ model: z.string().optional(), providerInstanceId: z.string().optional() }),
 });
+const titleSchema = z.object({ thread: z.object({ title: z.string().optional() }) });
 const pullRequestsSchema = z.object({
   thread: z.object({
     pullRequests: z
@@ -369,7 +370,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         ? `${chosen.note} ${startedText}`
         : chosen.note
       : startedText;
-    // The tag stays in T3's own title for the lookup above; the owner's card shows the label.
+    // The thread keeps the tag in its title until a poll has seen it, for the lookup above.
     return {
       id: launched.threadId,
       url: t3CanonicalLink(launched.link ?? "", launched.threadId),
@@ -380,13 +381,40 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     };
   }
 
+  /** Settles the thread in T3, so finished work leaves the owner's list. */
+  async settle(id: string, context: AdapterContext): Promise<void> {
+    await this.call("t3_thread_organize", { threadId: id, action: "settle" }, context, {
+      optional: true,
+    });
+  }
+
   async get(
     id: string,
     context: AdapterContext,
     _runId?: string,
     cursor = 0,
   ): Promise<CloudAgentSnapshot> {
-    return this.read(id, context, cursor, true);
+    // Once a poll sees the thread, the tag has done its job: T3 shows the card's title instead.
+    const snapshot = await this.read(id, context, cursor, true);
+    if (cursor === 0) await this.dropTitleTag(id, context).catch(() => undefined);
+    return snapshot;
+  }
+
+  /** Renames a thread still carrying the launch tag; a title anyone changed is left alone. */
+  private async dropTitleTag(id: string, context: AdapterContext) {
+    const read = titleSchema.parse(
+      await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
+    );
+    const label = /^(.*) · [\w-]{12,13}$/.exec(read.thread.title ?? "")?.[1];
+    if (label)
+      await this.call(
+        "t3_thread_update",
+        { threadId: id, action: "rename", title: label },
+        context,
+        {
+          optional: true,
+        },
+      );
   }
 
   private async read(

@@ -10,7 +10,7 @@ import type {
   NotificationMessage,
   NotificationProvider,
 } from "@rakazo/adapter-kit";
-import { CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -90,6 +90,13 @@ class ScriptedProvider implements CloudAgentProvider {
   }
   async cancel(id: string) {
     return this.get(id);
+  }
+  settled: string[] = [];
+  /** Makes settling fail the way a connection without the permission does. */
+  refuseSettle = false;
+  async settle(id: string) {
+    this.settled.push(id);
+    if (this.refuseSettle) throw new CloudAgentRequestRejected("invalid");
   }
 }
 
@@ -1176,6 +1183,59 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       ),
     ).toEqual({ error: "Already reported accepted for this work." });
     expect((await t.state(id)).verdict).toBe("accepted");
+  });
+
+  describe("settling accepted work", () => {
+    async function finished(
+      provider: ScriptedProvider,
+      status: "finished" | "failed" = "finished",
+    ) {
+      const t = await setup(provider);
+      const id = await t.launch(1);
+      await t.poll(id);
+      (await t.remote(id)).status = status;
+      await t.poll(id);
+      const report = (verdict: string) =>
+        runAsSystem("tool", () =>
+          reportCloudAgent(t.deps as never, t.context, t.run, {
+            id,
+            verdict,
+            summary: "Looked at it",
+            ...(verdict === "accepted" ? {} : { ownerQuestion: "Try again?" }),
+          }),
+        );
+      return { t, id, report };
+    }
+
+    it("settles the thread once, however often the verdict is repeated", async () => {
+      const provider = new ScriptedProvider();
+      const { id, report } = await finished(provider);
+      await report("accepted");
+      await report("accepted");
+      const { remoteId } = await prisma.cloudAgent.findUniqueOrThrow({ where: { id } });
+      expect(provider.settled).toEqual([remoteId]);
+    });
+
+    it("leaves rejected and needs-owner work, and a failed run, unsettled", async () => {
+      const provider = new ScriptedProvider();
+      const rejected = await finished(provider);
+      await rejected.report("rejected");
+      const needsOwner = await finished(provider);
+      await needsOwner.report("needs_owner");
+      const failed = await finished(provider, "failed");
+      expect((await failed.t.state(failed.id)).status).toBe("failed");
+      await failed.report("accepted");
+      expect(provider.settled).toEqual([]);
+    });
+
+    it("keeps the verdict when settling is refused", async () => {
+      const provider = new ScriptedProvider();
+      provider.refuseSettle = true;
+      const { t, id, report } = await finished(provider);
+      expect(await report("accepted")).toMatchObject({ verdict: "accepted" });
+      expect(provider.settled).toHaveLength(1);
+      expect(await t.state(id)).toMatchObject({ verdict: "accepted", status: "finished" });
+    });
   });
 
   it("refuses a verdict other than accepted without an owner question, and passes it on with one", async () => {

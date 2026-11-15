@@ -27,6 +27,7 @@ import {
 import { failedStartRecovery } from "./cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./cloud-agent-replacement.js";
 import { replacedAttempt, takeOverCloudAgentCard } from "./cloud-agent-replacement.js";
+import { settleAcceptedCloudAgent } from "./cloud-agent-settle.js";
 import {
   CLOUD_AGENT_REPORT_USAGE,
   cloudAgentLaunchSchema,
@@ -853,7 +854,8 @@ export async function promoteQueuedCloudAgent(tx: Tx, providerKey: string, botId
  */
 export async function reportCloudAgent(
   deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs" | "runLease"> &
-    Pick<CloudAgentDeps, "cloudAgent"> & { deployment?: CloudAgentConnection | null },
+    Pick<CloudAgentDeps, "cloudAgent"> &
+    Partial<Pick<CloudAgentDeps, "userCloudAgents">> & { deployment?: CloudAgentConnection | null },
   context: AdapterContext & { botId: string; botName?: string },
   run: { id: string; threadId: string },
   args: Record<string, unknown>,
@@ -912,6 +914,19 @@ export async function reportCloudAgent(
   }
   // The question belongs on the job's card too, whatever the helper's own result says.
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
+  // Only the call that recorded the verdict settles, so a replay never does it twice.
+  if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
+    const owner = await cloudAgentFor(deps, agent).catch(() => null);
+    if (owner)
+      await settleAcceptedCloudAgent(owner, agent.remoteId, {
+        operationId: agent.id,
+        traceId: agent.id,
+        spaceId: agent.spaceId,
+        userId: agent.userId,
+        botId: agent.botId,
+        signal: AbortSignal.timeout(60_000),
+      });
+  }
   let delivered: boolean | undefined;
   if (agent.originBotId && agent.originBotId !== agent.botId) {
     const sent = await messageBot(

@@ -193,6 +193,8 @@ export const CloudAgentJobSchema = CloudAgentFields.extend({
   botId: z.string(),
   botName: z.string(),
   threadId: z.string(),
+  /** The chat message that holds the job's card, so a link can scroll to it. */
+  messageId: z.string().optional(),
   groupId: z.string().optional(),
   groupName: z.string().optional(),
 });

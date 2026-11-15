@@ -31,6 +31,7 @@ vi.mock("@rakazo/adapters", () => ({
 
 const findFirst = vi.fn();
 const findMany = vi.fn();
+const updateMany = vi.fn();
 const agent = {
   id: "older-than-recent-list",
   title: "Older job",
@@ -46,7 +47,7 @@ const handler = { handler: (fn: unknown) => fn };
 const routes = cloudAgentsRoutes({
   deps: {
     prisma: {
-      cloudAgent: { findFirst, findMany },
+      cloudAgent: { findFirst, findMany, updateMany },
       thread: {
         findMany: vi
           .fn()
@@ -56,7 +57,14 @@ const routes = cloudAgentsRoutes({
     },
   },
   authed: {
-    cloudAgents: { list: handler, detail: handler, answer: handler, steer: handler, stop: handler },
+    cloudAgents: {
+      list: handler,
+      detail: handler,
+      answer: handler,
+      steer: handler,
+      stop: handler,
+      clear: handler,
+    },
   },
 } as unknown as RouterContext).cloudAgents;
 const context = { actor: { spaceId: "space", userId: "owner" } };
@@ -107,6 +115,44 @@ it("tells the owner plainly when a question has closed, and hides jobs that are 
   ).rejects.toMatchObject({ code: "CONFLICT", message: "That question has closed." });
   actions.stop.mockRejectedValue(new actions.Refused("not_found", "Job not found."));
   await expect(invoke(routes.stop, { agentId: "job" })).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+it("lists only jobs the owner has not cleared", async () => {
+  await invoke(routes.list);
+  expect(findMany.mock.calls[0]?.[0]).toMatchObject({
+    where: { spaceId: "space", userId: "owner", clearedAt: null },
+  });
+});
+
+it("clears only a finished job with nothing waiting on the owner", async () => {
+  updateMany.mockResolvedValueOnce({ count: 1 });
+  expect(await invoke(routes.clear, { agentId: agent.id })).toEqual({ duplicate: false });
+  expect(updateMany).toHaveBeenCalledWith({
+    where: {
+      id: agent.id,
+      spaceId: "space",
+      userId: "owner",
+      status: { not: "running" },
+      ownerQuestion: null,
+      reviewingAt: null,
+      clearedAt: null,
+    },
+    data: { clearedAt: expect.any(Date) },
+  });
+});
+
+it("treats clearing a cleared job as done and refuses one still going", async () => {
+  updateMany.mockResolvedValue({ count: 0 });
+  findFirst.mockResolvedValueOnce({ clearedAt: new Date() });
+  expect(await invoke(routes.clear, { agentId: agent.id })).toEqual({ duplicate: true });
+  findFirst.mockResolvedValueOnce({ clearedAt: null });
+  await expect(invoke(routes.clear, { agentId: agent.id })).rejects.toMatchObject({
+    code: "CONFLICT",
+  });
+  findFirst.mockResolvedValueOnce(null);
+  await expect(invoke(routes.clear, { agentId: "nope" })).rejects.toMatchObject({
     code: "NOT_FOUND",
   });
 });

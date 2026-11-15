@@ -11,7 +11,11 @@ import type { RouterContext } from "./context.js";
 
 const JOBS_LIMIT = 100;
 const DETAIL_TEXT_MAX = 6000;
-type JobRecord = Parameters<typeof cloudAgentBlock>[0] & { botId: string; threadId: string };
+type JobRecord = Parameters<typeof cloudAgentBlock>[0] & {
+  botId: string;
+  threadId: string;
+  messageId: string | null;
+};
 
 /** A refused owner action reads as a plain message; a job that is not theirs is simply not found. */
 async function ownerAction<T>(run: () => Promise<T>) {
@@ -52,6 +56,7 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
           botId: agent.botId,
           botName: names.get(agent.botId) ?? "",
           threadId: agent.threadId,
+          ...(agent.messageId ? { messageId: agent.messageId } : {}),
           ...(thread?.groupId ? { groupId: thread.groupId, groupName: thread.group?.name } : {}),
         };
       }),
@@ -62,7 +67,7 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
       list: authed.cloudAgents.list.handler(async ({ context }) => {
         const { spaceId, userId } = context.actor;
         const found = await deps.prisma.cloudAgent.findMany({
-          where: { spaceId, userId },
+          where: { spaceId, userId, clearedAt: null },
           orderBy: { createdAt: "desc" },
           take: JOBS_LIMIT,
         });
@@ -92,6 +97,29 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
           ...(agent.launchBrief ? { brief: agent.launchBrief.slice(0, DETAIL_TEXT_MAX) } : {}),
           ...(agent.resultText ? { result: agent.resultText.slice(0, DETAIL_TEXT_MAX) } : {}),
         };
+      }),
+      clear: authed.cloudAgents.clear.handler(async ({ context, input }) => {
+        const { spaceId, userId } = context.actor;
+        const where = { id: input.agentId, spaceId, userId };
+        // Only a finished, reviewed job with nothing left for the owner leaves the list; the chat keeps its card.
+        const cleared = await deps.prisma.cloudAgent.updateMany({
+          where: {
+            ...where,
+            status: { not: "running" },
+            ownerQuestion: null,
+            reviewingAt: null,
+            clearedAt: null,
+          },
+          data: { clearedAt: new Date() },
+        });
+        if (cleared.count) return { duplicate: false };
+        const agent = await deps.prisma.cloudAgent.findFirst({
+          where,
+          select: { clearedAt: true },
+        });
+        if (!agent) throw new ORPCError("NOT_FOUND");
+        if (agent.clearedAt) return { duplicate: true };
+        throw new ORPCError("CONFLICT", { message: "This job has not finished yet." });
       }),
       answer: authed.cloudAgents.answer.handler(({ context, input }) =>
         ownerAction(() => answerCloudAgentQuestion(deps, context.actor, input)),

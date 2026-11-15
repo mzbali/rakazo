@@ -16,6 +16,22 @@ name: Request cards
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 00-home
+# A job waiting on the owner files its bot under Needs attention, with the job's question.
+- runFlow:
+    when:
+      notVisible: ".*Needs attention.*"
+    commands:
+      - tapOn: "Activity"
+- extendedWaitUntil:
+    visible: ".*Needs attention.*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*Support, Needs input.*"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 00b-home-job-needs-attention
+- tapOn: "Activity"
 - tapOn: "Jobs"
 - extendedWaitUntil:
     visible: ".*Add dark mode.*"

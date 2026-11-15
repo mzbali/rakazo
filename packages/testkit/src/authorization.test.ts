@@ -356,6 +356,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["cloudAgents/answer", { agentId: "missing-agent", requestId: "q1", answer: "main" }],
       ["cloudAgents/steer", { agentId: "missing-agent", text: "Skip it", key: "key-00001" }],
       ["cloudAgents/stop", { agentId: "missing-agent" }],
+      ["cloudAgents/clear", { agentId: "missing-agent" }],
       ["computer/status", { botId: "missing-bot" }],
       ["computer/boot", { botId: "missing-bot" }],
       ["computer/stop", { botId: "missing-bot" }],

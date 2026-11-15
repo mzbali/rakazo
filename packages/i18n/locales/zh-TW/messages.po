@@ -127,6 +127,11 @@ msgstr "{0} 無法正常工作"
 msgid "{0} is running"
 msgstr "{0} 正在執行"
 
+#. placeholder {0}: pill.count
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "{0} jobs working"
+msgstr ""
+
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/ArtifactFileCard.tsx
 msgid "{0} KB"
@@ -856,6 +861,10 @@ msgstr "已獲得 1 個月免費"
 #: apps/web/src/pages/BotContextMenu.tsx
 msgid "1 hour"
 msgstr "1 小時"
+
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "1 job working"
+msgstr ""
 
 #: apps/mobile/app/(settings)/skills.tsx
 msgid "1 skill"
@@ -2489,6 +2498,7 @@ msgid "Clean up"
 msgstr "清理"
 
 #: apps/mobile/app/search.tsx
+#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bot-lifecycle.ts
 #: apps/web/src/components/SecretAskCard.tsx
 #: apps/web/src/pages/shell/dialogs.tsx
@@ -2518,6 +2528,10 @@ msgstr "清除篩選條件 {label}"
 #: apps/web/src/pages/Artifacts.tsx
 msgid "Clear filters"
 msgstr "清除篩選"
+
+#: apps/mobile/app/job.tsx
+msgid "Clear from list"
+msgstr ""
 
 #: apps/web/src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3217,6 +3231,11 @@ msgstr "無法清空對話"
 #: apps/mobile/lib/api-server.ts
 msgid "Could not clear the custom server URL"
 msgstr "無法清除自訂伺服器網址"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/app/jobs.tsx
+msgid "Could not clear the job"
+msgstr ""
 
 #: apps/mobile/lib/api-auth.ts
 msgid "Could not clear the local session"
@@ -4875,7 +4894,6 @@ msgstr "還沒有帳號？"
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-settings.tsx
-#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/mobile/components/job-status.tsx
@@ -4946,6 +4964,10 @@ msgstr "複製"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "每個名稱只能使用一次。"
+
+#: apps/mobile/app/jobs.tsx
+msgid "Earlier"
+msgstr ""
 
 #: apps/mobile/app/job.tsx
 msgid "Earlier attempts"
@@ -6982,6 +7004,7 @@ msgstr "需要接管"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
@@ -9521,10 +9544,6 @@ msgstr "共用記憶"
 msgid "Show"
 msgstr "顯示"
 
-#: apps/mobile/app/jobs.tsx
-msgid "Show {count} more"
-msgstr ""
-
 #: apps/mobile/components/thread/message-bubble.tsx
 msgid "Show {label}"
 msgstr "顯示 {label}"
@@ -10816,6 +10835,7 @@ msgstr "待辦"
 msgid "To:"
 msgstr "收件人："
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/time-separator.tsx
 #: apps/web/src/pages/Artifacts.tsx

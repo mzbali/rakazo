@@ -1444,6 +1444,8 @@ model CloudAgent {
   replacesId          String?
   /// When the hidden review of this agent's work began; cleared when it ends.
   reviewingAt         DateTime?
+  /// When the owner cleared this finished job from their jobs list; the chat card stays.
+  clearedAt           DateTime?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])

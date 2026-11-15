@@ -649,7 +649,6 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
   );
 
   const { jobs: cloudJobs } = useCloudJobs(
-    30_000,
     Boolean(userId) && hasSession && !onShareSelect && inboxShown,
   );
   const jobsEntry = onShareSelect ? undefined : { needsYou: needsYouCount(cloudJobs) };
@@ -789,6 +788,7 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
       {showActivity ? (
         <ActivitySection
           activity={activity}
+          jobs={cloudJobs}
           status={activityStatus}
           bots={visible}
           groups={visibleGroups}

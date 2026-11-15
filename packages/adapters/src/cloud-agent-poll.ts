@@ -344,6 +344,12 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     status: snapshot.status,
     failureReason: null,
     resultText: snapshot.result ?? null,
+    // Absent while running means nothing new was read, so the last line stays.
+    ...(snapshot.status === "running"
+      ? snapshot.progress !== undefined
+        ? { progressText: snapshot.progress }
+        : {}
+      : { progressText: null }),
     ...(snapshot.url ? { url: cloudAgentUrl(snapshot.url) ?? "" } : {}),
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,

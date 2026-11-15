@@ -1,13 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CloudAgentJob } from "@rakazo/contracts";
 import type { CloudAgentShelf } from "@rakazo/core";
-import { cloudAgentState } from "@rakazo/core";
+import { cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import { memo, useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
-import { useJobStateLabel } from "../components/job-status";
+import { useJobPhaseLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
@@ -30,7 +30,7 @@ const JobListRow = memo(function JobListRow({
   onOpen: (job: CloudAgentJob) => void;
 }) {
   const tokens = mobileTokens();
-  const stateLabel = useJobStateLabel();
+  const phaseLabel = useJobPhaseLabel();
   return (
     <Pressable
       onPress={() => {
@@ -38,7 +38,7 @@ const JobListRow = memo(function JobListRow({
         onOpen(job);
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${job.title}: ${stateLabel(cloudAgentState(job))}`}
+      accessibilityLabel={`${job.title}: ${phaseLabel(cloudAgentPhase(job))}`}
       style={({ pressed }) => ({
         marginHorizontal: 8,
         borderRadius: 10,

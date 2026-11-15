@@ -1424,6 +1424,10 @@ model CloudAgent {
   launchBrief         String?
   /// The finished run's final message, bounded, as the provider reported it; untrusted job output.
   resultText          String?
+  /// The agent's latest message while it works, bounded; untrusted job output, cleared when it ends.
+  progressText        String?
+  /// When the work ended; the card's elapsed clock stops here, and a new run clears it.
+  endedAt             DateTime?
   /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
   followupBrief       String?
   /// What the owner has to decide after a verdict other than accepted; cleared when new work starts.

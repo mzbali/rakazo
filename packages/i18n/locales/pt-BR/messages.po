@@ -2216,11 +2216,6 @@ msgstr "cancelar resposta"
 msgid "Canceled"
 msgstr "Cancelado"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "cancelled"
-msgstr "cancelado"
-
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/components/AskCard.tsx
@@ -2385,7 +2380,7 @@ msgstr "Verifique sua conexão e tente novamente."
 msgid "Check your email"
 msgstr "Confira seu e-mail"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Checking"
 msgstr ""
@@ -4190,7 +4185,7 @@ msgstr "Não foi possível carregar sua carteira"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "Não foi possível atualizar — mostrando as últimas mensagens carregadas."
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Couldn't start"
 msgstr ""
@@ -4680,6 +4675,7 @@ msgstr "ID do desktop"
 msgid "Desktop update"
 msgstr "Atualização do app para desktop"
 
+#: apps/mobile/app/job.tsx
 #: apps/mobile/components/thread-error-notice.tsx
 #: apps/web/src/pages/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer-error.tsx
@@ -4858,12 +4854,14 @@ msgstr "Não tem uma conta?"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/mobile/lib/board.ts
 #: apps/web/src/components/AccountDataSettings.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/components/ToolActivityDisclosure.tsx
 #: apps/web/src/components/vault/VaultImport.tsx
@@ -5221,8 +5219,8 @@ msgstr "Expandir tabela"
 
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "expired"
-msgstr "expirado"
+msgid "Expired"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -5272,11 +5270,6 @@ msgstr "Extra alta"
 #: apps/web/src/lib/model-catalog.ts
 msgid "Extra high"
 msgstr "Extra alta"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "failed"
-msgstr "falhou"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/mobile/lib/activity.ts
@@ -5397,11 +5390,6 @@ msgstr "Termine o login no navegador:"
 #: apps/web/src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "Conclua o login de assinatura e teste novamente."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "finished"
-msgstr "concluído"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/browser-notifications.ts
@@ -6940,11 +6928,6 @@ msgstr "Precisa de um ID de cliente OAuth"
 msgid "Needs attention"
 msgstr "Precisa de atenção"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "needs input"
-msgstr ""
-
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6962,15 +6945,12 @@ msgstr "Requer assumir o controle"
 
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "Precisa de você"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts
@@ -7552,7 +7532,6 @@ msgstr "Só você"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
-#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7633,6 +7612,12 @@ msgstr "Abrir no navegador"
 #: apps/web/src/pages/shell/computer-panel.tsx
 msgid "Open in full window"
 msgstr "Abrir em janela cheia"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8058,6 +8043,11 @@ msgstr "Plugins"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "Publica uma mensagem no chat quando uma verificação não encontra alterações. A rotina não será executada."
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8164,11 +8154,6 @@ msgstr "Provedores"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "Servidores públicos precisam de https://. HTTP só funciona na sua rede local."
 
-#: apps/mobile/app/job.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "Solicitação de pull"
-
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
 msgstr "Coloque seus bots para trabalhar"
@@ -8176,11 +8161,6 @@ msgstr "Coloque seus bots para trabalhar"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "Perguntas, aprovações, controle"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "queued"
-msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8942,11 +8922,6 @@ msgstr "Executar agora"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "O horário de execução deve estar no futuro."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "running"
-msgstr "em execução"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -9972,7 +9947,9 @@ msgstr "Começou com {count} h de atraso"
 msgid "Started {count}m late"
 msgstr "Começou com {count} min de atraso"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/lib/activity.ts
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Starting"
 msgstr "Iniciando"
@@ -10022,7 +9999,9 @@ msgstr "Pare de Falar"
 msgid "Stop teaching"
 msgstr "Parar de ensinar"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/SubagentCard.tsx
 msgid "Stopped"
 msgstr "Interrompido"
@@ -11020,11 +10999,6 @@ msgstr "Reativar som"
 msgid "Unpin"
 msgstr "Desafixar"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "unreachable"
-msgstr ""
-
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
 msgstr "não lidas"
@@ -11386,6 +11360,12 @@ msgstr "Versões"
 msgid "View all"
 msgstr "Ver tudo"
 
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -11647,6 +11627,8 @@ msgstr "Trabalho"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Working"
 msgstr "Trabalhando"

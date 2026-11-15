@@ -2216,11 +2216,6 @@ msgstr "답장 취소"
 msgid "Canceled"
 msgstr "취소됨"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "cancelled"
-msgstr "취소됨"
-
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/components/AskCard.tsx
@@ -2385,7 +2380,7 @@ msgstr "연결을 확인하고 다시 시도하세요."
 msgid "Check your email"
 msgstr "이메일을 확인하세요"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Checking"
 msgstr ""
@@ -4190,7 +4185,7 @@ msgstr "지갑을 불러오지 못했습니다"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "새로고침하지 못했습니다. 마지막으로 불러온 메시지를 표시합니다."
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Couldn't start"
 msgstr ""
@@ -4680,6 +4675,7 @@ msgstr "데스크톱 ID"
 msgid "Desktop update"
 msgstr "데스크톱 업데이트"
 
+#: apps/mobile/app/job.tsx
 #: apps/mobile/components/thread-error-notice.tsx
 #: apps/web/src/pages/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer-error.tsx
@@ -4858,12 +4854,14 @@ msgstr "계정이 없나요?"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/mobile/lib/board.ts
 #: apps/web/src/components/AccountDataSettings.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/components/ToolActivityDisclosure.tsx
 #: apps/web/src/components/vault/VaultImport.tsx
@@ -5221,8 +5219,8 @@ msgstr "표 확장"
 
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "expired"
-msgstr "만료됨"
+msgid "Expired"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -5272,11 +5270,6 @@ msgstr "매우 높음"
 #: apps/web/src/lib/model-catalog.ts
 msgid "Extra high"
 msgstr "매우 높음"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "failed"
-msgstr "실패"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/mobile/lib/activity.ts
@@ -5397,11 +5390,6 @@ msgstr "브라우저에서 로그인을 완료하세요:"
 #: apps/web/src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "구독 로그인을 마친 뒤 다시 테스트하세요."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "finished"
-msgstr "완료"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/browser-notifications.ts
@@ -6940,11 +6928,6 @@ msgstr "OAuth 클라이언트 ID가 필요합니다"
 msgid "Needs attention"
 msgstr "확인 필요"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "needs input"
-msgstr ""
-
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6962,15 +6945,12 @@ msgstr "인수 필요"
 
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "확인 필요"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts
@@ -7552,7 +7532,6 @@ msgstr "나만"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
-#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7633,6 +7612,12 @@ msgstr "브라우저에서 열기"
 #: apps/web/src/pages/shell/computer-panel.tsx
 msgid "Open in full window"
 msgstr "전체 창으로 열기"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8058,6 +8043,11 @@ msgstr "플러그인"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "확인 결과 변경 사항이 없으면 채팅 메시지를 게시합니다. 자동 실행은 실행되지 않습니다."
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8164,11 +8154,6 @@ msgstr "서비스"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "공개 서버에는 https://가 필요합니다. HTTP는 로컬 네트워크에서만 작동합니다."
 
-#: apps/mobile/app/job.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "풀 리퀘스트"
-
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
 msgstr "봇에게 일을 맡기세요"
@@ -8176,11 +8161,6 @@ msgstr "봇에게 일을 맡기세요"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "질문, 승인, 제어권 가져오기"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "queued"
-msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8942,11 +8922,6 @@ msgstr "지금 실행"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "실행 시간은 미래여야 합니다."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "running"
-msgstr "실행 중"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -9972,7 +9947,9 @@ msgstr "{count}시간 늦게 시작됨"
 msgid "Started {count}m late"
 msgstr "{count}분 늦게 시작됨"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/lib/activity.ts
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Starting"
 msgstr "시작 중"
@@ -10022,7 +9999,9 @@ msgstr "읽기 중지"
 msgid "Stop teaching"
 msgstr "가르치기 종료"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/SubagentCard.tsx
 msgid "Stopped"
 msgstr "중지됨"
@@ -11020,11 +10999,6 @@ msgstr "음소거 해제"
 msgid "Unpin"
 msgstr "고정 해제"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "unreachable"
-msgstr ""
-
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
 msgstr "읽지 않음"
@@ -11386,6 +11360,12 @@ msgstr "버전"
 msgid "View all"
 msgstr "모두 보기"
 
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -11647,6 +11627,8 @@ msgstr "업무"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Working"
 msgstr "작업 중"

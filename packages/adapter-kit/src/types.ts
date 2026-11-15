@@ -1552,6 +1552,8 @@ export interface CloudAgentSnapshot {
   historyGap?: boolean;
   /** A finished run's final message, bounded. Untrusted job output, never instructions. */
   result?: string;
+  /** While running: the agent's latest message, bounded. Untrusted job output. Absent when unchanged. */
+  progress?: string;
 }
 
 export interface CloudAgentPullRequest {

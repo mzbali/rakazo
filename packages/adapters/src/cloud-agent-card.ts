@@ -23,6 +23,9 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     agentId: agent.id,
     note: agent.launchNote,
     startedAt: agent.createdAt,
+    endedAt: agent.endedAt,
+    progress: agent.status === "running" ? agent.progressText : undefined,
+    resultExcerpt: agent.status === "finished" ? agent.resultText : undefined,
     projectName: agent.projectName,
     queued: agent.queuedAt !== null,
     needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
@@ -63,10 +66,16 @@ export async function cloudAgentCardBlock(db: Pick<CardDb, "cloudAgent">, agent:
  * chat's lock. Returns the event seq to announce, or nothing when the card already shows the row.
  */
 export async function paintCloudAgentCard(tx: Prisma.TransactionClient, agentId: string) {
-  const agent = await tx.cloudAgent.findUnique({ where: { id: agentId } });
-  if (!agent?.messageId) return undefined;
+  let agent = await tx.cloudAgent.findUnique({ where: { id: agentId } });
+  const messageId = agent?.messageId;
+  if (!agent || !messageId) return undefined;
+  // Every status change repaints, so this is where the end of the work is stamped (and cleared
+  // when a follow-up starts it again). The card's clock reads it.
+  const ended = agent.status === "running" ? null : (agent.endedAt ?? new Date());
+  if (ended?.getTime() !== agent.endedAt?.getTime())
+    agent = await tx.cloudAgent.update({ where: { id: agent.id }, data: { endedAt: ended } });
   const message = await tx.message.findFirst({
-    where: { id: agent.messageId, threadId: agent.threadId },
+    where: { id: messageId, threadId: agent.threadId },
   });
   if (!message) return undefined;
   const next = await cloudAgentCardBlock(tx, agent);

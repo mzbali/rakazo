@@ -820,6 +820,10 @@ const SCREENSHOT_JOBS: {
   listOnly?: boolean;
   brief?: string;
   result?: string;
+  /** What the running agent last said. */
+  progress?: string;
+  /** Minutes the work ran before it ended; the card's clock stops there. */
+  ranMinutes?: number;
   /** Refused before anything remote started. */
   launchFailed?: boolean;
   failureReason?: string;
@@ -836,6 +840,21 @@ const SCREENSHOT_JOBS: {
     branch: "feature/dark-mode",
     projectName: "storefront",
     minutesAgo: 12,
+    note: "Picked sonnet-5-5 on main (simple).",
+    progress:
+      "Reading the theme tokens, then wiring the settings toggle to the saved appearance. Next: a test that flips it twice.",
+  },
+  // Finished with a pull request and nothing waiting on the owner: the Done card.
+  {
+    key: "done",
+    title: "Speed up the cart page",
+    status: "finished",
+    prUrl: "https://github.example.com/acme/app/pull/57",
+    projectName: "storefront",
+    minutesAgo: 30,
+    ranMinutes: 9,
+    result:
+      "Cut the cart page's render time by loading line items in one query and memoising the totals, with a benchmark in the pull request.",
     note: "Picked sonnet-5-5 on main (simple).",
   },
   {
@@ -965,6 +984,10 @@ async function ensureRequestCards(
   for (const job of SCREENSHOT_JOBS) {
     const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
     const url = `https://jobs.example.com/${job.key}`;
+    const endedAt =
+      job.status === "running" || job.ranMinutes === undefined
+        ? undefined
+        : new Date(startedAt.getTime() + job.ranMinutes * 60_000);
     for (const earlier of job.attempts ?? [])
       await prisma.cloudAgent.create({
         data: {
@@ -1010,6 +1033,8 @@ async function ensureRequestCards(
         launchNote: job.note ?? null,
         launchBrief: job.brief ?? null,
         resultText: job.result ?? null,
+        progressText: job.progress ?? null,
+        endedAt: endedAt ?? null,
         ownerQuestion: job.ownerQuestion ?? null,
         attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
         createdAt: startedAt,
@@ -1024,6 +1049,9 @@ async function ensureRequestCards(
         status: job.status,
         url,
         startedAt: startedAt.toISOString(),
+        ...(endedAt ? { endedAt: endedAt.toISOString() } : {}),
+        ...(job.progress ? { progress: job.progress } : {}),
+        ...(job.result && job.status === "finished" ? { resultExcerpt: job.result } : {}),
         ...(job.needsInput ? { needsInput: true } : {}),
         ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
         ...(job.branch ? { branch: job.branch } : {}),

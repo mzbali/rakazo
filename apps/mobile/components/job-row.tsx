@@ -1,13 +1,18 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CloudAgentJob } from "@rakazo/contracts";
-import { cloudAgentModelLabel, cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import {
+  cloudAgentElapsed,
+  cloudAgentJobTone,
+  cloudAgentPhase,
+  cloudAgentPullRequestNumber,
+  cloudAgentTicking,
+} from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { memo } from "react";
 import { Text, View } from "react-native";
-import { formatActivityRelativeTime } from "../lib/activity";
 import { mobileTokens } from "../lib/appearance";
-import { formatElapsed, useNow } from "../lib/job-format";
-import { JobStatusDot, jobToneColor, useJobStateLabel } from "./job-status";
+import { useNow } from "../lib/job-format";
+import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "./job-status";
 import { NativeSymbol } from "./native-symbol";
 
 /** The job's own fields; the jobs list adds the bot and chat on top. */
@@ -15,8 +20,9 @@ export type JobRowJob = Omit<CloudAgentJob, "botId" | "botName" | "threadId"> &
   Partial<Pick<CloudAgentJob, "botName">>;
 
 /**
- * One job as a T3-style row: status dot, title, the state in its colour, elapsed time on the
- * right; below it the model, project and branch with small icons, then what waits on the owner.
+ * One job as a T3-style row: status dot, title, the phase in its colour, elapsed time on the
+ * right; below it what the job is saying or reported, and the pull request it opened. The model,
+ * project and branch are details, in the sheet.
  */
 export const JobRow = memo(function JobRow({
   job,
@@ -27,32 +33,26 @@ export const JobRow = memo(function JobRow({
 }) {
   const { t } = useLingui();
   const tokens = mobileTokens();
-  const stateLabel = useJobStateLabel();
-  const state = cloudAgentState(job);
-  const tone = jobToneColor(tokens, cloudAgentTone(state));
+  const phaseLabel = useJobPhaseLabel();
+  const phase = cloudAgentPhase(job);
+  const tone = cloudAgentJobTone(job);
   const started = job.startedAt ? Date.parse(job.startedAt) : undefined;
-  const live = state === "running" || state === "queued" || state === "needsInput";
-  const now = useNow(live && started !== undefined, started);
-  const time =
-    started === undefined
-      ? ""
-      : live
-        ? formatElapsed(now - started)
-        : formatActivityRelativeTime(job.startedAt!);
-  const model = cloudAgentModelLabel(job.note);
+  const now = useNow(cloudAgentTicking(job), started);
+  const time = cloudAgentElapsed(job, now);
   const muted = { color: tokens.mutedForeground, ...typeScale.footnote };
-  const ownerQuestion = job.ownerQuestion;
+  const prNumber = cloudAgentPullRequestNumber(job.prUrl);
+  const live = phase === "starting" || phase === "working" || phase === "checking";
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
       <View style={{ height: 20, justifyContent: "center" }}>
-        <JobStatusDot state={state} tokens={tokens} />
+        <JobStatusDot tone={tone} tokens={tokens} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-        <View style={{ minHeight: 20, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+        <View style={{ minHeight: 20, flexDirection: "row", alignItems: "baseline", gap: 6 }}>
           <Text
-            numberOfLines={2}
+            numberOfLines={1}
             style={{
-              flex: 1,
+              flexShrink: 1,
               color: tokens.foreground,
               ...typeScale.secondary,
               fontWeight: "500",
@@ -60,6 +60,21 @@ export const JobRow = memo(function JobRow({
           >
             {job.title || t`Cloud agent`}
           </Text>
+          <Text accessibilityElementsHidden style={muted}>
+            ·
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              flexShrink: 0,
+              color: jobToneColor(tokens, tone),
+              ...typeScale.footnote,
+              fontWeight: "500",
+            }}
+          >
+            {phaseLabel(phase)}
+          </Text>
+          <View style={{ flex: 1 }} />
           {time ? (
             <Text
               style={{
@@ -82,71 +97,42 @@ export const JobRow = memo(function JobRow({
             </View>
           ) : null}
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <Text style={{ flexShrink: 0, color: tone, ...typeScale.footnote, fontWeight: "500" }}>
-            {job.launchFailed
-              ? t`Couldn't start`
-              : job.review === "checking" && state !== "needsInput"
-                ? t`Checking`
-                : stateLabel(state)}
-          </Text>
-
-          {model ? (
-            <>
-              <Text style={muted}>·</Text>
-              <NativeSymbol
-                ios="cpu"
-                android="hardware-chip-outline"
-                size={11}
-                color={tokens.mutedForeground}
-              />
-              <Text numberOfLines={1} style={{ ...muted, flexShrink: 0 }}>
-                {model}
-              </Text>
-            </>
-          ) : null}
-          {job.projectName ? (
-            <>
-              <Text style={muted}>·</Text>
-              <NativeSymbol
-                ios="folder"
-                android="folder-outline"
-                size={11}
-                color={tokens.mutedForeground}
-              />
-              <Text numberOfLines={1} style={{ ...muted, flexShrink: 1 }}>
-                {job.projectName}
-              </Text>
-            </>
-          ) : null}
-          {job.branch ? (
-            <>
-              <Text style={muted}>·</Text>
-              <NativeSymbol
-                ios="arrow.triangle.branch"
-                android="git-branch-outline"
-                size={11}
-                color={tokens.mutedForeground}
-              />
-              <Text numberOfLines={1} style={{ ...muted, flexShrink: 2 }}>
-                {job.branch}
-              </Text>
-            </>
-          ) : null}
-        </View>
+        {prNumber !== undefined ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <NativeSymbol
+              ios="arrow.triangle.pull"
+              android="git-pull-request-outline"
+              size={11}
+              color={tokens.mutedForeground}
+            />
+            <Text numberOfLines={1} style={muted}>
+              {t`PR #${prNumber}`}
+            </Text>
+          </View>
+        ) : null}
         {job.botName ? (
           <Text numberOfLines={1} style={muted}>
             {job.botName}
           </Text>
         ) : null}
-        {state === "failed" && job.failureReason ? (
+        {live && job.progress ? (
+          <Text numberOfLines={3} style={muted}>
+            {job.progress}
+          </Text>
+        ) : null}
+        {phase === "done" && job.resultExcerpt ? (
+          <Text numberOfLines={1} style={muted}>
+            {job.resultExcerpt}
+          </Text>
+        ) : null}
+        {job.status === "failed" && job.failureReason ? (
           <Text numberOfLines={3} style={{ color: tokens.destructive, ...typeScale.footnote }}>
             {job.failureReason}
           </Text>
         ) : null}
-        {state === "needsInput" && job.ownerQuestion ? (
+        {phase === "needsYou" && job.ownerQuestion ? (
           <Text numberOfLines={3} style={{ color: tokens.warning, ...typeScale.footnote }}>
-            {t`Needs you: ${ownerQuestion}`}
+            {job.ownerQuestion}
           </Text>
         ) : null}
       </View>

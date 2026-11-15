@@ -168,8 +168,22 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
       previous.push(block);
     }
   }
+  // A bot's lead-in text sits inside the job card that follows it, so the two read as one bubble.
+  const leadsCard = (index: number) =>
+    message.role !== "user" &&
+    !isOwnCardBlock(pieces[index]![0]!) &&
+    pieces[index + 1]?.[0]?.kind === "cloud_agent";
+  const renderText = (blocks: MessageBlock[], key: string) => (
+    <MessageBubbleContent
+      {...props}
+      key={key}
+      message={{ ...message, blocks }}
+      onAnswer={(_, ...answer) => props.onAnswer(message, ...answer)}
+    />
+  );
   const content = pieces.map((blocks, index) => {
     const first = blocks[0]!;
+    if (leadsCard(index)) return null;
     if (first.kind === "page")
       return <PageCard key={`page-${index}`} block={first} messageId={message.id} />;
     if (first.kind === "visual") return <VisualCard key={`visual-${index}`} block={first} />;
@@ -185,6 +199,9 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
       return (
         <CloudAgentCards
           key={`cloud-${index}`}
+          lead={
+            index > 0 && leadsCard(index - 1) ? renderText(pieces[index - 1]!, "lead") : undefined
+          }
           jobs={blocks.filter((block) => block.kind === "cloud_agent")}
           actionProps={props.actionProps}
           userBubble={props.userBubble}
@@ -208,19 +225,11 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
         }
       />
     ) : (
-      <MessageBubbleContent
-        {...props}
-        key={`content-${index}`}
-        message={{ ...message, blocks }}
-        onAnswer={(_, ...answer) => props.onAnswer(message, ...answer)}
-      />
+      renderText(blocks, `content-${index}`)
     );
   });
-  return content.length === 1 ? (
-    content[0]
-  ) : (
-    <View style={{ gap: 8, width: "100%" }}>{content}</View>
-  );
+  const shown = content.filter(Boolean);
+  return shown.length === 1 ? shown[0] : <View style={{ gap: 8, width: "100%" }}>{shown}</View>;
 }
 
 const MessageBubbleContent = memo(function MessageBubbleContent({

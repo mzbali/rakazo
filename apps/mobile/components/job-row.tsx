@@ -154,11 +154,6 @@ export const JobRow = memo(function JobRow({
             {job.progress}
           </Text>
         ) : null}
-        {phase === "done" && job.resultExcerpt ? (
-          <Text numberOfLines={1} style={muted}>
-            {job.resultExcerpt}
-          </Text>
-        ) : null}
         {job.status === "failed" && job.failureReason ? (
           <Text numberOfLines={3} style={{ color: tokens.destructive, ...typeScale.footnote }}>
             {job.failureReason}

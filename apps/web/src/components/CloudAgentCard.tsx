@@ -138,11 +138,6 @@ export function CloudAgentCard({
             {block.progress}
           </span>
         ) : null}
-        {phase === "done" && block.resultExcerpt ? (
-          <span className="line-clamp-3 text-muted-foreground" dir="auto">
-            {block.resultExcerpt}
-          </span>
-        ) : null}
         {block.status === "failed" && block.failureReason ? (
           <span className="text-destructive" dir="auto">
             {block.failureReason}

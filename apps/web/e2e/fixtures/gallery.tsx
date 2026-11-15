@@ -437,7 +437,6 @@ const working: Scenario = {
         agentId: "cloud-2",
         title: "Add CSV export",
         status: "finished",
-        resultExcerpt: "Added CSV export and verified the downloaded file.",
         url: "https://example.test/agents/cloud-2",
         prUrl: "https://example.test/pull/42",
       },

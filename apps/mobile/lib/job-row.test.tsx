@@ -70,17 +70,15 @@ describe("job row", () => {
     expect(container.textContent).toContain("8s");
   });
 
-  it("stops the clock at the end and shows the clipped result", () => {
+  it("stops the clock at the end and leaves the report to the sheet", () => {
     render({
       status: "finished",
       endedAt: "2026-11-13T10:02:00.000Z",
       progress: "stale line",
-      resultExcerpt: "Added the README.",
       prUrl: "https://github.com/acme/app/pull/12",
     });
     expect(container.textContent).toContain("Done");
     expect(container.textContent).toContain("2m");
-    expect(container.textContent).toContain("Added the README.");
     expect(container.textContent).toContain("PR #12");
     expect(container.textContent).not.toContain("Checks");
     expect(container.textContent).not.toContain("stale line");

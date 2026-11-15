@@ -7,6 +7,7 @@ import {
   isConversationalRun,
   STOPPED_HELPER_RESULT,
 } from "@rakazo/core";
+import { messageReplyPreview } from "@rakazo/core/message-quote";
 import type { Prisma } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -24,6 +25,7 @@ import {
   startedNote,
 } from "./background-helpers.prompt.js";
 import { paintCloudAgentCard } from "./cloud-agent-card.js";
+import { CLOUD_AGENT_WAKE_ATTEMPTS } from "./cloud-agent-job-thread.js";
 import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { helperResultText, MAX_PARALLEL_SUBAGENTS } from "./pi-runtime-subagent.js";
@@ -199,12 +201,14 @@ export async function returnHelperOutcome(
         select: { threadId: true },
       })
     : null;
-  const jobAgentId = jobAgentIdOf(
-    await deps.prisma.run.findUnique({
-      where: { id: run.id },
-      select: { clientNonce: true },
-    }),
-  );
+  const wake = await deps.prisma.run.findUnique({
+    where: { id: run.id },
+    select: { clientNonce: true, cloudAgentWakeNonces: true },
+  });
+  const wakeNonces = [
+    ...new Set([wake?.clientNonce, ...(wake?.cloudAgentWakeNonces ?? [])]),
+  ].filter((nonce): nonce is string => Boolean(nonce));
+  const jobAgentId = jobAgentIdOf(wake);
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat (and the cloud-agent wake): thread first.
     if (source) await tx.$queryRaw`SELECT id FROM threads WHERE id = ${source.threadId} FOR UPDATE`;
@@ -299,9 +303,9 @@ export async function returnHelperOutcome(
     }
     const event = { seq: eventSeq };
     if (outcome.status === "stopped") return { threadId: card.threadId, eventSeq: event.seq };
-    // A cloud agent's job helper answers on the card alone, so the main chat does not run for a
-    // result unless the helper failed or left the owner something to decide.
-    if (jobAgentId && (await jobResultSettlesAlone(tx, jobAgentId))) {
+    // A cloud agent's job helper keeps to the job's card unless the owner has to hear from it.
+    const plan = jobAgentId ? await jobOutcomeInChat(tx, jobAgentId, wakeNonces, outcome) : "bot";
+    if (plan === "card") {
       await markThreadUnreadForMembers(tx, {
         threadId: card.threadId,
         spaceId: run.spaceId,
@@ -310,7 +314,7 @@ export async function returnHelperOutcome(
       return { threadId: card.threadId, eventSeq: event.seq };
     }
     // Like the cloud-agent wake: only for a person still in the space and a bot still active
-    // there. In a shared space that bot may be another member's; the turn runs as this person.
+    // there. In a shared space that bot may be another member's; a turn runs as this person.
     const [member, bot] = await Promise.all([
       tx.spaceMember.findUnique({
         where: { spaceId_userId: { spaceId: run.spaceId, userId: run.userId } },
@@ -322,6 +326,42 @@ export async function returnHelperOutcome(
       }),
     ]);
     if (!member || !bot) return { threadId: card.threadId, eventSeq: event.seq };
+    if (plan === "reply") {
+      // The helper's own text, posted as the bot's reply to the job's card: no model runs for it,
+      // and the reply line names the job it belongs to.
+      const replyBlocks: MessageBlock[] = [
+        {
+          kind: "text",
+          text:
+            question && !helperText.includes(question)
+              ? `${helperText}\n\n${question}`
+              : helperText,
+        },
+      ];
+      const reply = await createThreadMessageInTransaction(tx, {
+        threadId: card.threadId,
+        role: "bot",
+        blocks: replyBlocks,
+        botId: run.botId,
+        replyToMessageId: card.id,
+        clientNonce: `job-reply:${run.id}`,
+      });
+      const posted = await appendEventInTransaction(tx, {
+        spaceId: run.spaceId,
+        threadId: card.threadId,
+        botId: run.botId,
+        type: "thread.message.created",
+        payload: {
+          messageId: reply.id,
+          seq: reply.seq,
+          role: "bot",
+          blocks: replyBlocks,
+          replyToMessageId: card.id,
+          replyPreview: messageReplyPreview(blocks, "bot", run.botId),
+        },
+      });
+      return { threadId: card.threadId, eventSeq: posted.seq };
+    }
     const task = await tx.task.create({
       data: {
         spaceId: run.spaceId,
@@ -379,15 +419,56 @@ async function jobOwnerQuestion(tx: Prisma.TransactionClient, agentId: string) {
 }
 
 /**
- * A job helper's result stays on the job's card, a failure included (the wake retries on its
- * own), unless it left an open question or approval the owner has to decide.
+ * What a job helper's end leaves in the main chat, one answer per piece of work:
+ * - card: nothing, because the thread is being sent more work, the helper answered the question
+ *   itself, or its own run failed and the wake will be tried again; the job's card shows it.
+ * - reply: the helper's text as the bot's reply, for a finished piece of work or a question or
+ *   approval only the owner can settle.
+ * - bot: a turn of the bot, for what only it can do: relaunch a request that never started, or tell
+ *   the owner that the review itself gave up or wrote nothing.
  */
-async function jobResultSettlesAlone(tx: Prisma.TransactionClient, agentId: string) {
+async function jobOutcomeInChat(
+  tx: Prisma.TransactionClient,
+  agentId: string,
+  wakeNonces: string[],
+  outcome: { status: "completed" | "failed" | "stopped"; text: string },
+) {
   const agent = await tx.cloudAgent.findUnique({
     where: { id: agentId },
-    select: { attention: true, followup: true, status: true, remoteId: true },
+    select: {
+      attention: true,
+      followup: true,
+      status: true,
+      remoteId: true,
+      verdict: true,
+      wakeAttempts: true,
+    },
   });
-  if (!agent || (agent.status === "failed" && !agent.remoteId)) return false;
+  if (!agent || (agent.status === "failed" && !agent.remoteId)) return "bot";
+  if (outcome.status === "failed") return wakeRetryPending(agent, wakeNonces) ? "card" : "bot";
+  if (agent.followup != null) return "card";
   const open = Array.isArray(agent.attention) && agent.attention.length > 0;
-  return !open || agent.followup != null;
+  const finished = agent.status !== "running" && wakeNonces.some(isTerminalWake);
+  if (!open && !finished) return "card";
+  return outcome.text.trim() ? "reply" : "bot";
+}
+
+const isTerminalWake = (nonce: string) => nonce.startsWith("cloud-agent-wake-run:");
+
+/** Whether a failed review will be run again, as the reconciler does for up to three wakes in all. */
+function wakeRetryPending(
+  agent: { status: string; verdict: string | null; wakeAttempts: number },
+  wakeNonces: string[],
+) {
+  const terminalRetry =
+    agent.status !== "running" &&
+    agent.verdict === null &&
+    agent.wakeAttempts >= 1 &&
+    agent.wakeAttempts < CLOUD_AGENT_WAKE_ATTEMPTS;
+  const attentionRetry = wakeNonces.some((nonce) => {
+    if (isTerminalWake(nonce)) return false;
+    const retries = /:r(\d+)$/.exec(nonce);
+    return (retries ? Number(retries[1]) + 1 : 1) < CLOUD_AGENT_WAKE_ATTEMPTS;
+  });
+  return (wakeNonces.some(isTerminalWake) && terminalRetry) || attentionRetry;
 }

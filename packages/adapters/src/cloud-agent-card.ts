@@ -36,7 +36,6 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     startedAt: agent.createdAt,
     endedAt: agent.endedAt,
     progress: agent.status === "running" ? agent.progressText : undefined,
-    resultExcerpt: agent.status === "finished" ? agent.resultText : undefined,
     projectName: agent.projectName,
     queued: agent.queuedAt !== null,
     needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,

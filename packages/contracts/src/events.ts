@@ -179,6 +179,30 @@ const CloudAgentFields = z.object({
   prState: z.enum(["merged", "closed"]).optional(),
   /** The agent is watching its open pull request, so the job is waiting on it, not finished. */
   watching: z.boolean().optional(),
+  /** What the job's own thread has going besides its run: subagents, commands, monitors and background tasks. */
+  work: z
+    .array(
+      z.object({
+        kind: z.enum(["subagent", "command", "monitor", "background_task"]),
+        label: z.string().max(120),
+        /** Where a child thread opens in its provider. */
+        url: z.string().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
+  /** The pull requests on the job's thread, each watched or not. */
+  pullRequests: z
+    .array(
+      z.object({
+        url: z.string(),
+        number: z.number().int(),
+        state: z.enum(["open", "merged", "closed"]),
+        watching: z.boolean(),
+      }),
+    )
+    .max(10)
+    .optional(),
   /** Screenshots the job's pull request showed, copied to the app's own storage; at most three. */
   proofImages: z
     .array(z.object({ artifactId: z.string(), name: z.string(), mimeType: z.string() }))

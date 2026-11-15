@@ -21,10 +21,10 @@ import { phaseCounts } from "../../lib/job-format";
 import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
-import { JobPrLine } from "../job-pr-line";
 import { JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
+import { JobWorkLine } from "../job-work";
 import { NativeActionButton } from "../native-action-button";
 import { NativeSymbol } from "../native-symbol";
 import { JobOwnerActions } from "./job-owner-actions";
@@ -237,7 +237,7 @@ export function CloudAgentCards({
                             }}
                           />
                         ) : null}
-                        {links.pr ? <JobPrLine job={job} /> : null}
+                        <JobWorkLine job={job} />
                       </>
                     ) : undefined
                   }

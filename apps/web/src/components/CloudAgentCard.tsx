@@ -1,7 +1,7 @@
-import { Trans } from "@lingui/react/macro";
+import { Plural, Trans } from "@lingui/react/macro";
 import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
-import type { CloudAgentPhase, CloudAgentPullRequestPart } from "@rakazo/core";
+import type { CloudAgentPhase, CloudAgentPullRequestPart, CloudAgentWorkPart } from "@rakazo/core";
 import {
   cloudAgentElapsed,
   cloudAgentHttpsUrl,
@@ -10,6 +10,7 @@ import {
   cloudAgentPullRequestNumber,
   cloudAgentPullRequestParts,
   cloudAgentTicking,
+  cloudAgentWorkParts,
 } from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
 import { buttonVariants } from "@rakazo/ui-web/components/ui/button";
@@ -63,10 +64,23 @@ function PullRequestPart({ part }: { part: CloudAgentPullRequestPart }) {
       return <Trans>checks running</Trans>;
     case "checksPassing":
       return <Trans>checks passing</Trans>;
-    case "checksFailing":
-      return <Trans>checks failing</Trans>;
     default:
-      return <Trans>watching</Trans>;
+      return <Trans>checks failing</Trans>;
+  }
+}
+
+function WorkPart({ part }: { part: CloudAgentWorkPart }) {
+  switch (part.kind) {
+    case "subagent":
+      return <Plural value={part.count} one="# subagent" other="# subagents" />;
+    case "command":
+      return <Plural value={part.count} one="# command" other="# commands" />;
+    case "monitor":
+      return <Plural value={part.count} one="# monitor" other="# monitors" />;
+    case "background_task":
+      return <Plural value={part.count} one="# background task" other="# background tasks" />;
+    default:
+      return <Plural value={part.count} one="watching PR" other="watching # PRs" />;
   }
 }
 
@@ -138,6 +152,15 @@ export function CloudAgentCard({
           <span className="font-medium text-warning" dir="auto">
             {ownerQuestion}
           </span>
+        ) : null}
+        {live && cloudAgentWorkParts(block).length ? (
+          <div className="flex flex-wrap gap-x-3 text-muted-foreground">
+            {cloudAgentWorkParts(block).map((part) => (
+              <span key={part.kind}>
+                <WorkPart part={part} />
+              </span>
+            ))}
+          </div>
         ) : null}
         {prHref || href ? (
           <div className="flex flex-wrap items-center gap-2">

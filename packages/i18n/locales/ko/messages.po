@@ -17,6 +17,16 @@ msgstr ""
 msgid " (unread)"
 msgstr " (읽지 않음)"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -42,6 +52,11 @@ msgstr "{0, plural, other {#개월 무료}}"
 msgid "{0, plural, one {# model} other {# models}}"
 msgstr ""
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -57,6 +72,11 @@ msgstr "{0, plural, other {스킬 #개}}"
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, other {스페이스 #개}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
 
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/McpServersOverlay.tsx
@@ -74,6 +94,11 @@ msgstr "{0, plural, other {로그인 대기 중 — 코드는 약 #분 후 만�
 #: apps/web/src/pages/onboarding/model-step.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
 msgstr "{0, plural, other {로그인 대기 중 — 링크는 약 #분 후 만료됩니다.}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -242,6 +267,14 @@ msgstr "{commandVariable}은(는) 예약되어 있어 명령 변수로 사용할
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
 msgstr "{connectedCount, plural, other {#개 연결됨}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #: apps/mobile/components/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
@@ -251,9 +284,21 @@ msgstr "{count, plural, other {{peer}님과 메시지 #개}}"
 msgid "{count, plural, one {# model} other {# models}}"
 msgstr ""
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# 행} other {# 행}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -1864,6 +1909,10 @@ msgstr "채팅으로 돌아가기"
 msgid "Back to sign in"
 msgstr "로그인으로 돌아가기"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "서버 주소"
@@ -2420,31 +2469,19 @@ msgstr "연결 확인 중…"
 msgid "Checking…"
 msgstr "확인 중…"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks failing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks passing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks running"
-msgstr ""
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
 msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
@@ -2662,7 +2699,8 @@ msgstr "계정 설정 닫기"
 msgid "Close voice settings"
 msgstr "음성 설정 닫기"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
 msgstr ""
@@ -2718,6 +2756,7 @@ msgstr "열 {index}"
 msgid "Comfortable"
 msgstr "넓게"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -6676,7 +6715,8 @@ msgstr "OpenClaw 기능을 언급함"
 msgid "Mentions: {mentions}"
 msgstr "언급: {mentions}"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
 msgstr ""
@@ -6858,6 +6898,10 @@ msgstr "모델 목록이 정상입니다. {modelCount, plural, one {모델 #개}
 #: apps/web/src/lib/cron.ts
 msgid "Monday"
 msgstr "월요일"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "month"
@@ -7632,6 +7676,10 @@ msgstr "이 계정의 소유자만 요금제를 선택할 수 있습니다."
 msgid "Only you"
 msgstr "나만"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8150,8 +8198,9 @@ msgstr "플러그인"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "확인 결과 변경 사항이 없으면 채팅 메시지를 게시합니다. 자동 실행은 실행되지 않습니다."
 
-#: apps/mobile/components/job-pr-line.tsx
-msgid "PR #{number}"
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
 msgstr ""
 
 #: apps/mobile/components/job-row.tsx
@@ -10151,6 +10200,10 @@ msgstr "답변 스트리밍"
 msgid "subagent"
 msgstr "보조 에이전트"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
+
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
@@ -11557,8 +11610,7 @@ msgstr "깨우기"
 msgid "Wallet"
 msgstr "지갑"
 
-#: apps/mobile/components/job-pr-line.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
+#: apps/mobile/components/job-work.tsx
 msgid "watching"
 msgstr ""
 
@@ -11767,6 +11819,10 @@ msgstr "작업 중"
 #: apps/web/src/pages/shell/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "작업 지침"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx

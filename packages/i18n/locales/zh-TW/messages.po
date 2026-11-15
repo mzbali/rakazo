@@ -18,6 +18,16 @@ msgstr ""
 msgid " (unread)"
 msgstr "（未讀）"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -43,6 +53,11 @@ msgstr "{0, plural, other {# 個月免費使用期}}"
 msgid "{0, plural, one {# model} other {# models}}"
 msgstr ""
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -58,6 +73,11 @@ msgstr "{0, plural, other {# 項技能}}"
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, other {# 個空間}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
 
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/McpServersOverlay.tsx
@@ -75,6 +95,11 @@ msgstr "{0, plural, one {等待登入中 — 代碼將在約 # 分鐘後失效�
 #: apps/web/src/pages/onboarding/model-step.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
 msgstr "{0, plural, one {等待登入中 — 連結將在約 # 分鐘後失效。} other {等待登入中 — 連結將在約 # 分鐘後失效。}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -243,6 +268,14 @@ msgstr "{commandVariable} 是保留名稱，不能用作命令變數。請選擇
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
 msgstr "{connectedCount, plural, other {已連線 # 個}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #: apps/mobile/components/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
@@ -252,9 +285,21 @@ msgstr "{count, plural, other {與{peer}的 # 則訊息}}"
 msgid "{count, plural, one {# model} other {# models}}"
 msgstr ""
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# 列} other {# 列}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -1865,6 +1910,10 @@ msgstr "返回聊天"
 msgid "Back to sign in"
 msgstr "返回登入"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "基底網址"
@@ -2421,31 +2470,19 @@ msgstr "正在檢查連線…"
 msgid "Checking…"
 msgstr "正在檢查…"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks failing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks passing"
 msgstr ""
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "checks running"
-msgstr ""
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
 msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
@@ -2663,7 +2700,8 @@ msgstr "關閉使用者設定"
 msgid "Close voice settings"
 msgstr "關閉語音設定"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
 msgstr ""
@@ -2719,6 +2757,7 @@ msgstr "第 {index} 欄"
 msgid "Comfortable"
 msgstr "寬鬆"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -6677,7 +6716,8 @@ msgstr "提及 OpenClaw 功能"
 msgid "Mentions: {mentions}"
 msgstr "提及：{mentions}"
 
-#: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
 msgstr ""
@@ -6859,6 +6899,10 @@ msgstr "模型清單正常。{modelCount, plural, one {# 個模型} other {# 個
 #: apps/web/src/lib/cron.ts
 msgid "Monday"
 msgstr "週一"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "month"
@@ -7633,6 +7677,10 @@ msgstr "只有此帳號的擁有者可以選擇方案。"
 msgid "Only you"
 msgstr "僅限自己"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8151,8 +8199,9 @@ msgstr "外掛"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "檢查未發現變化時發送一則聊天訊息。例行任務不會執行。"
 
-#: apps/mobile/components/job-pr-line.tsx
-msgid "PR #{number}"
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
 msgstr ""
 
 #: apps/mobile/components/job-row.tsx
@@ -10152,6 +10201,10 @@ msgstr "串流回覆"
 msgid "subagent"
 msgstr "子代理程式"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
+
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
@@ -11558,8 +11611,7 @@ msgstr "喚醒"
 msgid "Wallet"
 msgstr "錢包"
 
-#: apps/mobile/components/job-pr-line.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
+#: apps/mobile/components/job-work.tsx
 msgid "watching"
 msgstr ""
 
@@ -11768,6 +11820,10 @@ msgstr "工作中"
 #: apps/web/src/pages/shell/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "工作指示"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx

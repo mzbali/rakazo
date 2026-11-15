@@ -387,6 +387,15 @@ function snapshotData(
           watchingSince: snapshot.watchIdle ? (agent.watchingSince ?? new Date()) : null,
         }
       : {}),
+    // Shown on the card only: nothing in it wakes the bot.
+    ...(snapshot.work && snapshot.pullRequests
+      ? {
+          threadWork: {
+            work: snapshot.work.map((item) => ({ ...item })),
+            pullRequests: snapshot.pullRequests.map((pr) => ({ ...pr })),
+          },
+        }
+      : {}),
     ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
     ...(snapshot.attention !== undefined
       ? {

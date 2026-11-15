@@ -170,16 +170,14 @@ export type CloudAgentPullRequestPart =
   | "closed"
   | "checksRunning"
   | "checksPassing"
-  | "checksFailing"
-  | "watching";
+  | "checksFailing";
 
 /**
- * What the card's one pull request line says after "PR #12", in order: that it landed or was
- * closed, or else how its checks stand and whether the agent is still watching it. Each surface
- * gives the parts its own translated words.
+ * What a job says beside its "PR #12": that it landed or was closed, or else how its checks
+ * stand. Each surface gives the part its own translated words. Watching is the activity line's.
  */
 export function cloudAgentPullRequestParts(
-  job: Pick<CloudAgentBlock, "prState" | "checks" | "watching">,
+  job: Pick<CloudAgentBlock, "prState" | "checks">,
 ): CloudAgentPullRequestPart[] {
   if (job.prState) return [job.prState];
   const checks: Record<string, CloudAgentPullRequestPart> = {
@@ -187,10 +185,65 @@ export function cloudAgentPullRequestParts(
     failing: "checksFailing",
     running: "checksRunning",
   };
-  const parts: CloudAgentPullRequestPart[] = [];
-  if (job.checks) parts.push(checks[job.checks]!);
-  if (job.watching) parts.push("watching");
-  return parts;
+  return job.checks ? [checks[job.checks]!] : [];
+}
+
+export type CloudAgentWorkPart = {
+  kind: "subagent" | "command" | "monitor" | "background_task" | "watchedPr";
+  count: number;
+};
+
+const WORK_ORDER = ["subagent", "command", "monitor", "background_task"] as const;
+
+/**
+ * What the card's second line counts: the thread's background work by kind, then the pull
+ * requests it watches (one at least, when the job says it watches but the list is not known).
+ */
+export function cloudAgentWorkParts(
+  job: Pick<CloudAgentBlock, "work" | "pullRequests" | "watching">,
+): CloudAgentWorkPart[] {
+  const parts: CloudAgentWorkPart[] = WORK_ORDER.map((kind) => ({
+    kind,
+    count: (job.work ?? []).filter((item) => item.kind === kind).length,
+  }));
+  const watched = (job.pullRequests ?? []).filter((pr) => pr.watching && pr.state === "open");
+  parts.push({ kind: "watchedPr", count: Math.max(watched.length, job.watching ? 1 : 0) });
+  return parts.filter((part) => part.count > 0);
+}
+
+/** The thread's work and pull requests from the row, as far as they are well formed. */
+function cloudAgentThreadWork(payload: Record<string, unknown>) {
+  const kinds = new Set<string>(WORK_ORDER);
+  const work = (Array.isArray(payload.work) ? payload.work : []).flatMap(
+    (item: { kind?: unknown; label?: unknown; url?: unknown }) => {
+      if (typeof item?.kind !== "string" || !kinds.has(item.kind)) return [];
+      const url = typeof item.url === "string" ? cloudAgentUrl(item.url) : undefined;
+      return [
+        {
+          kind: item.kind as (typeof WORK_ORDER)[number],
+          label: typeof item.label === "string" ? item.label.slice(0, 120) : "",
+          ...(url ? { url } : {}),
+        },
+      ];
+    },
+  );
+  const states = ["open", "merged", "closed"] as const;
+  const pullRequests = (Array.isArray(payload.pullRequests) ? payload.pullRequests : []).flatMap(
+    (pr: { url?: unknown; number?: unknown; state?: unknown; watching?: unknown }) => {
+      const state = states.find((candidate) => candidate === pr?.state);
+      return typeof pr?.url === "string" &&
+        cloudAgentHttpsUrl(pr.url) &&
+        typeof pr.number === "number" &&
+        Number.isInteger(pr.number) &&
+        state
+        ? [{ url: pr.url, number: pr.number, state, watching: pr.watching === true }]
+        : [];
+    },
+  );
+  return {
+    ...(work.length ? { work: work.slice(0, 20) } : {}),
+    ...(pullRequests.length ? { pullRequests: pullRequests.slice(0, 10) } : {}),
+  };
 }
 
 /** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
@@ -335,6 +388,7 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
       ? { prState: payload.prState }
       : {}),
     ...(payload.watching === true ? { watching: true } : {}),
+    ...cloudAgentThreadWork(payload),
     ...cloudAgentProofImages(payload.proofImages),
     ...(Array.isArray(payload.attempts) && payload.attempts.length
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }

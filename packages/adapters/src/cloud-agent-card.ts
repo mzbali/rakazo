@@ -10,6 +10,15 @@ const MAX_ATTEMPTS = 5;
 
 const VERDICTS = ["accepted", "rejected", "needs_owner"] as const;
 
+/** What the job's thread has going; its background work only while the job runs. */
+function threadWorkOf(agent: CloudAgent) {
+  const stored = agent.threadWork as { work?: unknown; pullRequests?: unknown } | null;
+  return {
+    work: agent.status === "running" ? stored?.work : undefined,
+    pullRequests: stored?.pullRequests,
+  };
+}
+
 /**
  * The job as its card and jobs row show it. `previous` is the attempts this one replaced, oldest
  * first. The hidden review shows as a field of the job, never as a card of its own.
@@ -32,6 +41,7 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     // Refused before any remote work existed: there is nothing for the owner to open or answer.
     launchFailed: agent.status === "failed" && !agent.remoteId,
     checks: agent.checksState,
+    ...threadWorkOf(agent),
     prState: agent.prState,
     watching: agent.status === "running" && agent.prWatching,
     review,

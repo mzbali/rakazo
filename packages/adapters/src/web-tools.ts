@@ -19,7 +19,7 @@ export async function webSearchFromTool(
     );
     return { results };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) };
+    return { error: webToolError(error) };
   }
 }
 
@@ -42,6 +42,35 @@ export async function webFetchFromTool(
     );
     return result;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) };
+    return { error: webToolError(error) };
   }
+}
+
+// Transport messages can contain credentials, query strings and internal addresses. Only
+// expose known classifications from causes, never their messages or arbitrary code values.
+const transportReasons = new Map([
+  ["ENOTFOUND", "DNS resolution failed"],
+  ["EAI_AGAIN", "DNS resolution temporarily unavailable"],
+  ["ECONNRESET", "connection reset"],
+  ["ECONNREFUSED", "connection refused"],
+  ["ETIMEDOUT", "connection timed out"],
+  ["UND_ERR_CONNECT_TIMEOUT", "connection timed out"],
+  ["UND_ERR_SOCKET", "connection closed"],
+  ["CERT_HAS_EXPIRED", "TLS certificate expired"],
+  ["UNABLE_TO_VERIFY_LEAF_SIGNATURE", "TLS certificate verification failed"],
+]);
+
+function webToolError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  if (error.message !== "fetch failed") return error.message;
+  const seen = new Set<Error>();
+  let cause: unknown = error;
+  while (cause instanceof Error && !seen.has(cause)) {
+    seen.add(cause);
+    const code = "code" in cause ? cause.code : undefined;
+    const reason = typeof code === "string" ? transportReasons.get(code) : undefined;
+    if (reason) return `fetch failed (${reason})`;
+    cause = cause.cause;
+  }
+  return error.message;
 }

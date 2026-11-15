@@ -1187,11 +1187,11 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
 
   describe("settling accepted work", () => {
     async function finished(
-      provider: ScriptedProvider,
+      t: Awaited<ReturnType<typeof setup>>,
+      n: number,
       status: "finished" | "failed" = "finished",
     ) {
-      const t = await setup(provider);
-      const id = await t.launch(1);
+      const id = await t.launch(n);
       await t.poll(id);
       (await t.remote(id)).status = status;
       await t.poll(id);
@@ -1208,8 +1208,9 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     }
 
     it("settles the thread once, however often the verdict is repeated", async () => {
-      const provider = new ScriptedProvider();
-      const { id, report } = await finished(provider);
+      const t = await setup();
+      const provider = t.provider;
+      const { id, report } = await finished(t, 1);
       await report("accepted");
       await report("accepted");
       const { remoteId } = await prisma.cloudAgent.findUniqueOrThrow({ where: { id } });
@@ -1217,21 +1218,23 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     });
 
     it("leaves rejected and needs-owner work, and a failed run, unsettled", async () => {
-      const provider = new ScriptedProvider();
-      const rejected = await finished(provider);
+      const t = await setup();
+      const provider = t.provider;
+      const rejected = await finished(t, 1);
       await rejected.report("rejected");
-      const needsOwner = await finished(provider);
+      const needsOwner = await finished(t, 2);
       await needsOwner.report("needs_owner");
-      const failed = await finished(provider, "failed");
+      const failed = await finished(t, 3, "failed");
       expect((await failed.t.state(failed.id)).status).toBe("failed");
       await failed.report("accepted");
       expect(provider.settled).toEqual([]);
     });
 
     it("keeps the verdict when settling is refused", async () => {
-      const provider = new ScriptedProvider();
+      const t = await setup();
+      const provider = t.provider;
       provider.refuseSettle = true;
-      const { t, id, report } = await finished(provider);
+      const { id, report } = await finished(t, 1);
       expect(await report("accepted")).toMatchObject({ verdict: "accepted" });
       expect(provider.settled).toHaveLength(1);
       expect(await t.state(id)).toMatchObject({ verdict: "accepted", status: "finished" });

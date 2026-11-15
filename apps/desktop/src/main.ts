@@ -108,6 +108,7 @@ import {
 } from "./setup-config.js";
 import { clearSetup, readSetup, readUiLocale, writeSetup, writeUiLocale } from "./setup-store.js";
 import { destroySetupWindow, registerSetupIpc, showSetupWindow } from "./setup-window.js";
+import { StackStopMenuAvailability } from "./stop-local-stack.js";
 import { createSystemSpeech } from "./system-speech.js";
 import { createUserDeviceAccess, deviceName } from "./user-device.js";
 
@@ -645,10 +646,15 @@ app.whenReady().then(async () => {
   const probe = (url: string, signal: AbortSignal, token: string) =>
     probeManagedStack(url, token, signal);
   const randomHex = (bytes: number) => randomBytes(bytes).toString("hex");
+  // Must exist before the stack controller: its lifecycle transitions refresh the stop item.
+  const stopStackMenu = new StackStopMenuAvailability(() => installApplicationMenu());
   const onState = (state: DesktopLocalStackState) => {
     if (desktop.setupWindow !== null && !desktop.setupWindow.isDestroyed()) {
       desktop.setupWindow.webContents.send("desktop.setup.stack.changed", state);
     }
+    // A stack can start or stop without a server switch; its phase transitions refresh
+    // the stop item.
+    stopStackMenu.stackChanged(state.phase);
   };
   const serverBundle = nativeStackEligible({
     platform: process.platform,
@@ -718,6 +724,8 @@ app.whenReady().then(async () => {
           probe,
           randomHex,
           onState,
+          // A confirmed reuse changes no phase; the menu must hear about it separately.
+          onReuseConfirmed: () => stopStackMenu.reuseConfirmed(),
         });
   const target = resolveStartupTarget({
     envUrl: process.env.RAKAZO_WEB_URL,
@@ -879,7 +887,6 @@ app.whenReady().then(async () => {
     "desktop.clipboard.write",
     createClipboardHandler(permissionTarget, (text) => clipboard.writeText(text)),
   );
-  ipcMain.handle("desktop.platform", () => process.platform);
   ipcMain.handle("desktop.passkeys.rpIds", () => passkeyRpIds);
   ipcMain.handle("desktop.monitoring.enabled", () => reportsErrors);
   handleOnlyFrom(fromMainWindow, "desktop.server.change", () => {

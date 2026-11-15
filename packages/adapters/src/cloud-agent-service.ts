@@ -280,7 +280,9 @@ export async function executeCloudAgentTool(
     }
     agent = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
   }
-  if (agent.nextPollAt) await enqueueCloudAgent(deps, agent.id);
+  // A status read only reports the row; queueing here would cut a backoff or Retry-After short
+  // and could move back a poll that a cancel or follow-up just queued.
+  if (agent.nextPollAt && name !== "cloud_agent_status") await enqueueCloudAgent(deps, agent.id);
   return { ...cloudAgentStatusResult(agent), ...(clampNote ? { note: clampNote } : {}) };
 }
 

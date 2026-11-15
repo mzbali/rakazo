@@ -6,9 +6,9 @@ import {
 } from "@rakazo/contracts";
 import { addedClaimMessage } from "@rakazo/core";
 import { readHistory, searchHistory } from "@rakazo/db";
-import { sharedMemorySaveError } from "./builtin-tools.js";
+import { sharedMemorySaveError } from "./builtin.tool-definition.js";
 import { redactConnectorPayload } from "./connector-safety.js";
-import { MAX_RECALLED_MEMORIES } from "./history-compaction.js";
+import { MAX_RECALLED_MEMORIES } from "./history-compaction.prompt.js";
 import { editMemory } from "./memory-tools.js";
 import type { RunContext } from "./run-context.js";
 import { markReadOutsideContent } from "./run-context.js";

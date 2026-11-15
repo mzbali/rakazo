@@ -1446,6 +1446,12 @@ model CloudAgent {
   reviewingAt         DateTime?
   /// When the owner cleared this finished job from their jobs list; the chat card stays.
   clearedAt           DateTime?
+  /// The pull request's check result as last read: passing, failing or running; empty when unknown.
+  checksState         String?
+  /// When the checks were last read, so a running job reads them every few minutes, not every poll.
+  checksAt            DateTime?
+  /// Screenshots copied from the job's pull request, as [{ source, artifactId, name, mimeType }]; at most three.
+  proofImages         Json?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])

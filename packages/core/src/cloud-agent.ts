@@ -275,6 +275,10 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     payload.review === "needs_owner"
       ? { review: payload.review }
       : {}),
+    ...(payload.checks === "passing" || payload.checks === "failing" || payload.checks === "running"
+      ? { checks: payload.checks }
+      : {}),
+    ...cloudAgentProofImages(payload.proofImages),
     ...(Array.isArray(payload.attempts) && payload.attempts.length
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }
       : {}),
@@ -369,4 +373,23 @@ function cloudAgentAttempt(value: unknown): NonNullable<CloudAgentBlock["attempt
       ...(typeof attempt.startedAt === "string" ? { startedAt: attempt.startedAt } : {}),
     },
   ];
+}
+
+const CLOUD_AGENT_PROOF_MAX = 3;
+
+/** The card's screenshots from the row's stored list, keeping only what the card can show. */
+function cloudAgentProofImages(value: unknown): Pick<CloudAgentBlock, "proofImages"> {
+  const images = (Array.isArray(value) ? value : []).flatMap((item: unknown) => {
+    const image = item as Record<string, unknown> | null;
+    return typeof image?.artifactId === "string" && typeof image.mimeType === "string"
+      ? [
+          {
+            artifactId: image.artifactId,
+            name: typeof image.name === "string" ? image.name.slice(0, 100) : "",
+            mimeType: image.mimeType,
+          },
+        ]
+      : [];
+  });
+  return images.length ? { proofImages: images.slice(0, CLOUD_AGENT_PROOF_MAX) } : {};
 }

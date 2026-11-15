@@ -25,6 +25,7 @@ import {
   jobHelperTaskPrompt,
   jobThreadFor,
 } from "./cloud-agent-job-thread.js";
+import { refreshCloudAgentProof } from "./cloud-agent-proof.js";
 import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
@@ -303,6 +304,8 @@ export async function pollCloudAgent(
       agent.latestRunId ?? undefined,
       agent.remoteCursor ?? undefined,
     );
+    // Before the card repaints, so it shows the checks and screenshots this poll found.
+    await refreshCloudAgentProof(deps, agent, snapshot, context);
     await finishPoll(deps, agent, snapshotData(snapshot), false, snapshot.missedAttention);
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {

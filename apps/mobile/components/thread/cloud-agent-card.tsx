@@ -15,11 +15,13 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { mobileTokens } from "../../lib/appearance";
+import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { hapticSelection } from "../../lib/haptics";
 import { phaseCounts } from "../../lib/job-format";
 import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
+import { JobChecksChip, JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
 import { NativeActionButton } from "../native-action-button";
@@ -79,12 +81,15 @@ export function CloudAgentCards({
   lead,
   actionProps,
   userBubble,
+  threadTarget,
 }: {
   jobs: Job[];
   /** The bot's lead-in text, drawn at the top of the card. */
   lead?: ReactNode;
   actionProps: MessageActionProps;
   userBubble?: UserBubble;
+  /** Whose files the screenshots are; without it the card shows none. */
+  threadTarget?: MobileArtifactTarget;
 }) {
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useLingui();
@@ -189,6 +194,7 @@ export function CloudAgentCards({
             const links = jobLinks(job);
             return (
               <View key={job.agentId}>
+                {threadTarget ? <JobProofImages job={job} target={threadTarget} /> : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${job.title}: ${phaseLabel(cloudAgentPhase(job))}`}
@@ -230,6 +236,7 @@ export function CloudAgentCards({
                             }}
                           />
                         ) : null}
+                        {links.pr ? <JobChecksChip checks={job.checks} /> : null}
                       </>
                     ) : undefined
                   }

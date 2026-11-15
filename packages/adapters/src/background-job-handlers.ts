@@ -226,6 +226,7 @@ export function createBackgroundJobHandlers(deps: {
           notifications: deps.notifications,
           cloudAgent: deps.cloudAgent,
           userCloudAgents: deps.userCloudAgents,
+          artifacts: deps.artifacts,
         },
         payload,
       );

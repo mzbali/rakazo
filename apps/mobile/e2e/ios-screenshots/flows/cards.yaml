@@ -116,7 +116,25 @@ name: Request cards
     centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
+- scrollUntilVisible:
+    element: ".*Checks passing.*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
+    visibilityPercentage: 100
+- waitForAnimationToEnd:
+    timeout: 3000
 - takeScreenshot: 05c-done-card-pr
+# The thumbnails open full size; the first screenshot is the card, the second the viewer.
+- tapOn:
+    text: "Open screenshot"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 05c2-done-card-screenshot-full-size
+- back
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element: ".*Migrate the billing tests.*"
     direction: UP

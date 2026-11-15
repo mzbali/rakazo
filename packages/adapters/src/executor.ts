@@ -60,6 +60,7 @@ import { createBrowserProvider } from "./browser-provider-factory.js";
 import { agentConnectionTools, builtinAgentTools } from "./builtin.tool-definition.js";
 import { partitionTools } from "./builtin-tool-bridge.js";
 import { USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
+import { loadRunImages } from "./cloud-agent-review-images.js";
 import { cloudAgentForActor } from "./cloud-agent-service.js";
 import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
 import { mergeConnectedPlugins, needsLivePluginSync } from "./composio-connector.js";
@@ -214,7 +215,6 @@ import {
 } from "./run-turn.js";
 import {
   claimRunSteering,
-  loadCurrentTurnImages,
   RECENT_TURN_IMAGE_TURNS,
   withLatestStepScreenshot,
   withRecentTurnImages,
@@ -963,7 +963,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
           recalled,
         ] = await Promise.all([
           discoveredPromise,
-          loadCurrentTurnImages(deps, turnBlocks, context),
+          loadRunImages(deps, run, turnBlocks, context),
           nonOwnerChatRun
             ? Promise.resolve("")
             : loadAgentMemoryContext(deps.memory, bot.id, context),

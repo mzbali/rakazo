@@ -24,6 +24,7 @@ import {
   lockCloudAgentWakeThread,
   repaintCloudAgentCard,
 } from "./cloud-agent-poll.js";
+import type { CloudAgentProofDeps } from "./cloud-agent-proof.js";
 import { failedStartRecovery } from "./cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./cloud-agent-replacement.js";
 import { replacedAttempt, takeOverCloudAgentCard } from "./cloud-agent-replacement.js";
@@ -52,6 +53,9 @@ export interface CloudAgentDeps {
   cloudAgent: CloudAgentConnection | null | undefined;
   userCloudAgents?: UserCloudAgents;
   runLease?: ExecutorDeps["runLease"];
+  /** Where a finished job's screenshots are kept; without it the card shows none. */
+  artifacts?: CloudAgentProofDeps["artifacts"];
+  proofEgress?: CloudAgentProofDeps["proofEgress"];
 }
 
 /** A bot runs at most this many requests at once; later ones wait their turn in order. */

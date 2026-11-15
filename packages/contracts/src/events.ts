@@ -173,6 +173,13 @@ const CloudAgentFields = z.object({
   launchFailed: z.boolean().optional(),
   /** Why the provider refused the launch or ended the work, when it said. */
   failureReason: z.string().optional(),
+  /** The pull request's check result; absent when it is not known. */
+  checks: z.enum(["passing", "failing", "running"]).optional(),
+  /** Screenshots the job's pull request showed, copied to the app's own storage; at most three. */
+  proofImages: z
+    .array(z.object({ artifactId: z.string(), name: z.string(), mimeType: z.string() }))
+    .max(3)
+    .optional(),
   /** The job's hidden review: under way, or the verdict it reached. */
   review: z.enum(["checking", "accepted", "rejected", "needs_owner"]).optional(),
   /** Earlier attempts at the same request, oldest first; the card shows only the current one. */

@@ -204,6 +204,7 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           }
           jobs={blocks.filter((block) => block.kind === "cloud_agent")}
           actionProps={props.actionProps}
+          threadTarget={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
           userBubble={props.userBubble}
         />
       );

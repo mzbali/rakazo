@@ -375,11 +375,39 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
       botId: researcher.id,
     });
+    const supportFiles = await rpc<ArtifactRow[]>(
+      input.apiUrl,
+      populated.headers,
+      "artifacts/list",
+      {
+        botId: support.id,
+      },
+    );
+    const proof: { artifactId: string; name: string; mimeType: string }[] = [];
+    for (const [index, accent] of (
+      [
+        [59, 130, 246],
+        [16, 185, 129],
+        [139, 92, 246],
+      ] as [number, number, number][]
+    ).entries()) {
+      const name = `cart-page-${index + 1}.png`;
+      const file =
+        supportFiles.find((artifact) => artifact.name === name) ??
+        (await rpc<ArtifactRow>(input.apiUrl, populated.headers, "artifacts/create", {
+          botId: support.id,
+          name,
+          mimeType: "image/png",
+          contentBase64: phoneScreenPng(accent).toString("base64"),
+        }));
+      proof.push({ artifactId: file.id, name, mimeType: "image/png" });
+    }
     await ensureRequestCards(db.prisma, {
       threadId: support.threadId,
       botId: support.id,
       spaceId: me.spaceId,
       userId: me.userId,
+      proof,
     });
     await ensurePayments(db.prisma, {
       spaceId: me.spaceId,
@@ -640,6 +668,24 @@ function chartPng() {
   return PNG.sync.write(png);
 }
 
+/** A phone-shaped screenshot of a list screen, the kind a job's pull request shows. */
+function phoneScreenPng(accent: [number, number, number]) {
+  const png = new PNG({ width: 195, height: 420 });
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      const offset = (y * png.width + x) * 4;
+      const header = y < 56;
+      const row = y > 80 && (y - 80) % 64 < 48 && x > 14 && x < png.width - 14;
+      const color = header ? accent : row ? [226, 232, 240] : [250, 250, 250];
+      png.data[offset] = color[0] ?? 0;
+      png.data[offset + 1] = color[1] ?? 0;
+      png.data[offset + 2] = color[2] ?? 0;
+      png.data[offset + 3] = 255;
+    }
+  }
+  return PNG.sync.write(png);
+}
+
 /** A chat-app channel the bot answers in, so Messaging lists a conversation to open. */
 async function ensureTeamConversation(
   prisma: ReturnType<typeof createDb>["prisma"],
@@ -822,6 +868,10 @@ const SCREENSHOT_JOBS: {
   listOnly?: boolean;
   brief?: string;
   result?: string;
+  /** The pull request's check result. */
+  checks?: "passing" | "failing" | "running";
+  /** Shows the screenshots copied from the pull request. */
+  proof?: boolean;
   /** What the running agent last said. */
   progress?: string;
   /** Minutes the work ran before it ended; the card's clock stops there. */
@@ -852,6 +902,8 @@ const SCREENSHOT_JOBS: {
     title: "Speed up the cart page",
     status: "finished",
     prUrl: "https://github.example.com/acme/app/pull/57",
+    checks: "passing",
+    proof: true,
     projectName: "storefront",
     minutesAgo: 30,
     ranMinutes: 9,
@@ -957,7 +1009,13 @@ const SCREENSHOT_JOBS: {
 /** The cards a bot shows when it needs something: a key, a sign-in, a site, an app, a choice. */
 async function ensureRequestCards(
   prisma: ReturnType<typeof createDb>["prisma"],
-  input: { threadId: string; botId: string; spaceId: string; userId: string },
+  input: {
+    threadId: string;
+    botId: string;
+    spaceId: string;
+    userId: string;
+    proof: { artifactId: string; name: string; mimeType: string }[];
+  },
 ) {
   const messages = await prisma.message.findMany({
     where: { threadId: input.threadId },
@@ -1035,6 +1093,10 @@ async function ensureRequestCards(
         remoteId: job.launchFailed ? null : job.key,
         failureReason: job.failureReason ?? null,
         reviewingAt: job.checking ? new Date() : null,
+        checksState: job.checks ?? null,
+        proofImages: job.proof
+          ? input.proof.map((image) => ({ source: image.name, ...image }))
+          : undefined,
         nextPollAt: null,
         launchNote: job.note ?? null,
         launchBrief: job.brief ?? null,
@@ -1071,6 +1133,8 @@ async function ensureRequestCards(
         ...(job.launchFailed ? { launchFailed: true } : {}),
         ...(job.failureReason ? { failureReason: job.failureReason } : {}),
         ...(job.checking ? { review: "checking" as const } : {}),
+        ...(job.checks ? { checks: job.checks } : {}),
+        ...(job.proof ? { proofImages: input.proof } : {}),
         ...(job.attempts ? { attempts: job.attempts } : {}),
       },
     ]);

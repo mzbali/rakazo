@@ -59,3 +59,16 @@ it("counts a finished job with an owner question on Needs you, and will not clea
   expect(jobIsClearable(job("run"))).toBe(false);
   expect(jobIsClearable(job("over", { status: "cancelled" }))).toBe(true);
 });
+
+it("keeps a finished job under review on Working, not clearable, until the review ends", () => {
+  const checking = job("review", {
+    status: "finished",
+    review: "checking",
+    endedAt: "2026-11-15T09:00:00",
+  });
+  expect(jobListItems([checking], NOW).map(label)).toEqual(["working", "review"]);
+  expect(jobIsClearable(checking)).toBe(false);
+  const reviewed = { ...checking, review: "accepted" as const };
+  expect(jobListItems([reviewed], NOW).map(label)).toEqual(["today", "review"]);
+  expect(jobIsClearable(reviewed)).toBe(true);
+});

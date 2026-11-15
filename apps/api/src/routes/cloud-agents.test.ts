@@ -136,6 +136,7 @@ it("clears only a finished job with nothing waiting on the owner", async () => {
       userId: "owner",
       status: { not: "running" },
       ownerQuestion: null,
+      reviewingAt: null,
       clearedAt: null,
     },
     data: { clearedAt: expect.any(Date) },

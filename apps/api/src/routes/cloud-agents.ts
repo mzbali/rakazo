@@ -101,9 +101,15 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
       clear: authed.cloudAgents.clear.handler(async ({ context, input }) => {
         const { spaceId, userId } = context.actor;
         const where = { id: input.agentId, spaceId, userId };
-        // Only a finished job with nothing left for the owner leaves the list; the chat keeps its card.
+        // Only a finished, reviewed job with nothing left for the owner leaves the list; the chat keeps its card.
         const cleared = await deps.prisma.cloudAgent.updateMany({
-          where: { ...where, status: { not: "running" }, ownerQuestion: null, clearedAt: null },
+          where: {
+            ...where,
+            status: { not: "running" },
+            ownerQuestion: null,
+            reviewingAt: null,
+            clearedAt: null,
+          },
           data: { clearedAt: new Date() },
         });
         if (cleared.count) return { duplicate: false };

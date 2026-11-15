@@ -1,5 +1,5 @@
 import type { CloudAgentJob } from "@rakazo/contracts";
-import { cloudAgentShelf, cloudAgentState } from "@rakazo/core";
+import { jobBaseShelf } from "./job-shelves";
 
 export type JobPill =
   | { kind: "needsYou"; job: CloudAgentJob }
@@ -16,7 +16,7 @@ export function jobPill(
   const inChat = (jobs ?? []).filter((job) =>
     chat.groupId ? job.groupId === chat.groupId : !job.groupId && job.botId === chat.botId,
   );
-  const shelf = (job: CloudAgentJob) => cloudAgentShelf(cloudAgentState(job));
+  const shelf = jobBaseShelf;
   const waiting = inChat.find((job) => shelf(job) === "needsYou");
   if (waiting) return { kind: "needsYou", job: waiting };
   const working = inChat.filter((job) => shelf(job) === "working");

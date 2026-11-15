@@ -37,3 +37,10 @@ it("shows nothing once every job is over, and ignores other chats", () => {
   expect(jobPill([job("a", { groupId: "g" })], { groupId: "g" })).not.toBeNull();
   expect(jobPill(null, { botId: "bot" })).toBeNull();
 });
+
+it("counts a finished job still being checked as working", () => {
+  const pill = jobPill([job("review", { status: "finished", review: "checking" })], {
+    botId: "bot",
+  });
+  expect(pill).toMatchObject({ kind: "working", count: 1 });
+});

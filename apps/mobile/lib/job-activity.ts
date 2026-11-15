@@ -1,5 +1,6 @@
 import type { CloudAgentJob, RunActivityRow } from "@rakazo/contracts";
-import { cloudAgentShelf, cloudAgentState } from "@rakazo/core";
+import { cloudAgentState } from "@rakazo/core";
+import { jobBaseShelf } from "./job-shelves";
 
 const JOB_RUN_PREFIX = "job:";
 
@@ -11,7 +12,7 @@ const JOB_RUN_PREFIX = "job:";
 export function jobActivityRuns(jobs: readonly CloudAgentJob[] | null): RunActivityRow[] {
   return (jobs ?? []).flatMap((job) => {
     const state = cloudAgentState(job);
-    const shelf = cloudAgentShelf(state);
+    const shelf = jobBaseShelf(job);
     if (shelf === "done") return [];
     return [
       {

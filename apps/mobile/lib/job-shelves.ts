@@ -1,5 +1,6 @@
 import type { CloudAgentJob } from "@rakazo/contracts";
-import { cloudAgentShelf, cloudAgentState } from "@rakazo/core";
+import type { CloudAgentShelf } from "@rakazo/core";
+import { cloudAgentPhase, cloudAgentShelf, cloudAgentState } from "@rakazo/core";
 
 export type JobShelf = "needsYou" | "working" | "today" | "earlier";
 
@@ -14,9 +15,15 @@ function endedAt(job: CloudAgentJob): number {
   return Number.isNaN(time) ? 0 : time;
 }
 
+/** The shelf by what the job waits on; a finished job still being checked is not over yet. */
+export function jobBaseShelf(job: CloudAgentJob): CloudAgentShelf {
+  const shelf = cloudAgentShelf(cloudAgentState(job));
+  return shelf === "done" && cloudAgentPhase(job) === "checking" ? "working" : shelf;
+}
+
 /** Finished jobs split by the day they ended; the rest sit by what they wait on. */
 export function jobShelf(job: CloudAgentJob, now: number): JobShelf {
-  const shelf = cloudAgentShelf(cloudAgentState(job));
+  const shelf = jobBaseShelf(job);
   if (shelf !== "done") return shelf;
   return new Date(endedAt(job)).toDateString() === new Date(now).toDateString()
     ? "today"
@@ -40,6 +47,5 @@ export function jobListItems(jobs: CloudAgentJob[], now = Date.now()): JobListIt
 
 /** Whether a job is over, so the owner can clear it from the list. */
 export function jobIsClearable(job: CloudAgentJob): boolean {
-  const shelf = cloudAgentShelf(cloudAgentState(job));
-  return shelf === "done";
+  return jobBaseShelf(job) === "done";
 }

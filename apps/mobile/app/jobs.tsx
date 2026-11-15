@@ -1,54 +1,63 @@
 import { useLingui } from "@lingui/react/macro";
 import type { CloudAgentJob } from "@rakazo/contracts";
-import type { CloudAgentShelf } from "@rakazo/core";
-import { cloudAgentState } from "@rakazo/core";
+import { cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import { memo, useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
 import { JobRow } from "../components/job-row";
-import { useJobStateLabel } from "../components/job-status";
+import { useJobPhaseLabel } from "../components/job-status";
+import { JobSwipeRow } from "../components/job-swipe-row";
 import { LoadFailure } from "../components/load-failure";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
-import { refreshCloudJobs } from "../lib/cloud-jobs-store";
+import { clearCloudJob, refreshCloudJobs } from "../lib/cloud-jobs-store";
 import { hapticSelection } from "../lib/haptics";
-import { jobChatTarget } from "../lib/job-chat-target";
-import type { JobListItem } from "../lib/job-shelves";
-import { jobListItems } from "../lib/job-shelves";
+import type { JobListItem, JobShelf } from "../lib/job-shelves";
+import { jobIsClearable, jobListItems } from "../lib/job-shelves";
 import { native, useThemedStyles } from "../lib/native";
 import { useSideInsets } from "../lib/side-insets";
 import { errorText } from "../lib/user-error";
 
-const REFRESH_MS = 15_000;
-
 const JobListRow = memo(function JobListRow({
   job,
   onOpen,
+  onClear,
 }: {
   job: CloudAgentJob;
   onOpen: (job: CloudAgentJob) => void;
+  onClear: (job: CloudAgentJob) => void;
 }) {
   const tokens = mobileTokens();
-  const stateLabel = useJobStateLabel();
+  const phaseLabel = useJobPhaseLabel();
   return (
-    <Pressable
-      onPress={() => {
-        hapticSelection();
-        onOpen(job);
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`${job.title}: ${stateLabel(cloudAgentState(job))}`}
-      style={({ pressed }) => ({
-        marginHorizontal: 8,
-        borderRadius: 10,
-        paddingHorizontal: 8,
-        paddingVertical: 12,
-        backgroundColor: pressed ? tokens.muted : "transparent",
-      })}
-    >
-      <JobRow job={job} chevron />
-    </Pressable>
+    <JobSwipeRow rowKey={job.agentId} clearable={jobIsClearable(job)} onClear={() => onClear(job)}>
+      <Pressable
+        onPress={() => {
+          hapticSelection();
+          onOpen(job);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`${job.title}: ${phaseLabel(cloudAgentPhase(job))}`}
+        style={({ pressed }) => ({
+          marginHorizontal: 8,
+          borderRadius: 10,
+          paddingHorizontal: 8,
+          paddingVertical: 12,
+          backgroundColor: pressed ? tokens.muted : native.page,
+        })}
+      >
+        <JobRow job={job} chevron />
+      </Pressable>
+    </JobSwipeRow>
   );
 });
 
@@ -56,12 +65,17 @@ const ShelfHeader = memo(function ShelfHeader({
   shelf,
   count,
 }: {
-  shelf: CloudAgentShelf;
+  shelf: JobShelf;
   count: number;
 }) {
   const { t } = useLingui();
   const tokens = mobileTokens();
-  const label = shelf === "needsYou" ? t`Needs you` : shelf === "working" ? t`Working` : t`Done`;
+  const label = {
+    needsYou: t`Needs you`,
+    working: t`Working`,
+    today: t`Today`,
+    earlier: t`Earlier`,
+  }[shelf];
   return (
     <View
       accessibilityRole="header"
@@ -87,39 +101,35 @@ const ShelfHeader = memo(function ShelfHeader({
   );
 });
 
-/** Every cloud-agent job the user has, on shelves: what needs them, what runs, what is done. */
+/** The owner's jobs on shelves: what needs them, what runs, then what ended today and earlier. */
 export default function JobsScreen() {
   const { t } = useLingui();
   const router = useRouter();
   const sideInsets = useSideInsets();
   const styles = useThemedStyles(createStyles);
-  const { jobs, error } = useCloudJobs(REFRESH_MS);
+  const { jobs, error } = useCloudJobs();
   const [refreshing, setRefreshing] = useState(false);
-  const [doneExpanded, setDoneExpanded] = useState(false);
-  const items = useMemo(() => (jobs ? jobListItems(jobs, doneExpanded) : []), [jobs, doneExpanded]);
+  const items = useMemo(() => (jobs ? jobListItems(jobs) : []), [jobs]);
 
   const open = useCallback(
-    (job: CloudAgentJob) => router.push({ pathname: "/thread", params: jobChatTarget(job) }),
+    (job: CloudAgentJob) => router.push({ pathname: "/job", params: { agentId: job.agentId } }),
     [router],
   );
+  const clear = useCallback(
+    (job: CloudAgentJob) =>
+      clearCloudJob(job.agentId).catch((error: unknown) =>
+        Alert.alert(t`Could not clear the job`, errorText(error)),
+      ),
+    [t],
+  );
   const renderItem = useCallback(
-    ({ item }: { item: JobListItem }) => {
-      if (item.kind === "header") return <ShelfHeader shelf={item.shelf} count={item.count} />;
-      if (item.kind === "job") return <JobListRow job={item.job} onOpen={open} />;
-      return (
-        <Pressable
-          onPress={() => {
-            hapticSelection();
-            setDoneExpanded(true);
-          }}
-          accessibilityRole="button"
-          style={styles.more}
-        >
-          <Text style={styles.moreLabel}>{t`Show ${item.count} more`}</Text>
-        </Pressable>
-      );
-    },
-    [open, styles, t],
+    ({ item }: { item: JobListItem }) =>
+      item.kind === "header" ? (
+        <ShelfHeader shelf={item.shelf} count={item.count} />
+      ) : (
+        <JobListRow job={item.job} onOpen={open} onClear={clear} />
+      ),
+    [open, clear],
   );
 
   if (!jobs) {
@@ -148,9 +158,7 @@ export default function JobsScreen() {
       style={[styles.screen, sideInsets]}
       contentInsetAdjustmentBehavior="automatic"
       data={items}
-      keyExtractor={(item) =>
-        item.kind === "header" ? item.shelf : item.kind === "job" ? item.job.agentId : "more"
-      }
+      keyExtractor={(item) => (item.kind === "header" ? item.shelf : item.job.agentId)}
       renderItem={renderItem}
       initialNumToRender={14}
       windowSize={7}
@@ -179,7 +187,5 @@ function createStyles() {
       backgroundColor: native.page,
     },
     message: { color: tokens.mutedForeground, ...typeScale.body },
-    more: { paddingHorizontal: 16, paddingVertical: 12, paddingLeft: 36 },
-    moreLabel: { color: tokens.link, ...typeScale.secondary },
   };
 }

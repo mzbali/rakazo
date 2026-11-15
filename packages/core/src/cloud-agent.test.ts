@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   cloudAgentBlockFromPayload,
+  cloudAgentElapsed,
   cloudAgentHttpsUrl,
+  cloudAgentJobTone,
   cloudAgentModelLabel,
+  cloudAgentPhase,
   cloudAgentProjectName,
+  cloudAgentPullRequestNumber,
   cloudAgentShelf,
   cloudAgentState,
-  cloudAgentTone,
+  cloudAgentTicking,
 } from "./cloud-agent.js";
 import { projectMessages } from "./events.js";
 
@@ -77,10 +81,13 @@ describe("cloud agent state", () => {
     expect(cloudAgentState({ status: "expired", needsInput: true })).toBe("expired");
   });
   it("colours attention, success and failure apart from everything else", () => {
-    expect(cloudAgentTone("needsInput")).toBe("attention");
-    expect(cloudAgentTone("finished")).toBe("success");
-    expect(cloudAgentTone("failed")).toBe("danger");
-    expect(cloudAgentTone("queued")).toBe("muted");
+    const running = { status: "running" as const, url: "https://x.test" };
+    expect(cloudAgentJobTone({ ...running, needsInput: true })).toBe("attention");
+    expect(cloudAgentJobTone({ status: "finished" })).toBe("success");
+    expect(cloudAgentJobTone({ status: "finished", review: "checking" })).toBe("active");
+    expect(cloudAgentJobTone({ status: "failed" })).toBe("danger");
+    expect(cloudAgentJobTone({ status: "cancelled" })).toBe("muted");
+    expect(cloudAgentJobTone({ status: "expired" })).toBe("muted");
   });
   it("keeps a bounded pick note and the start time, and drops bad ones", () => {
     const block = cloudAgentBlockFromPayload({
@@ -135,6 +142,92 @@ describe("reported owner questions after completion", () => {
     expect(cloudAgentShelf(cloudAgentState(job))).toBe("needsYou");
     expect(cloudAgentState({ ...job, ownerQuestion: undefined, needsInput: true })).toBe(
       "finished",
+    );
+  });
+
+  it("never reads a failed launch as waiting on the owner, and carries attempts and review", () => {
+    const failed = { status: "failed", ownerQuestion: "Retry?", launchFailed: true } as const;
+    expect(cloudAgentState(failed)).toBe("failed");
+    expect(cloudAgentState({ status: "failed", ownerQuestion: "Retry?" })).toBe("needsInput");
+    const block = cloudAgentBlockFromPayload({
+      agentId: "b",
+      status: "running",
+      review: "checking",
+      attempts: [
+        { agentId: "a", status: "failed", failureReason: "no origin" },
+        { agentId: "x", status: "bogus" },
+      ],
+    });
+    expect(block).toMatchObject({
+      review: "checking",
+      attempts: [{ agentId: "a", status: "failed", failureReason: "no origin" }],
+    });
+  });
+});
+
+describe("cloud agent phase", () => {
+  const running = { status: "running" as const, url: "https://x.test" };
+  it("names every job with one of the plain words, never a raw status", () => {
+    expect(cloudAgentPhase({ ...running, queued: true })).toBe("starting");
+    expect(cloudAgentPhase({ status: "running", url: "" })).toBe("starting");
+    expect(cloudAgentPhase(running)).toBe("working");
+    expect(cloudAgentPhase({ ...running, unreachableSince: "x" })).toBe("working");
+    expect(cloudAgentPhase({ ...running, review: "checking" })).toBe("checking");
+    expect(cloudAgentPhase({ status: "finished", review: "checking" })).toBe("checking");
+    expect(cloudAgentPhase({ status: "finished", review: "accepted" })).toBe("done");
+    expect(cloudAgentPhase({ ...running, needsInput: true, review: "checking" })).toBe("needsYou");
+    expect(cloudAgentPhase({ status: "failed", launchFailed: true })).toBe("couldntStart");
+    expect(cloudAgentPhase({ status: "failed" })).toBe("stopped");
+    expect(cloudAgentPhase({ status: "cancelled" })).toBe("stopped");
+    expect(cloudAgentPhase({ status: "expired" })).toBe("expired");
+  });
+});
+
+describe("cloud agent clock", () => {
+  const started = "2026-01-01T00:00:00.000Z";
+  const at = (seconds: number) => Date.parse(started) + seconds * 1000;
+  it("ticks while the job runs and holds still once it has ended", () => {
+    const running = { status: "running" as const, startedAt: started };
+    expect(cloudAgentTicking(running)).toBe(true);
+    expect(cloudAgentElapsed(running, at(90))).toBe("1m");
+    const done = {
+      status: "finished" as const,
+      startedAt: started,
+      endedAt: new Date(at(45)).toISOString(),
+    };
+    expect(cloudAgentTicking(done)).toBe(false);
+    expect(cloudAgentElapsed(done, at(9999))).toBe("45s");
+    expect(cloudAgentElapsed({ status: "finished", startedAt: started }, at(9999))).toBeUndefined();
+    expect(cloudAgentTicking({ status: "running" })).toBe(false);
+  });
+  it("reads the pull request number from its link", () => {
+    expect(cloudAgentPullRequestNumber("https://github.com/acme/app/pull/12")).toBe(12);
+    expect(cloudAgentPullRequestNumber("https://github.com/acme/app/pull/12/")).toBe(12);
+    expect(cloudAgentPullRequestNumber("https://github.com/acme/app")).toBeUndefined();
+    expect(cloudAgentPullRequestNumber("http://github.com/acme/app/pull/12")).toBeUndefined();
+  });
+  it("clips progress and the result excerpt to one bounded line", () => {
+    const block = cloudAgentBlockFromPayload({
+      agentId: "a",
+      progress: `Reading\n\nthe   code ${"x".repeat(400)}`,
+      resultExcerpt: "Shipped",
+      endedAt: new Date(at(5)),
+    });
+    expect(block.progress).toHaveLength(240);
+    expect(block.progress?.startsWith("Reading the code ")).toBe(true);
+    expect(block.progress?.endsWith("…")).toBe(true);
+    expect(block).toMatchObject({
+      resultExcerpt: "Shipped",
+      endedAt: new Date(at(5)).toISOString(),
+    });
+    expect(
+      cloudAgentBlockFromPayload({
+        agentId: "a",
+        resultExcerpt: "**Fixed.** The `button` stuck.\n\n- See [the PR](https://x.test/1)",
+      }).resultExcerpt,
+    ).toBe("Fixed. The button stuck. See the PR");
+    expect(cloudAgentBlockFromPayload({ agentId: "a", progress: "  " })).not.toHaveProperty(
+      "progress",
     );
   });
 });

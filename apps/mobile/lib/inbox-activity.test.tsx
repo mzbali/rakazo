@@ -21,7 +21,7 @@ vi.mock("react-native", () => ({
 }));
 vi.mock("./native", () => ({ useThemedStyles: () => ({}) }));
 vi.mock("./activity", () => ({
-  activityPreview: () => "",
+  activityPreview: (run: { promptSnippet?: string }) => run.promptSnippet ?? "",
   activityStatusLabel: (status: string) => status,
   formatActivityRelativeTime: () => "",
 }));
@@ -33,8 +33,19 @@ vi.mock("../components/inbox-rows", () => ({
   SectionToggle: ({ title, collapsed }: { title: string; collapsed: boolean }) => (
     <button type="button" aria-label={`${collapsed ? "Expand" : "Collapse"} ${title}`} />
   ),
-  ConversationRow: ({ title, actions }: { title: string; actions?: string[] }) => (
-    <p data-actions={actions?.join(" ")}>{title}</p>
+  ConversationRow: ({
+    title,
+    preview,
+    actions,
+  }: {
+    title: string;
+    preview?: string;
+    actions?: string[];
+  }) => (
+    <>
+      <p data-actions={actions?.join(" ")}>{title}</p>
+      {preview ? <small>{preview}</small> : null}
+    </>
   ),
   ChatSwipe: ({ rowKey, children }: { rowKey: string; children: ReactNode }) => (
     <section data-swipe={rowKey}>{children}</section>
@@ -42,6 +53,32 @@ vi.mock("../components/inbox-rows", () => ({
 }));
 
 import { ActivitySection } from "../components/inbox-activity";
+
+const IDLE_BOT = { id: "builder", name: "Builder", status: "idle" };
+const job = (extra: object) => ({
+  agentId: "job-1",
+  title: "Add dark mode",
+  status: "running",
+  url: "https://example.com/t",
+  botId: "builder",
+  botName: "Builder",
+  threadId: "thread-1",
+  messageId: "card-1",
+  ...extra,
+});
+const renderJobs = (jobs: object[], opened: string[] = []) =>
+  renderToStaticMarkup(
+    createElement(ActivitySection, {
+      activity: { active: [], recent: [] },
+      jobs: jobs as never,
+      status: "loaded",
+      bots: [IDLE_BOT] as never,
+      groups: [],
+      toggledSections: new Set(opened),
+      onToggleSection: () => undefined,
+      openChat: () => undefined,
+    }),
+  );
 
 it("opens Needs attention and folds Working and Unread until the user opens them", () => {
   const markup = renderToStaticMarkup(
@@ -99,7 +136,7 @@ it("offers the inbox swipe actions on activity rows and leaves out archived chat
     }),
   );
   expect(markup).toContain(
-    '<section data-swipe="activity:bot:marketing"><p data-actions="unread archive pin">Marketing</p></section>',
+    '<section data-swipe="activity:bot:marketing"><p data-actions="unread archive pin">Marketing</p>',
   );
   expect(markup).not.toContain("Archived");
 });
@@ -121,4 +158,24 @@ it.each([
     }),
   );
   expect(markup.replace(/<[^>]+>/g, "")).toBe(text);
+});
+
+it("files a bot with a job waiting on the owner under Needs attention, with the question", () => {
+  const markup = renderJobs([job({ needsInput: true, ownerQuestion: "Which branch?" })]);
+  expect(markup).toContain('aria-label="Collapse Needs attention"');
+  expect(markup).toContain("<small>Which branch?</small>");
+  expect(markup).not.toContain("Working");
+});
+
+it("moves the bot to Working, under the job's title, once the question is answered", () => {
+  const markup = renderJobs([job({})], ["activity:working"]);
+  expect(markup).not.toContain("Needs attention");
+  expect(markup).toContain('aria-label="Collapse Working"');
+  expect(markup).toContain("<small>Add dark mode</small>");
+});
+
+it("leaves a bot whose job has finished out of Needs attention and Working", () => {
+  const markup = renderJobs([job({ status: "finished" })]);
+  expect(markup).not.toContain("Needs attention");
+  expect(markup).not.toContain("Working");
 });

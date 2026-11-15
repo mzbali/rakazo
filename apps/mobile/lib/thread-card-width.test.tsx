@@ -309,7 +309,11 @@ describe("thread cards", () => {
       ["agent-1CompletedCheck the plan", "Ship Flow B"],
     ],
     ["text around a child", [text("Before"), child, text("After")], ["Before", "Planner", "After"]],
-    ["cloud then text", [cloud, text("Cloud result")], ["Remote taskfinished", "Cloud result"]],
+    [
+      "cloud then text",
+      [cloud, text("Cloud result")],
+      ["Remote task·DoneOpen in T3", "Cloud result"],
+    ],
     [
       "two helpers",
       [helper(), helper("agent-2")],
@@ -397,7 +401,7 @@ describe("thread cards", () => {
   it("keeps cloud cards labelled, openable and long-pressable alongside text", () => {
     const onLongPress = vi.fn();
     renderBlocks([cloud, text("After")], { actionProps: { onLongPress } });
-    const row = container.querySelector('[aria-label="Remote task: finished"]');
+    const row = container.querySelector('[aria-label="Remote task: Done"]');
     expect(row).not.toBeNull();
     act(() => (row as HTMLElement).click());
     expect(router.push).toHaveBeenCalledWith({ pathname: "/job", params: { agentId: "cloud-1" } });
@@ -406,11 +410,46 @@ describe("thread cards", () => {
     expect(onLongPress).toHaveBeenCalledTimes(1);
   });
 
+  it("draws a bot's lead-in text inside the job card that follows it, as one bubble", () => {
+    renderBlocks([text("On it, starting now."), cloud]);
+    const cards = container.querySelectorAll('[data-testid="cloud-agent-card"]');
+    expect(cards).toHaveLength(1);
+    expect(container.firstElementChild).toBe(cards[0]);
+    expect(cards[0]!.textContent).toContain("On it, starting now.");
+    expect(cards[0]!.textContent).toContain("Remote task");
+  });
+
+  it("keeps text after a job card, and a user's text, outside the card", () => {
+    renderBlocks([cloud, text("After")]);
+    expect(container.querySelector('[data-testid="cloud-agent-card"]')!.textContent).not.toContain(
+      "After",
+    );
+    renderBlocks([text("Mine"), cloud], {}, "user");
+    expect(container.querySelector('[data-testid="cloud-agent-card"]')!.textContent).not.toContain(
+      "Mine",
+    );
+  });
+
+  it("offers Open in T3 and View PR on the card itself", async () => {
+    const { Linking } = await import("react-native");
+    renderBlocks([{ ...cloud, prUrl: "https://github.com/acme/app/pull/12" } as MessageBlock]);
+    const buttons = [...container.querySelectorAll("button")].filter((button) =>
+      ["Open in T3", "View PR"].includes(button.textContent ?? ""),
+    );
+    expect(buttons.map((button) => button.textContent)).toEqual(["Open in T3", "View PR"]);
+    act(() => buttons[0]!.click());
+    expect(Linking.openURL).toHaveBeenCalledWith("https://example.test/task");
+    act(() => buttons[1]!.click());
+    expect(Linking.openURL).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
+    expect(container.textContent).toContain("PR #12");
+    expect(container.textContent).not.toContain("Checks unknown");
+  });
+
   it("groups jobs from one message behind a header that counts them by state", () => {
     const other = { ...cloud, agentId: "cloud-2", title: "Second task", status: "failed" } as const;
     renderBlocks([cloud, other]);
     expect(container.querySelectorAll('[data-testid="cloud-agent-card"]')).toHaveLength(1);
-    const header = container.querySelector('[aria-label="2 jobs, 1 finished · 1 failed"]');
+    const header = container.querySelector('[aria-label="2 jobs, 1 Done · 1 Stopped"]');
     expect(header).not.toBeNull();
     expect(container.textContent).not.toContain("Second task");
     act(() => (header as HTMLElement).click());

@@ -9,7 +9,6 @@ import {
   isRunWorking,
   liveActivityLine,
   liveMessageComposing,
-  memberName,
   newClientId,
   newestPageCards,
   otherAuthor,
@@ -18,7 +17,7 @@ import {
 } from "@rakazo/core";
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { I18nManager, Platform, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,10 +26,15 @@ import { rpc } from "../../lib/api";
 import { useAppForeground } from "../../lib/app-foreground";
 import { mobileTokens } from "../../lib/appearance";
 import type { MobileArtifactTarget } from "../../lib/artifact-open";
+import { CallKeyboardContext } from "../../lib/call-keyboard-context";
 import { useCallSession } from "../../lib/call-session";
+import { useCloudJobs } from "../../lib/cloud-jobs";
 import { composerDraftScope } from "../../lib/composer-draft";
+import { useContentBottomInset } from "../../lib/content-bottom-inset";
 import { cronLabels } from "../../lib/cron";
 import { useUiLocale } from "../../lib/i18n";
+import { jobPill } from "../../lib/job-pill";
+import { jobReplyTarget } from "../../lib/job-reply";
 import { useThemedStyles } from "../../lib/native";
 import { useChatOnScreen } from "../../lib/page-card-detail";
 import { useInboxBot } from "../../lib/search-inbox";
@@ -49,6 +53,7 @@ import { useThreadSnapshot } from "../../lib/thread-history";
 import { threadKeyboardAvoidance } from "../../lib/thread-keyboard-offset";
 import { useThreadListScroll } from "../../lib/thread-list-scroll";
 import { useThreadMentionCatalog } from "../../lib/thread-mention-catalog";
+import { botDisplayName } from "../../lib/thread-message-text";
 import { useThreadPaging } from "../../lib/thread-paging";
 import { useThreadRead } from "../../lib/thread-read";
 import {
@@ -73,6 +78,7 @@ import { QuoteSheet } from "./quote-sheet";
 import { ThreadComposerDock } from "./thread-composer-dock";
 import { ThreadEdgeFade } from "./thread-edge-fade";
 import { useThreadHeader } from "./thread-header";
+import { ThreadJobsPill } from "./thread-jobs-pill";
 import { LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
 import { ThreadMessageList } from "./thread-message-list";
 import { useLatestRowActions, useThreadRows } from "./thread-rows";
@@ -130,11 +136,13 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const requestedThreadId = typeof threadId === "string" && threadId ? threadId : undefined;
   const inGroup = Boolean(groupId);
   const call = useCallSession();
+  const rootAvoidsKeyboard = useContext(CallKeyboardContext);
+  const contentBottomInset = useContentBottomInset();
   const onCall = Boolean(botId) && call?.botId === botId;
   // The composer floats over the list, which scrolls underneath; this keeps the newest message
   // clear of it. A read-only chat has no composer.
   const [dockHeight, setDockHeight] = useState(0);
-  const bottomInset = Math.max(dockHeight, readOnly ? insets.bottom : 0);
+  const bottomInset = Math.max(dockHeight, readOnly ? contentBottomInset : 0);
   const activeBotId = useRef(botId);
   activeBotId.current = botId;
   const activeGroupId = useRef(groupId);
@@ -523,6 +531,20 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             status: bot.status,
           }))
         : [];
+  // One bar above the composer: the bot's own live turn shows in the transcript footer, and the
+  // chat's T3 jobs take over once that turn is done.
+  const { jobs: cloudJobs } = useCloudJobs(!readOnly);
+  const pill =
+    workingBots.length > 0 || hasLiveProgress ? null : jobPill(cloudJobs, { botId, groupId });
+  const openPill = () => {
+    const { job } = pill ?? {};
+    if (!job) return;
+    if (job.messageId) {
+      void applyMessageJump({ botId, groupId, messageId: job.messageId }).catch(() => undefined);
+      return;
+    }
+    router.push({ pathname: "/job", params: { agentId: job.agentId } });
+  };
   const workingFooter = (
     <ThreadWorkingFooter
       bots={workingBots.map((bot) => ({
@@ -570,6 +592,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   return (
     <View style={{ flex: 1 }}>
       <KeyboardAvoidingView
+        enabled={!rootAvoidsKeyboard}
         // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
         // move frames, such as when a pushed screen closes with its own keyboard up.
         behavior="padding"
@@ -616,15 +639,24 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           <ThreadComposerDock
             hidden={readOnly}
             columnPadding={columnPadding}
-            notice={<ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />}
+            notice={
+              <>
+                {pill ? <ThreadJobsPill pill={pill} onPress={openPill} /> : null}
+                <ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />
+              </>
+            }
             onHeight={setDockHeight}
             replyTarget={replyTarget}
             replyAuthor={
-              replyTarget?.role === "user"
-                ? (otherAuthor(replyTarget.author, userId)?.name ??
-                  channelMessageSender(replyTarget.blocks) ??
-                  t`You`)
-                : (memberName(snap?.members, replyTarget?.botId) ?? displayName ?? t`Bot`)
+              jobReplyTarget(replyTarget)
+                ? t`Sends to the job`
+                : replyTarget?.role === "user"
+                  ? (otherAuthor(replyTarget.author, userId)?.name ??
+                    channelMessageSender(replyTarget.blocks) ??
+                    t`You`)
+                  : (botDisplayName(snap?.members, mentionBots, replyTarget?.botId) ??
+                    displayName ??
+                    t`Bot`)
             }
             replyQuote={replyQuote}
             threadTarget={artifactTarget}

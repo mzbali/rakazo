@@ -145,10 +145,54 @@ const CloudAgentFields = z.object({
   note: z.string().optional(),
   /** ISO time the job was created. */
   startedAt: z.string().optional(),
+  /** ISO time the work ended; the elapsed clock stops here. */
+  endedAt: z.string().optional(),
+  /** The latest thing the agent said while it works, clipped. */
+  progress: z.string().optional(),
+  /** The start of what the agent reported when it finished, clipped; the sheet has the rest. */
+  resultExcerpt: z.string().optional(),
   /** The repository or project the work is for. */
   projectName: z.string().optional(),
   /** A decision the owner has to make before the job can go on. */
   ownerQuestion: z.string().optional(),
+  /** The provider's open question with the answers it offers, the recommended one first; the card turns them into buttons. */
+  question: z
+    .object({
+      requestId: z.string(),
+      text: z.string().optional(),
+      options: z.array(z.object({ label: z.string(), recommended: z.boolean().optional() })),
+      /** False when only the offered options may be chosen. */
+      allowCustomAnswer: z.boolean().optional(),
+    })
+    .optional(),
+  /** What the owner answered from the card; shown while the job goes on. */
+  answered: z.string().optional(),
+  /** ISO time the owner last sent the job an instruction from its card. */
+  steeredAt: z.string().optional(),
+  /** The launch itself was refused, so no remote work ever started and nothing waits on the owner. */
+  launchFailed: z.boolean().optional(),
+  /** Why the provider refused the launch or ended the work, when it said. */
+  failureReason: z.string().optional(),
+  /** The pull request's check result; absent when it is not known. */
+  checks: z.enum(["passing", "failing", "running"]).optional(),
+  /** Screenshots the job's pull request showed, copied to the app's own storage; at most three. */
+  proofImages: z
+    .array(z.object({ artifactId: z.string(), name: z.string(), mimeType: z.string() }))
+    .max(3)
+    .optional(),
+  /** The job's hidden review: under way, or the verdict it reached. */
+  review: z.enum(["checking", "accepted", "rejected", "needs_owner"]).optional(),
+  /** Earlier attempts at the same request, oldest first; the card shows only the current one. */
+  attempts: z
+    .array(
+      z.object({
+        agentId: z.string(),
+        status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
+        failureReason: z.string().optional(),
+        startedAt: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 /** One job in the jobs list: the card's fields and the chat that holds it. */
@@ -156,6 +200,8 @@ export const CloudAgentJobSchema = CloudAgentFields.extend({
   botId: z.string(),
   botName: z.string(),
   threadId: z.string(),
+  /** The chat message that holds the job's card, so a link can scroll to it. */
+  messageId: z.string().optional(),
   groupId: z.string().optional(),
   groupName: z.string().optional(),
 });
@@ -167,6 +213,9 @@ export const CloudAgentDetailSchema = z.object({
   brief: z.string().optional(),
   result: z.string().optional(),
 });
+/** The outcome of an owner's action on a job; `duplicate` means this tap was already accepted. */
+export const CloudAgentOwnerActionSchema = z.object({ duplicate: z.boolean() });
+
 export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [
@@ -543,7 +592,6 @@ export function hasThinkingActivityMarker(payload: Record<string, unknown>): pay
   const activity = payload.activity;
   return activity !== null && typeof activity === "object" && "thinking" in activity;
 }
-export type ThreadActivityPayload = z.infer<typeof ThreadActivityPayloadSchema>;
 
 export const ProductEventSchema = z
   .object({

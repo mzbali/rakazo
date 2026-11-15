@@ -14,8 +14,22 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
   constructor() {
     super();
     this.linkOf = (threadId) => `<t3-thread://v2/env-1/${encodeURIComponent(threadId)}>`;
-    for (const name of ["t3_thread_events", "t3_thread_list"])
+    for (const name of [
+      "t3_thread_events",
+      "t3_thread_list",
+      "t3_thread_organize",
+      "t3_thread_update",
+    ])
       this.tools.push({ name, inputSchema: { type: "object", properties: {} } });
+  }
+
+  /** Threads settled through `t3_thread_organize`. */
+  readonly settled: string[] = [];
+
+  /** The agent says something while its run is still going. */
+  say(threadId: string, text: string) {
+    const thread = this.threads.get(threadId)!;
+    thread.timeline.push({ type: "assistant_message", runId: thread.runs.at(-1)!.runId, text });
   }
 
   protected override handle(tool: string, args: Args) {
@@ -29,6 +43,14 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
         },
       };
     }
+    if (tool === "t3_thread_organize" || tool === "t3_thread_update") {
+      if (!this.tools.some((entry) => entry.name === tool)) return { invalidParams: true as const };
+      const thread = this.threads.get(String(args.threadId));
+      if (!thread) return { failure: "thread_not_found" };
+      if (tool === "t3_thread_update") thread.title = String(args.title);
+      else if (args.action === "settle") this.settled.push(thread.threadId);
+      return { result: {} };
+    }
     if (tool !== "t3_thread_events") return super.handle(tool, args);
     const thread = this.threads.get(String(args.threadId));
     if (!thread) return { failure: "thread_not_found" };
@@ -38,13 +60,19 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
     const idle =
       !thread.runs.some((run) => ACTIVE.includes(run.status)) &&
       !thread.runs.some((run) => run.status === "queued" && !run.held);
+    // Each timeline item is one event, so a poll after the agent spoke sees something new.
+    const next = thread.runs.length + thread.timeline.length;
+    const fresh = Math.min(
+      thread.timeline.length,
+      Math.max(0, next - Number(args.afterSequence ?? 0)),
+    );
     return {
       result: {
         contractVersion: 1,
-        nextSequence: thread.runs.length,
+        nextSequence: next,
         hasMore: false,
         gap: null,
-        events: [],
+        events: Array.from({ length: fresh }, () => ({ kind: "message" })),
         state: {
           idle,
           latestRun: latest ? { runId: latest.runId, status: latest.status } : null,

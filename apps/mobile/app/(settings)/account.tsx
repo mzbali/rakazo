@@ -1,7 +1,7 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { PlanLimits, UsageSummary } from "@rakazo/contracts";
-import { modelCreditsUsd } from "@rakazo/contracts";
+import { hasLab, modelCreditsUsd } from "@rakazo/contracts";
 import { accountDisplay, formatTimeUntil } from "@rakazo/core";
 import type { Href } from "expo-router";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
@@ -239,7 +239,7 @@ export default function Account() {
       href: "/jobs",
       icon: { ios: "checklist", android: "list-outline" },
     },
-    ...(me?.ticketBoardEnabled
+    ...(hasLab(me?.labs, "board")
       ? [
           {
             title: t`Board`,
@@ -350,6 +350,15 @@ export default function Account() {
                     title: t`Messaging`,
                     href: "/messaging",
                     icon: { ios: "message", android: "chatbubble-outline" },
+                  } as const,
+                ]
+              : []),
+            ...(me?.labsAvailable?.length
+              ? [
+                  {
+                    title: t`Labs`,
+                    href: "/labs",
+                    icon: { ios: "flask", android: "flask-outline" },
                   } as const,
                 ]
               : []),

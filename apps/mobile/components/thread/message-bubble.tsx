@@ -8,7 +8,6 @@ import {
   formatFileSize,
   isApprovalAskBlock,
   isQuestionAskBlock,
-  memberName,
   messagingProviderLabel,
   resolveAskChoice,
   selectedAskActionLabel,
@@ -34,7 +33,7 @@ import { messagePresentationSegments } from "../../lib/message-presentation";
 import type { MobileBot, MobileMessage, MobileSnapshot } from "../../lib/mobile-types";
 import { blockText } from "../../lib/mobile-types";
 import { useResolvedAppearance } from "../../lib/native";
-import { speakerColorFor } from "../../lib/thread-message-text";
+import { botDisplayName, speakerColorFor } from "../../lib/thread-message-text";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
 import { errorText } from "../../lib/user-error";
@@ -169,8 +168,22 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
       previous.push(block);
     }
   }
+  // A bot's lead-in text sits inside the job card that follows it, so the two read as one bubble.
+  const leadsCard = (index: number) =>
+    message.role !== "user" &&
+    !isOwnCardBlock(pieces[index]![0]!) &&
+    pieces[index + 1]?.[0]?.kind === "cloud_agent";
+  const renderText = (blocks: MessageBlock[], key: string) => (
+    <MessageBubbleContent
+      {...props}
+      key={key}
+      message={{ ...message, blocks }}
+      onAnswer={(_, ...answer) => props.onAnswer(message, ...answer)}
+    />
+  );
   const content = pieces.map((blocks, index) => {
     const first = blocks[0]!;
+    if (leadsCard(index)) return null;
     if (first.kind === "page")
       return <PageCard key={`page-${index}`} block={first} messageId={message.id} />;
     if (first.kind === "visual") return <VisualCard key={`visual-${index}`} block={first} />;
@@ -186,8 +199,12 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
       return (
         <CloudAgentCards
           key={`cloud-${index}`}
+          lead={
+            index > 0 && leadsCard(index - 1) ? renderText(pieces[index - 1]!, "lead") : undefined
+          }
           jobs={blocks.filter((block) => block.kind === "cloud_agent")}
           actionProps={props.actionProps}
+          threadTarget={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
           userBubble={props.userBubble}
         />
       );
@@ -209,19 +226,11 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
         }
       />
     ) : (
-      <MessageBubbleContent
-        {...props}
-        key={`content-${index}`}
-        message={{ ...message, blocks }}
-        onAnswer={(_, ...answer) => props.onAnswer(message, ...answer)}
-      />
+      renderText(blocks, `content-${index}`)
     );
   });
-  return content.length === 1 ? (
-    content[0]
-  ) : (
-    <View style={{ gap: 8, width: "100%" }}>{content}</View>
-  );
+  const shown = content.filter(Boolean);
+  return shown.length === 1 ? shown[0] : <View style={{ gap: 8, width: "100%" }}>{shown}</View>;
 }
 
 const MessageBubbleContent = memo(function MessageBubbleContent({
@@ -341,8 +350,8 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   }
   const handoff = message.blocks.find((block) => block.kind === "handoff");
   if (handoff) {
-    const from = memberName(members, handoff.fromBotId) ?? t`bot`;
-    const to = memberName(members, handoff.toBotId) ?? t`bot`;
+    const from = botDisplayName(members, bots, handoff.fromBotId) ?? t`bot`;
+    const to = botDisplayName(members, bots, handoff.toBotId) ?? t`bot`;
     return (
       <AgentEventLabel
         actionProps={actionProps}
@@ -585,7 +594,9 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     .join("\n");
   if (attachments.length > 0) {
     const speaker =
-      message.role === "bot" ? (memberName(members, message.botId) ?? botName) : authorName;
+      message.role === "bot"
+        ? (botDisplayName(members, bots, message.botId) ?? botName)
+        : authorName;
     const speakerColor =
       message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
     const hasInlineImages = attachments.some(isInlineImageBlock);
@@ -744,7 +755,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   }
   const segments = messagePresentationSegments(message.blocks);
   const speaker =
-    message.role === "bot" ? (memberName(members, message.botId) ?? botName) : authorName;
+    message.role === "bot" ? (botDisplayName(members, bots, message.botId) ?? botName) : authorName;
   const speakerColor =
     message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
   const showSpeaker = showBotSenderName || Boolean(authorName);

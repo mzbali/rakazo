@@ -47,6 +47,8 @@ model User {
   /// The app language last chosen, such as "es" or "pt-BR". Null until an app reports it;
   /// emails then follow the language of the browser that asked for them.
   locale                      String?
+  /// Labs features this person turned on, by contracts' LabFeature id. Unknown ids are ignored.
+  labs                        String[]                     @default([])
   marketingEmailOptOutAt      DateTime?
   /// When an organization this person owns first subscribed; uses up every trial kind.
   billingTrialUsedAt          DateTime?
@@ -1422,15 +1424,38 @@ model CloudAgent {
   launchBrief         String?
   /// The finished run's final message, bounded, as the provider reported it; untrusted job output.
   resultText          String?
+  /// The agent's latest message while it works, bounded; untrusted job output, cleared when it ends.
+  progressText        String?
+  /// When the work ended; the card's elapsed clock stops here, and a new run clears it.
+  endedAt             DateTime?
   /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
   followupBrief       String?
   /// What the owner has to decide after a verdict other than accepted; cleared when new work starts.
   ownerQuestion       String?
+  /// The provider's open question as JSON ({ requestId, text?, options }), for the card's answer buttons; cleared once it closes.
+  questionPrompt      String?
+  /// What the owner answered from the card, shown once while the job goes on.
+  ownerAnswer         String?
+  /// When the owner last sent the job an instruction from its card.
+  steeredAt           DateTime?
   /// The bot's run that messaged or is waiting on this agent's thread; it reports the result itself while it runs.
   waitingRunId        String?
+  /// The earlier attempt this one replaces: the same request launched again after that one failed to start.
+  replacesId          String?
+  /// When the hidden review of this agent's work began; cleared when it ends.
+  reviewingAt         DateTime?
+  /// When the owner cleared this finished job from their jobs list; the chat card stays.
+  clearedAt           DateTime?
+  /// The pull request's check result as last read: passing, failing or running; empty when unknown.
+  checksState         String?
+  /// When the checks were last read, so a running job reads them every few minutes, not every poll.
+  checksAt            DateTime?
+  /// Screenshots copied from the job's pull request, as [{ source, artifactId, name, mimeType }]; at most three.
+  proofImages         Json?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])
+  @@index([replacesId])
   @@index([providerKey, nextPollAt])
   @@index([botId, queuedAt])
   @@index([spaceId, userId, id])
@@ -1928,6 +1953,7 @@ model Computer {
   homeDeletionNotice      HomeDeletionNotice?
 
   @@index([spaceId, scope])
+  @@index([executionRunId])
   @@map("computers")
 }
 

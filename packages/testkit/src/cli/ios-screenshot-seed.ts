@@ -160,6 +160,12 @@ export async function seedIosScreenshotFixture(input: {
       botIds: [researcher.id, writer.id, support.id],
     });
   }
+  if (!groups.some((item) => item.name === "Review pair")) {
+    await rpc<GroupRow>(input.apiUrl, populated.headers, "groups/create", {
+      name: "Review pair",
+      botIds: [researcher.id, writer.id],
+    });
+  }
   const routines = await rpc<RoutineRow[]>(input.apiUrl, populated.headers, "routines/list", {
     botId: researcher.id,
   });
@@ -369,11 +375,39 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
       botId: researcher.id,
     });
+    const supportFiles = await rpc<ArtifactRow[]>(
+      input.apiUrl,
+      populated.headers,
+      "artifacts/list",
+      {
+        botId: support.id,
+      },
+    );
+    const proof: { artifactId: string; name: string; mimeType: string }[] = [];
+    for (const [index, accent] of (
+      [
+        [59, 130, 246],
+        [16, 185, 129],
+        [139, 92, 246],
+      ] as [number, number, number][]
+    ).entries()) {
+      const name = `cart-page-${index + 1}.png`;
+      const file =
+        supportFiles.find((artifact) => artifact.name === name) ??
+        (await rpc<ArtifactRow>(input.apiUrl, populated.headers, "artifacts/create", {
+          botId: support.id,
+          name,
+          mimeType: "image/png",
+          contentBase64: phoneScreenPng(accent).toString("base64"),
+        }));
+      proof.push({ artifactId: file.id, name, mimeType: "image/png" });
+    }
     await ensureRequestCards(db.prisma, {
       threadId: support.threadId,
       botId: support.id,
       spaceId: me.spaceId,
       userId: me.userId,
+      proof,
     });
     await ensurePayments(db.prisma, {
       spaceId: me.spaceId,
@@ -634,6 +668,24 @@ function chartPng() {
   return PNG.sync.write(png);
 }
 
+/** A phone-shaped screenshot of a list screen, the kind a job's pull request shows. */
+function phoneScreenPng(accent: [number, number, number]) {
+  const png = new PNG({ width: 195, height: 420 });
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      const offset = (y * png.width + x) * 4;
+      const header = y < 56;
+      const row = y > 80 && (y - 80) % 64 < 48 && x > 14 && x < png.width - 14;
+      const color = header ? accent : row ? [226, 232, 240] : [250, 250, 250];
+      png.data[offset] = color[0] ?? 0;
+      png.data[offset + 1] = color[1] ?? 0;
+      png.data[offset + 2] = color[2] ?? 0;
+      png.data[offset + 3] = 255;
+    }
+  }
+  return PNG.sync.write(png);
+}
+
 /** A chat-app channel the bot answers in, so Messaging lists a conversation to open. */
 async function ensureTeamConversation(
   prisma: ReturnType<typeof createDb>["prisma"],
@@ -709,7 +761,6 @@ const TICKETS = [
   { title: "Publish the changelog", status: "done" },
 ] as const;
 
-/** Board cards in several columns. Only an API with the board enabled shows them. */
 /** Two payments bots made with the wallet, as the spending limit lists them. */
 async function ensurePayments(
   prisma: ReturnType<typeof createDb>["prisma"],
@@ -745,12 +796,14 @@ async function ensurePayments(
   }
 }
 
+/** Board cards in several columns, with the board turned on in Labs so it shows. */
 async function ensureTickets(
   prisma: ReturnType<typeof createDb>["prisma"],
   spaceId: string,
   userId: string,
   botIds: string[],
 ) {
+  await prisma.user.update({ where: { id: userId }, data: { labs: ["board"] } });
   const board = await ensureBoard(prisma, spaceId);
   if (await prisma.ticket.count({ where: { boardId: board.id } })) return;
   for (const [index, ticket] of TICKETS.entries()) {
@@ -805,6 +858,8 @@ const SCREENSHOT_JOBS: {
   status: "running" | "finished" | "failed";
   needsInput?: boolean;
   ownerQuestion?: string;
+  /** A question the provider holds open, with the answers it offers. */
+  question?: { text: string; options: { label: string; recommended?: boolean }[] };
   branch?: string;
   prUrl?: string;
   note?: string;
@@ -813,6 +868,21 @@ const SCREENSHOT_JOBS: {
   listOnly?: boolean;
   brief?: string;
   result?: string;
+  /** The pull request's check result. */
+  checks?: "passing" | "failing" | "running";
+  /** Shows the screenshots copied from the pull request. */
+  proof?: boolean;
+  /** What the running agent last said. */
+  progress?: string;
+  /** Minutes the work ran before it ended; the card's clock stops there. */
+  ranMinutes?: number;
+  /** Refused before anything remote started. */
+  launchFailed?: boolean;
+  failureReason?: string;
+  /** Its hidden review is under way. */
+  checking?: boolean;
+  /** An earlier attempt of the same request, kept as a failed row linked to this one. */
+  attempts?: { agentId: string; status: "failed"; failureReason: string }[];
   minutesAgo: number;
 }[] = [
   {
@@ -823,12 +893,33 @@ const SCREENSHOT_JOBS: {
     projectName: "storefront",
     minutesAgo: 12,
     note: "Picked sonnet-5-5 on main (simple).",
+    progress:
+      "Reading the theme tokens, then wiring the settings toggle to the saved appearance. Next: a test that flips it twice.",
+  },
+  // Finished with a pull request and nothing waiting on the owner: the Done card.
+  {
+    key: "done",
+    title: "Speed up the cart page",
+    status: "finished",
+    prUrl: "https://github.example.com/acme/app/pull/57",
+    checks: "passing",
+    proof: true,
+    projectName: "storefront",
+    minutesAgo: 30,
+    ranMinutes: 9,
+    result:
+      "Cut the cart page's render time by loading line items in one query and memoising the totals, with a benchmark in the pull request.",
+    note: "Picked sonnet-5-5 on main (simple).",
   },
   {
     key: "input",
     title: "Migrate the billing tests",
     status: "running",
     needsInput: true,
+    question: {
+      text: "Which branch should the billing tests run on?",
+      options: [{ label: "main", recommended: true }, { label: "release/4" }],
+    },
     branch: "chore/billing-tests",
     projectName: "billing-api",
     minutesAgo: 47,
@@ -864,6 +955,41 @@ const SCREENSHOT_JOBS: {
     projectName: "billing-api",
     minutesAgo: 1500,
   },
+  // Refused at launch, with a question attached: still failed, never "needs you".
+  {
+    key: "nostart",
+    title: "Update the changelog",
+    status: "failed",
+    launchFailed: true,
+    failureReason: "The project has no origin to start from.",
+    ownerQuestion: "Retry from the local branch?",
+    projectName: "storefront",
+    minutesAgo: 20,
+  },
+  // A relaunch after a refused launch: one card, the earlier attempt only in its details.
+  {
+    key: "retried",
+    title: "Fix the cart total",
+    status: "running",
+    projectName: "storefront",
+    minutesAgo: 8,
+    attempts: [
+      {
+        agentId: "ios-screenshot-job-retried-first",
+        status: "failed" as const,
+        failureReason: "The project has no origin to start from.",
+      },
+    ],
+  },
+  // Finished and being checked: the same card says Checking, no helper card follows.
+  {
+    key: "checking",
+    title: "Add the order export test",
+    status: "finished",
+    checking: true,
+    projectName: "storefront",
+    minutesAgo: 14,
+  },
   ...[
     "Rename the checkout events",
     "Document the webhook retries",
@@ -883,7 +1009,13 @@ const SCREENSHOT_JOBS: {
 /** The cards a bot shows when it needs something: a key, a sign-in, a site, an app, a choice. */
 async function ensureRequestCards(
   prisma: ReturnType<typeof createDb>["prisma"],
-  input: { threadId: string; botId: string; spaceId: string; userId: string },
+  input: {
+    threadId: string;
+    botId: string;
+    spaceId: string;
+    userId: string;
+    proof: { artifactId: string; name: string; mimeType: string }[];
+  },
 ) {
   const messages = await prisma.message.findMany({
     where: { threadId: input.threadId },
@@ -916,6 +1048,29 @@ async function ensureRequestCards(
   for (const job of SCREENSHOT_JOBS) {
     const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
     const url = `https://jobs.example.com/${job.key}`;
+    const endedAt =
+      job.status === "running" || job.ranMinutes === undefined
+        ? undefined
+        : new Date(startedAt.getTime() + job.ranMinutes * 60_000);
+    for (const earlier of job.attempts ?? [])
+      await prisma.cloudAgent.create({
+        data: {
+          id: earlier.agentId,
+          operationKey: earlier.agentId,
+          providerKey: "emulator",
+          spaceId: input.spaceId,
+          userId: input.userId,
+          botId: input.botId,
+          threadId: input.threadId,
+          title: job.title,
+          status: earlier.status,
+          failureReason: earlier.failureReason,
+          launchRequest: {},
+          launchDispatched: true,
+          nextPollAt: null,
+          createdAt: new Date(startedAt.getTime() - 60_000),
+        },
+      });
     await prisma.cloudAgent.create({
       data: {
         id: `ios-screenshot-job-${job.key}`,
@@ -934,12 +1089,24 @@ async function ensureRequestCards(
         launchRequest: {},
         // Launched and never polled again, so the worker leaves these rows as they are.
         launchDispatched: true,
-        remoteId: job.key,
+        replacesId: job.attempts?.[0]?.agentId ?? null,
+        remoteId: job.launchFailed ? null : job.key,
+        failureReason: job.failureReason ?? null,
+        reviewingAt: job.checking ? new Date() : null,
+        checksState: job.checks ?? null,
+        proofImages: job.proof
+          ? input.proof.map((image) => ({ source: image.name, ...image }))
+          : undefined,
         nextPollAt: null,
         launchNote: job.note ?? null,
         launchBrief: job.brief ?? null,
         resultText: job.result ?? null,
+        progressText: job.progress ?? null,
+        endedAt: endedAt ?? null,
         ownerQuestion: job.ownerQuestion ?? null,
+        questionPrompt: job.question
+          ? JSON.stringify({ requestId: "ios-screenshot-ask", ...job.question })
+          : null,
         attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
         createdAt: startedAt,
       },
@@ -953,12 +1120,22 @@ async function ensureRequestCards(
         status: job.status,
         url,
         startedAt: startedAt.toISOString(),
+        ...(endedAt ? { endedAt: endedAt.toISOString() } : {}),
+        ...(job.progress ? { progress: job.progress } : {}),
+        ...(job.result && job.status === "finished" ? { resultExcerpt: job.result } : {}),
         ...(job.needsInput ? { needsInput: true } : {}),
         ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
+        ...(job.question ? { question: { requestId: "ios-screenshot-ask", ...job.question } } : {}),
         ...(job.branch ? { branch: job.branch } : {}),
         ...(job.prUrl ? { prUrl: job.prUrl } : {}),
         ...(job.note ? { note: job.note } : {}),
         ...(job.projectName ? { projectName: job.projectName } : {}),
+        ...(job.launchFailed ? { launchFailed: true } : {}),
+        ...(job.failureReason ? { failureReason: job.failureReason } : {}),
+        ...(job.checking ? { review: "checking" as const } : {}),
+        ...(job.checks ? { checks: job.checks } : {}),
+        ...(job.proof ? { proofImages: input.proof } : {}),
+        ...(job.attempts ? { attempts: job.attempts } : {}),
       },
     ]);
   }

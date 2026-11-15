@@ -65,8 +65,6 @@ describeWithDatabase("API authorization and resource isolation", () => {
       agentRuntime: "scripted",
       wakeupDriver: "memory",
       signupsEnabled: "true",
-      // Board procedures answer 404 before the session check while the board is off.
-      ticketBoardEnabled: true,
       composio: new ComposioConnector({ client: new FakeComposioClient() }),
     });
     pushTokens = new PrismaPushTokenStore(handles.prisma, encryptionKey);
@@ -260,6 +258,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["models/probeOpenAiCompatible"],
       ["models/probeCatalog"],
       ["models/rename"],
+      ["models/saveModelSettings"],
       ["models/disconnect"],
       ["spaces/list"],
       ["spaces/create", { name: "Nope" }],
@@ -354,6 +353,10 @@ describeWithDatabase("API authorization and resource isolation", () => {
       ["threads/answer"],
       ["cloudAgents/list"],
       ["cloudAgents/detail", { agentId: "missing-agent" }],
+      ["cloudAgents/answer", { agentId: "missing-agent", requestId: "q1", answer: "main" }],
+      ["cloudAgents/steer", { agentId: "missing-agent", text: "Skip it", key: "key-00001" }],
+      ["cloudAgents/stop", { agentId: "missing-agent" }],
+      ["cloudAgents/clear", { agentId: "missing-agent" }],
       ["computer/status", { botId: "missing-bot" }],
       ["computer/boot", { botId: "missing-bot" }],
       ["computer/stop", { botId: "missing-bot" }],

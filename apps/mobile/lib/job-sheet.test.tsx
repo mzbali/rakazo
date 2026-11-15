@@ -34,6 +34,13 @@ vi.mock("react-native", () => ({
   ActivityIndicator: "progress",
   Linking: { openURL: vi.fn() },
 }));
+vi.mock("../components/job-status", () => ({
+  useJobPhaseLabel: () => (phase: string) => phase,
+}));
+vi.mock("../components/job-proof", () => ({
+  JobChecksChip: () => null,
+  JobProofImages: () => null,
+}));
 vi.mock("../components/job-row", () => ({
   JobRow: ({ job }: { job: { title: string } }) => <span>{job.title}</span>,
 }));

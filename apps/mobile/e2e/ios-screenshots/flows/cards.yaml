@@ -16,10 +16,46 @@ name: Request cards
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 00-home
+# A job waiting on the owner files its bot under Needs attention, with the job's question.
+- runFlow:
+    when:
+      notVisible: ".*Needs attention.*"
+    commands:
+      - tapOn: "Activity"
+- extendedWaitUntil:
+    visible: ".*Needs attention.*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*Support, Needs input.*"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 00b-home-job-needs-attention
+- tapOn: "Activity"
 - tapOn: "Jobs"
 - extendedWaitUntil:
     visible: ".*Add dark mode.*"
     timeout: 20000
+- openLink: "rakazo:///jobs"
+- extendedWaitUntil:
+    visible: ".*Add dark mode.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Fix the export button: Needs you.*"
+    timeout: 20000
+- takeScreenshot: 07-jobs-list
+- openLink: "rakazo:///job?agentId=ios-screenshot-job-finished"
+- extendedWaitUntil:
+    visible: ".*Fix the export button.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: ".*Which branch should ship.*"
+    timeout: 20000
+- takeScreenshot: 08-job-sheet
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"
@@ -54,36 +90,103 @@ name: Request cards
 - scrollUntilVisible:
     element: ".*Add dark mode.*"
     direction: UP
-    timeout: 15000
+    timeout: 60000
+    speed: 80
     visibilityPercentage: 100
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 05-jobs
 - scrollUntilVisible:
-    element: ".*Gmail.*"
+    element: ".*Update the changelog.*"
+    direction: DOWN
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05b-failed-start-retry-checking
+- scrollUntilVisible:
+    element: ".*Speed up the cart page.*"
     direction: UP
-    timeout: 15000
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element: ".*Checks passing.*"
+    direction: DOWN
+    timeout: 30000
+    speed: 60
     visibilityPercentage: 100
 - waitForAnimationToEnd:
     timeout: 3000
+- takeScreenshot: 05c-done-card-pr
+# The thumbnails open full size; the first screenshot is the card, the second the viewer.
+- tapOn:
+    text: "Open screenshot"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 05c2-done-card-screenshot-full-size
+- back
+- waitForAnimationToEnd:
+    timeout: 3000
+- scrollUntilVisible:
+    element: ".*Migrate the billing tests.*"
+    direction: UP
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05d-needs-you-answer-buttons
+- scrollUntilVisible:
+    element: ".*Add dark mode.*"
+    direction: DOWN
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "More options"
+    index: 0
+- extendedWaitUntil:
+    visible: "Stop job"
+    timeout: 8000
+- tapOn: "Stop job"
+- extendedWaitUntil:
+    visible: ".*Stop this job.*"
+    timeout: 8000
+- takeScreenshot: 05e-stop-confirm
+- tapOn: "Keep working"
+- waitForAnimationToEnd:
+    timeout: 3000
+- longPressOn:
+    text: ".*Add dark mode.*"
+- extendedWaitUntil:
+    visible: "Reply"
+    timeout: 8000
+- tapOn: "Reply"
+- extendedWaitUntil:
+    visible: ".*Sends to the job.*"
+    timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05f-reply-to-job
+- scrollUntilVisible:
+    element: ".*Gmail.*"
+    direction: UP
+    timeout: 60000
+    speed: 80
+    visibilityPercentage: 100
+    centerElement: true
+- waitForAnimationToEnd:
+    timeout: 3000
 - takeScreenshot: 06-app-connect
-- openLink: "rakazo:///jobs"
-- extendedWaitUntil:
-    visible: ".*Add dark mode.*"
-    timeout: 20000
-- waitForAnimationToEnd:
-    timeout: 3000
-- extendedWaitUntil:
-    visible: ".*Fix the export button: needs input.*"
-    timeout: 20000
-- takeScreenshot: 07-jobs-list
-- openLink: "rakazo:///job?agentId=ios-screenshot-job-finished"
-- extendedWaitUntil:
-    visible: ".*Fix the export button.*"
-    timeout: 20000
-- waitForAnimationToEnd:
-    timeout: 3000
-- extendedWaitUntil:
-    visible: ".*Which branch should ship.*"
-    timeout: 20000
-- takeScreenshot: 08-job-sheet

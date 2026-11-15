@@ -103,7 +103,7 @@ export function configureCorrectedClaimsConnections(
           apiKey: material.apiKey,
           callObserver: undefined,
         }),
-        thinkingLevel: material.thinkingLevel ?? null,
+        thinkingLevel: main.thinkingLevel ?? null,
       };
     }),
   );

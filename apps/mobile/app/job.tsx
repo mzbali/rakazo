@@ -1,15 +1,20 @@
 import { useLingui } from "@lingui/react/macro";
-import { allowedAppLink, ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentHttpsUrl } from "@rakazo/core";
+import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
+import { JobChecksChip, JobProofImages } from "../components/job-proof";
 import { JobRow } from "../components/job-row";
+import { useJobPhaseLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJob } from "../lib/cloud-job";
+import { clearCloudJob } from "../lib/cloud-jobs-store";
 import { jobChatTarget } from "../lib/job-chat-target";
+import { jobLinks } from "../lib/job-links";
+import { jobIsClearable } from "../lib/job-shelves";
 import { native, useResolvedAppearance } from "../lib/native";
 import { errorText } from "../lib/user-error";
 
@@ -24,6 +29,7 @@ function JobDetails({ agentId }: { agentId: string }) {
   const router = useRouter();
   const tokens = mobileTokens();
   const colorScheme = useResolvedAppearance();
+  const phaseLabel = useJobPhaseLabel();
   const { detail, error, refresh } = useCloudJob(agentId);
   const job = detail?.job;
   if (!job)
@@ -39,8 +45,8 @@ function JobDetails({ agentId }: { agentId: string }) {
         )}
       </View>
     );
-  const prHref = cloudAgentHttpsUrl(job.prUrl);
-  const href = prHref ?? cloudAgentHttpsUrl(job.url) ?? allowedAppLink(job.url);
+  const { t3: href, pr: prHref } = jobLinks(job);
+  const details = [cloudAgentModelLabel(job.note), job.projectName, job.branch].filter(Boolean);
   const label = {
     color: tokens.mutedForeground,
     ...typeScale.footnote,
@@ -51,11 +57,19 @@ function JobDetails({ agentId }: { agentId: string }) {
       style={{ backgroundColor: native.groupedPage }}
       contentContainerStyle={{ padding: 20, paddingTop: 24, gap: 20 }}
     >
+      {job.proofImages?.length ? (
+        <View style={{ marginHorizontal: -12 }}>
+          <JobProofImages
+            job={job}
+            target={job.groupId ? { groupId: job.groupId } : { botId: job.botId }}
+          />
+        </View>
+      ) : null}
       <JobRow job={job} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {href ? (
           <NativeActionButton
-            label={prHref ? t`Pull request` : t`Open`}
+            label={t`Open in T3`}
             prominence="secondary"
             size="compact"
             onPress={() => {
@@ -63,6 +77,17 @@ function JobDetails({ agentId }: { agentId: string }) {
             }}
           />
         ) : null}
+        {prHref ? (
+          <NativeActionButton
+            label={t`View PR`}
+            prominence="secondary"
+            size="compact"
+            onPress={() => {
+              Linking.openURL(prHref).catch(() => undefined);
+            }}
+          />
+        ) : null}
+        {prHref ? <JobChecksChip checks={job.checks} /> : null}
         <NativeActionButton
           label={t`Open chat`}
           prominence="secondary"
@@ -72,7 +97,35 @@ function JobDetails({ agentId }: { agentId: string }) {
             router.push({ pathname: "/thread", params: jobChatTarget(job) });
           }}
         />
+        {jobIsClearable(job) ? (
+          <NativeActionButton
+            label={t`Clear from list`}
+            prominence="secondary"
+            size="compact"
+            onPress={() => {
+              clearCloudJob(job.agentId)
+                .then(() => router.dismiss())
+                .catch((error: unknown) =>
+                  Alert.alert(t`Could not clear the job`, errorText(error)),
+                );
+            }}
+          />
+        ) : null}
       </View>
+      {details.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={label}>{t`Details`}</Text>
+          {details.map((detail) => (
+            <Text
+              key={detail}
+              selectable
+              style={{ color: tokens.foreground, ...typeScale.secondary }}
+            >
+              {detail}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       {job.note ? (
         <Text style={{ color: tokens.mutedForeground, ...typeScale.footnote }}>{job.note}</Text>
       ) : null}
@@ -82,6 +135,21 @@ function JobDetails({ agentId }: { agentId: string }) {
           <Text selectable style={{ color: tokens.foreground, ...typeScale.secondary }}>
             {detail.brief}
           </Text>
+        </View>
+      ) : null}
+      {job.attempts?.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={label}>{t`Earlier attempts`}</Text>
+          {job.attempts.map((attempt) => (
+            <Text
+              key={attempt.agentId}
+              style={{ color: tokens.mutedForeground, ...typeScale.footnote }}
+            >
+              {[phaseLabel(cloudAgentPhase(attempt)), attempt.failureReason]
+                .filter(Boolean)
+                .join(": ")}
+            </Text>
+          ))}
         </View>
       ) : null}
       {detail?.result ? (

@@ -3,6 +3,10 @@ import { previewMessageText as previewText, resolvePersonaColorDef } from "@raka
 import type { MobileBot, MobileMessage, MobileSnapshot } from "./mobile-types";
 
 export function previewMessageText(message: MobileMessage): string {
+  // A card of one job is named by the job, not "Message".
+  const jobs = message.blocks.filter((block) => block.kind === "cloud_agent");
+  if (jobs.length === 1 && !message.blocks.some((block) => block.kind === "text"))
+    return jobs[0]!.title;
   return previewText(message, {
     photo: t`Photo`,
     attachment: t`Attachment`,
@@ -22,3 +26,5 @@ export function speakerColorFor(
     members?.find((member) => member.botId === botId)?.color;
   return resolvePersonaColorDef(botId, raw).hex;
 }
+
+export { botDisplayName } from "@rakazo/core";

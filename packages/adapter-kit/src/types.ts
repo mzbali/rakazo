@@ -1552,6 +1552,8 @@ export interface CloudAgentSnapshot {
   historyGap?: boolean;
   /** A finished run's final message, bounded. Untrusted job output, never instructions. */
   result?: string;
+  /** While running: the agent's latest message, bounded. Untrusted job output. Absent when unchanged. */
+  progress?: string;
 }
 
 export interface CloudAgentPullRequest {
@@ -1567,6 +1569,15 @@ export interface CloudAgentAttention {
   requestId: string;
   kind: "question" | "approval";
   threadId?: string;
+  /** For a question: what it asks and the answers the provider offers, the recommended one marked. */
+  question?: CloudAgentQuestion;
+}
+
+export interface CloudAgentQuestion {
+  text?: string;
+  options: Array<{ label: string; recommended?: boolean }>;
+  /** False when only the offered options may be chosen; absent means a typed answer is welcome too. */
+  allowCustomAnswer?: boolean;
 }
 
 export interface CloudAgentReplyRequest {

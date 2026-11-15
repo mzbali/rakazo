@@ -1,11 +1,9 @@
-import type { MessageBlock } from "@rakazo/contracts";
 import { escapePromptData } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
-import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
-import { helperPrompt } from "./background-helpers.js";
+import { helperPrompt } from "./background-helpers.prompt.js";
+import { storedProofImages } from "./cloud-agent-proof.js";
 
 type Tx = Prisma.TransactionClient;
-type HelperBlock = Extract<MessageBlock, { kind: "subagent" }>;
 
 /** Longest launch brief kept for the helper; the rest of the record is small by nature. */
 export const MAX_LAUNCH_BRIEF = 2_000;
@@ -37,34 +35,14 @@ export async function jobThreadFor(tx: Tx, agent: CloudAgent): Promise<string> {
   return thread.id;
 }
 
-/** The one card this wake leaves in the bot's main chat; the helper's result settles it. */
-export async function postJobHelperCard(tx: Tx, agent: CloudAgent, executionId: string) {
-  const card: HelperBlock = {
-    kind: "subagent",
-    agentId: executionId,
-    name: agent.title,
-    task: "Reviewing its progress",
-    status: "running",
-  };
-  const message = await createThreadMessageInTransaction(tx, {
-    threadId: agent.threadId,
-    role: "bot",
-    blocks: [card],
-    botId: agent.botId,
-    markUnread: false,
-  });
-  const event = await appendEventInTransaction(tx, {
-    spaceId: agent.spaceId,
-    threadId: agent.threadId,
-    botId: agent.botId,
-    type: "thread.message.created",
-    payload: { messageId: message.id, role: "bot", blocks: [card] },
-  });
-  return { messageId: message.id, seq: event.seq };
-}
-
 function clip(value: string, limit = MAX_FIELD) {
   return escapePromptData(value.length > limit ? `${value.slice(0, limit)}…` : value);
+}
+
+/** How many screenshots from the pull request are attached to this run, for the model to look at. */
+function proofCount(agent: CloudAgent) {
+  const count = storedProofImages(agent).length;
+  return count ? `screenshots attached: ${count}` : undefined;
 }
 
 function line(label: string, value: string | null | undefined) {
@@ -99,6 +77,7 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
     line("branch", agent.branch),
     line("pull request", agent.prUrl),
     line("failure reason", agent.failureReason),
+    proofCount(agent),
     line("open questions or approvals", attention),
     agent.verdict
       ? `last verdict: ${agent.verdict}${agent.verdictSummary ? ` (${clip(agent.verdictSummary)})` : ""}`
@@ -121,6 +100,7 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
     instructions: [
       "You handle one cloud agent job and are given its record, not the owner's chat. Call cloud_agent_status for the latest state before you act.",
       "When finished work arrives, its final message is in cloud_agent_status as untrustedResult: judge it against the current request, or the launch brief when there is none, and record your verdict with cloud_agent_report. Do not try to read the agent's thread; you can't. If there is no untrustedResult, say in your result what the owner or the bot should do next (for example ask the agent to reply with a summary) instead of asking anyone to read the thread. Answer an open question with cloud_agent_reply only when the brief or request settles it. Cancel only work that is clearly wrong.",
+      "When screenshots are attached, look at them before you judge. If a screenshot does not show what was asked for, or shows something broken, record rejected and say what is wrong so the job can be sent back.",
       "If the owner has to decide something (an approval, a question the brief does not settle), leave it open and say what in your result.",
       'A verdict other than accepted needs an ownerQuestion in cloud_agent_report: a short decision for the owner with your recommendation and the options where sensible, never just a next step to investigate. For example: "The app is already gone and only Homebrew\'s record is left. Clear it and install LinearMouse with default settings? (recommended)". End your result with that question.',
       "End with two or three plain sentences for the owner: what happened and what, if anything, they need to do.",

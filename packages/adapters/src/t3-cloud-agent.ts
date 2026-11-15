@@ -13,6 +13,7 @@ import type {
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
+import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
 
 /** T3 Code's thread tools, reached through the space's MCP connection as the requesting bot. */
 export interface T3CloudAgentOptions {
@@ -48,6 +49,9 @@ const RESULT_TAIL_CHARS = 3_500;
 /** T3's own per-item cap, so it never cuts the message before the end can be kept. */
 const T3_ITEM_CHARS = 50_000;
 const MAX_RESULT_PAGES = 10;
+/** A live progress line reads fewer pages: a long run's line may lag, never block the poll. */
+const MAX_PROGRESS_PAGES = 3;
+const PROGRESS_CHARS = 1_000;
 
 const INTERNAL_SERVER_ERROR = "Tool execution failed due to an internal server error.";
 
@@ -91,6 +95,7 @@ const launchSchema = z.object({
 const threadReadSchema = z.object({
   thread: z.object({ model: z.string().optional(), providerInstanceId: z.string().optional() }),
 });
+const titleSchema = z.object({ thread: z.object({ title: z.string().optional() }) });
 const pullRequestsSchema = z.object({
   thread: z.object({
     pullRequests: z
@@ -223,8 +228,6 @@ function quotaWait(resets: Array<number | undefined>, now: number, detail?: stri
   const note = `Waiting for quota${at ? ` until ${utcStamp(at, now)}` : ""}${detail ? `: ${detail}` : ""}.`;
   return new CloudAgentRetryLater("quota", wait, note);
 }
-const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
-
 /**
  * The provider link is Markdown or an autolink and contains the environment identity, as a
  * `t3-thread://` link or the web form `https://<host>/threads/<environment>/<thread>`.
@@ -344,10 +347,10 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           ...(project
             ? {
                 projectId: project.id,
+                // Local HEAD: a project with no remote has no origin/HEAD to start from.
                 workspaceStrategy: request.workspaceStrategy ?? {
                   type: "worktree",
-                  baseRef: "origin/HEAD",
-                  startFromOrigin: true,
+                  baseRef: "HEAD",
                 },
               }
             : { scratch: true }),
@@ -367,7 +370,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         ? `${chosen.note} ${startedText}`
         : chosen.note
       : startedText;
-    // The tag stays in T3's own title for the lookup above; the owner's card shows the label.
+    // The thread keeps the tag in its title until a poll has seen it, for the lookup above.
     return {
       id: launched.threadId,
       url: t3CanonicalLink(launched.link ?? "", launched.threadId),
@@ -378,13 +381,40 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     };
   }
 
+  /** Settles the thread in T3, so finished work leaves the owner's list. */
+  async settle(id: string, context: AdapterContext): Promise<void> {
+    await this.call("t3_thread_organize", { threadId: id, action: "settle" }, context, {
+      optional: true,
+    });
+  }
+
   async get(
     id: string,
     context: AdapterContext,
     _runId?: string,
     cursor = 0,
   ): Promise<CloudAgentSnapshot> {
-    return this.read(id, context, cursor, true);
+    // Once a poll sees the thread, the tag has done its job: T3 shows the card's title instead.
+    const snapshot = await this.read(id, context, cursor, true);
+    if (cursor === 0) await this.dropTitleTag(id, context).catch(() => undefined);
+    return snapshot;
+  }
+
+  /** Renames a thread still carrying the launch tag; a title anyone changed is left alone. */
+  private async dropTitleTag(id: string, context: AdapterContext) {
+    const read = titleSchema.parse(
+      await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
+    );
+    const label = /^(.*) · [\w-]{12,13}$/.exec(read.thread.title ?? "")?.[1];
+    if (label)
+      await this.call(
+        "t3_thread_update",
+        { threadId: id, action: "rename", title: label },
+        context,
+        {
+          optional: true,
+        },
+      );
   }
 
   private async read(
@@ -399,6 +429,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     // The last status each request reached in this window, so one that opened and closed between
     // polls is still seen.
     const requests = new Map<string, { kind: string; status: string }>();
+    let sawEvents = false;
     for (let read = 0; read < MAX_EVENT_PAGES; read += 1) {
       page = eventsSchema.parse(
         await this.call(
@@ -414,6 +445,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       );
       if (page.contractVersion !== EVENTS_CONTRACT_VERSION) throw new CloudAgentRequestRejected();
       historyGap ||= page.gap !== null;
+      sawEvents ||= page.events.length > 0;
       for (const event of page.events) {
         if (event.kind === "request" && event.requestId && event.requestStatus)
           requests.set(event.requestId, {
@@ -456,6 +488,11 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
     const result =
       status === "finished" && run ? await this.finalMessage(id, run.runId, context) : undefined;
+    // The events carry no text, so the latest line is read only when this poll saw new events.
+    const progress =
+      status === "running" && run && sawEvents
+        ? await this.latestMessage(id, run.runId, context, MAX_PROGRESS_PAGES)
+        : undefined;
     return {
       id,
       url: t3CanonicalLink(state.link, id),
@@ -463,16 +500,22 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status,
       ...(run ? { latestRunId: run.runId } : {}),
       cursor: next,
-      attention: state.pendingRequests.map((request) =>
-        attentionOf(
-          request.requestId,
-          request.kind,
-          request.threadId !== id ? request.threadId : undefined,
-        ),
+      attention: await Promise.all(
+        state.pendingRequests.map(async (request) => ({
+          ...attentionOf(
+            request.requestId,
+            request.kind,
+            request.threadId !== id ? request.threadId : undefined,
+          ),
+          ...(hold && request.kind === "user_input"
+            ? await this.questionFor(request.threadId, request.requestId, context)
+            : {}),
+        })),
       ),
       missedAttention,
       historyGap,
       ...(result ? { result } : {}),
+      ...(progress ? { progress: progress.slice(0, PROGRESS_CHARS) } : {}),
     };
   }
 
@@ -481,11 +524,29 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
    * read the thread itself, so it is read here. The timeline pages oldest first.
    */
   private async finalMessage(id: string, runId: string, context: AdapterContext) {
+    const { text, complete } = await this.readLastMessage(id, runId, context, MAX_RESULT_PAGES);
+    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
+    if (!complete || text === undefined) return undefined;
+    return text.length > MAX_RESULT_CHARS
+      ? `${text.slice(0, RESULT_HEAD_CHARS)}\n…\n${text.slice(-RESULT_TAIL_CHARS)}`
+      : text;
+  }
+
+  /**
+   * The newest assistant message, only when the timeline was read to its end. The timeline pages
+   * oldest first, so a read cut short by the cap holds an older message, never the latest.
+   */
+  private async latestMessage(id: string, runId: string, context: AdapterContext, pages: number) {
+    const { text, complete } = await this.readLastMessage(id, runId, context, pages);
+    return complete ? text : undefined;
+  }
+
+  private async readLastMessage(id: string, runId: string, context: AdapterContext, pages: number) {
     let text: string | undefined;
     let complete = false;
     try {
       let afterPosition: number | undefined;
-      for (let read = 0; read < MAX_RESULT_PAGES; read += 1) {
+      for (let read = 0; read < pages; read += 1) {
         const page = timelineSchema.parse(
           await this.call(
             "t3_thread_read",
@@ -513,11 +574,21 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       // A refused or unreadable result leaves the agent finished without one; an outage is retried.
       if (error instanceof CloudAgentRetryLater) throw error;
     }
-    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
-    if (!complete || text === undefined) return undefined;
-    return text.length > MAX_RESULT_CHARS
-      ? `${text.slice(0, RESULT_HEAD_CHARS)}\n…\n${text.slice(-RESULT_TAIL_CHARS)}`
-      : text;
+    return { text, complete };
+  }
+
+  /** The options for the card's answer buttons; a question that cannot be read still shows as one. */
+  private async questionFor(threadId: string, requestId: string, context: AdapterContext) {
+    try {
+      const question = questionOf(
+        await this.call("t3_pending_request", { action: "read", threadId, requestId }, context),
+      );
+      return question ? { question } : {};
+    } catch (error) {
+      if (error instanceof CloudAgentRetryLater || error instanceof CloudAgentRequestRejected)
+        return {};
+      throw error;
+    }
   }
 
   /** The current state without moving the poller's cursor or hold. */
@@ -562,7 +633,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
             action: "respond",
             threadId,
             requestId: request.questionId,
-            answers: Object.fromEntries(questions.map((question) => [question.id, request.prompt])),
+            answers: Object.fromEntries(
+              questions.map((question) => [question.id, answerFor(question, request.prompt)]),
+            ),
           },
           context,
         );

@@ -60,11 +60,13 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       modelSelection: { instanceId: "agent-b", model: "model-a" },
     });
     expect(first).not.toHaveProperty("launchNote");
-    expect((await provider.get(first.id, context)).status).toBe("running");
-
     // The same request again finds the thread by its title instead of launching a second.
     expect((await provider.launch(request, context)).id).toBe(first.id);
     expect(launched(emulator)).toHaveLength(1);
+
+    // Once polled, the thread is titled as the card is, and the tag is gone.
+    expect((await provider.get(first.id, context)).status).toBe("running");
+    expect(emulator.threads.get(first.id)!.title).toBe("Add a README");
 
     emulator.complete(first.id);
     const done = await provider.get(first.id, context);
@@ -84,6 +86,44 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     expect(done.status).toBe("finished");
     expect(done.result).toHaveLength(5_006);
     expect(done.result).toMatch(/^Done\. x/);
+  });
+
+  it("reports the agent's latest message as progress while it works, and only when something new happened", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "progress-key-1234", prompt: "Task" },
+      context,
+    );
+    expect(await provider.get(agent.id, context)).not.toHaveProperty("progress");
+    emulator.say(agent.id, "Reading the router");
+    const first = await provider.get(agent.id, context);
+    expect(first).toMatchObject({ status: "running", progress: "Reading the router" });
+    // Nothing new since the cursor: no timeline read, and no progress to overwrite the last line.
+    const reads = () => launched(emulator, "t3_thread_read").length;
+    const before = reads();
+    const quiet = await provider.get(agent.id, context, undefined, first.cursor);
+    expect(quiet).not.toHaveProperty("progress");
+    expect(reads()).toBe(before);
+    emulator.say(agent.id, "Writing the tests");
+    emulator.say(agent.id, `Almost there ${"x".repeat(2_000)}`);
+    const later = await provider.get(agent.id, context, undefined, first.cursor);
+    expect(later.progress).toMatch(/^Almost there x/);
+    expect(later.progress).toHaveLength(1_000);
+    emulator.complete(agent.id, "completed", "All done.");
+    expect(await provider.get(agent.id, context, undefined, later.cursor)).not.toHaveProperty(
+      "progress",
+    );
+  });
+
+  it("shows no progress rather than a stale older line when the timeline is longer than the read cap", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "progress-long-1234", prompt: "Task" },
+      context,
+    );
+    // The timeline pages 100 at a time and progress reads 3 pages, so 350 items outrun it.
+    for (let item = 0; item < 350; item += 1) emulator.say(agent.id, `Step ${item}`);
+    expect(await provider.get(agent.id, context)).not.toHaveProperty("progress");
   });
 
   it("keeps the start and the end of a result longer than the limit", async () => {

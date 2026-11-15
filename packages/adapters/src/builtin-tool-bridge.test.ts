@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { builtinAgentTools } from "./builtin.tool-definition.js";
 import {
   CORE_BUILTIN_TOOL_NAMES,
   FIND_TOOL,
@@ -6,7 +7,6 @@ import {
   partitionTools,
   USE_TOOL,
 } from "./builtin-tool-bridge.js";
-import { builtinAgentTools } from "./builtin-tools.js";
 import { describeToolActivity } from "./pi-runtime-tools.js";
 import { BUILTIN_AGENT_TOOL_NAMES, selectBuiltinToolsForRun } from "./run-tool-selection.js";
 

@@ -19,6 +19,7 @@ import { chatSettingsRoute } from "./chat-settings-route";
 import { subscribeComposerOffer } from "./composer-offer";
 import { cancelFocusPrompt } from "./focus-prompt";
 import { hapticImpact, hapticSuccess } from "./haptics";
+import { jobReplyTarget } from "./job-reply";
 import { resumeLiveNotifications } from "./live-notifications";
 import type { MobileBot, MobileMessage, MobileSnapshot } from "./mobile-types";
 import { takePageReply } from "./pages";
@@ -86,6 +87,8 @@ export function useThreadSend({
   const [quoteTarget, setQuoteTarget] = useState<MobileMessage | null>(null);
   const replyPage = useRef<{ id: string; title: string } | null>(null);
   const preparingSend = useRef(false);
+  /** One key per instruction, kept across retries so a repeat reaches the job once. */
+  const steerKey = useRef<{ text: string; key: string } | null>(null);
 
   useEffect(() => {
     setPendingAttachments((current) => attachmentsForThread(current, threadKey));
@@ -177,6 +180,39 @@ export function useThreadSend({
       JSON.stringify(submitted) !== JSON.stringify(composerRef.current?.snapshot())
     )
       return;
+    // A reply to a running job's card is for the job, not the bot's next turn.
+    const jobTarget = !attachments.length ? jobReplyTarget(replyTarget) : undefined;
+    if (jobTarget && plan.shouldSend) {
+      try {
+        if (jobTarget.mode === "answer")
+          await rpc("cloudAgents/answer", {
+            agentId: jobTarget.agentId,
+            requestId: jobTarget.requestId,
+            answer: plan.trimmed,
+          });
+        else {
+          steerKey.current =
+            steerKey.current?.text === plan.trimmed
+              ? steerKey.current
+              : { text: plan.trimmed, key: newClientId() };
+          await rpc("cloudAgents/steer", {
+            agentId: jobTarget.agentId,
+            text: plan.trimmed,
+            key: steerKey.current.key,
+          });
+        }
+      } catch (error) {
+        Alert.alert(t`Could not send to the job`, errorText(error));
+        return;
+      }
+      steerKey.current = null;
+      hapticSuccess();
+      composerRef.current?.reset();
+      setReplyTarget(null);
+      setReplyQuote(null);
+      void refresh();
+      return;
+    }
     const reroutedToGroup = Boolean(
       plan.rerouteGroupId && plan.rerouteGroupId !== initialGroupTarget,
     );

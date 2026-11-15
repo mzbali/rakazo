@@ -423,10 +423,12 @@ const working: Scenario = {
       {
         kind: "cloud_agent",
         agentId: "cloud-1",
+        review: "checking",
         title: "Fix flaky calendar test",
         status: "running",
         url: "https://example.test/agents/cloud-1",
         branch: "fix/calendar-test",
+        progress: "Checking the calendar export against the existing tests.",
       },
     ]),
     bot([
@@ -435,6 +437,7 @@ const working: Scenario = {
         agentId: "cloud-2",
         title: "Add CSV export",
         status: "finished",
+        resultExcerpt: "Added CSV export and verified the downloaded file.",
         url: "https://example.test/agents/cloud-2",
         prUrl: "https://example.test/pull/42",
       },

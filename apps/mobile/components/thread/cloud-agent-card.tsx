@@ -1,10 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import { cloudAgentJobTone, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -14,13 +15,18 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { mobileTokens } from "../../lib/appearance";
+import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { hapticSelection } from "../../lib/haptics";
-import { stateCounts } from "../../lib/job-format";
+import { phaseCounts } from "../../lib/job-format";
+import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
+import { JobChecksChip, JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
-import { JobStatusDot, jobToneColor, useJobStateLabel } from "../job-status";
+import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
+import { NativeActionButton } from "../native-action-button";
 import { NativeSymbol } from "../native-symbol";
+import { JobOwnerActions } from "./job-owner-actions";
 import type { MessageActionProps } from "./message-bubble";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
@@ -72,23 +78,29 @@ function LiveBar({ color }: { color: string }) {
  */
 export function CloudAgentCards({
   jobs,
+  lead,
   actionProps,
   userBubble,
+  threadTarget,
 }: {
   jobs: Job[];
+  /** The bot's lead-in text, drawn at the top of the card. */
+  lead?: ReactNode;
   actionProps: MessageActionProps;
   userBubble?: UserBubble;
+  /** Whose files the screenshots are; without it the card shows none. */
+  threadTarget?: MobileArtifactTarget;
 }) {
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useLingui();
   const router = useRouter();
   const windowWidth = useWindowDimensions().width;
-  const stateLabel = useJobStateLabel();
+  const phaseLabel = useJobPhaseLabel();
   const [open, setOpen] = useState(false);
   const grouped = jobs.length > 1;
-  const states = jobs.map(cloudAgentState);
-  const running = states.includes("running");
-  const tones = states.map(cloudAgentTone);
+  const phases = jobs.map(cloudAgentPhase);
+  const tones = jobs.map(cloudAgentJobTone);
+  const running = tones.includes("active");
   const headline = tones.includes("attention")
     ? "attention"
     : running
@@ -96,10 +108,11 @@ export function CloudAgentCards({
       : tones.includes("danger")
         ? "danger"
         : "success";
-  const counts = [...stateCounts(states)]
-    .map(([state, count]) => `${count} ${stateLabel(state)}`)
+  const counts = [...phaseCounts(phases)]
+    .map(([phase, count]) => `${count} ${phaseLabel(phase)}`)
     .join(" · ");
-  const heading = t`${jobs.length} jobs`;
+  const count = jobs.length;
+  const heading = t`${count} jobs`;
   return (
     <View
       {...actionProps}
@@ -114,6 +127,7 @@ export function CloudAgentCards({
         overflow: "hidden",
       }}
     >
+      {lead ? <View style={{ paddingHorizontal: 12, paddingVertical: 10 }}>{lead}</View> : null}
       {grouped ? (
         <Pressable
           accessibilityRole="button"
@@ -149,7 +163,7 @@ export function CloudAgentCards({
                   justifyContent: "center",
                 }}
               >
-                <JobStatusDot state={states[index]!} tokens={tokens} />
+                <JobStatusDot tone={tones[index]!} tokens={tokens} />
               </View>
             ))}
           </View>
@@ -176,25 +190,60 @@ export function CloudAgentCards({
         </Pressable>
       ) : null}
       {!grouped || open
-        ? jobs.map((job) => (
-            <Pressable
-              key={job.agentId}
-              accessibilityRole="button"
-              accessibilityLabel={`${job.title}: ${stateLabel(cloudAgentState(job))}`}
-              onPress={() => {
-                hapticSelection();
-                router.push({ pathname: "/job", params: { agentId: job.agentId } });
-              }}
-              style={({ pressed }) => ({
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 12,
-                backgroundColor: pressed ? tokens.muted : "transparent",
-              })}
-            >
-              <JobRow job={job} chevron />
-            </Pressable>
-          ))
+        ? jobs.map((job) => {
+            const links = jobLinks(job);
+            return (
+              <View key={job.agentId}>
+                {threadTarget ? <JobProofImages job={job} target={threadTarget} /> : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${job.title}: ${phaseLabel(cloudAgentPhase(job))}`}
+                  onPress={() => {
+                    hapticSelection();
+                    router.push({ pathname: "/job", params: { agentId: job.agentId } });
+                  }}
+                  style={({ pressed }) => ({
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 12,
+                    backgroundColor: pressed ? tokens.muted : "transparent",
+                  })}
+                >
+                  <JobRow job={job} chevron />
+                </Pressable>
+                <JobOwnerActions
+                  job={job}
+                  links={
+                    links.t3 || links.pr ? (
+                      <>
+                        {links.t3 ? (
+                          <NativeActionButton
+                            label={t`Open in T3`}
+                            prominence="secondary"
+                            size="compact"
+                            onPress={() => {
+                              Linking.openURL(links.t3!).catch(() => undefined);
+                            }}
+                          />
+                        ) : null}
+                        {links.pr ? (
+                          <NativeActionButton
+                            label={t`View PR`}
+                            prominence="secondary"
+                            size="compact"
+                            onPress={() => {
+                              Linking.openURL(links.pr!).catch(() => undefined);
+                            }}
+                          />
+                        ) : null}
+                        {links.pr ? <JobChecksChip checks={job.checks} /> : null}
+                      </>
+                    ) : undefined
+                  }
+                />
+              </View>
+            );
+          })
         : null}
       {running ? <LiveBar color={tokens.statusWorking} /> : null}
     </View>

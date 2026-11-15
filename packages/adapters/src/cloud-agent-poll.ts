@@ -16,19 +16,20 @@ import {
 import type { MessageBlock } from "@rakazo/contracts";
 import { BACKGROUND_HELPER_TRIGGER, cloudAgentHttpsUrl, cloudAgentUrl } from "@rakazo/core";
 import type { CloudAgent } from "@rakazo/db";
-import { appendEventInTransaction, Prisma } from "@rakazo/db";
+import { appendEventInTransaction, Prisma, THREAD_LOCK_TRANSACTION_OPTIONS } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { postRelayPointer } from "./bot-messages.js";
+import { cloudAgentCardBlock, paintCloudAgentCard } from "./cloud-agent-card.js";
 import {
   cloudAgentJobThreadsEnabled,
   jobHelperTaskPrompt,
   jobThreadFor,
-  postJobHelperCard,
 } from "./cloud-agent-job-thread.js";
+import { refreshCloudAgentProof } from "./cloud-agent-proof.js";
+import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   canWake,
-  cloudAgentBlock,
   cloudAgentFor,
   enqueueCloudAgent,
   openQuestion,
@@ -108,6 +109,11 @@ export async function pollCloudAgent(
       return;
     }
     if (!agent.remoteId) {
+      // A refused launch created nothing remote, so a later cancel has nothing to stop.
+      if (agent.status !== "running") {
+        await finishPoll(deps, agent, {}, abandoned);
+        return;
+      }
       // Write dispatch intent before I/O; a crash replays the same idempotent create.
       const marked = await deps.prisma.cloudAgent.updateMany({
         where: fence(agent),
@@ -148,9 +154,10 @@ export async function pollCloudAgent(
     const unsent =
       dispatchedAt !== null && Date.now() - dispatchedAt.getTime() >= FOLLOWUP_SETTLE_MS;
     if (abandoned || agent.cancelRequested) {
-      // An unsent follow-up to finished work can just be dropped; an unsent answer belongs to
-      // work still running remotely, which the cancel below must stop.
-      if (agent.followup && !dispatchedAt && !openQuestion(agent)) {
+      // An unsent follow-up to finished work can just be dropped; an unsent answer or steer
+      // belongs to work still running remotely, which the cancel below must stop.
+      const steering = (agent.followup as { steerKey?: string } | null)?.steerKey !== undefined;
+      if (agent.followup && !dispatchedAt && !openQuestion(agent) && !steering) {
         await finishPoll(
           deps,
           agent,
@@ -214,9 +221,10 @@ export async function pollCloudAgent(
         // A goal's follow-up is dropped if the owner stops the goal first: a continuation's also
         // if that continuation was superseded (`goalRunId`), the reconciler's own (`goalGate`)
         // once its goal no longer drives the agent.
-        const { goalRunId, goalGate, ...followup } = agent.followup as {
+        const { goalRunId, goalGate, steerKey, ...followup } = agent.followup as {
           goalRunId?: string;
           goalGate?: string;
+          steerKey?: string;
         };
         const goal =
           goalRunId || goalGate
@@ -253,7 +261,8 @@ export async function pollCloudAgent(
               ...(question
                 ? { questionId: question.requestId, questionThreadId: question.threadId }
                 : {}),
-              idempotencyKey: `${agent.id}:${agent.generation}`,
+              // An owner's instruction keeps its own key: two of them in one generation are two messages.
+              idempotencyKey: steerKey ?? `${agent.id}:${agent.generation}`,
             },
             context,
           );
@@ -262,6 +271,7 @@ export async function pollCloudAgent(
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
             ...snapshotData(snapshot),
+            ...(steerKey ? { steeredAt: new Date() } : {}),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
@@ -295,6 +305,8 @@ export async function pollCloudAgent(
       agent.latestRunId ?? undefined,
       agent.remoteCursor ?? undefined,
     );
+    // Before the card repaints, so it shows the checks and screenshots this poll found.
+    await refreshCloudAgentProof(deps, agent, snapshot, context);
     await finishPoll(deps, agent, snapshotData(snapshot), false, snapshot.missedAttention);
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
@@ -339,6 +351,12 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     status: snapshot.status,
     failureReason: null,
     resultText: snapshot.result ?? null,
+    // Absent while running means nothing new was read, so the last line stays.
+    ...(snapshot.status === "running"
+      ? snapshot.progress !== undefined
+        ? { progressText: snapshot.progress }
+        : {}
+      : { progressText: null }),
     ...(snapshot.url ? { url: cloudAgentUrl(snapshot.url) ?? "" } : {}),
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
@@ -346,13 +364,27 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
     ...(snapshot.attention !== undefined
       ? {
+          // The question's words are content, so they live in their own sealed column.
           attention: snapshot.attention.length
-            ? (snapshot.attention as unknown as Prisma.InputJsonValue)
+            ? (snapshot.attention.map(
+                ({ question: _question, ...item }) => item,
+              ) as Prisma.InputJsonValue)
             : Prisma.DbNull,
+          questionPrompt: questionPromptOf(snapshot.attention),
+          // An answer is shown while the job goes on, and gone when the next question or the end comes.
+          ...(snapshot.attention.length || snapshot.status !== "running"
+            ? { ownerAnswer: null }
+            : {}),
         }
       : {}),
     ...(snapshot.historyGap ? { historyGapAt: new Date() } : {}),
   };
+}
+
+/** The open question's id, words and options for the card, or nothing once none is open. */
+function questionPromptOf(attention: CloudAgentAttention[]) {
+  const open = attention.find((item) => item.kind === "question" && item.question);
+  return open ? JSON.stringify({ requestId: open.requestId, ...open.question }) : null;
 }
 
 /** The provider's own reason travels with the terminal status, so the bot can say why. */
@@ -518,24 +550,7 @@ export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: strin
       where: { id: saved.threadId, spaceId: saved.spaceId },
       data: { nextEventSeq: { increment: 0 } },
     });
-    const message = await tx.message.findFirst({
-      where: { id: saved.messageId ?? "", threadId: saved.threadId },
-    });
-    if (!message) return undefined;
-    const nextBlock = cloudAgentBlock(saved);
-    const blocks = (message.blocks as MessageBlock[]).map((block) =>
-      block.kind === "cloud_agent" && block.agentId === saved.id ? nextBlock : block,
-    );
-    if (JSON.stringify(blocks) === JSON.stringify(message.blocks)) return undefined;
-    await tx.message.update({ where: { id: message.id }, data: { blocks } });
-    const event = await appendEventInTransaction(tx, {
-      spaceId: saved.spaceId,
-      threadId: saved.threadId,
-      botId: saved.botId,
-      type: "thread.cloud_agent",
-      payload: { messageId: message.id, ...nextBlock },
-    });
-    return event.seq;
+    return paintCloudAgentCard(tx, agentId);
   });
   const agent = await deps.prisma.cloudAgent.findUnique({
     where: { id: agentId },
@@ -611,7 +626,7 @@ async function finishPoll(
     const wakeSeqs: number[] = [];
     const wakeOptions = { jobThread: true, seqs: wakeSeqs, jobs: deps.jobs };
     if (message && !detached) {
-      const nextBlock = cloudAgentBlock(saved);
+      const nextBlock = await cloudAgentCardBlock(tx, saved);
       const blocks = (message.blocks as MessageBlock[]).map((block) =>
         block.kind === "cloud_agent" && block.agentId === agent.id ? nextBlock : block,
       );
@@ -707,7 +722,7 @@ async function finishPoll(
       goalId,
       goalBackupKey,
     };
-  });
+  }, THREAD_LOCK_TRANSACTION_OPTIONS);
   if (!committed) return;
   if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
   if (committed.seq !== undefined)
@@ -758,6 +773,7 @@ export async function createCloudAgentWake(
   clientNonce: string,
   options: CloudAgentWakeOptions = {},
 ): Promise<string[]> {
+  prompt = [prompt, failedStartRecoveryPrompt(agent)].filter(Boolean).join("\n\n");
   // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
   // also come here; no in-process lock can protect wakes created on another instance.
   await lockCloudAgentWakeThread(tx, agent);
@@ -800,9 +816,10 @@ export async function createCloudAgentWake(
       return [queued.id];
     }
   }
-  // A job helper's one result lands on a card in the main chat, which its run settles.
-  const card = job ? await postJobHelperCard(tx, agent, clientNonce) : undefined;
-  if (card) options.seqs?.push(card.seq);
+  // A job helper's review shows as Checking on the job's own card, which its run settles; the
+  // run's source is that card, so stopping the chat still reaches it.
+  const card = job ? await startJobReview(tx, agent) : undefined;
+  if (card?.seq !== undefined) options.seqs?.push(card.seq);
   const task = await tx.task.create({
     data: {
       spaceId: agent.spaceId,
@@ -824,7 +841,7 @@ export async function createCloudAgentWake(
       trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
       clientNonce,
       cloudAgentWakeNonces: [clientNonce],
-      ...(card ? { sourceMessageId: card.messageId } : {}),
+      ...(card?.messageId ? { sourceMessageId: card.messageId } : {}),
     },
   });
   await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
@@ -832,6 +849,13 @@ export async function createCloudAgentWake(
 }
 
 const TERMINAL_WAKE_NONCE = "cloud-agent-wake-run";
+
+/** Marks the job as being checked and repaints its card; the review adds no card of its own. */
+async function startJobReview(tx: Tx, agent: CloudAgent) {
+  await tx.cloudAgent.update({ where: { id: agent.id }, data: { reviewingAt: new Date() } });
+  const seq = await paintCloudAgentCard(tx, agent.id);
+  return { messageId: agent.messageId ?? undefined, seq };
+}
 
 /**
  * Records, in the transaction that makes a bot's report run for finished work, the backup that

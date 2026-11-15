@@ -1,7 +1,7 @@
 import { toolRequiresApproval } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { builtinAgentTools } from "./builtin.tool-definition.js";
-import { validCloudAgentArgs } from "./cloud-agent-tools.js";
+import { storedCloudAgentLaunchSchema, validCloudAgentArgs } from "./cloud-agent-tools.js";
 import { CLOUD_AGENT_TOOL_NAMES, selectCloudAgentTools } from "./cloud-agent-tools-select.js";
 
 describe("cloud agent tool boundary", () => {
@@ -76,5 +76,12 @@ describe("cloud agent tool boundary", () => {
     ).toBe(true);
     expect(validCloudAgentArgs("cloud_agent_reply", { id: "agent", prompt: "Tests" })).toBe(true);
     expect(validCloudAgentArgs("cloud_agent_cancel", { id: "" })).toBe(false);
+  });
+  it("parses a launch an earlier release stored, whatever its title", () => {
+    const title =
+      "Check the quarterly export pipeline for every customer in the staging environment";
+    expect(validCloudAgentArgs("cloud_agent_launch", { prompt: "Go", title })).toBe(false);
+    expect(storedCloudAgentLaunchSchema.safeParse({ prompt: "Go", title }).success).toBe(true);
+    expect(storedCloudAgentLaunchSchema.safeParse({ prompt: "Go" }).success).toBe(true);
   });
 });

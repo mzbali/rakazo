@@ -24,6 +24,7 @@ import {
   startedNote,
 } from "./background-helpers.prompt.js";
 import { paintCloudAgentCard } from "./cloud-agent-card.js";
+import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { helperResultText, MAX_PARALLEL_SUBAGENTS } from "./pi-runtime-subagent.js";
 import type { RunContext } from "./run-context.js";
@@ -238,15 +239,26 @@ export async function returnHelperOutcome(
       outcome.status === "stopped" || !jobAgentId
         ? undefined
         : await jobOwnerQuestion(tx, jobAgentId);
+    const failedJob = jobAgentId
+      ? await tx.cloudAgent.findUnique({
+          where: { id: jobAgentId },
+          select: { id: true, status: true, remoteId: true },
+        })
+      : null;
+    const recovery = failedJob ? failedStartRecoveryPrompt(failedJob) : "";
     const helperText =
       outcome.status === "stopped"
         ? STOPPED_HELPER_RESULT
         : helperResultText(outcome.text.trim() || "done.", undefined, RESULT_LIMIT);
     // The owner must see what they are asked to decide, even when the helper left it out.
-    const result =
+    const result = [
       question && !helperText.includes(question)
         ? `${helperText}\n\nNeeds you: ${question}`
-        : helperText;
+        : helperText,
+      recovery,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     let eventSeq: number;
     if (helper) {
       const settled: HelperBlock = {
@@ -373,9 +385,9 @@ async function jobOwnerQuestion(tx: Prisma.TransactionClient, agentId: string) {
 async function jobResultSettlesAlone(tx: Prisma.TransactionClient, agentId: string) {
   const agent = await tx.cloudAgent.findUnique({
     where: { id: agentId },
-    select: { attention: true, followup: true },
+    select: { attention: true, followup: true, status: true, remoteId: true },
   });
-  if (!agent) return false;
+  if (!agent || (agent.status === "failed" && !agent.remoteId)) return false;
   const open = Array.isArray(agent.attention) && agent.attention.length > 0;
   return !open || agent.followup != null;
 }

@@ -25,6 +25,7 @@ import {
   jobHelperTaskPrompt,
   jobThreadFor,
 } from "./cloud-agent-job-thread.js";
+import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   canWake,
@@ -745,6 +746,7 @@ export async function createCloudAgentWake(
   clientNonce: string,
   options: CloudAgentWakeOptions = {},
 ): Promise<string[]> {
+  prompt = [prompt, failedStartRecoveryPrompt(agent)].filter(Boolean).join("\n\n");
   // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
   // also come here; no in-process lock can protect wakes created on another instance.
   await lockCloudAgentWakeThread(tx, agent);

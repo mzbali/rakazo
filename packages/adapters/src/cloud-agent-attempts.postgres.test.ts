@@ -10,7 +10,11 @@ import { returnHelperOutcome } from "./background-helpers.js";
 import { CursorCloudAgentEmulator } from "./cloud-agent-emulator.js";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
 import { pollCloudAgent } from "./cloud-agent-poll.js";
-import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
+import {
+  cloudAgentStatusResult,
+  executeCloudAgentTool,
+  reportCloudAgent,
+} from "./cloud-agent-service.js";
 import { CursorCloudAgentProvider } from "./cursor-cloud-agent.js";
 
 const describePostgres =
@@ -172,18 +176,44 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
   it("replays a failed launch, its relaunch, completion and review on one card", async () => {
     const h = await setup();
     h.provider.refusals = 1;
-    const first = await h.launch({ prompt: "Fix the build", requestKey: "fix-build" });
+    const first = await h.launch({ prompt: "Fix the build" });
     await h.poll(first);
-    expect(await h.state(first)).toMatchObject({ status: "failed", remoteId: null });
+    const failed = await h.state(first);
+    expect(failed).toMatchObject({ status: "failed", remoteId: null, requestKey: null });
+    const recovery = cloudAgentStatusResult(failed).retry!;
+    expect(recovery).toMatchObject({ tool: "cloud_agent_launch", arguments: { replaces: first } });
+    const wakeTask = await asSystem(prisma).task.findFirstOrThrow({
+      where: { threadId: failed.jobThreadId! },
+    });
+    expect(wakeTask.prompt).toContain(JSON.stringify(recovery));
+    const failedReview = await asSystem(prisma).run.findFirstOrThrow({
+      where: { threadId: failed.jobThreadId! },
+    });
+    await runAsSystem("failed review returns", async () => {
+      await asSystem(prisma).run.update({
+        where: { id: failedReview.id },
+        data: { status: "completed" },
+      });
+      await returnHelperOutcome(h.deps, failedReview, {
+        status: "completed",
+        text: "The launch was refused.",
+      });
+    });
+    const leadWake = await asSystem(prisma).run.findFirstOrThrow({
+      where: { threadId: h.thread.id, trigger: "helper_result" },
+      include: { task: true },
+    });
+    expect(leadWake.task.prompt).toContain(JSON.stringify(recovery));
+    expect(await h.chat()).toHaveLength(1);
     // A failed launch is failed, never a question for the owner, even with one attached.
     let [card] = await h.cards();
     expect(card).toMatchObject({ agentId: first, status: "failed", launchFailed: true });
     expect(cloudAgentState({ ...card, ownerQuestion: "Retry?" } as never)).toBe("failed");
 
     // The same request again is the next attempt on the same card, not a second card.
-    const second = await h.launch({ prompt: "Fix the build", requestKey: "fix-build" });
+    const second = await h.launch({ prompt: "Fix the build", ...recovery.arguments });
     expect(second).not.toBe(first);
-    expect(await h.state(second)).toMatchObject({ replacesId: first, requestKey: "fix-build" });
+    expect(await h.state(second)).toMatchObject({ replacesId: first, requestKey: null });
     expect(await h.state(first)).toMatchObject({ requestKey: null });
     expect(await h.chat()).toHaveLength(1);
     [card] = await h.cards();
@@ -194,7 +224,7 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
     });
 
     // Replaying either call finds the current attempt and starts nothing.
-    expect(await h.launch({ prompt: "Fix the build", requestKey: "fix-build" })).toBe(second);
+    expect(await h.launch({ prompt: "Fix the build", ...recovery.arguments })).toBe(second);
     expect(await h.launch({ prompt: "Fix the build", replaces: first })).toBe(second);
 
     await h.poll(second);
@@ -261,7 +291,8 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
     expect(await h.cards()).toMatchObject([
       { agentId: second, status: "finished", review: "accepted" },
     ]);
-    expect(await asSystem(prisma).run.count({ where: { threadId: h.thread.id } })).toBe(1);
+    // The initial run and failed-start recovery wake; accepted reviews add no lead run.
+    expect(await asSystem(prisma).run.count({ where: { threadId: h.thread.id } })).toBe(2);
   });
 
   it("keeps distinct requests, even with the same title, as independent cards", async () => {

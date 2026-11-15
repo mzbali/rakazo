@@ -24,6 +24,7 @@ import {
   lockCloudAgentWakeThread,
   repaintCloudAgentCard,
 } from "./cloud-agent-poll.js";
+import { failedStartRecovery } from "./cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./cloud-agent-replacement.js";
 import { replacedAttempt, takeOverCloudAgentCard } from "./cloud-agent-replacement.js";
 import {
@@ -538,9 +539,11 @@ async function postCloudAgentCard(
 
 export function cloudAgentStatusResult(agent: CloudAgent) {
   const { kind: _kind, agentId, ...snapshot } = cloudAgentBlock(agent);
+  const retry = failedStartRecovery(agent);
   return {
     id: agentId,
     ...snapshot,
+    ...(retry ? { retry } : {}),
     ...(agent.attention ? { attention: agent.attention } : {}),
     ...(agent.historyGapAt ? { historyGap: true } : {}),
     ...(agent.failureReason ? { failureReason: agent.failureReason } : {}),

@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentModel, cloudAgentPhase } from "@rakazo/core";
+import { cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
@@ -127,7 +127,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           ))}
         </View>
       ) : null}
-      {job.note && !cloudAgentModel(job.note) ? (
+      {job.note && !job.model ? (
         <Text style={{ color: tokens.mutedForeground, ...typeScale.footnote }}>{job.note}</Text>
       ) : null}
       {detail?.brief ? (

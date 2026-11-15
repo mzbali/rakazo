@@ -143,6 +143,10 @@ const CloudAgentFields = z.object({
   unreachableSince: z.string().optional(),
   /** What was picked to run it and why, as the provider reported starting it. */
   note: z.string().optional(),
+  /** The model that runs it, ready to show: a readable name, its effort, and an opaque key for the mark beside it. */
+  model: z
+    .object({ name: z.string(), effort: z.string().optional(), mark: z.string().optional() })
+    .optional(),
   /** ISO time the job was created. */
   startedAt: z.string().optional(),
   /** ISO time the work ended; the elapsed clock stops here. */

@@ -964,6 +964,8 @@ export const appContract = {
       .output(CloudAgentOwnerActionSchema),
     /** Stops a running job. */
     stop: oc.input(z.object({ agentId: z.string() })).output(CloudAgentOwnerActionSchema),
+    /** Takes a finished job off the jobs list; its chat card stays. Refused while it is unfinished. */
+    clear: oc.input(z.object({ agentId: z.string() })).output(CloudAgentOwnerActionSchema),
   },
   routines: {
     listForMentions: oc

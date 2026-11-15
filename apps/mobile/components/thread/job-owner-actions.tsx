@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { rpc } from "../../lib/api";
 import { mobileTokens } from "../../lib/appearance";
+import { refreshCloudJobs } from "../../lib/cloud-jobs-store";
 import { hapticSuccess } from "../../lib/haptics";
 import { showIOSActionSheet } from "../../lib/ios-action-sheet";
 import { errorText } from "../../lib/user-error";
@@ -41,6 +42,8 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
         answer: choice,
       });
       hapticSuccess();
+      // Home and the chat's pill read the same list, so an answered job leaves Needs you at once.
+      void refreshCloudJobs();
       setReplying(false);
       setText("");
     } catch (error) {
@@ -58,10 +61,12 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
         style: "destructive",
         onPress: () => {
           setStopping(true);
-          rpc("cloudAgents/stop", { agentId: job.agentId }).catch((error: unknown) => {
-            setStopping(false);
-            Alert.alert(t`Could not stop the job`, errorText(error));
-          });
+          rpc("cloudAgents/stop", { agentId: job.agentId })
+            .then(() => refreshCloudJobs())
+            .catch((error: unknown) => {
+              setStopping(false);
+              Alert.alert(t`Could not stop the job`, errorText(error));
+            });
         },
       },
     ]);

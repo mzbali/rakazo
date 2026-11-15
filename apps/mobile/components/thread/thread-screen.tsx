@@ -28,10 +28,12 @@ import { mobileTokens } from "../../lib/appearance";
 import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { CallKeyboardContext } from "../../lib/call-keyboard-context";
 import { useCallSession } from "../../lib/call-session";
+import { useCloudJobs } from "../../lib/cloud-jobs";
 import { composerDraftScope } from "../../lib/composer-draft";
 import { useContentBottomInset } from "../../lib/content-bottom-inset";
 import { cronLabels } from "../../lib/cron";
 import { useUiLocale } from "../../lib/i18n";
+import { jobPill } from "../../lib/job-pill";
 import { jobReplyTarget } from "../../lib/job-reply";
 import { useThemedStyles } from "../../lib/native";
 import { useChatOnScreen } from "../../lib/page-card-detail";
@@ -76,6 +78,7 @@ import { QuoteSheet } from "./quote-sheet";
 import { ThreadComposerDock } from "./thread-composer-dock";
 import { ThreadEdgeFade } from "./thread-edge-fade";
 import { useThreadHeader } from "./thread-header";
+import { ThreadJobsPill } from "./thread-jobs-pill";
 import { LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
 import { ThreadMessageList } from "./thread-message-list";
 import { useLatestRowActions, useThreadRows } from "./thread-rows";
@@ -528,6 +531,20 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             status: bot.status,
           }))
         : [];
+  // One bar above the composer: the bot's own live turn shows in the transcript footer, and the
+  // chat's T3 jobs take over once that turn is done.
+  const { jobs: cloudJobs } = useCloudJobs(!readOnly);
+  const pill =
+    workingBots.length > 0 || hasLiveProgress ? null : jobPill(cloudJobs, { botId, groupId });
+  const openPill = () => {
+    const { job } = pill ?? {};
+    if (!job) return;
+    if (job.messageId) {
+      void applyMessageJump({ botId, groupId, messageId: job.messageId }).catch(() => undefined);
+      return;
+    }
+    router.push({ pathname: "/job", params: { agentId: job.agentId } });
+  };
   const workingFooter = (
     <ThreadWorkingFooter
       bots={workingBots.map((bot) => ({
@@ -622,7 +639,12 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           <ThreadComposerDock
             hidden={readOnly}
             columnPadding={columnPadding}
-            notice={<ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />}
+            notice={
+              <>
+                {pill ? <ThreadJobsPill pill={pill} onPress={openPill} /> : null}
+                <ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />
+              </>
+            }
             onHeight={setDockHeight}
             replyTarget={replyTarget}
             replyAuthor={

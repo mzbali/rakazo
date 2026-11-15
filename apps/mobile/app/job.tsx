@@ -3,15 +3,17 @@ import { ChatMarkdown } from "@rakazo/chat-ui/native";
 import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJob } from "../lib/cloud-job";
+import { clearCloudJob } from "../lib/cloud-jobs-store";
 import { jobChatTarget } from "../lib/job-chat-target";
 import { jobLinks } from "../lib/job-links";
+import { jobIsClearable } from "../lib/job-shelves";
 import { native, useResolvedAppearance } from "../lib/native";
 import { errorText } from "../lib/user-error";
 
@@ -85,6 +87,20 @@ function JobDetails({ agentId }: { agentId: string }) {
             router.push({ pathname: "/thread", params: jobChatTarget(job) });
           }}
         />
+        {jobIsClearable(job) ? (
+          <NativeActionButton
+            label={t`Clear from list`}
+            prominence="secondary"
+            size="compact"
+            onPress={() => {
+              clearCloudJob(job.agentId)
+                .then(() => router.dismiss())
+                .catch((error: unknown) =>
+                  Alert.alert(t`Could not clear the job`, errorText(error)),
+                );
+            }}
+          />
+        ) : null}
       </View>
       {details.length ? (
         <View style={{ gap: 6 }}>

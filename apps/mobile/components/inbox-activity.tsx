@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import type { RunActivityRow } from "@rakazo/contracts";
+import type { CloudAgentJob, RunActivityRow } from "@rakazo/contracts";
 import { activitySections } from "@rakazo/core";
 import type { Href } from "expo-router";
 import type { ReactElement, ReactNode } from "react";
@@ -8,6 +8,7 @@ import { Text, View } from "react-native";
 import { activityPreview, activityStatusLabel, formatActivityRelativeTime } from "../lib/activity";
 import type { InboxRowAction } from "../lib/inbox-swipe";
 import { inboxRowActionList } from "../lib/inbox-swipe";
+import { jobActivityRuns, jobForRun } from "../lib/job-activity";
 import type { MobileBot, MobileGroup } from "../lib/mobile-types";
 import { useThemedStyles } from "../lib/native";
 import type { SpaceActivityStatus } from "../lib/use-space-activity";
@@ -27,6 +28,7 @@ export type ActivitySwipe = RowMenuProps & {
 
 export function ActivitySection({
   activity,
+  jobs = null,
   status,
   bots,
   groups,
@@ -36,6 +38,8 @@ export function ActivitySection({
   swipe,
 }: {
   activity: { active: RunActivityRow[]; recent: RunActivityRow[] };
+  /** The owner's T3 jobs: one still going or waiting on them files its bot like a live run. */
+  jobs?: readonly CloudAgentJob[] | null;
   status: SpaceActivityStatus;
   bots: MobileBot[];
   groups: MobileGroup[];
@@ -53,7 +57,8 @@ export function ActivitySection({
   const inInbox = (run: RunActivityRow) =>
     run.groupId ? groupsById.has(run.groupId) : botsById.has(run.botId);
   const sections = activitySections({
-    active: activity.active.filter(inInbox),
+    // A job leads its chat's own turn, so the row says what the job is doing.
+    active: [...jobActivityRuns(jobs), ...activity.active].filter(inInbox),
     recent: activity.recent.filter(inInbox),
     bots,
     groups,
@@ -87,14 +92,17 @@ export function ActivitySection({
       : { kind: "bot", chat: botsById.get(run.botId) as MobileBot };
   };
   const openRun = (run: RunActivityRow) => {
+    // A job's row opens its chat at the job's card.
+    const messageId = jobForRun(run.runId, jobs)?.messageId;
+    const at = messageId ? { messageId } : {};
     if (run.groupId) {
       openChat({
         pathname: "/group-thread",
-        params: { groupId: run.groupId, name: run.groupName ?? t`Group` },
+        params: { groupId: run.groupId, name: run.groupName ?? t`Group`, ...at },
       });
       return;
     }
-    openChat({ pathname: "/thread", params: { botId: run.botId, name: run.botName } });
+    openChat({ pathname: "/thread", params: { botId: run.botId, name: run.botName, ...at } });
   };
   const runRows = (runs: RunActivityRow[], detailed = false) =>
     runs.map((run) =>

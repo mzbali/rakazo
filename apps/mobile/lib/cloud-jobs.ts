@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { cloudJobsSnapshot, refreshCloudJobs, subscribeCloudJobs } from "./cloud-jobs-store";
-import { useForegroundPoll } from "./foreground-poll";
+import { useRosterSignals } from "./roster-signals";
 
-/** The jobs, kept fresh while the calling screen is in front and the app is open. */
-export function useCloudJobs(intervalMs: number, enabled = true) {
-  useForegroundPoll(refreshCloudJobs, intervalMs, enabled);
+/** The jobs, re-read when the server's live stream says a chat changed, not on a timer. */
+export function useCloudJobs(enabled = true) {
+  useRosterSignals(refreshCloudJobs, enabled);
   return useSyncExternalStore(subscribeCloudJobs, cloudJobsSnapshot, cloudJobsSnapshot);
 }

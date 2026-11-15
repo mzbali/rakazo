@@ -126,6 +126,11 @@ msgstr "{0} ne fonctionne pas"
 msgid "{0} is running"
 msgstr "{0} est en cours d’exécution"
 
+#. placeholder {0}: pill.count
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "{0} jobs working"
+msgstr ""
+
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/ArtifactFileCard.tsx
 msgid "{0} KB"
@@ -855,6 +860,10 @@ msgstr "1 mois gratuit gagné"
 #: apps/web/src/pages/BotContextMenu.tsx
 msgid "1 hour"
 msgstr "1 heure"
+
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "1 job working"
+msgstr ""
 
 #: apps/mobile/app/(settings)/skills.tsx
 msgid "1 skill"
@@ -2488,6 +2497,7 @@ msgid "Clean up"
 msgstr "Nettoyer"
 
 #: apps/mobile/app/search.tsx
+#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bot-lifecycle.ts
 #: apps/web/src/components/SecretAskCard.tsx
 #: apps/web/src/pages/shell/dialogs.tsx
@@ -2517,6 +2527,10 @@ msgstr "Effacer le filtre {label}"
 #: apps/web/src/pages/Artifacts.tsx
 msgid "Clear filters"
 msgstr "Effacer les filtres"
+
+#: apps/mobile/app/job.tsx
+msgid "Clear from list"
+msgstr ""
 
 #: apps/web/src/pages/shell/dialogs.tsx
 msgid "Clearing…"
@@ -3216,6 +3230,11 @@ msgstr "Impossible d'effacer la conversation"
 #: apps/mobile/lib/api-server.ts
 msgid "Could not clear the custom server URL"
 msgstr "Impossible d'effacer l'URL du serveur personnalisé"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/app/jobs.tsx
+msgid "Could not clear the job"
+msgstr ""
 
 #: apps/mobile/lib/api-auth.ts
 msgid "Could not clear the local session"
@@ -4874,7 +4893,6 @@ msgstr "Vous n'avez pas de compte ?"
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-settings.tsx
-#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/mobile/components/job-status.tsx
@@ -4945,6 +4963,10 @@ msgstr "Dupliquer"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "Chaque nom ne peut être utilisé qu’une fois."
+
+#: apps/mobile/app/jobs.tsx
+msgid "Earlier"
+msgstr ""
 
 #: apps/mobile/app/job.tsx
 msgid "Earlier attempts"
@@ -6981,6 +7003,7 @@ msgstr "Nécessite une intervention"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
@@ -9520,10 +9543,6 @@ msgstr "Mémoire partagée"
 msgid "Show"
 msgstr "Afficher"
 
-#: apps/mobile/app/jobs.tsx
-msgid "Show {count} more"
-msgstr ""
-
 #: apps/mobile/components/thread/message-bubble.tsx
 msgid "Show {label}"
 msgstr "Afficher {label}"
@@ -10815,6 +10834,7 @@ msgstr "À faire"
 msgid "To:"
 msgstr "À :"
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/time-separator.tsx
 #: apps/web/src/pages/Artifacts.tsx

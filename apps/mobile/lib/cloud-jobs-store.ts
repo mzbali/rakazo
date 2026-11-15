@@ -53,3 +53,19 @@ export function resetCloudJobs() {
 export function needsYouCount(jobs: CloudAgentJob[] | null): number {
   return (jobs ?? []).filter((job) => cloudAgentShelf(cloudAgentState(job)) === "needsYou").length;
 }
+
+/**
+ * Takes a finished job off the list now and tells the server; if the server refuses, the list is
+ * read again so the job comes back. The chat keeps its card either way.
+ */
+export async function clearCloudJob(agentId: string): Promise<void> {
+  const before = snapshot;
+  if (before.jobs)
+    publish({ jobs: before.jobs.filter((job) => job.agentId !== agentId), error: null });
+  try {
+    await rpc("cloudAgents/clear", { agentId });
+  } catch (error) {
+    void refreshCloudJobs();
+    throw error;
+  }
+}

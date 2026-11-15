@@ -2,7 +2,24 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { cloudAgentsRoutes } from "./cloud-agents.js";
 import type { RouterContext } from "./context.js";
 
+const actions = vi.hoisted(() => ({
+  answer: vi.fn(),
+  steer: vi.fn(),
+  stop: vi.fn(),
+  Refused: class extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
+}));
 vi.mock("@rakazo/adapters", () => ({
+  answerCloudAgentQuestion: actions.answer,
+  steerCloudAgent: actions.steer,
+  stopCloudAgent: actions.stop,
+  CloudAgentOwnerActionError: actions.Refused,
   cloudAgentBlock: (agent: { id: string; title: string; status: string }) => ({
     kind: "cloud_agent",
     agentId: agent.id,
@@ -38,7 +55,9 @@ const routes = cloudAgentsRoutes({
       bot: { findMany: vi.fn().mockResolvedValue([{ id: "bot", name: "Helper" }]) },
     },
   },
-  authed: { cloudAgents: { list: handler, detail: handler } },
+  authed: {
+    cloudAgents: { list: handler, detail: handler, answer: handler, steer: handler, stop: handler },
+  },
 } as unknown as RouterContext).cloudAgents;
 const context = { actor: { spaceId: "space", userId: "owner" } };
 const invoke = (fn: unknown, input = {}) =>
@@ -68,6 +87,26 @@ it("includes the originating group in list rows", async () => {
 it("does not return another owner's job", async () => {
   findFirst.mockResolvedValue(null);
   await expect(invoke(routes.detail, { agentId: agent.id })).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+it("acts on a job as the signed-in owner, never as an id from the request", async () => {
+  actions.answer.mockResolvedValue({ duplicate: false });
+  await invoke(routes.answer, { agentId: "job", requestId: "q1", answer: "main" });
+  expect(actions.answer).toHaveBeenCalledWith(expect.anything(), context.actor, {
+    agentId: "job",
+    requestId: "q1",
+    answer: "main",
+  });
+});
+it("tells the owner plainly when a question has closed, and hides jobs that are not theirs", async () => {
+  actions.answer.mockRejectedValue(new actions.Refused("stale", "That question has closed."));
+  await expect(
+    invoke(routes.answer, { agentId: "job", requestId: "q1", answer: "main" }),
+  ).rejects.toMatchObject({ code: "CONFLICT", message: "That question has closed." });
+  actions.stop.mockRejectedValue(new actions.Refused("not_found", "Job not found."));
+  await expect(invoke(routes.stop, { agentId: "job" })).rejects.toMatchObject({
     code: "NOT_FOUND",
   });
 });

@@ -80,6 +80,8 @@ export const ENCRYPTED_MODELS: Record<string, ModelSpec> = {
       progressText: {},
       followupBrief: {},
       ownerQuestion: {},
+      questionPrompt: {},
+      ownerAnswer: {},
     },
     space: { column: "spaceId" },
     ownerRelation: "user",

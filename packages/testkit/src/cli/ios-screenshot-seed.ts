@@ -812,6 +812,8 @@ const SCREENSHOT_JOBS: {
   status: "running" | "finished" | "failed";
   needsInput?: boolean;
   ownerQuestion?: string;
+  /** A question the provider holds open, with the answers it offers. */
+  question?: { text: string; options: { label: string; recommended?: boolean }[] };
   branch?: string;
   prUrl?: string;
   note?: string;
@@ -862,6 +864,10 @@ const SCREENSHOT_JOBS: {
     title: "Migrate the billing tests",
     status: "running",
     needsInput: true,
+    question: {
+      text: "Which branch should the billing tests run on?",
+      options: [{ label: "main", recommended: true }, { label: "release/4" }],
+    },
     branch: "chore/billing-tests",
     projectName: "billing-api",
     minutesAgo: 47,
@@ -1036,6 +1042,9 @@ async function ensureRequestCards(
         progressText: job.progress ?? null,
         endedAt: endedAt ?? null,
         ownerQuestion: job.ownerQuestion ?? null,
+        questionPrompt: job.question
+          ? JSON.stringify({ requestId: "ios-screenshot-ask", ...job.question })
+          : null,
         attention: job.needsInput ? [{ requestId: "ios-screenshot-ask", kind: "question" }] : [],
         createdAt: startedAt,
       },
@@ -1054,6 +1063,7 @@ async function ensureRequestCards(
         ...(job.result && job.status === "finished" ? { resultExcerpt: job.result } : {}),
         ...(job.needsInput ? { needsInput: true } : {}),
         ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
+        ...(job.question ? { question: { requestId: "ios-screenshot-ask", ...job.question } } : {}),
         ...(job.branch ? { branch: job.branch } : {}),
         ...(job.prUrl ? { prUrl: job.prUrl } : {}),
         ...(job.note ? { note: job.note } : {}),

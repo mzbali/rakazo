@@ -69,6 +69,7 @@ export * from "./child-bots.js";
 export { previousAttempts } from "./cloud-agent-card.js";
 export * from "./cloud-agent-emulator.js";
 export * from "./cloud-agent-factory.js";
+export * from "./cloud-agent-owner-actions.js";
 export * from "./cloud-agent-poll.js";
 export * from "./cloud-agent-provider-env.js";
 export * from "./cloud-agent-service.js";

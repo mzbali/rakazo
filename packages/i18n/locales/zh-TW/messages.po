@@ -87,6 +87,11 @@ msgstr "{0}（最多 {ATTACHMENT_MAX_COUNT} 個附件）"
 msgid "{0} (over {1})"
 msgstr "{0}（超過 {1}）"
 
+#. placeholder {0}: choice.label
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "{0} (recommended)"
+msgstr ""
+
 #. placeholder {0}: preset.n
 #: apps/web/src/lib/cron.ts
 msgid "{0} {unitLabel}"
@@ -1500,6 +1505,11 @@ msgstr "接聽"
 msgid "Answered"
 msgstr "已回答"
 
+#. placeholder {0}: job.answered
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Answered: {0}"
+msgstr ""
+
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/AskCard.tsx
@@ -2164,6 +2174,7 @@ msgstr "無法讀取影像"
 #: apps/mobile/components/profile-edit-dialog.tsx
 #: apps/mobile/components/secret-ask-sheet.tsx
 #: apps/mobile/components/space-bots-model.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/vault-item-editor.tsx
@@ -3991,6 +4002,14 @@ msgstr "無法傳送重設郵件"
 msgid "Could not send that"
 msgstr "無法傳送"
 
+#: apps/mobile/lib/thread-send.ts
+msgid "Could not send to the job"
+msgstr ""
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not send your answer"
+msgstr ""
+
 #: apps/mobile/components/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "無法分享檔案"
@@ -4049,6 +4068,10 @@ msgstr "無法開始登入"
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "無法開始教學"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not stop the job"
+msgstr ""
 
 #: apps/mobile/components/AskActions.tsx
 msgid "Could not submit answer"
@@ -6036,6 +6059,10 @@ msgstr "無法開啟。請從側邊欄重試。"
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "它可能已被刪除，或屬於其他人。"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "It stops working now. What it has done so far is kept."
+msgstr ""
+
 #: apps/mobile/lib/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6102,6 +6129,10 @@ msgstr "保留記憶"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "保留完整工具結果"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Keep working"
+msgstr ""
 
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -6810,6 +6841,10 @@ msgstr "更多"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "更多應用程式"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "More options"
+msgstr ""
 
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -8617,6 +8652,7 @@ msgstr "回覆和已完成的工作"
 msgid "Replies to"
 msgstr "回覆對象"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/message-hover-actions.tsx
 #: apps/web/src/pages/shell/quote-selection-button.tsx
@@ -9271,6 +9307,7 @@ msgid "Self-hosted"
 msgstr "自行託管"
 
 #: apps/mobile/components/thread-composer.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/pages/shell/composer-parts.tsx
 msgid "Send"
 msgstr "傳送"
@@ -9324,6 +9361,10 @@ msgstr "按 Enter 傳送"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "正在傳送…"
+
+#: apps/mobile/components/thread/thread-screen.tsx
+msgid "Sends to the job"
+msgstr ""
 
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/AskCard.tsx
@@ -9992,6 +10033,10 @@ msgstr "停止"
 msgid "Stop dictating"
 msgstr "停止聽寫"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop job"
+msgstr ""
+
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "停止朗讀"
@@ -9999,6 +10044,10 @@ msgstr "停止朗讀"
 #: apps/web/src/components/teach/TeachRecordingChrome.tsx
 msgid "Stop teaching"
 msgstr "停止示範"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop this job?"
+msgstr ""
 
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10011,6 +10060,10 @@ msgstr "已停止"
 #: apps/web/src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "已停止。"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11734,6 +11787,10 @@ msgstr "一切就緒"
 msgid "Your account"
 msgstr "你的帳號"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your answer"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -11786,6 +11843,10 @@ msgstr "你的電子信箱"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "你的免費試用已開始"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your instruction was delivered"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

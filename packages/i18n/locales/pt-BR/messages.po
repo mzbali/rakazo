@@ -86,6 +86,11 @@ msgstr "{0} (máx. anexos {ATTACHMENT_MAX_COUNT})"
 msgid "{0} (over {1})"
 msgstr "{0} (mais de {1})"
 
+#. placeholder {0}: choice.label
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "{0} (recommended)"
+msgstr ""
+
 #. placeholder {0}: preset.n
 #: apps/web/src/lib/cron.ts
 msgid "{0} {unitLabel}"
@@ -1499,6 +1504,11 @@ msgstr "Resposta"
 msgid "Answered"
 msgstr "Respondido"
 
+#. placeholder {0}: job.answered
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Answered: {0}"
+msgstr ""
+
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/AskCard.tsx
@@ -2163,6 +2173,7 @@ msgstr "Não pode ler imagens"
 #: apps/mobile/components/profile-edit-dialog.tsx
 #: apps/mobile/components/secret-ask-sheet.tsx
 #: apps/mobile/components/space-bots-model.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/vault-item-editor.tsx
@@ -3990,6 +4001,14 @@ msgstr "Não foi possível enviar o e-mail de redefinição"
 msgid "Could not send that"
 msgstr "Não foi possível enviar"
 
+#: apps/mobile/lib/thread-send.ts
+msgid "Could not send to the job"
+msgstr ""
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not send your answer"
+msgstr ""
+
 #: apps/mobile/components/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "Não foi possível compartilhar o arquivo"
@@ -4048,6 +4067,10 @@ msgstr "Não foi possível iniciar o login"
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "Não foi possível começar a ensinar"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not stop the job"
+msgstr ""
 
 #: apps/mobile/components/AskActions.tsx
 msgid "Could not submit answer"
@@ -6035,6 +6058,10 @@ msgstr "Não foi possível abri-lo. Tente de novo pela barra lateral."
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "Ela pode ter sido excluída ou pertencer a outra pessoa."
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "It stops working now. What it has done so far is kept."
+msgstr ""
+
 #: apps/mobile/lib/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6101,6 +6128,10 @@ msgstr "Manter memórias"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "Manter resultados das ferramentas inteiros"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Keep working"
+msgstr ""
 
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -6809,6 +6840,10 @@ msgstr "Mais"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "Mais apps"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "More options"
+msgstr ""
 
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -8616,6 +8651,7 @@ msgstr "Respostas e trabalho concluído"
 msgid "Replies to"
 msgstr "Responde a"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/message-hover-actions.tsx
 #: apps/web/src/pages/shell/quote-selection-button.tsx
@@ -9270,6 +9306,7 @@ msgid "Self-hosted"
 msgstr "Auto-hospedado"
 
 #: apps/mobile/components/thread-composer.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/pages/shell/composer-parts.tsx
 msgid "Send"
 msgstr "Enviar"
@@ -9323,6 +9360,10 @@ msgstr "Enviar com Enter"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "Enviando…"
+
+#: apps/mobile/components/thread/thread-screen.tsx
+msgid "Sends to the job"
+msgstr ""
 
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/AskCard.tsx
@@ -9991,6 +10032,10 @@ msgstr "Parar"
 msgid "Stop dictating"
 msgstr "Parar de ditar"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop job"
+msgstr ""
+
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "Stop speaking"
 msgstr "Pare de Falar"
@@ -9998,6 +10043,10 @@ msgstr "Pare de Falar"
 #: apps/web/src/components/teach/TeachRecordingChrome.tsx
 msgid "Stop teaching"
 msgstr "Parar de ensinar"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop this job?"
+msgstr ""
 
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10010,6 +10059,10 @@ msgstr "Interrompido"
 #: apps/web/src/lib/browser-notifications.ts
 msgid "Stopped."
 msgstr "Interrompido."
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11733,6 +11786,10 @@ msgstr "Tudo pronto"
 msgid "Your account"
 msgstr "Sua conta"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your answer"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -11785,6 +11842,10 @@ msgstr "Seu endereço de e-mail"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "Seu teste grátis começou"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your instruction was delivered"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

@@ -261,6 +261,7 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
       ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }
       : {}),
+    ...cloudAgentQuestionFields(payload),
     ...(typeof payload.projectName === "string" && payload.projectName
       ? { projectName: payload.projectName.slice(0, 100) }
       : {}),
@@ -277,6 +278,56 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(Array.isArray(payload.attempts) && payload.attempts.length
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }
       : {}),
+  };
+}
+
+/** The open question's buttons, what the owner answered and when they last steered, from the row. */
+function cloudAgentQuestionFields(payload: Record<string, unknown>) {
+  let question: CloudAgentBlock["question"];
+  if (typeof payload.questionPrompt === "string") {
+    try {
+      const parsed = JSON.parse(payload.questionPrompt) as {
+        requestId?: unknown;
+        text?: unknown;
+        options?: unknown;
+        allowCustomAnswer?: unknown;
+      };
+      const options = Array.isArray(parsed.options)
+        ? parsed.options.flatMap((option: { label?: unknown; recommended?: unknown }) =>
+            typeof option?.label === "string" && option.label
+              ? [
+                  {
+                    label: option.label.slice(0, 100),
+                    ...(option.recommended === true ? { recommended: true } : {}),
+                  },
+                ]
+              : [],
+          )
+        : [];
+      if (typeof parsed.requestId === "string")
+        question = {
+          requestId: parsed.requestId,
+          ...(typeof parsed.text === "string" && parsed.text
+            ? { text: parsed.text.slice(0, 500) }
+            : {}),
+          options,
+          ...(parsed.allowCustomAnswer === false ? { allowCustomAnswer: false } : {}),
+        };
+    } catch {}
+  }
+  const steered = payload.steeredAt;
+  const steeredAt =
+    steered instanceof Date
+      ? steered.toISOString()
+      : typeof steered === "string" && !Number.isNaN(Date.parse(steered))
+        ? steered
+        : undefined;
+  return {
+    ...(question ? { question } : {}),
+    ...(typeof payload.ownerAnswer === "string" && payload.ownerAnswer
+      ? { answered: payload.ownerAnswer.slice(0, 100) }
+      : {}),
+    ...(steeredAt ? { steeredAt } : {}),
   };
 }
 

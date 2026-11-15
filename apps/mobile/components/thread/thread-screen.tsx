@@ -32,6 +32,7 @@ import { composerDraftScope } from "../../lib/composer-draft";
 import { useContentBottomInset } from "../../lib/content-bottom-inset";
 import { cronLabels } from "../../lib/cron";
 import { useUiLocale } from "../../lib/i18n";
+import { jobReplyTarget } from "../../lib/job-reply";
 import { useThemedStyles } from "../../lib/native";
 import { useChatOnScreen } from "../../lib/page-card-detail";
 import { useInboxBot } from "../../lib/search-inbox";
@@ -625,13 +626,15 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             onHeight={setDockHeight}
             replyTarget={replyTarget}
             replyAuthor={
-              replyTarget?.role === "user"
-                ? (otherAuthor(replyTarget.author, userId)?.name ??
-                  channelMessageSender(replyTarget.blocks) ??
-                  t`You`)
-                : (botDisplayName(snap?.members, mentionBots, replyTarget?.botId) ??
-                  displayName ??
-                  t`Bot`)
+              jobReplyTarget(replyTarget)
+                ? t`Sends to the job`
+                : replyTarget?.role === "user"
+                  ? (otherAuthor(replyTarget.author, userId)?.name ??
+                    channelMessageSender(replyTarget.blocks) ??
+                    t`You`)
+                  : (botDisplayName(snap?.members, mentionBots, replyTarget?.botId) ??
+                    displayName ??
+                    t`Bot`)
             }
             replyQuote={replyQuote}
             threadTarget={artifactTarget}

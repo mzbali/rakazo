@@ -24,6 +24,7 @@ import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
 import { NativeActionButton } from "../native-action-button";
 import { NativeSymbol } from "../native-symbol";
+import { JobOwnerActions } from "./job-owner-actions";
 import type { MessageActionProps } from "./message-bubble";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
@@ -204,38 +205,35 @@ export function CloudAgentCards({
                 >
                   <JobRow job={job} chevron />
                 </Pressable>
-                {links.t3 || links.pr ? (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      paddingHorizontal: 12,
-                      paddingBottom: 12,
-                    }}
-                  >
-                    {links.t3 ? (
-                      <NativeActionButton
-                        label={t`Open in T3`}
-                        prominence="secondary"
-                        size="compact"
-                        onPress={() => {
-                          Linking.openURL(links.t3!).catch(() => undefined);
-                        }}
-                      />
-                    ) : null}
-                    {links.pr ? (
-                      <NativeActionButton
-                        label={t`View PR`}
-                        prominence="secondary"
-                        size="compact"
-                        onPress={() => {
-                          Linking.openURL(links.pr!).catch(() => undefined);
-                        }}
-                      />
-                    ) : null}
-                  </View>
-                ) : null}
+                <JobOwnerActions
+                  job={job}
+                  links={
+                    links.t3 || links.pr ? (
+                      <>
+                        {links.t3 ? (
+                          <NativeActionButton
+                            label={t`Open in T3`}
+                            prominence="secondary"
+                            size="compact"
+                            onPress={() => {
+                              Linking.openURL(links.t3!).catch(() => undefined);
+                            }}
+                          />
+                        ) : null}
+                        {links.pr ? (
+                          <NativeActionButton
+                            label={t`View PR`}
+                            prominence="secondary"
+                            size="compact"
+                            onPress={() => {
+                              Linking.openURL(links.pr!).catch(() => undefined);
+                            }}
+                          />
+                        ) : null}
+                      </>
+                    ) : undefined
+                  }
+                />
               </View>
             );
           })

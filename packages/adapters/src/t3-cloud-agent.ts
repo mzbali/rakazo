@@ -5,6 +5,7 @@ import type {
   CloudAgentLaunchRequest,
   CloudAgentProvider,
   CloudAgentPullRequest,
+  CloudAgentQuestion,
   CloudAgentReplyRequest,
   CloudAgentSnapshot,
   CloudAgentStatus,
@@ -226,7 +227,70 @@ function quotaWait(resets: Array<number | undefined>, now: number, detail?: stri
   const note = `Waiting for quota${at ? ` until ${utcStamp(at, now)}` : ""}${detail ? `: ${detail}` : ""}.`;
   return new CloudAgentRetryLater("quota", wait, note);
 }
-const questionSchema = z.object({ questions: z.array(z.object({ id: z.string() })) });
+const questionSchema = z.object({
+  questions: z.array(
+    z.object({
+      id: z.string(),
+      options: z.array(z.object({ label: z.string(), value: z.string().optional() })).default([]),
+      multiSelect: z.boolean().optional(),
+    }),
+  ),
+});
+/** T3's pending question as `t3_pending_request` `read` returns it. */
+const pendingQuestionSchema = z.object({
+  id: z.string(),
+  question: z.string().optional(),
+  options: z.array(z.object({ label: z.string(), value: z.string().optional() })).default([]),
+  multiSelect: z.boolean().optional(),
+  allowCustomAnswer: z.boolean().optional(),
+});
+const questionPromptSchema = z.object({ questions: z.array(pendingQuestionSchema) });
+const RECOMMENDED = /\s*\(recommended\)\s*$/i;
+const MAX_OPTIONS = 4;
+
+/**
+ * T3's answer for one question: an offered option goes in as its value (its label when it has
+ * none, "(Recommended)" included, as T3 matches it), in a list for a multiple-choice question;
+ * anything else is the typed answer as it is.
+ */
+function answerFor(
+  question: z.infer<typeof questionSchema>["questions"][number],
+  text: string,
+): string | string[] {
+  const chosen = question.options.find(
+    (option) => option.label.trim().replace(RECOMMENDED, "") === text.trim(),
+  );
+  const answer = chosen ? (chosen.value ?? chosen.label) : text;
+  return question.multiSelect ? [answer] : answer;
+}
+
+/**
+ * What the card shows of a pending question: one-tap answers only for a single-choice question
+ * alone in its request, the recommended one (T3 puts it first, its label ending "(Recommended)")
+ * marked once.
+ */
+export function questionOf(value: unknown): CloudAgentQuestion | undefined {
+  const parsed = questionPromptSchema.safeParse(value);
+  const questions = parsed.success ? parsed.data.questions : [];
+  const first = questions[0];
+  if (!first) return undefined;
+  const single = questions.length === 1 && !first.multiSelect;
+  const options = single
+    ? first.options
+        .map((option) => option.label.trim())
+        .filter(Boolean)
+        .slice(0, MAX_OPTIONS)
+        .map((label) => ({
+          label: label.replace(RECOMMENDED, ""),
+          ...(RECOMMENDED.test(label) ? { recommended: true } : {}),
+        }))
+    : [];
+  return {
+    ...(first.question ? { text: first.question } : {}),
+    options,
+    ...(first.allowCustomAnswer === false ? { allowCustomAnswer: false } : {}),
+  };
+}
 
 /**
  * The provider link is Markdown or an autolink and contains the environment identity, as a
@@ -473,12 +537,17 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status,
       ...(run ? { latestRunId: run.runId } : {}),
       cursor: next,
-      attention: state.pendingRequests.map((request) =>
-        attentionOf(
-          request.requestId,
-          request.kind,
-          request.threadId !== id ? request.threadId : undefined,
-        ),
+      attention: await Promise.all(
+        state.pendingRequests.map(async (request) => ({
+          ...attentionOf(
+            request.requestId,
+            request.kind,
+            request.threadId !== id ? request.threadId : undefined,
+          ),
+          ...(hold && request.kind === "user_input"
+            ? await this.questionFor(request.threadId, request.requestId, context)
+            : {}),
+        })),
       ),
       missedAttention,
       historyGap,
@@ -545,6 +614,20 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     return { text, complete };
   }
 
+  /** The options for the card's answer buttons; a question that cannot be read still shows as one. */
+  private async questionFor(threadId: string, requestId: string, context: AdapterContext) {
+    try {
+      const question = questionOf(
+        await this.call("t3_pending_request", { action: "read", threadId, requestId }, context),
+      );
+      return question ? { question } : {};
+    } catch (error) {
+      if (error instanceof CloudAgentRetryLater || error instanceof CloudAgentRequestRejected)
+        return {};
+      throw error;
+    }
+  }
+
   /** The current state without moving the poller's cursor or hold. */
   private async peek(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
     // Past the head and without the hold: only `state` is read, and the poller's cursor stays put.
@@ -587,7 +670,9 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
             action: "respond",
             threadId,
             requestId: request.questionId,
-            answers: Object.fromEntries(questions.map((question) => [question.id, request.prompt])),
+            answers: Object.fromEntries(
+              questions.map((question) => [question.id, answerFor(question, request.prompt)]),
+            ),
           },
           context,
         );

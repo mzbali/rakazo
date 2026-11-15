@@ -32,6 +32,8 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     // Refused before any remote work existed: there is nothing for the owner to open or answer.
     launchFailed: agent.status === "failed" && !agent.remoteId,
     checks: agent.checksState,
+    prState: agent.prState,
+    watching: agent.status === "running" && agent.prWatching,
     review,
     attempts: previous.map((attempt) => ({
       agentId: attempt.id,

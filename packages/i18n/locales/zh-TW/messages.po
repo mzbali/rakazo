@@ -2421,12 +2421,27 @@ msgstr "正在檢查連線…"
 msgid "Checking…"
 msgstr "正在檢查…"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks failing"
 msgstr ""
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks running"
 msgstr ""
 
 #: apps/mobile/components/job-proof.tsx
@@ -2647,6 +2662,11 @@ msgstr "關閉使用者設定"
 #: apps/web/src/pages/VoiceSettingsOverlay.tsx
 msgid "Close voice settings"
 msgstr "關閉語音設定"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "closed"
+msgstr ""
 
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
@@ -6653,6 +6673,11 @@ msgstr "提及 OpenClaw 功能"
 msgid "Mentions: {mentions}"
 msgstr "提及：{mentions}"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "merged"
+msgstr ""
+
 #: apps/mobile/lib/search-sheet.ts
 #: apps/mobile/lib/thread-message-text.ts
 #: apps/web/src/pages/shell/chat-shared.ts
@@ -8117,6 +8142,10 @@ msgstr "外掛"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "檢查未發現變化時發送一則聊天訊息。例行任務不會執行。"
+
+#: apps/mobile/components/job-pr-line.tsx
+msgid "PR #{number}"
+msgstr ""
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -11520,6 +11549,11 @@ msgstr "喚醒"
 #: apps/web/src/pages/settings-nav.ts
 msgid "Wallet"
 msgstr "錢包"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "watching"
+msgstr ""
 
 #: apps/web/src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"

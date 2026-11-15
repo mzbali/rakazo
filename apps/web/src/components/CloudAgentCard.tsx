@@ -1,13 +1,14 @@
 import { Trans } from "@lingui/react/macro";
 import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
-import type { CloudAgentPhase } from "@rakazo/core";
+import type { CloudAgentPhase, CloudAgentPullRequestPart } from "@rakazo/core";
 import {
   cloudAgentElapsed,
   cloudAgentHttpsUrl,
   cloudAgentJobTone,
   cloudAgentPhase,
   cloudAgentPullRequestNumber,
+  cloudAgentPullRequestParts,
   cloudAgentTicking,
 } from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
@@ -49,6 +50,23 @@ function PhaseLabel({ phase }: { phase: CloudAgentPhase }) {
       return <Trans>Stopped</Trans>;
     default:
       return <Trans>Expired</Trans>;
+  }
+}
+
+function PullRequestPart({ part }: { part: CloudAgentPullRequestPart }) {
+  switch (part) {
+    case "merged":
+      return <Trans>merged</Trans>;
+    case "closed":
+      return <Trans>closed</Trans>;
+    case "checksRunning":
+      return <Trans>checks running</Trans>;
+    case "checksPassing":
+      return <Trans>checks passing</Trans>;
+    case "checksFailing":
+      return <Trans>checks failing</Trans>;
+    default:
+      return <Trans>watching</Trans>;
   }
 }
 
@@ -124,8 +142,13 @@ export function CloudAgentCard({
         {prHref || href ? (
           <div className="flex flex-wrap items-center gap-2">
             {prNumber !== undefined ? (
-              <Badge variant="outline">
+              <Badge variant="outline" className="gap-1.5">
                 <Trans>PR #{prNumber}</Trans>
+                {cloudAgentPullRequestParts(block).map((part) => (
+                  <span key={part} className="text-muted-foreground">
+                    <PullRequestPart part={part} />
+                  </span>
+                ))}
               </Badge>
             ) : null}
             {href ? (

@@ -2420,13 +2420,28 @@ msgstr "Checking connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr "checks failing"
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks failing"
 msgstr "Checks failing"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr "checks passing"
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks passing"
 msgstr "Checks passing"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks running"
+msgstr "checks running"
 
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks running"
@@ -2646,6 +2661,11 @@ msgstr "Close user settings"
 #: apps/web/src/pages/VoiceSettingsOverlay.tsx
 msgid "Close voice settings"
 msgstr "Close voice settings"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "closed"
+msgstr "closed"
 
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
@@ -6652,6 +6672,11 @@ msgstr "Mentions OpenClaw features"
 msgid "Mentions: {mentions}"
 msgstr "Mentions: {mentions}"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "merged"
+msgstr "merged"
+
 #: apps/mobile/lib/search-sheet.ts
 #: apps/mobile/lib/thread-message-text.ts
 #: apps/web/src/pages/shell/chat-shared.ts
@@ -8116,6 +8141,10 @@ msgstr "Plugins"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "Post a chat message when a check finds no changes. The routine won't run."
+
+#: apps/mobile/components/job-pr-line.tsx
+msgid "PR #{number}"
+msgstr "PR #{number}"
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -11519,6 +11548,11 @@ msgstr "Wake"
 #: apps/web/src/pages/settings-nav.ts
 msgid "Wallet"
 msgstr "Wallet"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "watching"
+msgstr "watching"
 
 #: apps/web/src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"

@@ -165,6 +165,34 @@ export function cloudAgentPullRequestNumber(prUrl: string | undefined): number |
   return match ? Number(match[1]) : undefined;
 }
 
+export type CloudAgentPullRequestPart =
+  | "merged"
+  | "closed"
+  | "checksRunning"
+  | "checksPassing"
+  | "checksFailing"
+  | "watching";
+
+/**
+ * What the card's one pull request line says after "PR #12", in order: that it landed or was
+ * closed, or else how its checks stand and whether the agent is still watching it. Each surface
+ * gives the parts its own translated words.
+ */
+export function cloudAgentPullRequestParts(
+  job: Pick<CloudAgentBlock, "prState" | "checks" | "watching">,
+): CloudAgentPullRequestPart[] {
+  if (job.prState) return [job.prState];
+  const checks: Record<string, CloudAgentPullRequestPart> = {
+    passing: "checksPassing",
+    failing: "checksFailing",
+    running: "checksRunning",
+  };
+  const parts: CloudAgentPullRequestPart[] = [];
+  if (job.checks) parts.push(checks[job.checks]!);
+  if (job.watching) parts.push("watching");
+  return parts;
+}
+
 /** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
 export type CloudAgentShelf = "needsYou" | "working" | "done";
 
@@ -278,6 +306,10 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(payload.checks === "passing" || payload.checks === "failing" || payload.checks === "running"
       ? { checks: payload.checks }
       : {}),
+    ...(payload.prState === "merged" || payload.prState === "closed"
+      ? { prState: payload.prState }
+      : {}),
+    ...(payload.watching === true ? { watching: true } : {}),
     ...cloudAgentProofImages(payload.proofImages),
     ...(Array.isArray(payload.attempts) && payload.attempts.length
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }

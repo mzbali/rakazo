@@ -12,6 +12,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
+import { parsePullRequests, shownPullRequest } from "./t3-cloud-agent-pull-requests.js";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
 import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
 
@@ -96,21 +97,6 @@ const threadReadSchema = z.object({
   thread: z.object({ model: z.string().optional(), providerInstanceId: z.string().optional() }),
 });
 const titleSchema = z.object({ thread: z.object({ title: z.string().optional() }) });
-const pullRequestsSchema = z.object({
-  thread: z.object({
-    pullRequests: z
-      .array(
-        z.object({
-          url: z.string(),
-          number: z.number(),
-          repository: z.string(),
-          state: z.string(),
-          mergeCommitSha: z.string().nullish(),
-        }),
-      )
-      .default([]),
-  }),
-});
 const timelineSchema = z.object({
   items: z
     .array(z.object({ type: z.string(), runId: z.string(), text: z.string().nullish() }))
@@ -493,11 +479,18 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status === "running" && run && sawEvents
         ? await this.latestMessage(id, run.runId, context, MAX_PROGRESS_PAGES)
         : undefined;
+    // Pull requests change without a run event (a merge, a watch ending), so a thread that is
+    // waiting reads them every poll; one that is working, only when it did something.
+    const pullRequest =
+      sawEvents || status !== "running" || run?.status !== "running"
+        ? shownPullRequest(await this.optionalPullRequests(id, context), run)
+        : {};
     return {
       id,
       url: t3CanonicalLink(state.link, id),
       title: "",
       status,
+      ...pullRequest,
       ...(run ? { latestRunId: run.runId } : {}),
       cursor: next,
       attention: await Promise.all(
@@ -675,14 +668,27 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   }
 
   async pullRequests(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]> {
-    const { thread } = pullRequestsSchema.parse(
-      await this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context),
+    return (await this.readPullRequests(id, context)).map(({ watching: _watching, ...pr }) => pr);
+  }
+
+  /** A bot whose assignment leaves out the thread read just shows no pull request. */
+  private optionalPullRequests(id: string, context: AdapterContext) {
+    return this.readPullRequests(id, context, true).catch((error: unknown) => {
+      if (error instanceof CloudAgentRequestRejected) return [];
+      throw error;
+    });
+  }
+
+  private async readPullRequests(id: string, context: AdapterContext, optional = false) {
+    const read = await this.call(
+      "t3_thread_read",
+      { threadId: id, limit: 1, runLimit: 1 },
+      context,
+      {
+        optional,
+      },
     );
-    return thread.pullRequests.map(({ mergeCommitSha, state, ...pr }) => ({
-      ...pr,
-      state: state === "merged" || state === "closed" ? state : "open",
-      ...(mergeCommitSha ? { mergeCommitSha } : {}),
-    }));
+    return parsePullRequests(read);
   }
 
   /**

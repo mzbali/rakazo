@@ -175,6 +175,10 @@ const CloudAgentFields = z.object({
   failureReason: z.string().optional(),
   /** The pull request's check result; absent when it is not known. */
   checks: z.enum(["passing", "failing", "running"]).optional(),
+  /** The pull request's state when it is not open, so the card can say merged or closed. */
+  prState: z.enum(["merged", "closed"]).optional(),
+  /** The agent is watching its open pull request, so the job is waiting on it, not finished. */
+  watching: z.boolean().optional(),
   /** Screenshots the job's pull request showed, copied to the app's own storage; at most three. */
   proofImages: z
     .array(z.object({ artifactId: z.string(), name: z.string(), mimeType: z.string() }))

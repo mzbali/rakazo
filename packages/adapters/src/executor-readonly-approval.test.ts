@@ -4694,6 +4694,7 @@ it("applies a saved Allow for cloud_agent_launch before posting a card", async (
   // The rule matches the tool name. requestKey, project and runtime mode are not part of it.
   const args = {
     prompt: "Trace the quota reset",
+    title: "Quota reset trace",
     requestKey: "example-launch-request",
     projectId: "example-project",
     runtimeMode: "full-access",
@@ -4724,7 +4725,7 @@ it("applies a saved Allow for cloud_agent_launch before posting a card", async (
     builtin: true,
     trigger: "bot_message",
   });
-  unruled.setCalls([{ args: { prompt: "Fix it" }, executionId: "call-1" }]);
+  unruled.setCalls([{ args: { prompt: "Fix it", title: "Fix it" }, executionId: "call-1" }]);
   await unruled.run();
   expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
 });
@@ -4760,6 +4761,7 @@ it.each(["cloud_agent_launch", "respond_agent_connection"])(
           name === "cloud_agent_launch"
             ? {
                 prompt: "Example task",
+                title: "Example task",
                 requestKey: "example-request",
                 projectId: "example-project",
               }

@@ -226,6 +226,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           "cloud_agent_launch",
           {
             prompt: `Request ${n}`,
+            title: `Request ${n}`,
             requestKey: `request-${n}`,
             agreement: "Owner said yes",
             scratch: true,
@@ -312,7 +313,12 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
         { ...t.context, userId: randomUUID(), operationId: randomUUID() },
         t.run,
         "cloud_agent_launch",
-        { prompt: "Request 1", requestKey: "request-1", agreement: "Owner said yes" },
+        {
+          prompt: "Request 1",
+          title: "Request 1",
+          requestKey: "request-1",
+          agreement: "Owner said yes",
+        },
       ),
     );
     expect(other).toHaveProperty("id");
@@ -940,6 +946,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const result = await runAsSystem("agent run tool call", () =>
       executeCloudAgentTool(t.deps, t.context, t.run, "cloud_agent_launch", {
         prompt: "Fix the build",
+        title: "Fix the build",
         requestKey: "fix-build",
         ...launchFields,
       }),

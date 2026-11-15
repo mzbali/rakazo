@@ -34,8 +34,13 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .refine((value) => Boolean(cloudAgentHttpsUrl(value)))
     .optional(),
   openPr: z.boolean().optional(),
-  /** What the card and the provider's thread are called; without it, the start of the prompt. */
-  title: z.string().trim().min(1).max(80).optional(),
+  /** What the card and the provider's thread are called: a few plain words, never the brief. */
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .refine((value) => value.split(/\s+/).length <= 8),
   /** How the agent starts; each one left out keeps the provider's default. */
   modelSelection: z
     .object({
@@ -84,6 +89,15 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
   agreement: z.string().trim().min(1).max(4_000).optional(),
   acceptance: z.string().trim().min(1).max(4_000).optional(),
 });
+/**
+ * A launch stored by an earlier release may have no title, or one the current rule refuses; its
+ * card row holds the name, so the stored title is never read.
+ */
+export const storedCloudAgentLaunchSchema = cloudAgentLaunchSchema.extend({
+  title: z.unknown().optional(),
+});
+export const CLOUD_AGENT_LAUNCH_USAGE =
+  'Invalid cloud agent arguments. A launch needs a title of 2-5 plain words naming the work, such as "Porcupine Tree FLAC check" (at most 60 characters, never the start of the brief). Raw environment variables are not supported.';
 const idSchema = z.object({ id: z.string().trim().min(1) }).strict();
 export const cloudAgentReportSchema = z
   .object({

@@ -150,7 +150,12 @@ suite("scoped goal gates advance in code", () => {
         context,
         run,
         "cloud_agent_launch",
-        { prompt: "Ship the approved change", requestKey: "ship", scratch: true },
+        {
+          prompt: "Ship the approved change",
+          title: "Ship approved change",
+          requestKey: "ship",
+          scratch: true,
+        },
         undefined,
       ),
     );

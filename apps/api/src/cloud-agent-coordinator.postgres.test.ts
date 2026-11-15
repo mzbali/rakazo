@@ -87,6 +87,7 @@ const coordinator = {
     if (agreed) {
       await call("cloud_agent_launch", {
         prompt: `Request ${agreed[1]}`,
+        title: `Request ${agreed[1]}`,
         requestKey: `request-${agreed[1]}`,
         agreement: request.prompt,
       });

@@ -132,7 +132,12 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
           { ...context, operationId: randomUUID() },
           run,
           "cloud_agent_launch",
-          { prompt, repository: "https://github.com/example/demo", openPr: true },
+          {
+            prompt,
+            title: "Add README",
+            repository: "https://github.com/example/demo",
+            openPr: true,
+          },
         ),
       );
       if (!("id" in result)) throw new Error("Launch failed");
@@ -225,22 +230,45 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     ]);
     expect(helperRun!.sourceMessageId).toBe(agent.messageId);
 
-    // Its result updates that card and does not start a main chat run.
+    // Its result settles that card and comes back as one reply to it; no main chat run is made.
     await runAsSystem("helper ends", () =>
       asSystem(prisma).run.update({ where: { id: helperRun!.id }, data: { status: "completed" } }),
     );
-    await runAsSystem("helper result", () =>
-      returnHelperOutcome(
-        h.deps,
-        { ...helperRun!, botId: h.bot.id },
-        { status: "completed", text: "Accepted: the README covers install." },
-      ),
-    );
+    const finish = () =>
+      runAsSystem("helper result", () =>
+        returnHelperOutcome(
+          h.deps,
+          { ...helperRun!, botId: h.bot.id },
+          {
+            status: "completed",
+            text: "My thread checked: the README covers install. Ship it?",
+          },
+        ),
+      );
+    await finish();
+    await finish();
     const settled = await h.messagesIn(h.thread.id);
-    expect(settled).toHaveLength(before);
-    expect(settled.at(-1)!.blocks).toMatchObject([{ kind: "cloud_agent", status: "finished" }]);
-    expect(settled.at(-1)!.blocks).not.toMatchObject([{ review: "checking" }]);
+    expect(settled).toHaveLength(before + 1);
+    const [card, reply] = [settled.at(-2)!, settled.at(-1)!];
+    expect(card.blocks).toMatchObject([{ kind: "cloud_agent", status: "finished" }]);
+    expect(card.blocks).not.toMatchObject([{ review: "checking" }]);
+    expect(reply).toMatchObject({
+      role: "bot",
+      botId: h.bot.id,
+      replyToMessageId: card.id,
+      blocks: [{ kind: "text", text: "My thread checked: the README covers install. Ship it?" }],
+    });
     expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+    // The announced event names the job's card, so a client shows the reply line at once.
+    const created = await asSystem(prisma).event.findFirstOrThrow({
+      where: { threadId: h.thread.id, type: "thread.message.created" },
+      orderBy: { seq: "desc" },
+    });
+    expect(created.payload).toMatchObject({
+      messageId: reply.id,
+      replyToMessageId: card.id,
+      replyPreview: { role: "bot", text: expect.any(String) },
+    });
   });
 
   it("feeds the helper the job record, not the owner's chat", async () => {
@@ -371,6 +399,12 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(blocks.find((block) => block.kind === "subagent")).toBeUndefined();
     expect(blocks.filter((block) => block.kind === "cloud_agent")).toMatchObject([
       { ownerQuestion: question, review: "rejected" },
+    ]);
+    // The owner hears it once, in the bot's reply to the card, with the decision last.
+    const replies = (await h.messagesIn(h.thread.id)).filter((message) => message.replyToMessageId);
+    expect(replies).toHaveLength(1);
+    expect(replies[0]!.blocks).toEqual([
+      { kind: "text", text: `Next, investigate the Homebrew record.\n\n${question}` },
     ]);
 
     // New work on the agent clears it from the card.
@@ -659,7 +693,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(task.prompt).toContain("needs input (req-1)");
   });
 
-  it("brings an unanswered question to the main chat", async () => {
+  it("posts an unanswered question as the bot's reply to the card", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup(2);
     const agentId = await h.launch();
@@ -692,8 +726,129 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
         { status: "completed", text: "The agent asks which license to use." },
       ),
     );
-    const mainRuns = await h.runsIn(h.thread.id);
-    expect(mainRuns.map((run) => run.trigger)).toEqual(["user", HELPER_RESULT_TRIGGER]);
+    // Only the owner can settle it, so the helper's text is posted as the bot's reply to the card.
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+    const reply = (await h.messagesIn(h.thread.id)).at(-1)!;
+    expect(reply).toMatchObject({
+      role: "bot",
+      blocks: [{ kind: "text", text: "The agent asks which license to use." }],
+    });
+    expect(reply.replyToMessageId).toBe((await h.state(agentId)).messageId);
+  });
+
+  it("notifies the owner once of a reply, as a finished bot turn would", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    await runAsSystem("test fixture", () =>
+      asSystem(prisma).bot.update({ where: { id: h.bot.id }, data: { notifyOnFinish: true } }),
+    );
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const [helperRun] = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    await settleHelper(h, agentId);
+    const send = vi.fn(async () => undefined);
+    const publishChatAlert = vi.fn();
+    const deps = {
+      ...h.deps,
+      notifications: { send },
+      events: { notify: h.notify, publishChatAlert },
+    } as unknown as typeof h.deps;
+    const finish = () =>
+      runAsSystem("helper result", () =>
+        returnHelperOutcome(
+          deps,
+          { ...helperRun!, botId: h.bot.id },
+          { status: "completed", text: "My thread reinstalled it. Anything else?" },
+        ),
+      );
+    await finish();
+    await finish();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "completion",
+        title: "Job test finished",
+        body: "My thread reinstalled it. Anything else?",
+        threadId: h.thread.id,
+      }),
+      expect.anything(),
+    );
+    expect(publishChatAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("says nothing while the helper sends the thread more work", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const [helperRun] = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    await runAsSystem("helper report", () =>
+      reportCloudAgent(h.deps as never, h.context, h.run, {
+        id: agentId,
+        verdict: "rejected",
+        summary: "The version was not read back",
+        ownerQuestion: "Send it back to read the version?",
+      }),
+    );
+    await runAsSystem("agent run tool call", () =>
+      executeCloudAgentTool(
+        h.deps,
+        { ...h.context, operationId: randomUUID() },
+        h.run,
+        "cloud_agent_reply",
+        { id: agentId, prompt: "Read the version back too" },
+      ),
+    );
+    const before = (await h.messagesIn(h.thread.id)).length;
+    await settleHelper(h, agentId);
+    await runAsSystem("helper result", () =>
+      returnHelperOutcome(
+        h.deps,
+        { ...helperRun!, botId: h.bot.id },
+        { status: "completed", text: "I sent my thread back to read the version." },
+      ),
+    );
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+  });
+
+  /** A job helper whose own run failed, with `attempts` wakes made so far. */
+  async function failedReview(attempts: number) {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    await prisma.cloudAgent.update({ where: { id: agentId }, data: { wakeAttempts: attempts } });
+    const [helperRun] = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    await runAsSystem("helper fails", () =>
+      asSystem(prisma).run.update({ where: { id: helperRun!.id }, data: { status: "failed" } }),
+    );
+    await runAsSystem("helper result", () =>
+      returnHelperOutcome(
+        h.deps,
+        { ...helperRun!, botId: h.bot.id },
+        { status: "failed", text: "The model was unavailable." },
+      ),
+    );
+    return h;
+  }
+
+  it("says nothing about a failed review that will be tried again", async () => {
+    const h = await failedReview(1);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
+    // Only the job's card is in the chat.
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(1);
+  });
+
+  it("tells the owner through the bot when the review gave up for good", async () => {
+    const h = await failedReview(3);
+    expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual([
+      "user",
+      HELPER_RESULT_TRIGGER,
+    ]);
   });
 
   it("clears Checking and cancels a wake that became stale", async () => {

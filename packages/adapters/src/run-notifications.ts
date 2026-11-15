@@ -60,7 +60,9 @@ async function runNotice(
 }
 
 export async function notifyRun(
-  deps: ExecutorDeps,
+  deps: Pick<ExecutorDeps, "prisma" | "notifications"> & {
+    events: Pick<ThreadEvents, "publishChatAlert">;
+  },
   run: {
     spaceId: string;
     userId: string;

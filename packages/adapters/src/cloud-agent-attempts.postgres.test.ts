@@ -133,6 +133,7 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
           "cloud_agent_launch",
           {
             repository: "https://github.com/example/demo",
+            title: "Demo task",
             ...args,
           },
         ),
@@ -287,7 +288,14 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
         { status: "completed", text: "Accepted." },
       ),
     );
-    expect(await h.chat()).toHaveLength(1);
+    // The card, and one reply to it for the finished work; the question review adds none.
+    const chat = await h.chat();
+    expect(chat).toHaveLength(2);
+    expect(chat[1]).toMatchObject({
+      role: "bot",
+      replyToMessageId: chat[0]!.id,
+      blocks: [{ kind: "text", text: "Accepted." }],
+    });
     expect(await h.cards()).toMatchObject([
       { agentId: second, status: "finished", review: "accepted" },
     ]);
@@ -318,6 +326,7 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
         "cloud_agent_launch",
         {
           prompt: "Fix the build",
+          title: "Fix the build",
           replaces: started,
         },
       ),

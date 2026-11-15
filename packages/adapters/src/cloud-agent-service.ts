@@ -16,7 +16,11 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
-import { cloudAgentJobThreadsEnabled, MAX_LAUNCH_BRIEF } from "./cloud-agent-job-thread.js";
+import {
+  CLOUD_AGENT_WAKE_ATTEMPTS,
+  cloudAgentJobThreadsEnabled,
+  MAX_LAUNCH_BRIEF,
+} from "./cloud-agent-job-thread.js";
 import {
   attentionIds,
   cloudAgentWakeNonceWhere,
@@ -209,7 +213,7 @@ export async function executeCloudAgentTool(
             userId: context.userId,
             botId: context.botId,
             threadId: run.threadId,
-            title: (request.title ?? request.prompt.split(/\r?\n/, 1)[0]!).slice(0, 80),
+            title: request.title,
             projectName: cloudAgentProjectName(request.repository) ?? null,
             launchRequest,
             // The launch request is cleared once sent; a job thread's helper still needs the brief.
@@ -637,7 +641,6 @@ export async function reconcileCloudAgents(deps: Reconciled) {
   await retryFailedCloudAgentWakes(deps);
 }
 
-const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
 // Retries happen within a few reconciler passes; an older failure has already told the owner.
 const WAKE_RETRY_WINDOW_MS = 24 * 60 * 60_000;
 

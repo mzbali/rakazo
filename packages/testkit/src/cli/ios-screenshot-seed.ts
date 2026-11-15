@@ -1157,7 +1157,6 @@ async function ensureRequestCards(
         startedAt: startedAt.toISOString(),
         ...(endedAt ? { endedAt: endedAt.toISOString() } : {}),
         ...(job.progress ? { progress: job.progress } : {}),
-        ...(job.result && job.status === "finished" ? { resultExcerpt: job.result } : {}),
         ...(job.needsInput ? { needsInput: true } : {}),
         ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),
         ...(job.question ? { question: { requestId: "ios-screenshot-ask", ...job.question } } : {}),

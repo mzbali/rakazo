@@ -301,7 +301,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     // T3 threads take text; dropping images silently would start different work than agreed.
     if (request.images?.length) throw new CloudAgentRequestRejected("invalid");
     const tag = request.idempotencyKey.slice(0, 13);
-    const label = (request.title ?? request.prompt.split(/\r?\n/, 1)[0] ?? "").slice(0, 80);
+    const label = (request.title ?? "Cloud agent").slice(0, 80);
     const title = `${label} · ${tag}`;
     // The retry key only replays within one MCP sign-in, so look for an accepted launch first.
     const listed = listSchema.parse(
@@ -902,7 +902,7 @@ export function t3DirectThread(
   const text = (value: unknown) => (typeof value === "string" ? value : "");
   // Compacting tidies the thread's context between pieces of work; it has no result to judge.
   if (text(args.message).trim() === "/compact") return undefined;
-  const title = text(args.title) || (text(args.message).split(/\r?\n/, 1)[0] ?? "");
+  const title = text(args.title) || "Cloud agent";
   const remoteId =
     tool === `mcp__${server}__t3_thread_launch`
       ? launchSchema.safeParse(data.structuredContent).data?.threadId

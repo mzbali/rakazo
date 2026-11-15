@@ -45,6 +45,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
       scratch: true,
       idempotencyKey: "abcdef1234567890",
       prompt: "Add a README\nwith details",
+      title: "Add a README",
     };
     const first = await provider.launch(request, context);
     expect(first).toMatchObject({

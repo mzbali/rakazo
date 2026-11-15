@@ -153,8 +153,6 @@ const CloudAgentFields = z.object({
   endedAt: z.string().optional(),
   /** The latest thing the agent said while it works, clipped. */
   progress: z.string().optional(),
-  /** The start of what the agent reported when it finished, clipped; the sheet has the rest. */
-  resultExcerpt: z.string().optional(),
   /** The repository or project the work is for. */
   projectName: z.string().optional(),
   /** A decision the owner has to make before the job can go on. */

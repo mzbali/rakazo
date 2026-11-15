@@ -600,6 +600,16 @@ function LayoutContent() {
                           contentStyle: { backgroundColor: native.groupedPage },
                         }}
                       />
+                      <Stack.Screen
+                        name="thread-jobs"
+                        options={{
+                          headerShown: false,
+                          presentation: Platform.OS === "ios" ? "formSheet" : "card",
+                          sheetAllowedDetents: [0.5, 1],
+                          sheetGrabberVisible: true,
+                          contentStyle: { backgroundColor: native.groupedPage },
+                        }}
+                      />
                       <Stack.Screen name="board" options={glassHeaderOptions(t`Board`)} />
                       <Stack.Screen name="computer" options={{ title: t`Computer` }} />
                       <Stack.Screen

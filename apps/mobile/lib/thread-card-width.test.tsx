@@ -112,6 +112,7 @@ vi.mock("../components/message-caption", () => ({
   MessageCaption: ({ text }: { text: string }) => <span>{text}</span>,
 }));
 vi.mock("../components/bot-avatar", () => ({ BotAvatar: () => <i /> }));
+vi.mock("react-native-svg", () => ({ default: () => null, Path: () => null }));
 vi.mock("../components/native-symbol", () => ({
   NativeSymbol: ({ ios }: { ios: string }) => <i data-symbol={ios} />,
 }));

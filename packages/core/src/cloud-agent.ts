@@ -221,21 +221,48 @@ export function cloudAgentProjectName(repository: string | null | undefined): st
   return last?.replace(/\.git$/, "") || undefined;
 }
 
+/** Who makes a model, for the mark beside its name; unknown makers get a neutral mark. */
+export type CloudAgentModelFamily = "claude" | "gpt";
+
+/** "claude-sonnet-5-5" reads "Sonnet 5.5" and "gpt-6-luna" "GPT-6 Luna"; a trailing date goes. */
+function modelName(id: string): string {
+  const parts = id.split(/[-_\s]/).filter((part) => part && !/^\d{8}$/.test(part));
+  if (parts[0]?.toLowerCase() === "claude") parts.shift();
+  const words: string[] = [];
+  for (const part of parts) {
+    const last = words.length - 1;
+    if (/^\d+$/.test(part) && last >= 0 && /^\d+$/.test(words[last]!))
+      words[last] = `${words[last]}.${part}`;
+    else words.push(part.toLowerCase() === "gpt" ? "GPT" : part[0]!.toUpperCase() + part.slice(1));
+  }
+  return words.join(" ").replace(/^GPT (\d)/, "GPT-$1");
+}
+
 /**
- * A model and the kind of work from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
- * the model's last word, capitalised ("Sonnet"), and the first thing in the brackets ("simple").
+ * The model and the kind of work from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
+ * a readable name ("Sonnet 5.5"), the maker when known, and the first thing in the brackets.
  */
-export function cloudAgentModelLabel(note: string | undefined): string | undefined {
+export function cloudAgentModel(
+  note: string | undefined,
+): { name: string; family?: CloudAgentModelFamily; kind?: string } | undefined {
   const match = note?.match(/^Picked (\S+) on [^(]*\(([^;)]*)/);
   if (!match) return undefined;
-  const word = match[1]!
-    .split(/[-_.\s]/)
-    .filter((part) => /^[A-Za-z]+$/.test(part))
-    .pop();
-  if (!word) return undefined;
-  const model = word[0]!.toUpperCase() + word.slice(1);
+  const id = match[1]!.toLowerCase();
+  const name = modelName(match[1]!);
+  if (!name) return undefined;
+  const family = /^(claude|sonnet|opus|haiku)/.test(id)
+    ? "claude"
+    : /^(gpt|o\d|codex)/.test(id)
+      ? "gpt"
+      : undefined;
   const kind = match[2]!.trim();
-  return kind ? `${model} · ${kind}` : model;
+  return { name, ...(family ? { family } : {}), ...(kind ? { kind } : {}) };
+}
+
+/** The model's readable name and the kind of work on one line: "Sonnet 5.5 · simple". */
+export function cloudAgentModelLabel(note: string | undefined): string | undefined {
+  const model = cloudAgentModel(note);
+  return model && (model.kind ? `${model.name} · ${model.kind}` : model.name);
 }
 
 const CLOUD_AGENT_NOTE_MAX = 400;

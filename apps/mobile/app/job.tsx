@@ -1,6 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
+import { cloudAgentModel, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
@@ -46,7 +46,7 @@ function JobDetails({ agentId }: { agentId: string }) {
       </View>
     );
   const { t3: href, pr: prHref } = jobLinks(job);
-  const details = [cloudAgentModelLabel(job.note), job.projectName, job.branch].filter(Boolean);
+  const details = [job.projectName, job.branch].filter(Boolean);
   const label = {
     color: tokens.mutedForeground,
     ...typeScale.footnote,
@@ -65,7 +65,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           />
         </View>
       ) : null}
-      <JobRow job={job} />
+      <JobRow job={job} model />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {href ? (
           <NativeActionButton
@@ -126,7 +126,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           ))}
         </View>
       ) : null}
-      {job.note ? (
+      {job.note && !cloudAgentModel(job.note) ? (
         <Text style={{ color: tokens.mutedForeground, ...typeScale.footnote }}>{job.note}</Text>
       ) : null}
       {detail?.brief ? (

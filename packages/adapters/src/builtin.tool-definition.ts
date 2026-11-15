@@ -913,6 +913,11 @@ export const builtinAgentTools: ConnectorTool[] = [
       type: "object",
       properties: {
         prompt: { type: "string", description: "Task for the remote agent." },
+        title: {
+          type: "string",
+          description:
+            'A short title for the task in plain words, such as "Speed up the cart page"; the owner sees it on the job\'s card.',
+        },
         repository: {
           type: "string",
           description: "Git repository URL (optional for no-repo agents).",

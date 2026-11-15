@@ -849,6 +849,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const handlers: Record<string, () => unknown> = {
       t3_thread_list: () => ({ threads: [] }),
       t3_project_list: () => ({ projects: [{ id: "project:1" }] }),
+      t3_thread_read: () => ({ thread: { pullRequests: [] } }),
       t3_thread_launch: () => ({
         threadId: "thread:1",
         runId: "run:1",

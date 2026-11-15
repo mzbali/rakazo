@@ -1,4 +1,4 @@
-import { cloudAgentModel } from "@rakazo/core";
+import type { CloudAgentJob } from "@rakazo/contracts";
 import { typeScale } from "@rakazo/ui-tokens";
 import { Text, View } from "react-native";
 import { Path, Svg } from "react-native-svg";
@@ -19,19 +19,22 @@ const CLAUDE_FILL = "#D97757";
 // biome-ignore lint/plugin: brand colours are not theme tokens.
 const GPT_FILL = { light: "#171717", dark: "#E5E5E5" };
 
-type Model = NonNullable<ReturnType<typeof cloudAgentModel>>;
+type Model = NonNullable<CloudAgentJob["model"]>;
 
-/** The maker's mark for a model in its brand colour; a model from anyone else gets a neutral sparkle in ink. */
-function ModelLogo({ family, size }: { family: Model["family"]; size: number }) {
+/**
+ * The mark for a model's opaque `mark` key, in its brand colour; any other key gets a neutral
+ * sparkle in ink. This table is the only place the app knows which pictures exist.
+ */
+function ModelLogo({ mark, size }: { mark: Model["mark"]; size: number }) {
   const tokens = mobileTokens();
   const scheme = useResolvedAppearance();
-  if (family === "claude")
+  if (mark === "claude")
     return (
       <Svg width={size} height={size} viewBox="0 0 256 257" fill="none">
         <Path fill={CLAUDE_FILL} d={CLAUDE_PATH} />
       </Svg>
     );
-  if (family === "gpt")
+  if (mark === "openai")
     return (
       <Svg width={size} height={size} viewBox="100 100 411 411" fill="none">
         <Path fill={GPT_FILL[scheme]} fillRule="evenodd" clipRule="evenodd" d={GPT_PATH} />
@@ -48,13 +51,12 @@ function ModelLogo({ family, size }: { family: Model["family"]; size: number }) 
 }
 
 /** A job's model as T3's composer chip shows it: the maker's mark, then "Sonnet 5.5" and its effort, when known, as its own element. */
-export function JobModel({ note }: { note: string | undefined }) {
+export function JobModel({ model }: { model: Model | undefined }) {
   const tokens = mobileTokens();
-  const model = cloudAgentModel(note);
   if (!model) return null;
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 }}>
-      <ModelLogo family={model.family} size={13} />
+      <ModelLogo mark={model.mark} size={13} />
       <Text
         numberOfLines={1}
         style={{ flexShrink: 1, color: tokens.mutedForeground, ...typeScale.footnote }}

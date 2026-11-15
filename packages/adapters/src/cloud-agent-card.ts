@@ -2,6 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
 import { appendEventInTransaction } from "@rakazo/db";
+import { cloudAgentModelDisplay } from "./cloud-agent-model.js";
 
 type CardDb = Pick<Prisma.TransactionClient, "cloudAgent" | "message">;
 
@@ -31,6 +32,7 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     ...agent,
     agentId: agent.id,
     note: agent.launchNote,
+    model: cloudAgentModelDisplay(agent.launchNote),
     startedAt: agent.createdAt,
     endedAt: agent.endedAt,
     progress: agent.status === "running" ? agent.progressText : undefined,

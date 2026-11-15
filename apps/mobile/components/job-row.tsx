@@ -148,7 +148,7 @@ export const JobRow = memo(function JobRow({
             {job.botName}
           </Text>
         ) : null}
-        {model ? <JobModel note={job.note} /> : null}
+        {model ? <JobModel model={job.model} /> : null}
         {live && job.progress ? (
           <Text numberOfLines={3} style={muted}>
             {job.progress}

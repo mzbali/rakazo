@@ -274,46 +274,16 @@ export function cloudAgentProjectName(repository: string | null | undefined): st
   return last?.replace(/\.git$/, "") || undefined;
 }
 
-/** Who makes a model, for the mark beside its name; unknown makers get a neutral mark. */
-export type CloudAgentModelFamily = "claude" | "gpt";
-
-/** "claude-sonnet-5-5" reads "Sonnet 5.5" and "gpt-6-luna" "GPT-6 Luna"; a trailing date goes. */
-function modelName(id: string): string {
-  const parts = id.split(/[-_\s]/).filter((part) => part && !/^\d{8}$/.test(part));
-  if (parts[0]?.toLowerCase() === "claude") parts.shift();
-  const words: string[] = [];
-  for (const part of parts) {
-    const last = words.length - 1;
-    if (/^\d+$/.test(part) && last >= 0 && /^\d+$/.test(words[last]!))
-      words[last] = `${words[last]}.${part}`;
-    else words.push(part.toLowerCase() === "gpt" ? "GPT" : part[0]!.toUpperCase() + part.slice(1));
-  }
-  return words.join(" ").replace(/^GPT (\d)/, "GPT-$1");
-}
-
-/**
- * The model from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
- * a readable name ("Sonnet 5.5"), the maker and the effort when known.
- */
-export function cloudAgentModel(
-  note: string | undefined,
-): { name: string; family?: CloudAgentModelFamily; effort?: string } | undefined {
-  const match = note?.match(/^Picked (\S+) on [^(]*\(([^;)]*)/);
-  if (!match) return undefined;
-  const id = match[1]!.toLowerCase();
-  const name = modelName(match[1]!);
+/** The model as the card shows it, read from the stored row; only its three short strings stay. */
+function cloudAgentModelDisplay(value: unknown): CloudAgentBlock["model"] {
+  const model = value as Record<string, unknown> | null;
+  const text = (field: unknown, max: number) =>
+    typeof field === "string" && field.trim() ? field.trim().slice(0, max) : undefined;
+  const name = text(model?.name, 60);
   if (!name) return undefined;
-  const family = /^(claude|sonnet|opus|haiku)/.test(id)
-    ? "claude"
-    : /^(gpt|o\d|codex)/.test(id)
-      ? "gpt"
-      : undefined;
-  const effort = note?.match(/[(;] effort ([^;)]+)/)?.[1]?.trim();
-  return {
-    name,
-    ...(family ? { family } : {}),
-    ...(effort ? { effort: effort[0]!.toUpperCase() + effort.slice(1) } : {}),
-  };
+  const effort = text(model?.effort, 30);
+  const mark = text(model?.mark, 30);
+  return { name, ...(effort ? { effort } : {}), ...(mark ? { mark } : {}) };
 }
 
 const CLOUD_AGENT_NOTE_MAX = 400;
@@ -321,6 +291,7 @@ const CLOUD_AGENT_NOTE_MAX = 400;
 export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): CloudAgentBlock {
   const status = payload.status;
   const note = typeof payload.note === "string" ? payload.note.trim() : "";
+  const model = cloudAgentModelDisplay(payload.model);
   const started = payload.startedAt;
   const startedAt =
     started instanceof Date
@@ -360,6 +331,7 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(payload.needsInput === true ? { needsInput: true } : {}),
     ...(unreachableSince ? { unreachableSince } : {}),
     ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
+    ...(model ? { model } : {}),
     ...(startedAt ? { startedAt } : {}),
     ...(endedAt ? { endedAt } : {}),
     ...(progress ? { progress } : {}),

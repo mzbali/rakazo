@@ -310,19 +310,15 @@ export async function pollCloudAgent(
     await refreshCloudAgentProof(deps, agent, snapshot, context);
     const data = snapshotData(snapshot, agent);
     // A watch is how a job waits on its pull request, not a reason to wait for ever: after a day
-    // of only waiting, the thread is stopped and the bot is woken to decide what comes next.
-    if (watchOutlasted(snapshot, agent)) {
-      await provider.cancel(agent.remoteId, context, agent.latestRunId ?? undefined);
-      await finishPoll(
-        deps,
-        agent,
-        { ...data, status: "cancelled", prWatching: false, watchingSince: null },
-        false,
-        snapshot.missedAttention,
-      );
-      return;
-    }
-    await finishPoll(deps, agent, data, false, snapshot.missedAttention);
+    // of only waiting, the job is stopped as the owner's stop does. The cancel path above then
+    // keeps polling until the provider says the thread stopped, and that is what wakes the bot.
+    await finishPoll(
+      deps,
+      agent,
+      watchOutlasted(snapshot, agent) ? { ...data, cancelRequested: true } : data,
+      false,
+      snapshot.missedAttention,
+    );
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
       // The remote agent or run is gone. Polling it again can never succeed.

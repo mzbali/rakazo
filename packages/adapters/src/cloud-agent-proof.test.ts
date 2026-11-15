@@ -270,7 +270,7 @@ describe("a private repository's proof", () => {
   });
 
   it("reads the CI result from workflow runs with a token, falling back to check runs", async () => {
-    const runs = `${api}/actions/runs?head_sha=${"a".repeat(40)}`;
+    const runs = `${api}/actions/runs?head_sha=${"a".repeat(40)}&per_page=30`;
     const failing = setup({
       ...github(),
       [runs]: json({ workflow_runs: [{ status: "completed", conclusion: "failure" }] }),
@@ -282,6 +282,21 @@ describe("a private repository's proof", () => {
       context,
     );
     expect(failing.row.checksState).toBe("failing");
+
+    // A page of runs over the usual JSON limit still reads.
+    const big = setup({
+      ...github(),
+      [runs]: json({
+        workflow_runs: [{ status: "completed", conclusion: "success", pad: "x".repeat(600_000) }],
+      }),
+    });
+    await refreshCloudAgentProof(
+      { ...big.deps, githubToken: "t" },
+      big.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(big.row.checksState).toBe("passing");
     expect(failing.requested.some((url) => url.includes("/check-runs"))).toBe(false);
 
     // The token cannot read workflow runs here, so check runs answer.

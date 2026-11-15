@@ -33,6 +33,8 @@ const IMAGE_TIMEOUT_MS = 10_000;
 export const CHECKS_REFRESH_MS = 5 * 60_000;
 /** A token has its own, higher limit, so checks are read a little more often. */
 export const CHECKS_REFRESH_WITH_TOKEN_MS = 2 * 60_000;
+const WORKFLOW_RUNS_PER_PAGE = 30;
+const WORKFLOW_RUNS_MAX_BYTES = 2 * 1024 * 1024;
 const GITHUB_API_HOST = "api.github.com";
 const FAILED_CONCLUSIONS = new Set([
   "failure",
@@ -141,8 +143,13 @@ async function get(
   }
 }
 
-async function getJson(url: string, egress: ObserverEgress | undefined, token?: string) {
-  const body = await get(url, egress, GITHUB_TIMEOUT_MS, JSON_MAX_BYTES, token);
+async function getJson(
+  url: string,
+  egress: ObserverEgress | undefined,
+  token?: string,
+  maxBytes = JSON_MAX_BYTES,
+) {
+  const body = await get(url, egress, GITHUB_TIMEOUT_MS, maxBytes, token);
   if (!body) return undefined;
   try {
     return JSON.parse(new TextDecoder().decode(body)) as unknown;
@@ -200,9 +207,13 @@ export async function refreshCloudAgentProof(
       if (/^[0-9a-f]{40}$/i.test(sha)) {
         // A fine-grained token cannot read check runs (GitHub Apps only), but can read workflow runs.
         const workflows = token
-          ? ((await getJson(`${base}/actions/runs?head_sha=${sha}&per_page=100`, egress, token)) as
-              | { workflow_runs?: Runs }
-              | undefined)
+          ? ((await getJson(
+              // Each run carries repository metadata (several KB), so a small page in a larger limit.
+              `${base}/actions/runs?head_sha=${sha}&per_page=${WORKFLOW_RUNS_PER_PAGE}`,
+              egress,
+              token,
+              WORKFLOW_RUNS_MAX_BYTES,
+            )) as { workflow_runs?: Runs } | undefined)
           : undefined;
         runs = workflows?.workflow_runs;
         if (!runs)

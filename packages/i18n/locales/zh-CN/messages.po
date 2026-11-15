@@ -8922,10 +8922,6 @@ msgstr "已恢复"
 msgid "Restoring your workspace"
 msgstr "正在恢复工作区"
 
-#: apps/mobile/app/job.tsx
-msgid "Result"
-msgstr ""
-
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
@@ -10892,6 +10888,10 @@ msgstr "本周"
 #: apps/mobile/components/thread/thread-header.tsx
 msgid "Thread"
 msgstr "对话"
+
+#: apps/mobile/app/job.tsx
+msgid "Thread's report"
+msgstr ""
 
 #: apps/mobile/lib/cron.ts
 #: apps/web/src/lib/cron.ts

@@ -8922,10 +8922,6 @@ msgstr "बहाल किया गया"
 msgid "Restoring your workspace"
 msgstr "आपका वर्कस्पेस बहाल हो रहा है"
 
-#: apps/mobile/app/job.tsx
-msgid "Result"
-msgstr ""
-
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
@@ -10892,6 +10888,10 @@ msgstr "इस सप्ताह"
 #: apps/mobile/components/thread/thread-header.tsx
 msgid "Thread"
 msgstr "थ्रेड"
+
+#: apps/mobile/app/job.tsx
+msgid "Thread's report"
+msgstr ""
 
 #: apps/mobile/lib/cron.ts
 #: apps/web/src/lib/cron.ts

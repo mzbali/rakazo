@@ -155,7 +155,7 @@ function JobDetails({ agentId }: { agentId: string }) {
       ) : null}
       {detail?.result ? (
         <View style={{ gap: 6 }}>
-          <Text style={label}>{t`Result`}</Text>
+          <Text style={label}>{t`Thread's report`}</Text>
           <ChatMarkdown palette={tokens} colorScheme={colorScheme} streaming={false}>
             {detail.result}
           </ChatMarkdown>

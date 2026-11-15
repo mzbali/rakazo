@@ -300,7 +300,6 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
         ? started
         : undefined;
   const progress = clipped(payload.progress, CLOUD_AGENT_PROGRESS_MAX);
-  const resultExcerpt = clipped(payload.resultExcerpt, CLOUD_AGENT_EXCERPT_MAX);
   const ended = payload.endedAt;
   const endedAt =
     ended instanceof Date
@@ -335,7 +334,6 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(startedAt ? { startedAt } : {}),
     ...(endedAt ? { endedAt } : {}),
     ...(progress ? { progress } : {}),
-    ...(resultExcerpt ? { resultExcerpt } : {}),
     ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
       ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }
       : {}),
@@ -419,7 +417,6 @@ function cloudAgentQuestionFields(payload: Record<string, unknown>) {
 }
 
 const CLOUD_AGENT_PROGRESS_MAX = 240;
-const CLOUD_AGENT_EXCERPT_MAX = 400;
 
 /** Plain text on one line (markdown marks removed), cut at `max` with an ellipsis; nothing when there is none. */
 export function clipCloudAgentText(value: string, max: number): string {

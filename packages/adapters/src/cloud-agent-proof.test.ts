@@ -269,6 +269,37 @@ describe("a private repository's proof", () => {
     expect(storedProofImages(row).map((image) => image.source)).toEqual([asset("public")]);
   });
 
+  it("reads the CI result from workflow runs with a token, falling back to check runs", async () => {
+    const runs = `${api}/actions/runs?head_sha=${"a".repeat(40)}`;
+    const failing = setup({
+      ...github(),
+      [runs]: json({ workflow_runs: [{ status: "completed", conclusion: "failure" }] }),
+    });
+    await refreshCloudAgentProof(
+      { ...failing.deps, githubToken: "t" },
+      failing.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(failing.row.checksState).toBe("failing");
+    expect(failing.requested.some((url) => url.includes("/check-runs"))).toBe(false);
+
+    // The token cannot read workflow runs here, so check runs answer.
+    const denied = setup({ ...github(), [runs]: () => new Response("no", { status: 403 }) });
+    await refreshCloudAgentProof(
+      { ...denied.deps, githubToken: "t" },
+      denied.row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(denied.row.checksState).toBe("passing");
+
+    // Without a token, check runs only, as before.
+    const none = setup(github());
+    await refreshCloudAgentProof(none.deps, none.row, { status: "finished", prUrl: PR }, context);
+    expect(none.requested.some((url) => url.includes("/actions/runs"))).toBe(false);
+  });
+
   it("reads a running job's checks more often with a token", async () => {
     const now = new Date("2026-11-15T12:00:00Z");
     const { row, deps, requested } = setup(github([{ status: "in_progress" }]));

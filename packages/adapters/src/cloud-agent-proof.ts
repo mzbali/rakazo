@@ -195,15 +195,25 @@ export async function refreshCloudAgentProof(
     const data: Prisma.CloudAgentUpdateInput = {};
     if (wantsChecks) {
       const sha = typeof pull?.head?.sha === "string" ? pull.head.sha : "";
-      const checks = /^[0-9a-f]{40}$/i.test(sha)
-        ? ((await getJson(`${base}/commits/${sha}/check-runs?per_page=100`, egress, token)) as
-            | {
-                check_runs?: Array<{ status?: unknown; conclusion?: unknown }>;
-              }
-            | undefined)
-        : undefined;
+      type Runs = Array<{ status?: unknown; conclusion?: unknown }>;
+      let runs: Runs | undefined;
+      if (/^[0-9a-f]{40}$/i.test(sha)) {
+        // A fine-grained token cannot read check runs (GitHub Apps only), but can read workflow runs.
+        const workflows = token
+          ? ((await getJson(`${base}/actions/runs?head_sha=${sha}&per_page=100`, egress, token)) as
+              | { workflow_runs?: Runs }
+              | undefined)
+          : undefined;
+        runs = workflows?.workflow_runs;
+        if (!runs)
+          runs = (
+            (await getJson(`${base}/commits/${sha}/check-runs?per_page=100`, egress, token)) as
+              | { check_runs?: Runs }
+              | undefined
+          )?.check_runs;
+      }
       // A failed read keeps what the card showed; only a read that finds no checks clears it.
-      if (checks) data.checksState = checksFromRuns(checks.check_runs ?? []) ?? null;
+      if (runs) data.checksState = checksFromRuns(runs) ?? null;
       data.checksAt = now;
     }
     if (wantsImages && pull) {

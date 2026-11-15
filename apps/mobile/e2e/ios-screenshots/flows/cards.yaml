@@ -17,12 +17,16 @@ name: Request cards
     timeout: 3000
 - takeScreenshot: 00-home
 # A job waiting on the owner files its bot under Needs attention, with the job's question.
-- tapOn: "Activity"
+- runFlow:
+    when:
+      notVisible: ".*Needs attention.*"
+    commands:
+      - tapOn: "Activity"
 - extendedWaitUntil:
     visible: ".*Needs attention.*"
     timeout: 15000
 - extendedWaitUntil:
-    visible: ".*Which branch should the billing tests run on.*"
+    visible: ".*Support, Needs input.*"
     timeout: 15000
 - waitForAnimationToEnd:
     timeout: 3000

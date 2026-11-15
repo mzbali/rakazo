@@ -3,13 +3,13 @@ import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter
 import { describe, expect, it } from "vitest";
 import {
   instanceSelection,
-  questionOf,
   startedNote,
   T3CloudAgentProvider,
   t3CanonicalLink,
   t3DirectThread,
   t3WatchedThread,
 } from "./t3-cloud-agent.js";
+import { questionOf } from "./t3-pending-question.js";
 
 const context: AdapterContext = {
   operationId: "op",

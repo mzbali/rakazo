@@ -123,6 +123,48 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     expect(await provider.get(agent.id, context)).toMatchObject({ prState: "merged" });
   });
 
+  it("reports a thread's background work and every pull request it watches, for the card only", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "work-key-12345678", prompt: "Task" },
+      context,
+    );
+    for (const number of [71, 72, 73])
+      emulator.openPullRequest(agent.id, `https://github.com/example/demo/pull/${number}`);
+    emulator.watchPullRequest(agent.id);
+    emulator.addBackgroundWork(agent.id, {
+      taskId: "t1",
+      kind: "subagent",
+      description: "Review the change\nwith the second pass",
+      childThreadId: "child:1",
+    });
+    emulator.addBackgroundWork(agent.id, {
+      taskId: "t2",
+      kind: "command",
+      description: "pnpm test",
+    });
+    emulator.addBackgroundWork(agent.id, { taskId: "t3", kind: "mystery" });
+    emulator.complete(agent.id, "completed", "Waiting on the subagent and the PRs.");
+    const snapshot = await provider.get(agent.id, context);
+    // Still working, not handed back: background work and watches hold the job open.
+    expect(snapshot.status).toBe("running");
+    expect(snapshot.work).toEqual([
+      {
+        kind: "subagent",
+        label: "Review the change",
+        url: `t3code://threads/env-1/child%3A1`,
+      },
+      { kind: "command", label: "pnpm test" },
+      { kind: "background_task", label: "" },
+    ]);
+    // The watched pull requests are listed as pull requests, not also as tasks.
+    expect(snapshot.pullRequests?.map((pr) => [pr.number, pr.watching])).toEqual([
+      [71, true],
+      [72, true],
+      [73, true],
+    ]);
+  });
+
   it("returns the finished run's final message, bounded, from the thread timeline", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(

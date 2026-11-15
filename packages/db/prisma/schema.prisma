@@ -1456,6 +1456,8 @@ model CloudAgent {
   prWatching          Boolean  @default(false)
   /// When the current watch began, so a job that only waits is handed back after a day.
   watchingSince       DateTime?
+  /// What the job's thread has going, as { work, pullRequests }: shown on the card, never a wake.
+  threadWork          Json?
   /// Screenshots copied from the job's pull request, as [{ source, artifactId, name, mimeType }]; at most three.
   proofImages         Json?
   createdAt           DateTime @default(now())

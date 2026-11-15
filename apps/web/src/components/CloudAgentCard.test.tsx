@@ -7,6 +7,8 @@ import { CloudAgentCard } from "./CloudAgentCard";
 
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children: ReactNode }) => children,
+  Plural: ({ value, one, other }: { value: number; one: string; other: string }) =>
+    (value === 1 ? one : other).replace("#", String(value)),
 }));
 
 async function render(block: Parameters<typeof CloudAgentCard>[0]["block"]) {
@@ -135,4 +137,27 @@ it("shows one pull request line with the checks and the watch, and merged when i
   const text = (await render({ ...landed, watching: undefined })).textContent;
   expect(text).toContain("PR #72merged");
   expect(text).not.toContain("checks");
+});
+
+it("counts the thread's work and the pull requests it watches on one line", async () => {
+  const pr = (number: number) => ({
+    url: `https://github.com/example/demo/pull/${number}`,
+    number,
+    state: "open" as const,
+    watching: true,
+  });
+  const text = (
+    await render({
+      ...running,
+      work: [
+        { kind: "subagent", label: "Review" },
+        { kind: "subagent", label: "Tests" },
+        { kind: "command", label: "pnpm test" },
+      ],
+      pullRequests: [pr(71), pr(72), pr(73)],
+    })
+  ).textContent;
+  expect(text).toContain("2 subagents");
+  expect(text).toContain("1 command");
+  expect(text).toContain("watching 3 PRs");
 });

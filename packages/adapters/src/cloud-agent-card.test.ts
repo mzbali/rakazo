@@ -30,6 +30,21 @@ describe("cloudAgentBlock", () => {
     expect(cloudAgentBlock(landed).watching).toBeUndefined();
   });
 
+  it("shows the thread's work only while the job runs, and its pull requests after", () => {
+    const threadWork = {
+      work: [{ kind: "subagent", label: "Review" }],
+      pullRequests: [
+        { url: "https://github.com/acme/app/pull/1", number: 1, state: "open", watching: true },
+      ],
+    };
+    const running = cloudAgentBlock({ ...finished, status: "running", threadWork } as never);
+    expect(running.work).toHaveLength(1);
+    expect(running.pullRequests).toHaveLength(1);
+    const done = cloudAgentBlock({ ...finished, threadWork } as never);
+    expect(done.work).toBeUndefined();
+    expect(done.pullRequests).toHaveLength(1);
+  });
+
   it("leaves an unknown checks result off the card", () => {
     expect(cloudAgentBlock({ ...finished, checksState: null }).checks).toBeUndefined();
   });

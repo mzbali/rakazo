@@ -17,6 +17,16 @@ msgstr ""
 msgid " (unread)"
 msgstr " (nieprzeczytane)"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -42,6 +52,11 @@ msgstr "{0, plural, one {# bezpłatny miesiąc} few {# bezpłatne miesiące} man
 msgid "{0, plural, one {# model} other {# models}}"
 msgstr ""
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -57,6 +72,11 @@ msgstr "{0, plural, one {# umiejętność} few {# umiejętności} many {# umiej�
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, one {# przestrzeń} few {# przestrzenie} many {# przestrzeni} other {# przestrzeni}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
 
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/McpServersOverlay.tsx
@@ -74,6 +94,11 @@ msgstr "{0, plural, one {Oczekiwanie na logowanie. Kod wygaśnie za około # min
 #: apps/web/src/pages/onboarding/model-step.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
 msgstr "{0, plural, one {Oczekiwanie na logowanie. Link wygaśnie za około # minutę.} few {Oczekiwanie na logowanie. Link wygaśnie za około # minuty.} many {Oczekiwanie na logowanie. Link wygaśnie za około # minut.} other {Oczekiwanie na logowanie. Link wygaśnie za około # minuty.}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {watching # PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -242,6 +267,14 @@ msgstr "Nazwa {commandVariable} jest zastrzeżona i nie może być zmienną pole
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
 msgstr "{connectedCount, plural, one {Połączono #} few {Połączono #} many {Połączono #} other {Połączono #}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #: apps/mobile/components/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
@@ -251,9 +284,21 @@ msgstr "{count, plural, one {# wiadomość z {peer}} few {# wiadomości z {peer}
 msgid "{count, plural, one {# model} other {# models}}"
 msgstr ""
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# wiersz} few {# wiersze} many {# wierszy} other {# wiersza}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching # PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -1864,6 +1909,10 @@ msgstr "Wróć do czatu"
 msgid "Back to sign in"
 msgstr "Wróć do logowania"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Bazowy adres URL"
@@ -2663,6 +2712,7 @@ msgid "Close voice settings"
 msgstr "Zamknij ustawienia głosu"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
 msgstr ""
@@ -2718,6 +2768,7 @@ msgstr "kolumna {index}"
 msgid "Comfortable"
 msgstr "Przestronny"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -6677,6 +6728,7 @@ msgid "Mentions: {mentions}"
 msgstr "Wzmianki: {mentions}"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
 msgstr ""
@@ -6858,6 +6910,10 @@ msgstr "Lista modeli działa. {modelCount, plural, one {Dostępny jest # model.}
 #: apps/web/src/lib/cron.ts
 msgid "Monday"
 msgstr "poniedziałek"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "month"
@@ -7632,6 +7688,10 @@ msgstr "Tylko właściciel tego konta może wybrać plan."
 msgid "Only you"
 msgstr "Tylko Ty"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8149,6 +8209,11 @@ msgstr "Wtyczki"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "Publikuj wiadomość na czacie, gdy sprawdzenie nie wykryje zmian. Rutyna nie zostanie uruchomiona."
+
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
+msgstr ""
 
 #: apps/mobile/components/job-pr-line.tsx
 msgid "PR #{number}"
@@ -10151,6 +10216,10 @@ msgstr "Strumieniuj odpowiedzi"
 msgid "subagent"
 msgstr "subagent"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
+
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
@@ -11558,6 +11627,7 @@ msgid "Wallet"
 msgstr "Portfel"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "watching"
 msgstr ""
@@ -11767,6 +11837,10 @@ msgstr "Pracuje"
 #: apps/web/src/pages/shell/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "Instrukcje pracy"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx

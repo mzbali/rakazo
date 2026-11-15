@@ -29,6 +29,8 @@ export interface Thread {
     watching?: boolean;
   }>;
   pendingRequestCount: number;
+  /** Background work the agent left running, as `t3_thread_read` lists it. */
+  work?: Array<{ taskId: string; kind: string; description?: string; childThreadId?: string }>;
   /** Launched into a worktree, which exists once its setup finished. */
   worktree: boolean;
   worktreePath: string | null;
@@ -581,16 +583,25 @@ export class T3McpEmulator {
     for (const pr of this.threads.get(threadId)!.pullRequests) pr.watching = watching;
   }
 
+  /** The agent leaves a subagent, command or monitor running. */
+  addBackgroundWork(threadId: string, task: NonNullable<Thread["work"]>[number]) {
+    const thread = this.threads.get(threadId)!;
+    thread.work = [...(thread.work ?? []), task];
+  }
+
   /** What T3 Code lists as the thread's awaited background work: one monitor per watched pull request. */
   protected backgroundTasks(thread: Thread) {
     if (thread.runs.some((run) => ACTIVE.includes(run.status))) return [];
-    return thread.pullRequests
-      .filter((pr) => pr.watching && pr.state === "open")
-      .map((pr) => ({
-        taskId: `pull-request-watch:github.com/${pr.repository}#${pr.number}`,
-        kind: "monitor",
-        awaited: true,
-      }));
+    return [
+      ...(thread.work ?? []).map((task) => ({ ...task, awaited: true })),
+      ...thread.pullRequests
+        .filter((pr) => pr.watching && pr.state === "open")
+        .map((pr) => ({
+          taskId: `pull-request-watch:github.com/${pr.repository}#${pr.number}`,
+          kind: "monitor",
+          awaited: true,
+        })),
+    ];
   }
 
   /** T3 Code starts a run itself, as when a background task the agent left finishes. */

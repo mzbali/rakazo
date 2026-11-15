@@ -17,6 +17,16 @@ msgstr ""
 msgid " (unread)"
 msgstr " (अपठित)"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -42,6 +52,11 @@ msgstr "{0, plural, one {# मुफ़्त महीना} other {# मु�
 msgid "{0, plural, one {# model} other {# models}}"
 msgstr ""
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -57,6 +72,11 @@ msgstr "{0, plural, one {# स्किल} other {# स्किल}}"
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, one {# स्पेस} other {# स्पेस}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
 
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/McpServersOverlay.tsx
@@ -74,6 +94,11 @@ msgstr "{0, plural, one {साइन-इन की प्रतीक्षा 
 #: apps/web/src/pages/onboarding/model-step.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
 msgstr "{0, plural, one {साइन-इन की प्रतीक्षा — लिंक लगभग # मिनट में समाप्त हो जाएगा।} other {साइन-इन की प्रतीक्षा — लिंक लगभग # मिनट में समाप्त हो जाएगा।}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {watching # PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -242,6 +267,14 @@ msgstr "{commandVariable} आरक्षित है और कमांड �
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
 msgstr "{connectedCount, plural, one {# कनेक्टेड} other {# कनेक्टेड}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #: apps/mobile/components/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
@@ -251,9 +284,21 @@ msgstr "{count, plural, one {{peer} के साथ # संदेश} other {{
 msgid "{count, plural, one {# model} other {# models}}"
 msgstr ""
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# पंक्ति} other {# पंक्तियाँ}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching # PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -1864,6 +1909,10 @@ msgstr "चैट पर वापस जाएँ"
 msgid "Back to sign in"
 msgstr "साइन इन पर वापस जाएँ"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "बेस URL"
@@ -2663,6 +2712,7 @@ msgid "Close voice settings"
 msgstr "आवाज़ सेटिंग्स बंद करें"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "closed"
 msgstr ""
@@ -2718,6 +2768,7 @@ msgstr "स्तंभ {index}"
 msgid "Comfortable"
 msgstr "आरामदायक"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -6677,6 +6728,7 @@ msgid "Mentions: {mentions}"
 msgstr "ज़िक्र: {mentions}"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "merged"
 msgstr ""
@@ -6858,6 +6910,10 @@ msgstr "मॉडल सूची ठीक है। {modelCount, plural, one {
 #: apps/web/src/lib/cron.ts
 msgid "Monday"
 msgstr "सोमवार"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "month"
@@ -7632,6 +7688,10 @@ msgstr "केवल इस खाते का मालिक प्लान 
 msgid "Only you"
 msgstr "सिर्फ़ आप"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8149,6 +8209,11 @@ msgstr "प्लगइन"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "जब जाँच में कोई बदलाव न मिले, तो चैट में संदेश पोस्ट करें। रूटीन नहीं चलेगा।"
+
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
+msgstr ""
 
 #: apps/mobile/components/job-pr-line.tsx
 msgid "PR #{number}"
@@ -10151,6 +10216,10 @@ msgstr "जवाब स्ट्रीम करें"
 msgid "subagent"
 msgstr "सबएजेंट"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
+
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
@@ -11558,6 +11627,7 @@ msgid "Wallet"
 msgstr "वॉलेट"
 
 #: apps/mobile/components/job-pr-line.tsx
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "watching"
 msgstr ""
@@ -11767,6 +11837,10 @@ msgstr "काम जारी"
 #: apps/web/src/pages/shell/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "काम के निर्देश"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx

@@ -1547,6 +1547,10 @@ export interface CloudAgentSnapshot {
   watching?: boolean;
   /** Watching with no run working: only the watch keeps the job open. */
   watchIdle?: boolean;
+  /** What the thread has going besides its run. Absent when it was not read this poll. */
+  work?: CloudAgentWork[];
+  /** Every pull request on the thread. Absent when it was not read this poll. */
+  pullRequests?: CloudAgentThreadPullRequest[];
   latestRunId?: string;
   /** Providers with an event feed: the cursor this snapshot was read through. */
   cursor?: number;
@@ -1560,6 +1564,20 @@ export interface CloudAgentSnapshot {
   result?: string;
   /** While running: the agent's latest message, bounded. Untrusted job output. Absent when unchanged. */
   progress?: string;
+}
+
+export interface CloudAgentWork {
+  kind: "subagent" | "command" | "monitor" | "background_task";
+  label: string;
+  /** Where a child thread opens in its provider. */
+  url?: string;
+}
+
+export interface CloudAgentThreadPullRequest {
+  url: string;
+  number: number;
+  state: "open" | "merged" | "closed";
+  watching: boolean;
 }
 
 export interface CloudAgentPullRequest {

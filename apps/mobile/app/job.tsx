@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react
 import { JobChecksChip, JobProofImages } from "../components/job-proof";
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
+import { JobWorkList } from "../components/job-work";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
@@ -112,6 +113,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           />
         ) : null}
       </View>
+      <JobWorkList job={job} />
       {details.length ? (
         <View style={{ gap: 6 }}>
           <Text style={label}>{t`Details`}</Text>

@@ -12,7 +12,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
-import { parsePullRequests, shownPullRequest } from "./t3-cloud-agent-pull-requests.js";
+import { parseThreadWork, shownPullRequest } from "./t3-cloud-agent-pull-requests.js";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
 import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
 
@@ -479,12 +479,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       status === "running" && run && sawEvents
         ? await this.latestMessage(id, run.runId, context, MAX_PROGRESS_PAGES)
         : undefined;
-    // Pull requests change without a run event (a merge, a watch ending), so a thread that is
-    // waiting reads them every poll; one that is working, only when it did something.
-    const pullRequest =
+    // A merge or an ended watch is no run event: a waiting thread is read every poll, a working one when it did something.
+    const threadWork =
       sawEvents || status !== "running" || run?.status !== "running"
-        ? shownPullRequest(await this.optionalPullRequests(id, context), run)
-        : {};
+        ? await this.readThreadWork(id, t3CanonicalLink(state.link, id), context, true)
+        : undefined;
+    const pullRequest = threadWork ? shownPullRequest(threadWork, run) : {};
     return {
       id,
       url: t3CanonicalLink(state.link, id),
@@ -668,27 +668,27 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   }
 
   async pullRequests(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]> {
-    return (await this.readPullRequests(id, context)).map(({ watching: _watching, ...pr }) => pr);
+    const { pullRequests } = (await this.readThreadWork(id, "", context))!;
+    return pullRequests.map(({ watching: _watching, ...pr }) => pr);
   }
 
-  /** A bot whose assignment leaves out the thread read just shows no pull request. */
-  private optionalPullRequests(id: string, context: AdapterContext) {
-    return this.readPullRequests(id, context, true).catch((error: unknown) => {
-      if (error instanceof CloudAgentRequestRejected) return [];
+  /** `lenient`: a bot whose assignment leaves out the thread read just shows nothing of it. */
+  private async readThreadWork(id: string, link: string, context: AdapterContext, lenient = false) {
+    try {
+      const read = await this.call(
+        "t3_thread_read",
+        { threadId: id, limit: 1, runLimit: 1 },
+        context,
+        { optional: lenient },
+      );
+      // A child thread sits in the same environment as its parent.
+      return parseThreadWork(read, (childId) =>
+        link.replace(/[^/]+$/, encodeURIComponent(childId)),
+      );
+    } catch (error) {
+      if (lenient && error instanceof CloudAgentRequestRejected) return undefined;
       throw error;
-    });
-  }
-
-  private async readPullRequests(id: string, context: AdapterContext, optional = false) {
-    const read = await this.call(
-      "t3_thread_read",
-      { threadId: id, limit: 1, runLimit: 1 },
-      context,
-      {
-        optional,
-      },
-    );
-    return parsePullRequests(read);
+    }
   }
 
   /**

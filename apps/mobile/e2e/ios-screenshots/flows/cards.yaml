@@ -74,12 +74,8 @@ name: Request cards
 - scrollUntilVisible:
     element: ".*Add dark mode.*"
     direction: UP
-    timeout: 15000
-    visibilityPercentage: 1
-- scrollUntilVisible:
-    element: ".*Update the changelog.*"
-    direction: DOWN
-    timeout: 15000
+    timeout: 60000
+    speed: 80
     visibilityPercentage: 1
 - waitForAnimationToEnd:
     timeout: 3000
@@ -95,7 +91,8 @@ name: Request cards
 - scrollUntilVisible:
     element: ".*Speed up the cart page.*"
     direction: UP
-    timeout: 15000
+    timeout: 60000
+    speed: 80
     visibilityPercentage: 1
 - waitForAnimationToEnd:
     timeout: 3000

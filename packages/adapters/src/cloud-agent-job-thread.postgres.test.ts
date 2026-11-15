@@ -736,6 +736,47 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(reply.replyToMessageId).toBe((await h.state(agentId)).messageId);
   });
 
+  it("notifies the owner once of a reply, as a finished bot turn would", async () => {
+    vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+    const h = await setup();
+    await runAsSystem("test fixture", () =>
+      asSystem(prisma).bot.update({ where: { id: h.bot.id }, data: { notifyOnFinish: true } }),
+    );
+    const agentId = await h.launch("Reinstall the app on my phone");
+    await h.poll(agentId);
+    await h.finish(agentId);
+    const [helperRun] = await h.runsIn((await h.state(agentId)).jobThreadId!);
+    await settleHelper(h, agentId);
+    const send = vi.fn(async () => undefined);
+    const publishChatAlert = vi.fn();
+    const deps = {
+      ...h.deps,
+      notifications: { send },
+      events: { notify: h.notify, publishChatAlert },
+    } as unknown as typeof h.deps;
+    const finish = () =>
+      runAsSystem("helper result", () =>
+        returnHelperOutcome(
+          deps,
+          { ...helperRun!, botId: h.bot.id },
+          { status: "completed", text: "My thread reinstalled it. Anything else?" },
+        ),
+      );
+    await finish();
+    await finish();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "completion",
+        title: "Job test finished",
+        body: "My thread reinstalled it. Anything else?",
+        threadId: h.thread.id,
+      }),
+      expect.anything(),
+    );
+    expect(publishChatAlert).toHaveBeenCalledTimes(1);
+  });
+
   it("says nothing while the helper sends the thread more work", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup();

@@ -89,8 +89,13 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
   agreement: z.string().trim().min(1).max(4_000).optional(),
   acceptance: z.string().trim().min(1).max(4_000).optional(),
 });
-/** A launch stored before titles were required has none; its card row holds the name. */
-export const storedCloudAgentLaunchSchema = cloudAgentLaunchSchema.partial({ title: true });
+/**
+ * A launch stored by an earlier release may have no title, or one the current rule refuses; its
+ * card row holds the name, so the stored title is never read.
+ */
+export const storedCloudAgentLaunchSchema = cloudAgentLaunchSchema.extend({
+  title: z.unknown().optional(),
+});
 export const CLOUD_AGENT_LAUNCH_USAGE =
   'Invalid cloud agent arguments. A launch needs a title of 2-5 plain words naming the work, such as "Porcupine Tree FLAC check" (at most 60 characters, never the start of the brief). Raw environment variables are not supported.';
 const idSchema = z.object({ id: z.string().trim().min(1) }).strict();

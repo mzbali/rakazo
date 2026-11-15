@@ -3,6 +3,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_HELPER_TRIGGER,
+  displayName,
   HELPER_RESULT_TRIGGER,
   isConversationalRun,
   STOPPED_HELPER_RESULT,
@@ -31,12 +32,14 @@ import type { ExecutorDeps } from "./executor-deps.js";
 import { helperResultText, MAX_PARALLEL_SUBAGENTS } from "./pi-runtime-subagent.js";
 import type { RunContext } from "./run-context.js";
 import { runLeaseFor } from "./run-messages.js";
+import { completionNotificationPreview, notifyRun } from "./run-notifications.js";
 
 const RESULT_LIMIT = 12_000;
 
 // Stop only settles a card, so it brings no job queue.
-type HelperDeps = Pick<ExecutorDeps, "prisma"> & {
-  events: Pick<ExecutorDeps["events"], "notify">;
+type HelperDeps = Pick<ExecutorDeps, "prisma" | "notifications"> & {
+  events: Pick<ExecutorDeps["events"], "notify"> &
+    Partial<Pick<ExecutorDeps["events"], "publishChatAlert">>;
   jobs?: ExecutorDeps["jobs"];
 };
 type HelperBlock = Extract<MessageBlock, { kind: "subagent" }>;
@@ -322,7 +325,7 @@ export async function returnHelperOutcome(
       }),
       tx.bot.findFirst({
         where: { id: run.botId, spaceId: run.spaceId, archivedAt: null },
-        select: { id: true },
+        select: { id: true, name: true },
       }),
     ]);
     if (!member || !bot) return { threadId: card.threadId, eventSeq: event.seq };
@@ -360,7 +363,14 @@ export async function returnHelperOutcome(
           replyPreview: messageReplyPreview(blocks, "bot", run.botId),
         },
       });
-      return { threadId: card.threadId, eventSeq: posted.seq };
+      return {
+        threadId: card.threadId,
+        eventSeq: posted.seq,
+        reply: {
+          botName: bot.name,
+          text: replyBlocks[0]!.kind === "text" ? replyBlocks[0].text : "",
+        },
+      };
     }
     const task = await tx.task.create({
       data: {
@@ -391,6 +401,21 @@ export async function returnHelperOutcome(
   await deps.events.notify(committed.threadId, committed.eventSeq).catch((error) => {
     getLogger().error("background helper card notification", error);
   });
+  if (committed.reply) {
+    // Once, after the commit: the claim above lets only one call get here for this helper run.
+    // Like a bot turn finishing in this chat, so the owner hears of it wherever they are.
+    await notifyRun(
+      { prisma: deps.prisma, notifications: deps.notifications, events: deps.events },
+      { ...run, threadId: committed.threadId, trigger: HELPER_RESULT_TRIGGER },
+      {
+        kind: "completion",
+        title: `${displayName(committed.reply.botName, "Bot")} finished`,
+        body: completionNotificationPreview(committed.reply.text),
+        botId: run.botId,
+        threadId: committed.threadId,
+      },
+    ).catch((error) => getLogger().error("job reply notification", error));
+  }
   if (committed.wakeRunId) {
     // A missed enqueue is repaired by the job reconciler, like any queued run.
     await deps.jobs?.enqueue(runContinueJob(committed.wakeRunId)).catch((error) => {

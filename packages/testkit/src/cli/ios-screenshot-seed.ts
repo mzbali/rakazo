@@ -872,8 +872,17 @@ const SCREENSHOT_JOBS: {
   checks?: "passing" | "failing" | "running";
   /** What the job's own thread has going, as the card and the job sheet show it. */
   threadWork?: {
-    work: { kind: string; label: string; url?: string }[];
-    pullRequests: { url: string; number: number; state: string; watching: boolean }[];
+    work: {
+      kind: "subagent" | "command" | "monitor" | "background_task";
+      label: string;
+      url?: string;
+    }[];
+    pullRequests: {
+      url: string;
+      number: number;
+      state: "open" | "merged" | "closed";
+      watching: boolean;
+    }[];
   };
   /** Shows the screenshots copied from the pull request. */
   proof?: boolean;
@@ -899,13 +908,17 @@ const SCREENSHOT_JOBS: {
     threadWork: {
       work: [
         { kind: "subagent", label: "Review the theme tokens", url: "t3code://threads/env/child-1" },
-        { kind: "subagent", label: "Write the settings tests", url: "t3code://threads/env/child-2" },
+        {
+          kind: "subagent",
+          label: "Write the settings tests",
+          url: "t3code://threads/env/child-2",
+        },
         { kind: "command", label: "pnpm test --watch" },
       ],
       pullRequests: [71, 72, 73].map((number) => ({
         url: `https://github.com/example/storefront/pull/${number}`,
         number,
-        state: "open",
+        state: "open" as const,
         watching: true,
       })),
     },
@@ -1156,6 +1169,7 @@ async function ensureRequestCards(
         ...(job.failureReason ? { failureReason: job.failureReason } : {}),
         ...(job.checking ? { review: "checking" as const } : {}),
         ...(job.checks ? { checks: job.checks } : {}),
+        ...(job.threadWork ? { ...job.threadWork, watching: true } : {}),
         ...(job.proof ? { proofImages: input.proof } : {}),
         ...(job.attempts ? { attempts: job.attempts } : {}),
       },

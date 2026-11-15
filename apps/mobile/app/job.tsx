@@ -4,6 +4,7 @@ import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
+import { JobChecksChip, JobProofImages } from "../components/job-proof";
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
@@ -56,6 +57,14 @@ function JobDetails({ agentId }: { agentId: string }) {
       style={{ backgroundColor: native.groupedPage }}
       contentContainerStyle={{ padding: 20, paddingTop: 24, gap: 20 }}
     >
+      {job.proofImages?.length ? (
+        <View style={{ marginHorizontal: -12 }}>
+          <JobProofImages
+            job={job}
+            target={job.groupId ? { groupId: job.groupId } : { botId: job.botId }}
+          />
+        </View>
+      ) : null}
       <JobRow job={job} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {href ? (
@@ -78,6 +87,7 @@ function JobDetails({ agentId }: { agentId: string }) {
             }}
           />
         ) : null}
+        {prHref ? <JobChecksChip checks={job.checks} /> : null}
         <NativeActionButton
           label={t`Open chat`}
           prominence="secondary"

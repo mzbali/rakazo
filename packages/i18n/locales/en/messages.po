@@ -2420,6 +2420,18 @@ msgstr "Checking connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks failing"
+msgstr "Checks failing"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks passing"
+msgstr "Checks passing"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks running"
+msgstr "Checks running"
+
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Choose a bot shape, color, or upload an image"
@@ -7690,6 +7702,10 @@ msgstr "Open navigation"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "Open Rakazo"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Open screenshot"
+msgstr "Open screenshot"
 
 #: apps/mobile/lib/composer-dictation.ts
 #: apps/mobile/lib/thread-voice.ts

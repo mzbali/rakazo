@@ -2420,6 +2420,18 @@ msgstr "Bağlantı kontrol ediliyor…"
 msgid "Checking…"
 msgstr "Kontrol ediliyor…"
 
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks failing"
+msgstr ""
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Checks running"
+msgstr ""
+
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Bir bot şekli ve rengi seçin veya görüntü yükleyin"
@@ -7690,6 +7702,10 @@ msgstr "Gezinmeyi aç"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "Rakazo'yu aç"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Open screenshot"
+msgstr ""
 
 #: apps/mobile/lib/composer-dictation.ts
 #: apps/mobile/lib/thread-voice.ts

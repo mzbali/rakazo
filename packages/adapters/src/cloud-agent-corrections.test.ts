@@ -66,6 +66,7 @@ describe("cloud agent corrections", () => {
     };
     const result = await executeCloudAgentTool(deps as never, context, run, "cloud_agent_launch", {
       prompt: "Task",
+      title: "Task",
       scratch: true,
       runtimeMode: "full-access",
     });

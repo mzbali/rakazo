@@ -26,7 +26,11 @@ import {
   catalogApprovalRequest,
 } from "./approval-effect.js";
 import { listVaultItems } from "./bot-secrets.js";
-import { CLOUD_AGENT_REPORT_USAGE, validCloudAgentArgs } from "./cloud-agent-tools.js";
+import {
+  CLOUD_AGENT_LAUNCH_USAGE,
+  CLOUD_AGENT_REPORT_USAGE,
+  validCloudAgentArgs,
+} from "./cloud-agent-tools.js";
 import { sanitizeConnectorError } from "./connector-safety.js";
 import { isFleetApprovalTool, modelLabel, prepareFleetRequest } from "./fleet-tools.js";
 import { assertConnectorToolArgs, CATALOG_EXECUTE } from "./lazy-tool-catalog.js";
@@ -150,7 +154,9 @@ export async function resolveToolRequest(
       "invalid_cloud_agent_arguments",
       name === "cloud_agent_report"
         ? CLOUD_AGENT_REPORT_USAGE
-        : "Invalid cloud agent arguments. Raw environment variables are not supported.",
+        : name === "cloud_agent_launch"
+          ? CLOUD_AGENT_LAUNCH_USAGE
+          : "Invalid cloud agent arguments.",
     );
   }
   let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;

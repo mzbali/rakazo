@@ -107,7 +107,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       t3_thread_launch: () => ({ threadId: "thread:1", runId: "run:1" }),
     });
     const launched = await fresh.provider.launch(
-      { scratch: true, idempotencyKey: "abcdef123456", prompt: "Fix it" },
+      { scratch: true, idempotencyKey: "abcdef123456", title: "Fix it", prompt: "Fix it" },
       context,
     );
     expect(launched).toMatchObject({ id: "thread:1", status: "running" });
@@ -128,7 +128,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     // Already finished, it still reads as running until a poll has read its events.
     expect(
       await retried.provider.launch(
-        { scratch: true, idempotencyKey: "abcdef123456", prompt: "Fix it" },
+        { scratch: true, idempotencyKey: "abcdef123456", title: "Fix it", prompt: "Fix it" },
         context,
       ),
     ).toMatchObject({ id: "thread:1", status: "running" });
@@ -165,6 +165,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     await named.provider.launch(
       {
         idempotencyKey: "abcdef123456",
+        title: "Fix it",
         prompt: "Fix it",
         projectId: "project:2",
         modelSelection,
@@ -197,6 +198,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     await defaults.provider.launch(
       {
         idempotencyKey: "abcdef123456",
+        title: "Fix it",
         prompt: "Fix it",
         repository: "https://github.com/example/demo",
       },
@@ -218,7 +220,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       const refused = server(handlers);
       await expect(
         refused.provider.launch(
-          { idempotencyKey: "abcdef123456", prompt: "Fix it", ...request },
+          { idempotencyKey: "abcdef123456", title: "Fix it", prompt: "Fix it", ...request },
           context,
         ),
       ).rejects.toBeInstanceOf(CloudAgentRequestRejected);
@@ -238,6 +240,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     };
     const request = {
       idempotencyKey: "abcdef123456",
+      title: "Fix it",
       prompt: "Fix it",
       projectId: "project:1",
       modelSelection: { provider: "claudeAgent", instanceId: "claude-pool", model: "claude-model" },
@@ -516,7 +519,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     ).toEqual({ remoteId: "t-new", title: "Fix login" });
     expect(
       t3DirectThread("t3", "mcp__t3__t3_thread_send", { threadId: "t-old", message: "Go on" }, {}),
-    ).toEqual({ remoteId: "t-old", title: "Go on", brief: "Go on" });
+    ).toEqual({ remoteId: "t-old", title: "Cloud agent", brief: "Go on" });
     // Every way of sending is followed; the bot's arguments reach T3 untouched.
     for (const extra of [{ mode: "steer" }, { mode: "restart" }, { freshContext: true }])
       expect(
@@ -526,7 +529,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
           { threadId: "t-old", message: "Go on", ...extra },
           {},
         ),
-      ).toEqual({ remoteId: "t-old", title: "Go on", brief: "Go on" });
+      ).toEqual({ remoteId: "t-old", title: "Cloud agent", brief: "Go on" });
     // A failed call, another server, a read or a compaction starts no work.
     expect(
       t3DirectThread(
@@ -628,6 +631,7 @@ describe("T3 launch model reporting", () => {
   const request = {
     scratch: true,
     idempotencyKey: "abcdef123456",
+    title: "Fix it",
     prompt: "Fix it",
     modelSelection: { provider: "claudeAgent_pool_ab", model: "claude-sonnet-5-5" },
   };

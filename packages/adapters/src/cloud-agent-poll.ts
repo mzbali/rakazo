@@ -35,7 +35,7 @@ import {
   openQuestion,
   promoteQueuedCloudAgent,
 } from "./cloud-agent-service.js";
-import { cloudAgentLaunchSchema, cloudAgentPromptSchema } from "./cloud-agent-tools.js";
+import { cloudAgentPromptSchema, storedCloudAgentLaunchSchema } from "./cloud-agent-tools.js";
 import {
   attentionWakePrompt,
   cloudAgentWakeNonces,
@@ -121,7 +121,11 @@ export async function pollCloudAgent(
         data: { launchDispatched: true },
       });
       if (!marked.count) return;
-      const request = cloudAgentLaunchSchema.parse(agent.launchRequest);
+      // The card's title is the job's name, whatever the stored request carries.
+      const request = {
+        ...storedCloudAgentLaunchSchema.parse(agent.launchRequest),
+        title: agent.title,
+      };
       try {
         const snapshot = await provider.launch({ ...request, idempotencyKey: agent.id }, context);
         await finishPoll(

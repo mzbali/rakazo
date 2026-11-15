@@ -132,7 +132,12 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
           { ...context, operationId: randomUUID() },
           run,
           "cloud_agent_launch",
-          { prompt, repository: "https://github.com/example/demo", openPr: true },
+          {
+            prompt,
+            title: "Add README",
+            repository: "https://github.com/example/demo",
+            openPr: true,
+          },
         ),
       );
       if (!("id" in result)) throw new Error("Launch failed");

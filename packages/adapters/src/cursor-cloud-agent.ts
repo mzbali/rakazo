@@ -198,7 +198,8 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     const branch = run.git?.branches[0];
     return {
       id: agent.id,
-      title: agent.name || "Cloud agent",
+      // The card keeps the name it was launched with; Cursor names an agent after its prompt.
+      title: "",
       status,
       url: agent.url || `https://cursor.com/agents/${encodeURIComponent(agent.id)}`,
       latestRunId: run.id,

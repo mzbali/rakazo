@@ -209,7 +209,7 @@ export async function executeCloudAgentTool(
             userId: context.userId,
             botId: context.botId,
             threadId: run.threadId,
-            title: (request.title ?? request.prompt.split(/\r?\n/, 1)[0]!).slice(0, 80),
+            title: request.title,
             projectName: cloudAgentProjectName(request.repository) ?? null,
             launchRequest,
             // The launch request is cleared once sent; a job thread's helper still needs the brief.

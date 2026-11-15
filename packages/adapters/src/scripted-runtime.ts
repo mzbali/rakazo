@@ -377,6 +377,7 @@ export function inferScript(
             name: "cloud_agent_launch",
             args: {
               prompt: "Add a README with setup instructions",
+              title: "Add a README",
               repository: "https://github.com/example/demo",
               openPr: true,
             },

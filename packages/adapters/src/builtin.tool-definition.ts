@@ -916,7 +916,7 @@ export const builtinAgentTools: ConnectorTool[] = [
         title: {
           type: "string",
           description:
-            'A short title for the task in plain words, such as "Speed up the cart page"; the owner sees it on the job\'s card.',
+            'Required. A name for the job in 2-5 plain words, such as "Porcupine Tree FLAC check"; the owner sees it on the job\'s card and as the thread title. Never the start of the prompt.',
         },
         repository: {
           type: "string",
@@ -1004,7 +1004,7 @@ export const builtinAgentTools: ConnectorTool[] = [
         agreement: { type: "string", description: "What the user agreed to, in their words." },
         acceptance: { type: "string", description: "How you will judge the result." },
       },
-      required: ["prompt"],
+      required: ["prompt", "title"],
     },
   },
   {

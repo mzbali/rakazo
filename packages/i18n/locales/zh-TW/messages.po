@@ -6145,6 +6145,10 @@ msgstr "其共用連結將失效，聊天中的卡片會顯示為已刪除。此
 msgid "Jobs"
 msgstr ""
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "加入"
@@ -7502,6 +7506,10 @@ msgstr "無法正常工作"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "尚無記憶"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

@@ -6144,6 +6144,10 @@ msgstr "Link udostępniania przestanie działać, a karty w czacie pokażą stro
 msgid "Jobs"
 msgstr ""
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Dołącz"
@@ -7501,6 +7505,10 @@ msgstr "Nie działa"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Brak wspomnień"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

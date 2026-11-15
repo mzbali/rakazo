@@ -6144,6 +6144,10 @@ msgstr "Its shared link stops working and its cards in chat show it as deleted. 
 msgid "Jobs"
 msgstr "Jobs"
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr "Jobs in this chat"
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Join"
@@ -7501,6 +7505,10 @@ msgstr "Not working"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Nothing remembered yet"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr "Nothing running"
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

@@ -6144,6 +6144,10 @@ msgstr "공유 링크가 더 이상 작동하지 않고 채팅의 카드는 삭�
 msgid "Jobs"
 msgstr ""
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "참여"
@@ -7501,6 +7505,10 @@ msgstr "작동하지 않음"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "아직 기억한 내용이 없습니다"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

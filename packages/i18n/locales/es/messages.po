@@ -6144,6 +6144,10 @@ msgstr "Su enlace compartido dejará de funcionar y sus tarjetas en el chat apar
 msgid "Jobs"
 msgstr ""
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Unirse"
@@ -7501,6 +7505,10 @@ msgstr "No funciona"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Aún no hay recuerdos"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

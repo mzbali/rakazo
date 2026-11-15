@@ -6144,6 +6144,10 @@ msgstr "Son lien partagé cessera de fonctionner et ses cartes dans le chat appa
 msgid "Jobs"
 msgstr ""
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Rejoindre"
@@ -7501,6 +7505,10 @@ msgstr "Ne fonctionne pas"
 #: apps/web/src/pages/KnowledgeSection.tsx
 msgid "Nothing remembered yet"
 msgstr "Rien n'est mémorisé pour le moment"
+
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."

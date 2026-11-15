@@ -34,6 +34,8 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .refine((value) => Boolean(cloudAgentHttpsUrl(value)))
     .optional(),
   openPr: z.boolean().optional(),
+  /** What the card and the provider's thread are called; without it, the start of the prompt. */
+  title: z.string().trim().min(1).max(80).optional(),
   /** How the agent starts; each one left out keeps the provider's default. */
   modelSelection: z
     .object({

@@ -4,13 +4,14 @@ import {
   cloudAgentElapsed,
   cloudAgentHttpsUrl,
   cloudAgentJobTone,
-  cloudAgentModelLabel,
   cloudAgentPhase,
   cloudAgentProjectName,
   cloudAgentPullRequestNumber,
+  cloudAgentPullRequestParts,
   cloudAgentShelf,
   cloudAgentState,
   cloudAgentTicking,
+  cloudAgentWorkParts,
 } from "./cloud-agent.js";
 import { projectMessages } from "./events.js";
 
@@ -121,17 +122,16 @@ describe("cloud agent job summary", () => {
     expect(cloudAgentProjectName("http://git.example.com/acme/app")).toBeUndefined();
     expect(cloudAgentProjectName(undefined)).toBeUndefined();
   });
-  it("shortens a pick note to the model and the kind of work", () => {
-    expect(cloudAgentModelLabel("Picked claude-sonnet-5-5 on main (simple).")).toBe(
-      "Sonnet · simple",
+  it("keeps a job's model display and drops what is not text", () => {
+    expect(
+      cloudAgentBlockFromPayload({
+        agentId: "a",
+        model: { name: " Sonnet 5.5 ", effort: "Medium", mark: "m", extra: 1 },
+      }).model,
+    ).toEqual({ name: "Sonnet 5.5", effort: "Medium", mark: "m" });
+    expect(cloudAgentBlockFromPayload({ agentId: "a", model: { name: 3 } })).not.toHaveProperty(
+      "model",
     );
-    expect(cloudAgentModelLabel("Picked gpt-6-luna on box (hard; gpt-6-sol out of quota).")).toBe(
-      "Luna · hard",
-    );
-    expect(cloudAgentModelLabel("No simple route is available; the default was used.")).toBe(
-      undefined,
-    );
-    expect(cloudAgentModelLabel(undefined)).toBeUndefined();
   });
 });
 
@@ -205,6 +205,63 @@ describe("cloud agent clock", () => {
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app/pull/12/")).toBe(12);
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app")).toBeUndefined();
     expect(cloudAgentPullRequestNumber("http://github.com/acme/app/pull/12")).toBeUndefined();
+  });
+  it("lists what a job says beside its pull request number", () => {
+    expect(cloudAgentPullRequestParts({ checks: "running" })).toEqual(["checksRunning"]);
+    expect(cloudAgentPullRequestParts({ checks: "failing" })).toEqual(["checksFailing"]);
+    expect(cloudAgentPullRequestParts({})).toEqual([]);
+    // Once it landed, old checks no longer say anything.
+    expect(cloudAgentPullRequestParts({ prState: "merged", checks: "passing" })).toEqual([
+      "merged",
+    ]);
+  });
+  it("counts the thread's work by kind and the pull requests it watches", () => {
+    const pr = (number: number, watching = true, state = "open" as const) => ({
+      url: `https://github.com/acme/app/pull/${number}`,
+      number,
+      state,
+      watching,
+    });
+    const work = [
+      { kind: "command" as const, label: "pnpm test" },
+      { kind: "subagent" as const, label: "Review" },
+      { kind: "subagent" as const, label: "" },
+    ];
+    expect(
+      cloudAgentWorkParts({ work, pullRequests: [pr(1), pr(2), pr(3), pr(4, false)] }),
+    ).toEqual([
+      { kind: "subagent", count: 2 },
+      { kind: "command", count: 1 },
+      { kind: "watchedPr", count: 3 },
+    ]);
+    // A landed pull request is not watched; a job that says it watches counts one at least.
+    expect(cloudAgentWorkParts({ pullRequests: [pr(1)] })).toEqual([
+      { kind: "watchedPr", count: 1 },
+    ]);
+    expect(cloudAgentWorkParts({ pullRequests: [pr(2, true, "merged" as never)] })).toEqual([]);
+    expect(cloudAgentWorkParts({ watching: true })).toEqual([{ kind: "watchedPr", count: 1 }]);
+  });
+  it("keeps only well formed work and pull requests from the row", () => {
+    const block = cloudAgentBlockFromPayload({
+      agentId: "a",
+      work: [
+        { kind: "subagent", label: "Review", url: "t3code://threads/env/child" },
+        { kind: "subagent", label: "x", url: "javascript:alert(1)" },
+        { kind: "nonsense", label: "no" },
+      ],
+      pullRequests: [
+        { url: "https://github.com/acme/app/pull/1", number: 1, state: "open", watching: true },
+        { url: "http://insecure.test/pull/2", number: 2, state: "open", watching: true },
+        { url: "https://github.com/acme/app/pull/3", number: 3, state: "weird", watching: true },
+      ],
+    });
+    expect(block.work).toEqual([
+      { kind: "subagent", label: "Review", url: "t3code://threads/env/child" },
+      { kind: "subagent", label: "x" },
+    ]);
+    expect(block.pullRequests).toEqual([
+      { url: "https://github.com/acme/app/pull/1", number: 1, state: "open", watching: true },
+    ]);
   });
   it("clips progress and the result excerpt to one bounded line", () => {
     const block = cloudAgentBlockFromPayload({

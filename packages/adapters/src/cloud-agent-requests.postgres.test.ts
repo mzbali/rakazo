@@ -41,6 +41,9 @@ class ScriptedProvider implements CloudAgentProvider {
       missed?: CloudAgentAttention[];
       cursor: number;
       latestRunId?: string;
+      /** A pull request watch with no run working. */
+      watching?: boolean;
+      watchIdle?: boolean;
     }
   >();
   launches = 0;
@@ -600,6 +603,47 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     expect(originalTask.prompt).not.toContain("q2");
   });
 
+  it("stops a job that only watched its pull request for a day, and wakes once the thread has stopped", async () => {
+    const t = await setup();
+    const remote = {
+      status: "running" as const,
+      attention: [],
+      cursor: 0,
+      watching: true,
+      watchIdle: true,
+    };
+    t.provider.agents.set("remote:watch", remote);
+    await runAsSystem("agent run tool call", () =>
+      trackDirectCloudAgent(t.deps, { ...t.context, operationId: randomUUID() }, t.endedRun, {
+        remoteId: "remote:watch",
+        title: "Watching a pull request",
+      }),
+    );
+    const [row] = await asSystem(prisma).cloudAgent.findMany({
+      where: { userId: t.context.userId },
+    });
+    const id = row!.id;
+    await t.poll(id);
+    // The clock starts when only the watch is left.
+    expect((await t.state(id)).watchingSince).not.toBeNull();
+    await asSystem(prisma).cloudAgent.update({
+      where: { id },
+      data: { watchingSince: new Date(Date.now() - 25 * 3_600_000) },
+    });
+    await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "running", cancelRequested: true });
+    // The stop has not landed: the provider still reports the thread running, so the job keeps
+    // polling and the bot is not woken.
+    await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "running", cancelRequested: true });
+    expect(await t.wakeNonces()).toEqual([]);
+    // Once the thread has stopped, the job ends and the bot is woken once.
+    Object.assign(remote, { status: "cancelled", watching: false, watchIdle: false });
+    await t.poll(id);
+    expect(await t.state(id)).toMatchObject({ status: "cancelled", cancelRequested: false });
+    expect(await t.wakeNonces()).toEqual([`cloud-agent-wake-run:${id}:0`]);
+  });
+
   it("wakes for work the bot started or messaged with the provider's own tools", async () => {
     const t = await setup();
     t.provider.agents.set("remote:direct", { status: "running", attention: [], cursor: 0 });
@@ -849,6 +893,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const handlers: Record<string, () => unknown> = {
       t3_thread_list: () => ({ threads: [] }),
       t3_project_list: () => ({ projects: [{ id: "project:1" }] }),
+      t3_thread_read: () => ({ thread: { pullRequests: [] } }),
       t3_thread_launch: () => ({
         threadId: "thread:1",
         runId: "run:1",

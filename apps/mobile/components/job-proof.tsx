@@ -8,7 +8,6 @@ import { mobileTokens } from "../lib/appearance";
 import type { MobileArtifactTarget } from "../lib/artifact-open";
 import { imageArtifactUri } from "../lib/artifact-open";
 import { hapticSelection } from "../lib/haptics";
-import { checksChip } from "../lib/job-checks";
 import { JobStatusDot, jobToneColor } from "./job-status";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
@@ -112,26 +111,6 @@ export function JobProofImages({
       {Array.from({ length: 3 - images.length }, (_, i) => (
         <View key={`gap-${i}`} style={{ flex: 1 }} />
       ))}
-    </View>
-  );
-}
-
-/** The pull request's check result beside its button; nothing while the result is unknown. */
-export function JobChecksChip({ checks }: { checks: Job["checks"] }) {
-  const { t } = useLingui();
-  const tokens = mobileTokens();
-  const chip = checksChip(checks);
-  if (!chip) return null;
-  const label =
-    chip.checks === "passing"
-      ? t`Checks passing`
-      : chip.checks === "failing"
-        ? t`Checks failing`
-        : t`Checks running`;
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      <JobStatusDot tone={chip.tone} tokens={tokens} />
-      <Text style={{ color: jobToneColor(tokens, chip.tone), ...typeScale.footnote }}>{label}</Text>
     </View>
   );
 }

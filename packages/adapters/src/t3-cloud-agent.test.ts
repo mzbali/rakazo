@@ -72,7 +72,10 @@ function server(
         };
         return;
       }
-      yield { type: "result" as const, data: { structuredContent: handlers[tool]!(call.args) } };
+      // A poll also lists the thread's pull requests; a script that does not care has none.
+      const answer =
+        handlers[tool] ?? (tool === "t3_thread_read" ? () => ({ thread: {} }) : undefined);
+      yield { type: "result" as const, data: { structuredContent: answer!(call.args) } };
     },
   } as unknown as ConnectorProvider;
   const provider = new T3CloudAgentProvider({ connector, server: "t3", holdKey: "hold" });
@@ -344,7 +347,11 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       missedAttention: [{ requestId: "q0", kind: "question" }],
     });
     // The last call reads the question's options.
-    expect(t3.calls.map((call) => call.args.afterSequence)).toEqual([1, 3, 7, undefined]);
+    expect(
+      t3.calls
+        .filter((call) => call.tool !== "t3_thread_read")
+        .map((call) => call.args.afterSequence),
+    ).toEqual([1, 3, 7, undefined]);
     expect(t3.calls.at(-1)).toMatchObject({ args: { action: "read", requestId: "q1" } });
     expect(t3.calls[0]!.args.retain).toEqual({ key: "hold" });
 

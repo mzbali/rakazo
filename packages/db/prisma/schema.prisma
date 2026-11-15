@@ -1450,6 +1450,14 @@ model CloudAgent {
   checksState         String?
   /// When the checks were last read, so a running job reads them every few minutes, not every poll.
   checksAt            DateTime?
+  /// The pull request's state as T3 reports it: open, merged or closed; empty when the job has none.
+  prState             String?
+  /// The agent is watching its open pull request, so a run that ends is not yet its handback.
+  prWatching          Boolean  @default(false)
+  /// When the current watch began, so a job that only waits is handed back after a day.
+  watchingSince       DateTime?
+  /// What the job's thread has going, as { work, pullRequests }: shown on the card, never a wake.
+  threadWork          Json?
   /// Screenshots copied from the job's pull request, as [{ source, artifactId, name, mimeType }]; at most three.
   proofImages         Json?
   createdAt           DateTime @default(now())

@@ -33,6 +33,7 @@ vi.mock("react-native-reanimated", async () => {
   };
 });
 vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
+vi.mock("react-native-svg", () => ({ default: () => null, Path: () => null }));
 vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => <i /> }));
 
 const job = {

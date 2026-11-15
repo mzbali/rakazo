@@ -38,7 +38,6 @@ vi.mock("../components/job-status", () => ({
   useJobPhaseLabel: () => (phase: string) => phase,
 }));
 vi.mock("../components/job-proof", () => ({
-  JobChecksChip: () => null,
   JobProofImages: () => null,
 }));
 vi.mock("../components/job-row", () => ({

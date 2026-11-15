@@ -17,6 +17,16 @@ msgstr ""
 msgid " (unread)"
 msgstr " (unread)"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr "{0, plural, one {# background task} other {# background tasks}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr "{0, plural, one {# command} other {# commands}}"
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -42,6 +52,11 @@ msgstr "{0, plural, one {# free month} other {# free months}}"
 msgid "{0, plural, one {# model} other {# models}}"
 msgstr "{0, plural, one {# model} other {# models}}"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr "{0, plural, one {# monitor} other {# monitors}}"
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -57,6 +72,11 @@ msgstr "{0, plural, one {# skill} other {# skills}}"
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, one {# space} other {# spaces}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr "{0, plural, one {# subagent} other {# subagents}}"
 
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/McpServersOverlay.tsx
@@ -74,6 +94,11 @@ msgstr "{0, plural, one {Waiting for sign-in — the code expires in about # min
 #: apps/web/src/pages/onboarding/model-step.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
 msgstr "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr "{0, plural, one {watching PR} other {watching # PRs}}"
 
 #. placeholder {0}: file.name
 #: apps/web/src/pages/shell/use-composer-actions.ts
@@ -242,6 +267,14 @@ msgstr "{commandVariable} is reserved and cannot be used as a command variable. 
 msgid "{connectedCount, plural, one {# connected} other {# connected}}"
 msgstr "{connectedCount, plural, one {# connected} other {# connected}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr "{count, plural, one {# background task} other {# background tasks}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr "{count, plural, one {# command} other {# commands}}"
+
 #: apps/mobile/components/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
@@ -251,9 +284,21 @@ msgstr "{count, plural, one {# message with {peer}} other {# messages with {peer
 msgid "{count, plural, one {# model} other {# models}}"
 msgstr "{count, plural, one {# model} other {# models}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr "{count, plural, one {# monitor} other {# monitors}}"
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# row} other {# rows}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr "{count, plural, one {# subagent} other {# subagents}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr "{count, plural, one {watching PR} other {watching # PRs}}"
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -1864,6 +1909,10 @@ msgstr "Back to chat"
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr "Background task"
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -2420,17 +2469,20 @@ msgstr "Checking connection…"
 msgid "Checking…"
 msgstr "Checking…"
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks failing"
-msgstr "Checks failing"
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr "checks failing"
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks passing"
-msgstr "Checks passing"
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr "checks passing"
 
-#: apps/mobile/components/job-proof.tsx
-msgid "Checks running"
-msgstr "Checks running"
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks running"
+msgstr "checks running"
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -2647,6 +2699,12 @@ msgstr "Close user settings"
 msgid "Close voice settings"
 msgstr "Close voice settings"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "closed"
+msgstr "closed"
+
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
 msgstr "Cloud"
@@ -2698,6 +2756,7 @@ msgstr "column {index}"
 msgid "Comfortable"
 msgstr "Comfortable"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -6124,6 +6183,10 @@ msgstr "Its shared link stops working and its cards in chat show it as deleted. 
 msgid "Jobs"
 msgstr "Jobs"
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr "Jobs in this chat"
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Join"
@@ -6652,6 +6715,12 @@ msgstr "Mentions OpenClaw features"
 msgid "Mentions: {mentions}"
 msgstr "Mentions: {mentions}"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "merged"
+msgstr "merged"
+
 #: apps/mobile/lib/search-sheet.ts
 #: apps/mobile/lib/thread-message-text.ts
 #: apps/web/src/pages/shell/chat-shared.ts
@@ -6829,6 +6898,10 @@ msgstr "Models list OK. {modelCount, plural, one {# model} other {# models}} ava
 #: apps/web/src/lib/cron.ts
 msgid "Monday"
 msgstr "Monday"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr "Monitor"
 
 #: apps/web/src/lib/billing.ts
 msgid "month"
@@ -7477,6 +7550,10 @@ msgstr "Not working"
 msgid "Nothing remembered yet"
 msgstr "Nothing remembered yet"
 
+#: apps/mobile/app/thread-jobs.tsx
+msgid "Nothing running"
+msgstr "Nothing running"
+
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."
 msgstr "Nothing saved yet."
@@ -7598,6 +7675,10 @@ msgstr "Only the owner of this account can choose a plan."
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Only you"
 msgstr "Only you"
+
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr "open"
 
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
@@ -8116,6 +8197,11 @@ msgstr "Plugins"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "Post a chat message when a check finds no changes. The routine won't run."
+
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
+msgstr "PR #{0}"
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -10114,6 +10200,10 @@ msgstr "Stream replies"
 msgid "subagent"
 msgstr "subagent"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr "Subagent"
+
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
@@ -11520,6 +11610,10 @@ msgstr "Wake"
 msgid "Wallet"
 msgstr "Wallet"
 
+#: apps/mobile/components/job-work.tsx
+msgid "watching"
+msgstr "watching"
+
 #: apps/web/src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"
 msgstr "Web, desktop and mobile"
@@ -11725,6 +11819,10 @@ msgstr "Working"
 #: apps/web/src/pages/shell/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "Working instructions"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr "Working on"
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx

@@ -26,8 +26,11 @@ export interface Thread {
     repository: string;
     state: "open" | "merged" | "closed";
     mergeCommitSha?: string;
+    watching?: boolean;
   }>;
   pendingRequestCount: number;
+  /** Background work the agent left running, as `t3_thread_read` lists it. */
+  work?: Array<{ taskId: string; kind: string; description?: string; childThreadId?: string }>;
   /** Launched into a worktree, which exists once its setup finished. */
   worktree: boolean;
   worktreePath: string | null;
@@ -575,6 +578,32 @@ export class T3McpEmulator {
     }
   }
 
+  /** The agent watches its pull request (`watch_pull_request`) or hands it back (`unwatch_pull_request`). */
+  watchPullRequest(threadId: string, watching = true) {
+    for (const pr of this.threads.get(threadId)!.pullRequests) pr.watching = watching;
+  }
+
+  /** The agent leaves a subagent, command or monitor running. */
+  addBackgroundWork(threadId: string, task: NonNullable<Thread["work"]>[number]) {
+    const thread = this.threads.get(threadId)!;
+    thread.work = [...(thread.work ?? []), task];
+  }
+
+  /** What T3 Code lists as the thread's awaited background work: one monitor per watched pull request. */
+  protected backgroundTasks(thread: Thread) {
+    if (thread.runs.some((run) => ACTIVE.includes(run.status))) return [];
+    return [
+      ...(thread.work ?? []).map((task) => ({ ...task, awaited: true })),
+      ...thread.pullRequests
+        .filter((pr) => pr.watching && pr.state === "open")
+        .map((pr) => ({
+          taskId: `pull-request-watch:github.com/${pr.repository}#${pr.number}`,
+          kind: "monitor",
+          awaited: true,
+        })),
+    ];
+  }
+
   /** T3 Code starts a run itself, as when a background task the agent left finishes. */
   continueRun(threadId: string) {
     const thread = this.threads.get(threadId)!;
@@ -647,6 +676,7 @@ export class T3McpEmulator {
                 }
               : null,
             pullRequests: thread.pullRequests,
+            pendingBackgroundTasks: this.backgroundTasks(thread),
             branch: thread.branch,
             worktreePath: null,
             settled: false,

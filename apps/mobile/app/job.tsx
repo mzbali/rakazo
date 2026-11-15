@@ -1,12 +1,13 @@
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
+import { cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Alert, Linking, ScrollView, Text, View } from "react-native";
-import { JobChecksChip, JobProofImages } from "../components/job-proof";
+import { JobProofImages } from "../components/job-proof";
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
+import { JobWorkList } from "../components/job-work";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
@@ -46,7 +47,7 @@ function JobDetails({ agentId }: { agentId: string }) {
       </View>
     );
   const { t3: href, pr: prHref } = jobLinks(job);
-  const details = [cloudAgentModelLabel(job.note), job.projectName, job.branch].filter(Boolean);
+  const details = [job.projectName, job.branch].filter(Boolean);
   const label = {
     color: tokens.mutedForeground,
     ...typeScale.footnote,
@@ -65,7 +66,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           />
         </View>
       ) : null}
-      <JobRow job={job} />
+      <JobRow job={job} model />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {href ? (
           <NativeActionButton
@@ -87,7 +88,6 @@ function JobDetails({ agentId }: { agentId: string }) {
             }}
           />
         ) : null}
-        {prHref ? <JobChecksChip checks={job.checks} /> : null}
         <NativeActionButton
           label={t`Open chat`}
           prominence="secondary"
@@ -112,6 +112,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           />
         ) : null}
       </View>
+      <JobWorkList job={job} />
       {details.length ? (
         <View style={{ gap: 6 }}>
           <Text style={label}>{t`Details`}</Text>
@@ -126,7 +127,7 @@ function JobDetails({ agentId }: { agentId: string }) {
           ))}
         </View>
       ) : null}
-      {job.note ? (
+      {job.note && !job.model ? (
         <Text style={{ color: tokens.mutedForeground, ...typeScale.footnote }}>{job.note}</Text>
       ) : null}
       {detail?.brief ? (

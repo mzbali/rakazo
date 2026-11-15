@@ -2,6 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
 import { appendEventInTransaction } from "@rakazo/db";
+import { cloudAgentModelDisplay } from "./cloud-agent-model.js";
 
 type CardDb = Pick<Prisma.TransactionClient, "cloudAgent" | "message">;
 
@@ -9,6 +10,15 @@ type CardDb = Pick<Prisma.TransactionClient, "cloudAgent" | "message">;
 const MAX_ATTEMPTS = 5;
 
 const VERDICTS = ["accepted", "rejected", "needs_owner"] as const;
+
+/** What the job's thread has going; its background work only while the job runs. */
+function threadWorkOf(agent: CloudAgent) {
+  const stored = agent.threadWork as { work?: unknown; pullRequests?: unknown } | null;
+  return {
+    work: agent.status === "running" ? stored?.work : undefined,
+    pullRequests: stored?.pullRequests,
+  };
+}
 
 /**
  * The job as its card and jobs row show it. `previous` is the attempts this one replaced, oldest
@@ -22,6 +32,7 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     ...agent,
     agentId: agent.id,
     note: agent.launchNote,
+    model: cloudAgentModelDisplay(agent.launchNote),
     startedAt: agent.createdAt,
     endedAt: agent.endedAt,
     progress: agent.status === "running" ? agent.progressText : undefined,
@@ -32,6 +43,9 @@ export function cloudAgentBlock(agent: CloudAgent, previous: CloudAgent[] = []) 
     // Refused before any remote work existed: there is nothing for the owner to open or answer.
     launchFailed: agent.status === "failed" && !agent.remoteId,
     checks: agent.checksState,
+    ...threadWorkOf(agent),
+    prState: agent.prState,
+    watching: agent.status === "running" && agent.prWatching,
     review,
     attempts: previous.map((attempt) => ({
       agentId: attempt.id,

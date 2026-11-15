@@ -56,6 +56,14 @@ name: Request cards
     visible: ".*Which branch should ship.*"
     timeout: 20000
 - takeScreenshot: 08-job-sheet
+# A running job lists what its own thread has going: subagents, commands and watched pull requests.
+- openLink: "rakazo:///job?agentId=ios-screenshot-job-running"
+- extendedWaitUntil:
+    visible: ".*Working on.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 08b-job-sheet-work
 - openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
 - extendedWaitUntil:
     visible: ".*api.example.test.*"
@@ -63,6 +71,29 @@ name: Request cards
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 01-api-key
+# The pill above the composer lists the chat's jobs; a row opens that job's sheet.
+- takeScreenshot: 01b-jobs-pill
+- tapOn:
+    id: thread-jobs-pill
+- extendedWaitUntil:
+    visible: ".*Fix the export button.*"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 01c-thread-jobs-sheet
+- tapOn: ".*Fix the export button.*"
+- extendedWaitUntil:
+    visible: "Open chat"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 01d-thread-job-sheet-model
+- openLink: "rakazo:///thread?botId=${RAKAZO_SCREENSHOT_CARDS_BOT_ID}&name=Support"
+- extendedWaitUntil:
+    visible: ".*api.example.test.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 3000
 - scrollUntilVisible:
     element: ".*Pay on freshcart.test.*"
     direction: UP

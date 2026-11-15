@@ -165,6 +165,87 @@ export function cloudAgentPullRequestNumber(prUrl: string | undefined): number |
   return match ? Number(match[1]) : undefined;
 }
 
+export type CloudAgentPullRequestPart =
+  | "merged"
+  | "closed"
+  | "checksRunning"
+  | "checksPassing"
+  | "checksFailing";
+
+/**
+ * What a job says beside its "PR #12": that it landed or was closed, or else how its checks
+ * stand. Each surface gives the part its own translated words. Watching is the activity line's.
+ */
+export function cloudAgentPullRequestParts(
+  job: Pick<CloudAgentBlock, "prState" | "checks">,
+): CloudAgentPullRequestPart[] {
+  if (job.prState) return [job.prState];
+  const checks: Record<string, CloudAgentPullRequestPart> = {
+    passing: "checksPassing",
+    failing: "checksFailing",
+    running: "checksRunning",
+  };
+  return job.checks ? [checks[job.checks]!] : [];
+}
+
+export type CloudAgentWorkPart = {
+  kind: "subagent" | "command" | "monitor" | "background_task" | "watchedPr";
+  count: number;
+};
+
+const WORK_ORDER = ["subagent", "command", "monitor", "background_task"] as const;
+
+/**
+ * What the card's second line counts: the thread's background work by kind, then the pull
+ * requests it watches (one at least, when the job says it watches but the list is not known).
+ */
+export function cloudAgentWorkParts(
+  job: Pick<CloudAgentBlock, "work" | "pullRequests" | "watching">,
+): CloudAgentWorkPart[] {
+  const parts: CloudAgentWorkPart[] = WORK_ORDER.map((kind) => ({
+    kind,
+    count: (job.work ?? []).filter((item) => item.kind === kind).length,
+  }));
+  const watched = (job.pullRequests ?? []).filter((pr) => pr.watching && pr.state === "open");
+  parts.push({ kind: "watchedPr", count: Math.max(watched.length, job.watching ? 1 : 0) });
+  return parts.filter((part) => part.count > 0);
+}
+
+/** The thread's work and pull requests from the row, as far as they are well formed. */
+function cloudAgentThreadWork(payload: Record<string, unknown>) {
+  const kinds = new Set<string>(WORK_ORDER);
+  const work = (Array.isArray(payload.work) ? payload.work : []).flatMap(
+    (item: { kind?: unknown; label?: unknown; url?: unknown }) => {
+      if (typeof item?.kind !== "string" || !kinds.has(item.kind)) return [];
+      const url = typeof item.url === "string" ? cloudAgentUrl(item.url) : undefined;
+      return [
+        {
+          kind: item.kind as (typeof WORK_ORDER)[number],
+          label: typeof item.label === "string" ? item.label.slice(0, 120) : "",
+          ...(url ? { url } : {}),
+        },
+      ];
+    },
+  );
+  const states = ["open", "merged", "closed"] as const;
+  const pullRequests = (Array.isArray(payload.pullRequests) ? payload.pullRequests : []).flatMap(
+    (pr: { url?: unknown; number?: unknown; state?: unknown; watching?: unknown }) => {
+      const state = states.find((candidate) => candidate === pr?.state);
+      return typeof pr?.url === "string" &&
+        cloudAgentHttpsUrl(pr.url) &&
+        typeof pr.number === "number" &&
+        Number.isInteger(pr.number) &&
+        state
+        ? [{ url: pr.url, number: pr.number, state, watching: pr.watching === true }]
+        : [];
+    },
+  );
+  return {
+    ...(work.length ? { work: work.slice(0, 20) } : {}),
+    ...(pullRequests.length ? { pullRequests: pullRequests.slice(0, 10) } : {}),
+  };
+}
+
 /** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
 export type CloudAgentShelf = "needsYou" | "working" | "done";
 
@@ -193,21 +274,16 @@ export function cloudAgentProjectName(repository: string | null | undefined): st
   return last?.replace(/\.git$/, "") || undefined;
 }
 
-/**
- * A model and the kind of work from the pick note ("Picked claude-sonnet-5-5 on main (simple)."):
- * the model's last word, capitalised ("Sonnet"), and the first thing in the brackets ("simple").
- */
-export function cloudAgentModelLabel(note: string | undefined): string | undefined {
-  const match = note?.match(/^Picked (\S+) on [^(]*\(([^;)]*)/);
-  if (!match) return undefined;
-  const word = match[1]!
-    .split(/[-_.\s]/)
-    .filter((part) => /^[A-Za-z]+$/.test(part))
-    .pop();
-  if (!word) return undefined;
-  const model = word[0]!.toUpperCase() + word.slice(1);
-  const kind = match[2]!.trim();
-  return kind ? `${model} · ${kind}` : model;
+/** The model as the card shows it, read from the stored row; only its three short strings stay. */
+function cloudAgentModelDisplay(value: unknown): CloudAgentBlock["model"] {
+  const model = value as Record<string, unknown> | null;
+  const text = (field: unknown, max: number) =>
+    typeof field === "string" && field.trim() ? field.trim().slice(0, max) : undefined;
+  const name = text(model?.name, 60);
+  if (!name) return undefined;
+  const effort = text(model?.effort, 30);
+  const mark = text(model?.mark, 30);
+  return { name, ...(effort ? { effort } : {}), ...(mark ? { mark } : {}) };
 }
 
 const CLOUD_AGENT_NOTE_MAX = 400;
@@ -215,6 +291,7 @@ const CLOUD_AGENT_NOTE_MAX = 400;
 export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): CloudAgentBlock {
   const status = payload.status;
   const note = typeof payload.note === "string" ? payload.note.trim() : "";
+  const model = cloudAgentModelDisplay(payload.model);
   const started = payload.startedAt;
   const startedAt =
     started instanceof Date
@@ -254,6 +331,7 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(payload.needsInput === true ? { needsInput: true } : {}),
     ...(unreachableSince ? { unreachableSince } : {}),
     ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
+    ...(model ? { model } : {}),
     ...(startedAt ? { startedAt } : {}),
     ...(endedAt ? { endedAt } : {}),
     ...(progress ? { progress } : {}),
@@ -278,6 +356,11 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(payload.checks === "passing" || payload.checks === "failing" || payload.checks === "running"
       ? { checks: payload.checks }
       : {}),
+    ...(payload.prState === "merged" || payload.prState === "closed"
+      ? { prState: payload.prState }
+      : {}),
+    ...(payload.watching === true ? { watching: true } : {}),
+    ...cloudAgentThreadWork(payload),
     ...cloudAgentProofImages(payload.proofImages),
     ...(Array.isArray(payload.attempts) && payload.attempts.length
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }

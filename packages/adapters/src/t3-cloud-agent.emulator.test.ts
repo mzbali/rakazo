@@ -74,6 +74,101 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     emulator.complete(first.id, "failed");
   });
 
+  it("keeps a job running while its thread only watches a pull request", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "watch-key-1234567", prompt: "Task" },
+      context,
+    );
+    emulator.openPullRequest(agent.id, "https://github.com/example/demo/pull/72");
+    emulator.watchPullRequest(agent.id);
+    emulator.complete(agent.id, "completed", "Opened the PR; waiting for checks.");
+    // The run ended and only the watch is left: not a handback.
+    const waiting = await provider.get(agent.id, context);
+    expect(waiting.status).toBe("running");
+    expect(waiting).not.toHaveProperty("result");
+    // The card's pull request line comes from what T3 lists on the thread.
+    expect(waiting).toMatchObject({
+      prUrl: "https://github.com/example/demo/pull/72",
+      prState: "open",
+      watching: true,
+      watchIdle: true,
+    });
+    // A PR event wakes the thread: a new run, then a short "still waiting" end. Still no handback.
+    for (let wake = 0; wake < 3; wake += 1) {
+      emulator.continueRun(agent.id);
+      // The wake is work, so the watch's day-long clock does not count it.
+      expect(await provider.get(agent.id, context)).toMatchObject({
+        status: "running",
+        watchIdle: false,
+      });
+      emulator.complete(agent.id, "completed", "Still waiting.");
+      expect(await provider.get(agent.id, context)).toMatchObject({
+        status: "running",
+        watchIdle: true,
+      });
+    }
+    // The handback: the agent unwatches and its run ends.
+    emulator.continueRun(agent.id);
+    emulator.watchPullRequest(agent.id, false);
+    emulator.complete(agent.id, "completed", "All green; ready to merge.");
+    const done = await provider.get(agent.id, context);
+    expect(done).toMatchObject({
+      status: "finished",
+      result: "All green; ready to merge.",
+      prState: "open",
+      watching: false,
+    });
+    emulator.landPullRequest(agent.id);
+    expect(await provider.get(agent.id, context)).toMatchObject({ prState: "merged" });
+  });
+
+  it("reports a thread's background work and every pull request it watches, for the card only", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "work-key-12345678", prompt: "Task" },
+      context,
+    );
+    for (const number of [71, 72, 73])
+      emulator.openPullRequest(agent.id, `https://github.com/example/demo/pull/${number}`);
+    emulator.watchPullRequest(agent.id);
+    emulator.addBackgroundWork(agent.id, {
+      taskId: "t1",
+      kind: "subagent",
+      description: "Review the change\nwith the second pass",
+      childThreadId: "child:1",
+    });
+    emulator.addBackgroundWork(agent.id, {
+      taskId: "t2",
+      kind: "command",
+      description: "pnpm test",
+    });
+    emulator.addBackgroundWork(agent.id, { taskId: "t3", kind: "mystery" });
+    emulator.complete(agent.id, "completed", "Waiting on the subagent and the PRs.");
+    const snapshot = await provider.get(agent.id, context);
+    // Still working, not handed back: background work and watches hold the job open.
+    expect(snapshot.status).toBe("running");
+    // A subagent and a command are still going, so this is not a thread only waiting on its pull
+    // requests, and the day limit on a lone watch must not stop it.
+    expect(snapshot.watching).toBe(true);
+    expect(snapshot.watchIdle).toBe(false);
+    expect(snapshot.work).toEqual([
+      {
+        kind: "subagent",
+        label: "Review the change",
+        url: `t3code://threads/env-1/child%3A1`,
+      },
+      { kind: "command", label: "pnpm test" },
+      { kind: "background_task", label: "" },
+    ]);
+    // The watched pull requests are listed as pull requests, not also as tasks.
+    expect(snapshot.pullRequests?.map((pr) => [pr.number, pr.watching])).toEqual([
+      [71, true],
+      [72, true],
+      [73, true],
+    ]);
+  });
+
   it("returns the finished run's final message, bounded, from the thread timeline", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(
@@ -99,7 +194,8 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const first = await provider.get(agent.id, context);
     expect(first).toMatchObject({ status: "running", progress: "Reading the router" });
     // Nothing new since the cursor: no timeline read, and no progress to overwrite the last line.
-    const reads = () => launched(emulator, "t3_thread_read").length;
+    const reads = () =>
+      launched(emulator, "t3_thread_read").filter((call) => call.args.limit === 100).length;
     const before = reads();
     const quiet = await provider.get(agent.id, context, undefined, first.cursor);
     expect(quiet).not.toHaveProperty("progress");
@@ -438,7 +534,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
         options: [{ id: "effort", value: "high" }],
       });
       expect(agent.launchNote).toMatch(
-        /^Picked model-2 on pool-b \(hard; model-1 out of quota until \d\d:\d\d UTC\)\.$|^Picked model-2 on pool-b \(hard; model-1 out of quota until \d{4}-\d\d-\d\d \d\d:\d\d UTC\)\.$/,
+        /^Picked model-2 on pool-b \(hard; model-1 out of quota until \d\d:\d\d UTC; effort high\)\.$|^Picked model-2 on pool-b \(hard; model-1 out of quota until \d{4}-\d\d-\d\d \d\d:\d\d UTC; effort high\)\.$/,
       );
     });
 

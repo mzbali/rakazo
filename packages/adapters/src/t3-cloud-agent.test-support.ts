@@ -59,7 +59,8 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
     const latest = thread.runs.at(-1);
     const idle =
       !thread.runs.some((run) => ACTIVE.includes(run.status)) &&
-      !thread.runs.some((run) => run.status === "queued" && !run.held);
+      !thread.runs.some((run) => run.status === "queued" && !run.held) &&
+      this.backgroundTasks(thread).length === 0;
     // Each timeline item is one event, so a poll after the agent spoke sees something new.
     const next = thread.runs.length + thread.timeline.length;
     const fresh = Math.min(

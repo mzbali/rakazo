@@ -8922,10 +8922,6 @@ msgstr "복원됨"
 msgid "Restoring your workspace"
 msgstr "워크스페이스 복원 중"
 
-#: apps/mobile/app/job.tsx
-msgid "Result"
-msgstr ""
-
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
@@ -10892,6 +10888,10 @@ msgstr "이번 주"
 #: apps/mobile/components/thread/thread-header.tsx
 msgid "Thread"
 msgstr "스레드"
+
+#: apps/mobile/app/job.tsx
+msgid "Thread's report"
+msgstr ""
 
 #: apps/mobile/lib/cron.ts
 #: apps/web/src/lib/cron.ts

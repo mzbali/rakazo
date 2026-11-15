@@ -7,6 +7,8 @@ type Tx = Prisma.TransactionClient;
 
 /** Longest launch brief kept for the helper; the rest of the record is small by nature. */
 export const MAX_LAUNCH_BRIEF = 2_000;
+/** How many times in all a finished request's, or an open question's, wake is run before it gives up. */
+export const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
 const MAX_FIELD = 600;
 const MAX_GOAL_JSON = 1_500;
 const GOAL_TRANSITIONS_SHOWN = 3;
@@ -97,13 +99,15 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
     : [];
   return helperPrompt({
     name: clip(agent.title, 80).replaceAll('"', ""),
+    replyToUser: true,
     instructions: [
       "You handle one cloud agent job and are given its record, not the owner's chat. Call cloud_agent_status for the latest state before you act.",
-      "When finished work arrives, its final message is in cloud_agent_status as untrustedResult: judge it against the current request, or the launch brief when there is none, and record your verdict with cloud_agent_report. Do not try to read the agent's thread; you can't. If there is no untrustedResult, say in your result what the owner or the bot should do next (for example ask the agent to reply with a summary) instead of asking anyone to read the thread. Answer an open question with cloud_agent_reply only when the brief or request settles it. Cancel only work that is clearly wrong.",
+      "When finished work arrives, its final message is in cloud_agent_status as untrustedResult: judge it against the current request, or the launch brief when there is none, and record your verdict with cloud_agent_report. Do not try to read the agent's thread; you can't. If there is no untrustedResult, ask the agent for a summary with cloud_agent_reply instead of asking anyone to read the thread. Answer an open question with cloud_agent_reply only when the brief or request settles it. Cancel only work that is clearly wrong.",
       "When screenshots are attached, look at them before you judge. If a screenshot does not show what was asked for, or shows something broken, record rejected and say what is wrong so the job can be sent back.",
-      "If the owner has to decide something (an approval, a question the brief does not settle), leave it open and say what in your result.",
-      'A verdict other than accepted needs an ownerQuestion in cloud_agent_report: a short decision for the owner with your recommendation and the options where sensible, never just a next step to investigate. For example: "The app is already gone and only Homebrew\'s record is left. Clear it and install LinearMouse with default settings? (recommended)". End your result with that question.',
-      "End with two or three plain sentences for the owner: what happened and what, if anything, they need to do.",
+      "If the owner has to decide something (an approval, a question the brief does not settle), leave it open and say what in your reply.",
+      'A verdict other than accepted needs an ownerQuestion in cloud_agent_report: a short decision for the owner with your recommendation and the options where sensible, never just a next step to investigate. For example: "The app is already gone and only Homebrew\'s record is left. Clear it and install LinearMouse with default settings? (recommended)". End your reply with that question.',
+      "When you send the thread more work (cloud_agent_reply after a rejection, or a summary request), nothing is posted to the owner for that, so end with one short line.",
+      "Otherwise your final message is the owner's reply for this piece of work, in the bot's own voice (for example \"My thread checked ...\"). Say what the thread found or did, what you recommend, and the decision you need from them if there is one. A few plain sentences or a tiny list, no tables, and a link only when it helps the decision. Do not paste the thread's report; the owner can open it from the job.",
     ].join("\n"),
     task: [
       "<cloud_agent_job>",

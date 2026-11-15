@@ -16,7 +16,11 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
-import { cloudAgentJobThreadsEnabled, MAX_LAUNCH_BRIEF } from "./cloud-agent-job-thread.js";
+import {
+  CLOUD_AGENT_WAKE_ATTEMPTS,
+  cloudAgentJobThreadsEnabled,
+  MAX_LAUNCH_BRIEF,
+} from "./cloud-agent-job-thread.js";
 import {
   attentionIds,
   cloudAgentWakeNonceWhere,
@@ -637,7 +641,6 @@ export async function reconcileCloudAgents(deps: Reconciled) {
   await retryFailedCloudAgentWakes(deps);
 }
 
-const CLOUD_AGENT_WAKE_ATTEMPTS = 3;
 // Retries happen within a few reconciler passes; an older failure has already told the owner.
 const WAKE_RETRY_WINDOW_MS = 24 * 60 * 60_000;
 

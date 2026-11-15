@@ -8922,10 +8922,6 @@ msgstr "Restored"
 msgid "Restoring your workspace"
 msgstr "Restoring your workspace"
 
-#: apps/mobile/app/job.tsx
-msgid "Result"
-msgstr "Result"
-
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
@@ -10892,6 +10888,10 @@ msgstr "This week"
 #: apps/mobile/components/thread/thread-header.tsx
 msgid "Thread"
 msgstr "Thread"
+
+#: apps/mobile/app/job.tsx
+msgid "Thread's report"
+msgstr "Thread's report"
 
 #: apps/mobile/lib/cron.ts
 #: apps/web/src/lib/cron.ts

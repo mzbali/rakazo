@@ -263,26 +263,18 @@ describe("cloud agent clock", () => {
       { url: "https://github.com/acme/app/pull/1", number: 1, state: "open", watching: true },
     ]);
   });
-  it("clips progress and the result excerpt to one bounded line", () => {
+  it("clips progress to one bounded line", () => {
     const block = cloudAgentBlockFromPayload({
       agentId: "a",
       progress: `Reading\n\nthe   code ${"x".repeat(400)}`,
-      resultExcerpt: "Shipped",
       endedAt: new Date(at(5)),
     });
     expect(block.progress).toHaveLength(240);
     expect(block.progress?.startsWith("Reading the code ")).toBe(true);
     expect(block.progress?.endsWith("…")).toBe(true);
     expect(block).toMatchObject({
-      resultExcerpt: "Shipped",
       endedAt: new Date(at(5)).toISOString(),
     });
-    expect(
-      cloudAgentBlockFromPayload({
-        agentId: "a",
-        resultExcerpt: "**Fixed.** The `button` stuck.\n\n- See [the PR](https://x.test/1)",
-      }).resultExcerpt,
-    ).toBe("Fixed. The button stuck. See the PR");
     expect(cloudAgentBlockFromPayload({ agentId: "a", progress: "  " })).not.toHaveProperty(
       "progress",
     );

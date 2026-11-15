@@ -41,10 +41,8 @@ it("shows the latest progress while it works and drops it once it is done", asyn
     ...running,
     status: "finished",
     progress: "Reading the router",
-    resultExcerpt: "Added the README.",
   });
   expect(done.textContent).toContain("Done");
-  expect(done.textContent).toContain("Added the README.");
   expect(done.textContent).not.toContain("Reading the router");
 });
 

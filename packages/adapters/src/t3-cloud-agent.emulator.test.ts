@@ -148,6 +148,10 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const snapshot = await provider.get(agent.id, context);
     // Still working, not handed back: background work and watches hold the job open.
     expect(snapshot.status).toBe("running");
+    // A subagent and a command are still going, so this is not a thread only waiting on its pull
+    // requests, and the day limit on a lone watch must not stop it.
+    expect(snapshot.watching).toBe(true);
+    expect(snapshot.watchIdle).toBe(false);
     expect(snapshot.work).toEqual([
       {
         kind: "subagent",

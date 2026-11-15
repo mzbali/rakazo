@@ -2216,11 +2216,6 @@ msgstr "Antwort abbrechen"
 msgid "Canceled"
 msgstr "Gekündigt"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "cancelled"
-msgstr "abgebrochen"
-
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/components/AskCard.tsx
@@ -2385,7 +2380,7 @@ msgstr "Prüfe deine Verbindung und versuche es erneut."
 msgid "Check your email"
 msgstr "Prüfe deine E-Mails"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Checking"
 msgstr ""
@@ -2404,6 +2399,11 @@ msgstr "Verbindung wird geprüft…"
 #: apps/web/src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "Wird geprüft…"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Checks unknown"
+msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -4190,7 +4190,7 @@ msgstr "Deine Wallet konnte nicht geladen werden"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "Aktualisierung fehlgeschlagen – die zuletzt geladenen Nachrichten werden angezeigt."
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Couldn't start"
 msgstr ""
@@ -4680,6 +4680,7 @@ msgstr "Desktop-ID"
 msgid "Desktop update"
 msgstr "Desktop-Update"
 
+#: apps/mobile/app/job.tsx
 #: apps/mobile/components/thread-error-notice.tsx
 #: apps/web/src/pages/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer-error.tsx
@@ -4858,12 +4859,14 @@ msgstr "Du hast noch kein Konto?"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/mobile/lib/board.ts
 #: apps/web/src/components/AccountDataSettings.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/components/ToolActivityDisclosure.tsx
 #: apps/web/src/components/vault/VaultImport.tsx
@@ -5221,8 +5224,8 @@ msgstr "Tabelle erweitern"
 
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "expired"
-msgstr "abgelaufen"
+msgid "Expired"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -5272,11 +5275,6 @@ msgstr "Sehr hoch"
 #: apps/web/src/lib/model-catalog.ts
 msgid "Extra high"
 msgstr "Sehr hoch"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "failed"
-msgstr "fehlgeschlagen"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/mobile/lib/activity.ts
@@ -5397,11 +5395,6 @@ msgstr "Schließe die Anmeldung im Browser ab:"
 #: apps/web/src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "Schließe die Anmeldung per Abonnement ab und teste erneut."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "finished"
-msgstr "abgeschlossen"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/browser-notifications.ts
@@ -6940,11 +6933,6 @@ msgstr "Benötigt eine OAuth-Client-ID"
 msgid "Needs attention"
 msgstr "Aufmerksamkeit erforderlich"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "needs input"
-msgstr ""
-
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6962,6 +6950,8 @@ msgstr "Übernahme erforderlich"
 
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
@@ -7552,7 +7542,6 @@ msgstr "Nur du"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
-#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7633,6 +7622,12 @@ msgstr "Im Browser öffnen"
 #: apps/web/src/pages/shell/computer-panel.tsx
 msgid "Open in full window"
 msgstr "In vollständigem Fenster öffnen"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8058,6 +8053,11 @@ msgstr "Plugins"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "Sende eine Chatnachricht, wenn eine Prüfung keine Änderungen findet. Die Routine wird nicht ausgeführt."
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8164,11 +8164,6 @@ msgstr "Anbieter"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "Öffentliche Server brauchen https://. HTTP funktioniert nur im lokalen Netzwerk."
 
-#: apps/mobile/app/job.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "Pull Request"
-
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
 msgstr "Lass deine Bots arbeiten"
@@ -8176,11 +8171,6 @@ msgstr "Lass deine Bots arbeiten"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "Fragen, Freigaben, Übernahme"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "queued"
-msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8942,11 +8932,6 @@ msgstr "Jetzt ausführen"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "Die Ausführungszeit muss in der Zukunft liegen."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "running"
-msgstr "läuft"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -9972,7 +9957,9 @@ msgstr "{count} Std. verspätet gestartet"
 msgid "Started {count}m late"
 msgstr "{count} Min. verspätet gestartet"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/lib/activity.ts
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Starting"
 msgstr "Startet"
@@ -10022,7 +10009,9 @@ msgstr "Vorlesen stoppen"
 msgid "Stop teaching"
 msgstr "Anlernen beenden"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/SubagentCard.tsx
 msgid "Stopped"
 msgstr "Gestoppt"
@@ -11020,11 +11009,6 @@ msgstr "Stummschaltung aufheben"
 msgid "Unpin"
 msgstr "Lösen"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "unreachable"
-msgstr ""
-
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
 msgstr "ungelesen"
@@ -11386,6 +11370,12 @@ msgstr "Versionen"
 msgid "View all"
 msgstr "Alle ansehen"
 
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -11647,6 +11637,8 @@ msgstr "Arbeit"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Working"
 msgstr "Arbeitet"

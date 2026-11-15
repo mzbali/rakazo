@@ -18,6 +18,12 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
       this.tools.push({ name, inputSchema: { type: "object", properties: {} } });
   }
 
+  /** The agent says something while its run is still going. */
+  say(threadId: string, text: string) {
+    const thread = this.threads.get(threadId)!;
+    thread.timeline.push({ type: "assistant_message", runId: thread.runs.at(-1)!.runId, text });
+  }
+
   protected override handle(tool: string, args: Args) {
     if (tool === "t3_thread_list") {
       const needle = String(args.titleContains ?? "");
@@ -38,13 +44,19 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
     const idle =
       !thread.runs.some((run) => ACTIVE.includes(run.status)) &&
       !thread.runs.some((run) => run.status === "queued" && !run.held);
+    // Each timeline item is one event, so a poll after the agent spoke sees something new.
+    const next = thread.runs.length + thread.timeline.length;
+    const fresh = Math.min(
+      thread.timeline.length,
+      Math.max(0, next - Number(args.afterSequence ?? 0)),
+    );
     return {
       result: {
         contractVersion: 1,
-        nextSequence: thread.runs.length,
+        nextSequence: next,
         hasMore: false,
         gap: null,
-        events: [],
+        events: Array.from({ length: fresh }, () => ({ kind: "message" })),
         state: {
           idle,
           latestRun: latest ? { runId: latest.runId, status: latest.status } : null,

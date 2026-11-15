@@ -48,6 +48,9 @@ const RESULT_TAIL_CHARS = 3_500;
 /** T3's own per-item cap, so it never cuts the message before the end can be kept. */
 const T3_ITEM_CHARS = 50_000;
 const MAX_RESULT_PAGES = 10;
+/** A live progress line reads fewer pages: a long run's line may lag, never block the poll. */
+const MAX_PROGRESS_PAGES = 3;
+const PROGRESS_CHARS = 1_000;
 
 const INTERNAL_SERVER_ERROR = "Tool execution failed due to an internal server error.";
 
@@ -399,6 +402,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     // The last status each request reached in this window, so one that opened and closed between
     // polls is still seen.
     const requests = new Map<string, { kind: string; status: string }>();
+    let sawEvents = false;
     for (let read = 0; read < MAX_EVENT_PAGES; read += 1) {
       page = eventsSchema.parse(
         await this.call(
@@ -414,6 +418,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       );
       if (page.contractVersion !== EVENTS_CONTRACT_VERSION) throw new CloudAgentRequestRejected();
       historyGap ||= page.gap !== null;
+      sawEvents ||= page.events.length > 0;
       for (const event of page.events) {
         if (event.kind === "request" && event.requestId && event.requestStatus)
           requests.set(event.requestId, {
@@ -456,6 +461,11 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
     const result =
       status === "finished" && run ? await this.finalMessage(id, run.runId, context) : undefined;
+    // The events carry no text, so the latest line is read only when this poll saw new events.
+    const progress =
+      status === "running" && run && sawEvents
+        ? await this.latestMessage(id, run.runId, context, MAX_PROGRESS_PAGES)
+        : undefined;
     return {
       id,
       url: t3CanonicalLink(state.link, id),
@@ -473,6 +483,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       missedAttention,
       historyGap,
       ...(result ? { result } : {}),
+      ...(progress ? { progress: progress.slice(0, PROGRESS_CHARS) } : {}),
     };
   }
 
@@ -481,11 +492,29 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
    * read the thread itself, so it is read here. The timeline pages oldest first.
    */
   private async finalMessage(id: string, runId: string, context: AdapterContext) {
+    const { text, complete } = await this.readLastMessage(id, runId, context, MAX_RESULT_PAGES);
+    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
+    if (!complete || text === undefined) return undefined;
+    return text.length > MAX_RESULT_CHARS
+      ? `${text.slice(0, RESULT_HEAD_CHARS)}\n…\n${text.slice(-RESULT_TAIL_CHARS)}`
+      : text;
+  }
+
+  /**
+   * The newest assistant message, only when the timeline was read to its end. The timeline pages
+   * oldest first, so a read cut short by the cap holds an older message, never the latest.
+   */
+  private async latestMessage(id: string, runId: string, context: AdapterContext, pages: number) {
+    const { text, complete } = await this.readLastMessage(id, runId, context, pages);
+    return complete ? text : undefined;
+  }
+
+  private async readLastMessage(id: string, runId: string, context: AdapterContext, pages: number) {
     let text: string | undefined;
     let complete = false;
     try {
       let afterPosition: number | undefined;
-      for (let read = 0; read < MAX_RESULT_PAGES; read += 1) {
+      for (let read = 0; read < pages; read += 1) {
         const page = timelineSchema.parse(
           await this.call(
             "t3_thread_read",
@@ -513,11 +542,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       // A refused or unreadable result leaves the agent finished without one; an outage is retried.
       if (error instanceof CloudAgentRetryLater) throw error;
     }
-    // A timeline longer than the read cap may end in a later message, so an earlier one is not the result.
-    if (!complete || text === undefined) return undefined;
-    return text.length > MAX_RESULT_CHARS
-      ? `${text.slice(0, RESULT_HEAD_CHARS)}\n…\n${text.slice(-RESULT_TAIL_CHARS)}`
-      : text;
+    return { text, complete };
   }
 
   /** The current state without moving the poller's cursor or hold. */

@@ -2216,11 +2216,6 @@ msgstr "取消回复"
 msgid "Canceled"
 msgstr "已取消"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "cancelled"
-msgstr "已取消"
-
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/components/AskCard.tsx
@@ -2385,7 +2380,7 @@ msgstr "请检查网络连接后重试。"
 msgid "Check your email"
 msgstr "请查看邮箱"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Checking"
 msgstr ""
@@ -2404,6 +2399,11 @@ msgstr "正在检查连接…"
 #: apps/web/src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "正在检查…"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Checks unknown"
+msgstr ""
 
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -4190,7 +4190,7 @@ msgstr "无法加载钱包"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "无法刷新——显示最近加载的消息。"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Couldn't start"
 msgstr ""
@@ -4680,6 +4680,7 @@ msgstr "桌面 ID"
 msgid "Desktop update"
 msgstr "桌面更新"
 
+#: apps/mobile/app/job.tsx
 #: apps/mobile/components/thread-error-notice.tsx
 #: apps/web/src/pages/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer-error.tsx
@@ -4858,12 +4859,14 @@ msgstr "还没有账户？"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
 #: apps/mobile/lib/activity.ts
 #: apps/mobile/lib/board.ts
 #: apps/web/src/components/AccountDataSettings.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/components/ToolActivityDisclosure.tsx
 #: apps/web/src/components/vault/VaultImport.tsx
@@ -5221,8 +5224,8 @@ msgstr "展开表格"
 
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
-msgid "expired"
-msgstr "已过期"
+msgid "Expired"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -5272,11 +5275,6 @@ msgstr "极高"
 #: apps/web/src/lib/model-catalog.ts
 msgid "Extra high"
 msgstr "极高"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "failed"
-msgstr "失败"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/mobile/lib/activity.ts
@@ -5397,11 +5395,6 @@ msgstr "请在浏览器中完成登录："
 #: apps/web/src/lib/model-connection-preflight.ts
 msgid "Finish subscription sign-in, then test again."
 msgstr "请完成订阅登录，然后重新测试。"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "finished"
-msgstr "已完成"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/browser-notifications.ts
@@ -6940,11 +6933,6 @@ msgstr "需要 OAuth 客户端 ID"
 msgid "Needs attention"
 msgstr "需要处理"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "needs input"
-msgstr ""
-
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6962,6 +6950,8 @@ msgstr "需要接管"
 
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
@@ -7552,7 +7542,6 @@ msgstr "仅自己"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
-#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7633,6 +7622,12 @@ msgstr "在浏览器中打开"
 #: apps/web/src/pages/shell/computer-panel.tsx
 msgid "Open in full window"
 msgstr "在完整窗口中打开"
+
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8058,6 +8053,11 @@ msgstr "插件"
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "检查未发现变化时发送一条聊天消息。例行任务不会运行。"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8164,11 +8164,6 @@ msgstr "提供商"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "公共服务器需要 https://。HTTP 仅适用于本地网络。"
 
-#: apps/mobile/app/job.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "拉取请求"
-
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
 msgstr "让你的 Bot 开始工作"
@@ -8176,11 +8171,6 @@ msgstr "让你的 Bot 开始工作"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "提问、审批和接管"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "queued"
-msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8942,11 +8932,6 @@ msgstr "立即运行"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "运行时间必须是将来的时间。"
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "running"
-msgstr "运行中"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -9972,7 +9957,9 @@ msgstr "延迟 {count} 小时开始"
 msgid "Started {count}m late"
 msgstr "延迟 {count} 分钟开始"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/lib/activity.ts
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Starting"
 msgstr "正在开始"
@@ -10022,7 +10009,9 @@ msgstr "停止朗读"
 msgid "Stop teaching"
 msgstr "停止示范"
 
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/components/SubagentCard.tsx
 msgid "Stopped"
 msgstr "已停止"
@@ -11020,11 +11009,6 @@ msgstr "取消静音"
 msgid "Unpin"
 msgstr "取消置顶"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "unreachable"
-msgstr ""
-
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
 msgstr "未读"
@@ -11386,6 +11370,12 @@ msgstr "版本"
 msgid "View all"
 msgstr "查看全部"
 
+#: apps/mobile/app/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -11647,6 +11637,8 @@ msgstr "工作"
 #: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Working"
 msgstr "工作中"

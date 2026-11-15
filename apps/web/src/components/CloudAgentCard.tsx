@@ -1,9 +1,56 @@
 import { Trans } from "@lingui/react/macro";
 import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
-import { cloudAgentHttpsUrl, cloudAgentState, cloudAgentTone } from "@rakazo/core";
+import type { CloudAgentPhase } from "@rakazo/core";
+import {
+  cloudAgentElapsed,
+  cloudAgentHttpsUrl,
+  cloudAgentJobTone,
+  cloudAgentPhase,
+  cloudAgentPullRequestNumber,
+  cloudAgentTicking,
+} from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
+import { buttonVariants } from "@rakazo/ui-web/components/ui/button";
 import { Card, CardContent } from "@rakazo/ui-web/components/ui/card";
+import { useEffect, useState } from "react";
+
+/** The clock for a running job: each second in its first minute, then every 15. */
+function useNow(live: boolean, startedAt: string | undefined) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    setNow(Date.now());
+    const started = startedAt ? Date.parse(startedAt) : Number.NaN;
+    const timer = setInterval(
+      () => setNow(Date.now()),
+      Date.now() - started < 60_000 ? 1000 : 15_000,
+    );
+    return () => clearInterval(timer);
+  }, [live, startedAt]);
+  return now;
+}
+
+function PhaseLabel({ phase }: { phase: CloudAgentPhase }) {
+  switch (phase) {
+    case "starting":
+      return <Trans>Starting</Trans>;
+    case "working":
+      return <Trans>Working</Trans>;
+    case "checking":
+      return <Trans>Checking</Trans>;
+    case "done":
+      return <Trans>Done</Trans>;
+    case "needsYou":
+      return <Trans>Needs you</Trans>;
+    case "couldntStart":
+      return <Trans>Couldn't start</Trans>;
+    case "stopped":
+      return <Trans>Stopped</Trans>;
+    default:
+      return <Trans>Expired</Trans>;
+  }
+}
 
 export function CloudAgentCard({
   block,
@@ -16,12 +63,15 @@ export function CloudAgentCard({
         minute: "2-digit",
       })
     : "";
-  const state = cloudAgentState(block);
-  const tone = cloudAgentTone(state);
+  const phase = cloudAgentPhase(block);
+  const tone = cloudAgentJobTone(block);
+  const elapsed = cloudAgentElapsed(block, useNow(cloudAgentTicking(block), block.startedAt));
   const prHref = cloudAgentHttpsUrl(block.prUrl);
+  const prNumber = cloudAgentPullRequestNumber(block.prUrl);
   const ownerQuestion = block.ownerQuestion;
-  const href = prHref ?? cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
-  const content = (
+  const href = cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
+  const live = phase === "starting" || phase === "working" || phase === "checking";
+  return (
     <Card size="sm" className="w-80 max-w-full" data-testid="cloud-agent-card">
       <CardContent className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
@@ -40,69 +90,71 @@ export function CloudAgentCard({
                     : "text-muted-foreground"
             }
           >
-            {block.launchFailed ? (
-              <Trans>Couldn't start</Trans>
-            ) : state === "unreachable" ? (
-              <Trans>unreachable</Trans>
-            ) : state === "needsInput" ? (
-              <Trans>needs input</Trans>
-            ) : state === "queued" ? (
-              <Trans>queued</Trans>
-            ) : state === "running" ? (
-              <Trans>running</Trans>
-            ) : state === "finished" ? (
-              <Trans>finished</Trans>
-            ) : state === "cancelled" ? (
-              <Trans>cancelled</Trans>
-            ) : state === "expired" ? (
-              <Trans>expired</Trans>
-            ) : (
-              <Trans>failed</Trans>
-            )}
+            <PhaseLabel phase={phase} />
+            {elapsed ? <span className="tabular-nums">{elapsed}</span> : null}
           </Badge>
         </div>
-        {state === "unreachable" ? (
+        {block.unreachableSince && live ? (
           <span className="text-muted-foreground">
             <Trans>Resumes when it's back · since {since}</Trans>
           </span>
         ) : null}
-        {state === "failed" && block.failureReason ? (
+        {live && block.progress ? (
+          <span className="line-clamp-2 text-muted-foreground" dir="auto">
+            {block.progress}
+          </span>
+        ) : null}
+        {phase === "done" && block.resultExcerpt ? (
+          <span className="line-clamp-3 text-muted-foreground" dir="auto">
+            {block.resultExcerpt}
+          </span>
+        ) : null}
+        {block.status === "failed" && block.failureReason ? (
           <span className="text-destructive" dir="auto">
             {block.failureReason}
           </span>
         ) : null}
-        {state === "needsInput" && ownerQuestion ? (
+        {phase === "needsYou" && ownerQuestion ? (
           <span className="font-medium text-warning" dir="auto">
             <Trans>Needs you: {ownerQuestion}</Trans>
           </span>
         ) : null}
-        {block.review === "checking" ? (
-          <span className="text-muted-foreground">
-            <Trans>Checking</Trans>
-          </span>
-        ) : null}
-        {prHref ? (
-          <span className="text-muted-foreground">
-            <Trans>Pull request</Trans>
-          </span>
-        ) : block.branch ? (
-          <span className="text-muted-foreground" dir="auto">
-            {block.branch}
-          </span>
-        ) : null}
-        {block.note ? (
-          <span className="text-muted-foreground" dir="auto">
-            {block.note}
-          </span>
+        {prHref || href ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {prNumber !== undefined ? (
+              <>
+                <Badge variant="outline">
+                  <Trans>PR #{prNumber}</Trans>
+                </Badge>
+                {/* No source reports a pull request's checks, so they read as unknown, never as passing. */}
+                <Badge variant="outline" className="text-muted-foreground">
+                  <Trans>Checks unknown</Trans>
+                </Badge>
+              </>
+            ) : null}
+            {href ? (
+              <a
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Trans>Open in T3</Trans>
+              </a>
+            ) : null}
+            {prHref ? (
+              <a
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                href={prHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Trans>View PR</Trans>
+              </a>
+            ) : null}
+          </div>
         ) : null}
       </CardContent>
     </Card>
-  );
-  return href ? (
-    <a href={href} target="_blank" rel="noreferrer" className="block max-w-full no-underline">
-      {content}
-    </a>
-  ) : (
-    content
   );
 }

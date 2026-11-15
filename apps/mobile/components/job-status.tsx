@@ -1,6 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import type { CloudAgentState, CloudAgentTone } from "@rakazo/core";
-import { cloudAgentTone } from "@rakazo/core";
+import type { CloudAgentPhase, CloudAgentTone } from "@rakazo/core";
 import { useEffect } from "react";
 import { View } from "react-native";
 import Animated, {
@@ -32,37 +31,37 @@ export function jobToneColor(tokens: MobileTokens, tone: CloudAgentTone): string
   }
 }
 
-export function useJobStateLabel() {
+export function useJobPhaseLabel() {
   const { t } = useLingui();
-  return (state: CloudAgentState): string => {
-    switch (state) {
-      case "needsInput":
-        return t`needs input`;
-      case "unreachable":
-        return t`unreachable`;
-      case "queued":
-        return t`queued`;
-      case "running":
-        return t`running`;
-      case "finished":
-        return t`finished`;
-      case "cancelled":
-        return t`cancelled`;
-      case "expired":
-        return t`expired`;
+  return (phase: CloudAgentPhase): string => {
+    switch (phase) {
+      case "starting":
+        return t`Starting`;
+      case "working":
+        return t`Working`;
+      case "checking":
+        return t`Checking`;
+      case "done":
+        return t`Done`;
+      case "needsYou":
+        return t`Needs you`;
+      case "couldntStart":
+        return t`Couldn't start`;
+      case "stopped":
+        return t`Stopped`;
       default:
-        return t`failed`;
+        return t`Expired`;
     }
   };
 }
 
 const DOT = 8;
 
-/** A filled dot in the job's tone; it breathes while the job is running. */
-export function JobStatusDot({ state, tokens }: { state: CloudAgentState; tokens: MobileTokens }) {
+/** A filled dot in the job's tone; it breathes while the job is at work. */
+export function JobStatusDot({ tone, tokens }: { tone: CloudAgentTone; tokens: MobileTokens }) {
   const reducedMotion = useReducedMotion();
   const pulse = useSharedValue(1);
-  const running = state === "running";
+  const running = tone === "active";
   useEffect(() => {
     if (running && !reducedMotion) {
       pulse.value = withRepeat(
@@ -84,7 +83,7 @@ export function JobStatusDot({ state, tokens }: { state: CloudAgentState; tokens
             width: DOT,
             height: DOT,
             borderRadius: DOT / 2,
-            backgroundColor: jobToneColor(tokens, cloudAgentTone(state)),
+            backgroundColor: jobToneColor(tokens, tone),
           },
           style,
         ]}

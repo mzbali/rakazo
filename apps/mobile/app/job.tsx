@@ -1,16 +1,17 @@
 import { useLingui } from "@lingui/react/macro";
-import { allowedAppLink, ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentHttpsUrl, cloudAgentState } from "@rakazo/core";
+import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { cloudAgentModelLabel, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
-import { useJobStateLabel } from "../components/job-status";
+import { useJobPhaseLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
 import { useCloudJob } from "../lib/cloud-job";
 import { jobChatTarget } from "../lib/job-chat-target";
+import { jobLinks } from "../lib/job-links";
 import { native, useResolvedAppearance } from "../lib/native";
 import { errorText } from "../lib/user-error";
 
@@ -25,7 +26,7 @@ function JobDetails({ agentId }: { agentId: string }) {
   const router = useRouter();
   const tokens = mobileTokens();
   const colorScheme = useResolvedAppearance();
-  const stateLabel = useJobStateLabel();
+  const phaseLabel = useJobPhaseLabel();
   const { detail, error, refresh } = useCloudJob(agentId);
   const job = detail?.job;
   if (!job)
@@ -41,8 +42,8 @@ function JobDetails({ agentId }: { agentId: string }) {
         )}
       </View>
     );
-  const prHref = cloudAgentHttpsUrl(job.prUrl);
-  const href = prHref ?? cloudAgentHttpsUrl(job.url) ?? allowedAppLink(job.url);
+  const { t3: href, pr: prHref } = jobLinks(job);
+  const details = [cloudAgentModelLabel(job.note), job.projectName, job.branch].filter(Boolean);
   const label = {
     color: tokens.mutedForeground,
     ...typeScale.footnote,
@@ -57,11 +58,21 @@ function JobDetails({ agentId }: { agentId: string }) {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {href ? (
           <NativeActionButton
-            label={prHref ? t`Pull request` : t`Open`}
+            label={t`Open in T3`}
             prominence="secondary"
             size="compact"
             onPress={() => {
               Linking.openURL(href).catch(() => undefined);
+            }}
+          />
+        ) : null}
+        {prHref ? (
+          <NativeActionButton
+            label={t`View PR`}
+            prominence="secondary"
+            size="compact"
+            onPress={() => {
+              Linking.openURL(prHref).catch(() => undefined);
             }}
           />
         ) : null}
@@ -75,6 +86,20 @@ function JobDetails({ agentId }: { agentId: string }) {
           }}
         />
       </View>
+      {details.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={label}>{t`Details`}</Text>
+          {details.map((detail) => (
+            <Text
+              key={detail}
+              selectable
+              style={{ color: tokens.foreground, ...typeScale.secondary }}
+            >
+              {detail}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       {job.note ? (
         <Text style={{ color: tokens.mutedForeground, ...typeScale.footnote }}>{job.note}</Text>
       ) : null}
@@ -94,7 +119,7 @@ function JobDetails({ agentId }: { agentId: string }) {
               key={attempt.agentId}
               style={{ color: tokens.mutedForeground, ...typeScale.footnote }}
             >
-              {[stateLabel(cloudAgentState(attempt)), attempt.failureReason]
+              {[phaseLabel(cloudAgentPhase(attempt)), attempt.failureReason]
                 .filter(Boolean)
                 .join(": ")}
             </Text>

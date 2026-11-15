@@ -66,19 +66,103 @@ export function cloudAgentState(
   return job.queued ? "queued" : "running";
 }
 
-export function cloudAgentTone(state: CloudAgentState): CloudAgentTone {
+/**
+ * The plain word a job shows on every surface: the card, the jobs row, the sheet and web. Raw
+ * provider statuses never reach the owner; each phase has one translated label.
+ */
+export type CloudAgentPhase =
+  | "starting"
+  | "working"
+  | "checking"
+  | "done"
+  | "needsYou"
+  | "couldntStart"
+  | "stopped"
+  | "expired";
+
+type PhaseJob = Pick<
+  CloudAgentBlock,
+  "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion" | "launchFailed"
+> &
+  Partial<Pick<CloudAgentBlock, "review" | "url">>;
+
+export function cloudAgentPhase(job: PhaseJob): CloudAgentPhase {
+  const state = cloudAgentState(job);
   switch (state) {
     case "needsInput":
-      return "attention";
+      return "needsYou";
+    case "queued":
+      return "starting";
     case "running":
-      return "active";
+    case "unreachable":
+      return job.review === "checking" ? "checking" : job.url === "" ? "starting" : "working";
     case "finished":
+      return job.review === "checking" ? "checking" : "done";
+    case "expired":
+      return "expired";
+    case "cancelled":
+      return "stopped";
+    default:
+      return job.launchFailed ? "couldntStart" : "stopped";
+  }
+}
+
+/** The colour family of a job: a stopped job that failed is red, one the owner stopped is quiet. */
+export function cloudAgentJobTone(job: PhaseJob): CloudAgentTone {
+  const phase = cloudAgentPhase(job);
+  switch (phase) {
+    case "needsYou":
+      return "attention";
+    case "starting":
+    case "working":
+    case "checking":
+      return "active";
+    case "done":
       return "success";
-    case "failed":
+    case "couldntStart":
       return "danger";
+    case "stopped":
+      return job.status === "failed" ? "danger" : "muted";
     default:
       return "muted";
   }
+}
+
+/** "45s", "12m", "1h 5m": how long a job has been going. */
+export function formatCloudAgentElapsed(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 ? `${hours}h ${minutes % 60}m` : `${hours}h`;
+}
+
+/**
+ * How long the job has run: ticking against `nowMs` while it works, fixed at the end once it has
+ * stopped, and nothing for a finished job whose end was never recorded.
+ */
+export function cloudAgentElapsed(
+  job: Pick<CloudAgentBlock, "status" | "startedAt" | "endedAt">,
+  nowMs: number,
+): string | undefined {
+  const started = job.startedAt ? Date.parse(job.startedAt) : Number.NaN;
+  if (Number.isNaN(started)) return undefined;
+  if (job.status === "running") return formatCloudAgentElapsed(nowMs - started);
+  const ended = job.endedAt ? Date.parse(job.endedAt) : Number.NaN;
+  return Number.isNaN(ended) ? undefined : formatCloudAgentElapsed(ended - started);
+}
+
+/** Whether the elapsed clock should tick: the work has not ended. */
+export function cloudAgentTicking(job: Pick<CloudAgentBlock, "status" | "startedAt">): boolean {
+  return job.status === "running" && Boolean(job.startedAt);
+}
+
+/** The pull request's number from its link ("https://host/org/app/pull/12" gives 12). */
+export function cloudAgentPullRequestNumber(prUrl: string | undefined): number | undefined {
+  const link = cloudAgentHttpsUrl(prUrl);
+  const match = link ? new URL(link).pathname.match(/\/pull\/(\d+)\/?$/) : null;
+  return match ? Number(match[1]) : undefined;
 }
 
 /** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
@@ -138,6 +222,15 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
       : typeof started === "string" && !Number.isNaN(Date.parse(started))
         ? started
         : undefined;
+  const progress = clipped(payload.progress, CLOUD_AGENT_PROGRESS_MAX);
+  const resultExcerpt = clipped(payload.resultExcerpt, CLOUD_AGENT_EXCERPT_MAX);
+  const ended = payload.endedAt;
+  const endedAt =
+    ended instanceof Date
+      ? ended.toISOString()
+      : typeof ended === "string" && !Number.isNaN(Date.parse(ended))
+        ? ended
+        : undefined;
   const since = payload.unreachableSince;
   const unreachableSince =
     since instanceof Date
@@ -162,6 +255,9 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(unreachableSince ? { unreachableSince } : {}),
     ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
     ...(startedAt ? { startedAt } : {}),
+    ...(endedAt ? { endedAt } : {}),
+    ...(progress ? { progress } : {}),
+    ...(resultExcerpt ? { resultExcerpt } : {}),
     ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
       ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }
       : {}),
@@ -182,6 +278,25 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
       ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }
       : {}),
   };
+}
+
+const CLOUD_AGENT_PROGRESS_MAX = 240;
+const CLOUD_AGENT_EXCERPT_MAX = 400;
+
+/** Plain text on one line (markdown marks removed), cut at `max` with an ellipsis; nothing when there is none. */
+export function clipCloudAgentText(value: string, max: number): string {
+  const text = value
+    // Markdown reads as plain words on a card: links keep their text, marks and bullets go.
+    .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_]{1,3}(?=\S)|(?<=\S)[`*_]{1,3}/g, "")
+    .replace(/^[ \t]*(?:#{1,6}|[-*+])[ \t]+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+function clipped(value: unknown, max: number): string {
+  return typeof value === "string" ? clipCloudAgentText(value, max) : "";
 }
 
 const CLOUD_AGENT_REASON_MAX = 300;

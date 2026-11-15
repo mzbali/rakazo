@@ -28,22 +28,41 @@ describe("cloud agent tool boundary", () => {
   });
   it("rejects raw environment variables and malformed arguments before effect persistence", () => {
     for (const args of [
-      { prompt: "Task", environment: { TOKEN: "fake-secret" } },
-      { prompt: "" },
-      { prompt: "Task", openPr: "false" },
-      { prompt: "Task", images: [{ url: "http://example.test/image.png" }] },
-      { prompt: "Task", images: [{ url: "https://user:password@example.test/image.png" }] },
-      { prompt: "Task", modelSelection: { instanceId: "codex" } },
-      { prompt: "Task", modelSelection: { model: "m", options: [{ id: "x", value: {} }] } },
-      { prompt: "Task", workspaceStrategy: { type: "existing_worktree" } },
-      { prompt: "Task", runtimeMode: "anything" },
+      { prompt: "Task", title: "Task", environment: { TOKEN: "fake-secret" } },
+      { prompt: "", title: "Task" },
+      // The brief is not a name: a title is required, short and a few words.
+      { prompt: "Task" },
+      { prompt: "Task", title: "   " },
+      {
+        prompt: "Task",
+        title: "mzbali: 'i have prowlerr connected to rutracket that i search music",
+      },
+      { prompt: "Task", title: "one two three four five six seven eight nine" },
+      { prompt: "Task", title: "Task", openPr: "false" },
+      { prompt: "Task", title: "Task", images: [{ url: "http://example.test/image.png" }] },
+      {
+        prompt: "Task",
+        title: "Task",
+        images: [{ url: "https://user:password@example.test/image.png" }],
+      },
+      { prompt: "Task", title: "Task", modelSelection: { instanceId: "codex" } },
+      {
+        prompt: "Task",
+        title: "Task",
+        modelSelection: { model: "m", options: [{ id: "x", value: {} }] },
+      },
+      { prompt: "Task", title: "Task", workspaceStrategy: { type: "existing_worktree" } },
+      { prompt: "Task", title: "Task", runtimeMode: "anything" },
     ]) {
       expect(validCloudAgentArgs("cloud_agent_launch", args)).toBe(false);
     }
-    expect(validCloudAgentArgs("cloud_agent_launch", { prompt: "Task", openPr: false })).toBe(true);
+    expect(
+      validCloudAgentArgs("cloud_agent_launch", { prompt: "Task", title: "Task", openPr: false }),
+    ).toBe(true);
     expect(
       validCloudAgentArgs("cloud_agent_launch", {
         prompt: "Task",
+        title: "Task",
         modelSelection: {
           model: "m",
           instanceId: "codex",

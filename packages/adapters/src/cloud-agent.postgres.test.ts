@@ -140,6 +140,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     const launch = async () => {
       const result = await tool("launch", {
         prompt: "Add README",
+        title: "README setup",
         repository: "https://github.com/example/demo",
         openPr: true,
       });
@@ -324,9 +325,12 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.launch()).toBe(id);
     expect(await prisma.cloudAgent.count({ where: { userId: h.id } })).toBe(1);
     await h.poll(id);
+    // The provider names its agent after the prompt; the card keeps the launch's title.
+    expect(await h.state(id)).toMatchObject({ title: "README setup" });
     await h.finish(id);
     expect(await h.state(id)).toMatchObject({
       status: "finished",
+      title: "README setup",
       wakeGeneration: 0,
       nextPollAt: null,
     });
@@ -395,7 +399,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
           h.context,
           h.run,
           "cloud_agent_launch",
-          { prompt: "Add README" },
+          { prompt: "Add README", title: "Add README" },
         ),
       ),
     ).rejects.toBeInstanceOf(RunHistoryWriteError);
@@ -407,7 +411,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     const h = await setup();
     // A chat that is gone by the time the card is written fails the card transaction.
     h.run.threadId = "missing-thread";
-    await expect(h.tool("launch", { prompt: "Task" })).rejects.toThrow();
+    await expect(h.tool("launch", { prompt: "Task", title: "Task" })).rejects.toThrow();
     expect(await prisma.cloudAgent.count({ where: { userId: h.id } })).toBe(0);
     expect(h.wire.requests).toHaveLength(0);
   });
@@ -986,7 +990,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
           ),
         );
       const launch = async (args: Record<string, unknown> = {}) => {
-        const result = await tool("launch", { prompt: "Add README", ...args });
+        const result = await tool("launch", { prompt: "Add README", title: "Add README", ...args });
         if (!("id" in result)) throw new Error("Launch failed");
         return result.id;
       };
@@ -1006,7 +1010,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
             { ...h.context, operationId },
             h.run,
             "cloud_agent_launch",
-            { prompt: "Add README" },
+            { prompt: "Add README", title: "Add README" },
           ),
         );
       const first = await launch((await forActor())!);
@@ -1066,7 +1070,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
 
     it("keeps the deployment's agents reachable once the user connects T3 Code", async () => {
       const { h, actor, tool, forActor } = await connected();
-      const cursor = await h.tool("launch", { prompt: "Fix tests" });
+      const cursor = await h.tool("launch", { prompt: "Fix tests", title: "Fix tests" });
       if (!("id" in cursor)) throw new Error("Launch failed");
       await connectServer(actor);
       expect((await forActor())!.key).not.toBe(h.connection.key);

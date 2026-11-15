@@ -133,6 +133,7 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
           "cloud_agent_launch",
           {
             repository: "https://github.com/example/demo",
+            title: "Demo task",
             ...args,
           },
         ),
@@ -325,6 +326,7 @@ describePostgres("cloud agent attempts and one card per request (PostgreSQL + em
         "cloud_agent_launch",
         {
           prompt: "Fix the build",
+          title: "Fix the build",
           replaces: started,
         },
       ),

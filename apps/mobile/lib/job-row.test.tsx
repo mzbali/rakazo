@@ -81,7 +81,7 @@ describe("job row", () => {
     expect(container.textContent).toContain("2m");
     expect(container.textContent).toContain("Added the README.");
     expect(container.textContent).toContain("PR #12");
-    expect(container.textContent).toContain("Checks unknown");
+    expect(container.textContent).not.toContain("Checks");
     expect(container.textContent).not.toContain("stale line");
     act(() => vi.advanceTimersByTime(120_000));
     expect(container.textContent).toContain("2m");
@@ -93,6 +93,13 @@ describe("job row", () => {
     expect(container.firstElementChild?.firstElementChild?.nextElementSibling?.textContent).toMatch(
       /^Add a README.*Working/,
     );
+  });
+
+  it("shows the needs-you state once and the question without a prefix", () => {
+    render({ ownerQuestion: "Which branch should ship?" });
+    expect(container.textContent).toContain("Which branch should ship?");
+    expect(container.textContent?.match(/Needs you/g)).toHaveLength(1);
+    expect(container.textContent).not.toContain("Needs you:");
   });
 
   it("keeps the model, project and branch off the face", () => {

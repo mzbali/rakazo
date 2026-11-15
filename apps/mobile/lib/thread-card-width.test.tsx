@@ -442,7 +442,7 @@ describe("thread cards", () => {
     act(() => buttons[1]!.click());
     expect(Linking.openURL).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
     expect(container.textContent).toContain("PR #12");
-    expect(container.textContent).toContain("Checks unknown");
+    expect(container.textContent).not.toContain("Checks unknown");
   });
 
   it("groups jobs from one message behind a header that counts them by state", () => {

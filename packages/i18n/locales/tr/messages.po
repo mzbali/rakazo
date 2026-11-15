@@ -2400,11 +2400,6 @@ msgstr "Bağlantı kontrol ediliyor…"
 msgid "Checking…"
 msgstr "Kontrol ediliyor…"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Checks unknown"
-msgstr ""
-
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Bir bot şekli ve rengi seçin veya görüntü yükleyin"
@@ -6956,11 +6951,6 @@ msgstr "Devralma bekliyor"
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "Seni bekliyor"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts

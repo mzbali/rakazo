@@ -40,7 +40,6 @@ export const JobRow = memo(function JobRow({
   const now = useNow(cloudAgentTicking(job), started);
   const time = cloudAgentElapsed(job, now);
   const muted = { color: tokens.mutedForeground, ...typeScale.footnote };
-  const ownerQuestion = job.ownerQuestion;
   const prNumber = cloudAgentPullRequestNumber(job.prUrl);
   const live = phase === "starting" || phase === "working" || phase === "checking";
   return (
@@ -109,11 +108,6 @@ export const JobRow = memo(function JobRow({
             <Text numberOfLines={1} style={muted}>
               {t`PR #${prNumber}`}
             </Text>
-            {/* No source reports a pull request's checks, so they read as unknown, never as passing. */}
-            <Text style={muted}>·</Text>
-            <Text numberOfLines={1} style={muted}>
-              {t`Checks unknown`}
-            </Text>
           </View>
         ) : null}
         {job.botName ? (
@@ -138,7 +132,7 @@ export const JobRow = memo(function JobRow({
         ) : null}
         {phase === "needsYou" && job.ownerQuestion ? (
           <Text numberOfLines={3} style={{ color: tokens.warning, ...typeScale.footnote }}>
-            {t`Needs you: ${ownerQuestion}`}
+            {job.ownerQuestion}
           </Text>
         ) : null}
       </View>

@@ -2400,11 +2400,6 @@ msgstr "Comprobando la conexión…"
 msgid "Checking…"
 msgstr "Comprobando…"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Checks unknown"
-msgstr ""
-
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Elige una forma y color del bot, o sube una imagen"
@@ -6956,11 +6951,6 @@ msgstr "Necesita toma de control"
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "Te necesita"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts

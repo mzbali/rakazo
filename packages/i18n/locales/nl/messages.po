@@ -2400,11 +2400,6 @@ msgstr "Verbinding controleren…"
 msgid "Checking…"
 msgstr "Bezig met controleren…"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Checks unknown"
-msgstr ""
-
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "Kies een botvorm, kleur of upload een afbeelding"
@@ -6956,11 +6951,6 @@ msgstr "Heeft overname nodig"
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "Heeft jou nodig"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts

@@ -75,7 +75,7 @@ it("offers Open in T3 and View PR with the pull request chip", async () => {
     ["View PR", "https://github.com/acme/app/pull/12"],
   ]);
   expect(card.textContent).toContain("PR #12");
-  expect(card.textContent).toContain("Checks unknown");
+  expect(card.textContent).not.toContain("Checks");
 });
 
 it("keeps the model and folder off the card face", async () => {
@@ -101,3 +101,24 @@ it("holds the clock still once the work has ended", async () => {
   ).textContent;
   expect(text).toContain("12m");
 });
+
+it("shows the needs-you state only once, followed by the question", async () => {
+  const card = await render({ ...running, ownerQuestion: "Which branch should ship?" });
+  expect(card.textContent).toContain("Which branch should ship?");
+  expect(card.textContent?.match(/Needs you/g)).toHaveLength(1);
+});
+
+it("hides a refused launch's thread action even if a stale URL is present", async () => {
+  const card = await render({ ...running, status: "failed", launchFailed: true });
+  expect(card.querySelector("a")).toBeNull();
+});
+
+it.each(["cancelled", "failed", "expired"] as const)(
+  "opens a %s job only with a thread URL",
+  async (status) => {
+    expect((await render({ ...running, status, url: "" })).querySelector("a")).toBeNull();
+    expect((await render({ ...running, status })).querySelector("a")?.textContent).toBe(
+      "Open in T3",
+    );
+  },
+);

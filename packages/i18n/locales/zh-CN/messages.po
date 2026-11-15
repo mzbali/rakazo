@@ -2400,11 +2400,6 @@ msgstr "正在检查连接…"
 msgid "Checking…"
 msgstr "正在检查…"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Checks unknown"
-msgstr ""
-
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
 msgstr "选择 Bot 形状和颜色，或上传图片"
@@ -6956,11 +6951,6 @@ msgstr "需要接管"
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "需要接管"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/CloudAgentCard.tsx
-msgid "Needs you: {ownerQuestion}"
-msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts

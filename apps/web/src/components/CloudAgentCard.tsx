@@ -69,7 +69,9 @@ export function CloudAgentCard({
   const prHref = cloudAgentHttpsUrl(block.prUrl);
   const prNumber = cloudAgentPullRequestNumber(block.prUrl);
   const ownerQuestion = block.ownerQuestion;
-  const href = cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
+  const href = block.launchFailed
+    ? undefined
+    : (cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url));
   const live = phase === "starting" || phase === "working" || phase === "checking";
   return (
     <Card size="sm" className="w-80 max-w-full" data-testid="cloud-agent-card">
@@ -116,21 +118,15 @@ export function CloudAgentCard({
         ) : null}
         {phase === "needsYou" && ownerQuestion ? (
           <span className="font-medium text-warning" dir="auto">
-            <Trans>Needs you: {ownerQuestion}</Trans>
+            {ownerQuestion}
           </span>
         ) : null}
         {prHref || href ? (
           <div className="flex flex-wrap items-center gap-2">
             {prNumber !== undefined ? (
-              <>
-                <Badge variant="outline">
-                  <Trans>PR #{prNumber}</Trans>
-                </Badge>
-                {/* No source reports a pull request's checks, so they read as unknown, never as passing. */}
-                <Badge variant="outline" className="text-muted-foreground">
-                  <Trans>Checks unknown</Trans>
-                </Badge>
-              </>
+              <Badge variant="outline">
+                <Trans>PR #{prNumber}</Trans>
+              </Badge>
             ) : null}
             {href ? (
               <a

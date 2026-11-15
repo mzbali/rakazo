@@ -38,7 +38,7 @@ function ModelLogo({ family, size }: { family: Model["family"]; size: number }) 
   );
 }
 
-/** A job's model as T3's composer chip shows it: the maker's mark, then "Sonnet 5.5". */
+/** A job's model as T3's composer chip shows it: the maker's mark, then "Sonnet 5.5" and its effort, when known, as its own element. */
 export function JobModel({ note }: { note: string | undefined }) {
   const tokens = mobileTokens();
   const model = cloudAgentModel(note);
@@ -52,6 +52,11 @@ export function JobModel({ note }: { note: string | undefined }) {
       >
         {model.name}
       </Text>
+      {model.effort ? (
+        <Text numberOfLines={1} style={{ color: tokens.faintForeground, ...typeScale.footnote }}>
+          {model.effort}
+        </Text>
+      ) : null}
     </View>
   );
 }

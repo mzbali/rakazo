@@ -134,6 +134,11 @@ describe("cloud agent job summary", () => {
     expect(cloudAgentModel("Picked claude-opus-4-1-20250805 on a (normal).")?.name).toBe(
       "Opus 4.1",
     );
+    expect(cloudAgentModel("Picked claude-opus-5-5 on a (hard; effort medium).")).toEqual({
+      name: "Opus 5.5",
+      family: "claude",
+      effort: "Medium",
+    });
     expect(cloudAgentModel("Picked mystery-model on a (ui).")).toEqual({ name: "Mystery Model" });
     expect(cloudAgentModel("No simple route is available; the default was used.")).toBeUndefined();
     expect(cloudAgentModel(undefined)).toBeUndefined();

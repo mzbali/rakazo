@@ -50,6 +50,8 @@ export const ROSTER_PROCEDURES: Record<string, RosterScope> = {
   "threads.markRead": actorOnly,
   "threads.markUnread": actorOnly,
   "threads.snooze": actorOnly,
+  // Clearing a finished job drops it from Jobs and home on the owner's other devices too.
+  "cloudAgents.clear": actorOnly,
   "spaces.create": actorOnly,
   "spaces.rename": namedSpace,
   "spaces.remove": namedSpace,

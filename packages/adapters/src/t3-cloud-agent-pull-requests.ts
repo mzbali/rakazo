@@ -71,7 +71,8 @@ const ENDED_RUNS = new Set(["completed", "failed", "cancelled", "interrupted", "
 
 /**
  * The pull request the card shows: the one being watched, else the newest the thread has. A watch
- * is idle when its run has ended, so only the watch keeps the job open.
+ * is idle when its run has ended and the thread awaits nothing but pull request watches, so
+ * only the watch keeps the job open; a subagent or command still running is work, not waiting.
  */
 export function shownPullRequest(
   { pullRequests, work }: ReturnType<typeof parseThreadWork>,
@@ -88,7 +89,7 @@ export function shownPullRequest(
     prUrl: shown.url,
     prState: shown.state,
     watching,
-    watchIdle: watching && run !== null && ENDED_RUNS.has(run.status),
+    watchIdle: watching && !work.length && run !== null && ENDED_RUNS.has(run.status),
     work,
     pullRequests: listed,
   };

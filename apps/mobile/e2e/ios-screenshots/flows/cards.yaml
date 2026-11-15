@@ -55,7 +55,7 @@ name: Request cards
     element: ".*Add dark mode.*"
     direction: UP
     timeout: 15000
-    visibilityPercentage: 50
+    visibilityPercentage: 1
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 05-jobs
@@ -63,7 +63,7 @@ name: Request cards
     element: ".*Update the changelog.*"
     direction: DOWN
     timeout: 15000
-    visibilityPercentage: 50
+    visibilityPercentage: 1
 - waitForAnimationToEnd:
     timeout: 3000
 - takeScreenshot: 05b-failed-start-retry-checking

@@ -3,6 +3,7 @@ import type { AdapterContext, ArtifactStore, CloudAgentSnapshot } from "@rakazo/
 import { ARTIFACT_NAME_MAX_LENGTH } from "@rakazo/contracts";
 import type { CloudAgent, Prisma, PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
 import type { ObserverEgress } from "./scoped-goal-observers.js";
 import { fetchSafeHttpRequest } from "./web-ssrf.js";
 
@@ -157,12 +158,17 @@ async function getJson(url: string, egress: ObserverEgress | undefined, token?: 
  * the row itself and never throws, so a GitHub outage or a private repository cannot hold up the job.
  */
 export async function refreshCloudAgentProof(
-  deps: CloudAgentProofDeps,
+  allDeps: CloudAgentProofDeps,
   agent: CloudAgent,
   snapshot: Pick<CloudAgentSnapshot, "status" | "prUrl" | "result">,
   context: AdapterContext,
   now = new Date(),
 ) {
+  // A user-connected provider names its own pull request URL, so the deployment's token is not
+  // used for it: it could be made to read, and copy out, another owner's private repository.
+  const deps = agent.providerKey.startsWith(USER_CLOUD_AGENT_KEY_PREFIX)
+    ? { ...allDeps, githubToken: undefined }
+    : allDeps;
   try {
     const pr = parseGithubPullRequest(snapshot.prUrl ?? agent.prUrl);
     if (!pr) return;

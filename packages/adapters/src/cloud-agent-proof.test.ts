@@ -1,6 +1,7 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import type { CloudAgent } from "@rakazo/db";
 import { describe, expect, it } from "vitest";
+import { USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
 import {
   CHECKS_REFRESH_WITH_TOKEN_MS,
   checksFromRuns,
@@ -35,6 +36,7 @@ function setup(routes: Record<string, () => Response>, initial: Partial<CloudAge
     botId: "bot",
     status: "running",
     prUrl: PR,
+    providerKey: "deployment",
     proofImages: null,
     checksState: null,
     checksAt: null,
@@ -250,6 +252,21 @@ describe("a private repository's proof", () => {
     ].join("\n");
     expect(trustedImageUrls(text, repo)).toEqual([]);
     expect(trustedImageUrls(text, repo, true)).toEqual([blob("home").replace("?raw=true", "")]);
+  });
+
+  it("never uses the deployment's token for a user-connected provider's job", async () => {
+    const { row, deps, auth } = withAuth(privateRoutes(), {
+      providerKey: `${USER_CLOUD_AGENT_KEY_PREFIX}abc`,
+    });
+    await refreshCloudAgentProof(
+      { ...deps, githubToken: "secret-token" },
+      row,
+      { status: "finished", prUrl: PR },
+      context,
+    );
+    expect(auth.length).toBeGreaterThan(0);
+    expect(auth.every((call) => call.authorization === null)).toBe(true);
+    expect(storedProofImages(row).map((image) => image.source)).toEqual([asset("public")]);
   });
 
   it("reads a running job's checks more often with a token", async () => {

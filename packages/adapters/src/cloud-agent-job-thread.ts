@@ -2,7 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { escapePromptData } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
 import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
-import { helperPrompt } from "./background-helpers.js";
+import { helperPrompt } from "./background-helpers.prompt.js";
 
 type Tx = Prisma.TransactionClient;
 type HelperBlock = Extract<MessageBlock, { kind: "subagent" }>;

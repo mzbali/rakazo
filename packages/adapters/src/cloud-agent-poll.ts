@@ -41,6 +41,7 @@ import {
   cloudAgentWakeNonces,
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
+import { WATCH_LIMIT_RESULT, watchOutlasted } from "./cloud-agent-watch.js";
 import { notifyCloudAgentUnreachable } from "./run-notifications.js";
 import { goalDrivesAgent, recordScopedGoalBackup, startScopedGoal } from "./scoped-goal-service.js";
 
@@ -127,7 +128,7 @@ export async function pollCloudAgent(
           deps,
           agent,
           {
-            ...snapshotData(snapshot),
+            ...snapshotData(snapshot, agent),
             // A wait for quota left its note; the started agent replaces it.
             launchNote: snapshot.launchNote ?? null,
             remoteId: snapshot.id,
@@ -183,7 +184,7 @@ export async function pollCloudAgent(
         deps,
         agent,
         {
-          ...(pending ? { status: "cancelled" } : snapshotData(snapshot)),
+          ...(pending ? { status: "cancelled" } : snapshotData(snapshot, agent)),
           cancelRequested: !pending && snapshot.status === "running",
           followup: Prisma.DbNull,
           followupDispatchedAt: null,
@@ -213,7 +214,7 @@ export async function pollCloudAgent(
         await finishPoll(
           deps,
           agent,
-          { ...snapshotData(snapshot), followup: Prisma.DbNull, followupDispatchedAt: null },
+          { ...snapshotData(snapshot, agent), followup: Prisma.DbNull, followupDispatchedAt: null },
           false,
           snapshot.missedAttention,
         );
@@ -241,7 +242,7 @@ export async function pollCloudAgent(
             agent.remoteCursor ?? undefined,
           );
           await finishPoll(deps, agent, {
-            ...snapshotData(snapshot),
+            ...snapshotData(snapshot, agent),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
@@ -270,7 +271,7 @@ export async function pollCloudAgent(
           if (!question && (!snapshot.latestRunId || snapshot.latestRunId === agent.latestRunId))
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
-            ...snapshotData(snapshot),
+            ...snapshotData(snapshot, agent),
             ...(steerKey ? { steeredAt: new Date() } : {}),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
@@ -307,7 +308,17 @@ export async function pollCloudAgent(
     );
     // Before the card repaints, so it shows the checks and screenshots this poll found.
     await refreshCloudAgentProof(deps, agent, snapshot, context);
-    await finishPoll(deps, agent, snapshotData(snapshot), false, snapshot.missedAttention);
+    const data = snapshotData(snapshot, agent);
+    // A watch is how a job waits on its pull request, not a reason to wait for ever: after a day
+    // the job is handed back as it stands, and the bot is woken to decide what comes next.
+    const waitedTooLong = watchOutlasted(snapshot, agent);
+    await finishPoll(
+      deps,
+      agent,
+      waitedTooLong ? { ...data, status: "finished", resultText: WATCH_LIMIT_RESULT } : data,
+      false,
+      snapshot.missedAttention,
+    );
   } catch (error) {
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
       // The remote agent or run is gone. Polling it again can never succeed.
@@ -345,7 +356,10 @@ function fence(agent: CloudAgent) {
   return { id: agent.id, version: agent.version, leaseToken: agent.leaseToken };
 }
 
-function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateManyMutationInput {
+function snapshotData(
+  snapshot: CloudAgentSnapshot,
+  agent: Pick<CloudAgent, "watchingSince">,
+): Prisma.CloudAgentUpdateManyMutationInput {
   return {
     ...(snapshot.title ? { title: snapshot.title } : {}),
     status: snapshot.status,
@@ -361,6 +375,14 @@ function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateMany
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
     latestRunId: snapshot.latestRunId,
+    // Absent means nothing new was read; the watch's clock starts when it is first seen.
+    ...(snapshot.prState ? { prState: snapshot.prState } : {}),
+    ...(snapshot.watching !== undefined
+      ? {
+          prWatching: snapshot.watching,
+          watchingSince: snapshot.watching ? (agent.watchingSince ?? new Date()) : null,
+        }
+      : {}),
     ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
     ...(snapshot.attention !== undefined
       ? {

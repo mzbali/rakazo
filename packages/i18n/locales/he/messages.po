@@ -2420,12 +2420,27 @@ msgstr "בודק חיבור…"
 msgid "Checking…"
 msgstr "בודק…"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks failing"
 msgstr ""
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks running"
 msgstr ""
 
 #: apps/mobile/components/job-proof.tsx
@@ -2646,6 +2661,11 @@ msgstr "סגירת הגדרות המשתמש"
 #: apps/web/src/pages/VoiceSettingsOverlay.tsx
 msgid "Close voice settings"
 msgstr "סגירת הגדרות הקול"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "closed"
+msgstr ""
 
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
@@ -6652,6 +6672,11 @@ msgstr "מזכיר תכונות של OpenClaw"
 msgid "Mentions: {mentions}"
 msgstr "מזכיר: {mentions}"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "merged"
+msgstr ""
+
 #: apps/mobile/lib/search-sheet.ts
 #: apps/mobile/lib/thread-message-text.ts
 #: apps/web/src/pages/shell/chat-shared.ts
@@ -8116,6 +8141,10 @@ msgstr "תוספים"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "פרסום הודעה בצ׳אט כשבדיקה לא מוצאת שינויים. הרוטינה לא תרוץ."
+
+#: apps/mobile/components/job-pr-line.tsx
+msgid "PR #{number}"
+msgstr ""
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -11519,6 +11548,11 @@ msgstr "הער"
 #: apps/web/src/pages/settings-nav.ts
 msgid "Wallet"
 msgstr "ארנק"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "watching"
+msgstr ""
 
 #: apps/web/src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"

@@ -2420,12 +2420,27 @@ msgstr "接続を確認中…"
 msgid "Checking…"
 msgstr "確認中…"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks failing"
 msgstr ""
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr ""
+
 #: apps/mobile/components/job-proof.tsx
 msgid "Checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "checks running"
 msgstr ""
 
 #: apps/mobile/components/job-proof.tsx
@@ -2646,6 +2661,11 @@ msgstr "ユーザー設定を閉じる"
 #: apps/web/src/pages/VoiceSettingsOverlay.tsx
 msgid "Close voice settings"
 msgstr "音声設定を閉じる"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "closed"
+msgstr ""
 
 #: apps/web/src/pages/memory-providers/ConnectionModeFields.tsx
 msgid "Cloud"
@@ -6652,6 +6672,11 @@ msgstr "OpenClawの機能に言及しています"
 msgid "Mentions: {mentions}"
 msgstr "言及: {mentions}"
 
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "merged"
+msgstr ""
+
 #: apps/mobile/lib/search-sheet.ts
 #: apps/mobile/lib/thread-message-text.ts
 #: apps/web/src/pages/shell/chat-shared.ts
@@ -8116,6 +8141,10 @@ msgstr "プラグイン"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Post a chat message when a check finds no changes. The routine won't run."
 msgstr "確認で変更が見つからなかったときにチャットメッセージを投稿します。ルーティンは実行されません。"
+
+#: apps/mobile/components/job-pr-line.tsx
+msgid "PR #{number}"
+msgstr ""
 
 #: apps/mobile/components/job-row.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
@@ -11519,6 +11548,11 @@ msgstr "起動"
 #: apps/web/src/pages/settings-nav.ts
 msgid "Wallet"
 msgstr "ウォレット"
+
+#: apps/mobile/components/job-pr-line.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "watching"
+msgstr ""
 
 #: apps/web/src/components/ModelCredits.tsx
 msgid "Web, desktop and mobile"

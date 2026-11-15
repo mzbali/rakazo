@@ -8,6 +8,7 @@ import {
   cloudAgentPhase,
   cloudAgentProjectName,
   cloudAgentPullRequestNumber,
+  cloudAgentPullRequestParts,
   cloudAgentShelf,
   cloudAgentState,
   cloudAgentTicking,
@@ -205,6 +206,18 @@ describe("cloud agent clock", () => {
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app/pull/12/")).toBe(12);
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app")).toBeUndefined();
     expect(cloudAgentPullRequestNumber("http://github.com/acme/app/pull/12")).toBeUndefined();
+  });
+  it("lists what the pull request line says after the number", () => {
+    expect(cloudAgentPullRequestParts({ checks: "running", watching: true })).toEqual([
+      "checksRunning",
+      "watching",
+    ]);
+    expect(cloudAgentPullRequestParts({ checks: "failing" })).toEqual(["checksFailing"]);
+    expect(cloudAgentPullRequestParts({})).toEqual([]);
+    // Once it landed, old checks and the watch no longer say anything.
+    expect(
+      cloudAgentPullRequestParts({ prState: "merged", checks: "passing", watching: true }),
+    ).toEqual(["merged"]);
   });
   it("clips progress and the result excerpt to one bounded line", () => {
     const block = cloudAgentBlockFromPayload({

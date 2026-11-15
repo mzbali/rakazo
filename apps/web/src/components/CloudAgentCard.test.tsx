@@ -122,3 +122,17 @@ it.each(["cancelled", "failed", "expired"] as const)(
     );
   },
 );
+
+it("shows one pull request line with the checks and the watch, and merged when it landed", async () => {
+  const watched = {
+    ...running,
+    prUrl: "https://github.com/example/demo/pull/72",
+    checks: "running" as const,
+    watching: true,
+  };
+  expect((await render(watched)).textContent).toContain("PR #72checks runningwatching");
+  const landed = { ...watched, status: "finished" as const, prState: "merged" as const };
+  const text = (await render({ ...landed, watching: undefined })).textContent;
+  expect(text).toContain("PR #72merged");
+  expect(text).not.toContain("checks");
+});

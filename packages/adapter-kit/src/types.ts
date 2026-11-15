@@ -1541,6 +1541,10 @@ export interface CloudAgentSnapshot {
   status: CloudAgentStatus;
   branch?: string;
   prUrl?: string;
+  /** The pull request's state, when the provider reports it. */
+  prState?: "open" | "merged" | "closed";
+  /** The agent is watching its open pull request and gets woken by what happens to it. */
+  watching?: boolean;
   latestRunId?: string;
   /** Providers with an event feed: the cursor this snapshot was read through. */
   cursor?: number;

@@ -21,7 +21,8 @@ import { phaseCounts } from "../../lib/job-format";
 import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/user-bubble";
 import { withUserBubble } from "../../lib/user-bubble";
-import { JobChecksChip, JobProofImages } from "../job-proof";
+import { JobPrLine } from "../job-pr-line";
+import { JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
 import { NativeActionButton } from "../native-action-button";
@@ -236,7 +237,7 @@ export function CloudAgentCards({
                             }}
                           />
                         ) : null}
-                        {links.pr ? <JobChecksChip checks={job.checks} /> : null}
+                        {links.pr ? <JobPrLine job={job} /> : null}
                       </>
                     ) : undefined
                   }

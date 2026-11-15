@@ -19,7 +19,7 @@ describe("cloud jobs context changes", () => {
         }),
     );
     const old = refreshCloudJobs();
-    expect(refreshCloudJobs()).toBe(old);
+    await Promise.resolve();
     resetCloudJobs();
     vi.mocked(rpc).mockResolvedValueOnce([]);
     await refreshCloudJobs();
@@ -39,9 +39,31 @@ describe("cloud jobs context changes", () => {
         }),
     );
     const old = refreshCloudJobs();
+    await Promise.resolve();
     resetCloudJobs();
     rejectOld(new Error("old session"));
     await old;
     expect(cloudJobsSnapshot()).toEqual({ jobs: null, error: null });
+  });
+});
+
+describe("a signal during a read", () => {
+  it("is not lost: one more read runs and the newer data wins", async () => {
+    const job = (title: string) => [{ agentId: "a", title }] as never;
+    let finishFirst!: (jobs: never) => void;
+    vi.mocked(rpc).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    );
+    vi.mocked(rpc).mockResolvedValueOnce(job("new"));
+    const first = refreshCloudJobs();
+    await Promise.resolve();
+    const signalled = refreshCloudJobs();
+    finishFirst(job("old"));
+    await Promise.all([first, signalled]);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(cloudJobsSnapshot().jobs).toEqual(job("new"));
   });
 });

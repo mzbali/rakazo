@@ -673,6 +673,20 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "cancelled", followup: null });
   });
 
+  it("stops a running job whose steer was not yet sent", async () => {
+    const h = await setup();
+    const id = await h.launch();
+    await h.poll(id);
+    await prisma.cloudAgent.update({
+      where: { id },
+      data: { followup: { prompt: "Also add tests", steerKey: "steer-key-1" } },
+    });
+    await h.tool("cancel", { id });
+    await h.poll(id);
+    expect(await h.state(id)).toMatchObject({ status: "cancelled", followup: null });
+    expect((await h.runs(id)).map((run) => run.status)).toEqual(["CANCELLED"]);
+  });
+
   it("recovers remote identity after the database fails following an accepted create", async () => {
     const h = await setup();
     const id = await h.launch();

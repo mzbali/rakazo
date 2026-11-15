@@ -1,11 +1,10 @@
 import type { CloudAgentJob } from "@rakazo/contracts";
-import { cloudAgentShelf, cloudAgentState } from "@rakazo/core";
+import { cloudAgentShelf, cloudAgentState, createRefreshCoalescer } from "@rakazo/core";
 import { rpc } from "./api";
 
 type Snapshot = { jobs: CloudAgentJob[] | null; error: unknown };
 
 let snapshot: Snapshot = { jobs: null, error: null };
-let inFlight: Promise<void> | null = null;
 let contextGeneration = 0;
 const listeners = new Set<() => void>();
 
@@ -25,28 +24,29 @@ export function subscribeCloudJobs(listener: () => void) {
   };
 }
 
+async function readCloudJobs() {
+  const generation = contextGeneration;
+  try {
+    const jobs = await rpc("cloudAgents/list", undefined);
+    if (generation === contextGeneration) publish({ jobs, error: null });
+  } catch (error) {
+    if (generation === contextGeneration) publish({ jobs: snapshot.jobs, error });
+  }
+}
+
+// A signal that lands while a read is out gets one more read when it ends.
+let refresher = createRefreshCoalescer(readCloudJobs);
+
 /** One load at a time, shared by the home header's count and the Jobs screen. */
 export function refreshCloudJobs(): Promise<void> {
-  if (inFlight) return inFlight;
-  const generation = contextGeneration;
-  const request = rpc("cloudAgents/list", undefined)
-    .then((jobs) => {
-      if (generation === contextGeneration) publish({ jobs, error: null });
-    })
-    .catch((error: unknown) => {
-      if (generation === contextGeneration) publish({ jobs: snapshot.jobs, error });
-    })
-    .finally(() => {
-      if (inFlight === request) inFlight = null;
-    });
-  inFlight = request;
-  return request;
+  return refresher.invalidate();
 }
 
 /** Forget the jobs when the account changes, so another account never sees them. */
 export function resetCloudJobs() {
   contextGeneration += 1;
-  inFlight = null;
+  refresher.dispose();
+  refresher = createRefreshCoalescer(readCloudJobs);
   publish({ jobs: null, error: null });
 }
 

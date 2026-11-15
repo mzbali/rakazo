@@ -41,6 +41,7 @@ export const JobRow = memo(function JobRow({
         : formatActivityRelativeTime(job.startedAt!);
   const model = cloudAgentModelLabel(job.note);
   const muted = { color: tokens.mutedForeground, ...typeScale.footnote };
+  const ownerQuestion = job.ownerQuestion;
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
       <View style={{ height: 20, justifyContent: "center" }}>
@@ -83,8 +84,13 @@ export const JobRow = memo(function JobRow({
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, minWidth: 0 }}>
           <Text style={{ flexShrink: 0, color: tone, ...typeScale.footnote, fontWeight: "500" }}>
-            {stateLabel(state)}
+            {job.launchFailed
+              ? t`Couldn't start`
+              : job.review === "checking" && state !== "needsInput"
+                ? t`Checking`
+                : stateLabel(state)}
           </Text>
+
           {model ? (
             <>
               <Text style={muted}>·</Text>
@@ -133,9 +139,14 @@ export const JobRow = memo(function JobRow({
             {job.botName}
           </Text>
         ) : null}
-        {job.ownerQuestion ? (
+        {state === "failed" && job.failureReason ? (
+          <Text numberOfLines={3} style={{ color: tokens.destructive, ...typeScale.footnote }}>
+            {job.failureReason}
+          </Text>
+        ) : null}
+        {state === "needsInput" && job.ownerQuestion ? (
           <Text numberOfLines={3} style={{ color: tokens.warning, ...typeScale.footnote }}>
-            {t`Needs you: ${job.ownerQuestion}`}
+            {t`Needs you: ${ownerQuestion}`}
           </Text>
         ) : null}
       </View>

@@ -423,6 +423,7 @@ const working: Scenario = {
       {
         kind: "cloud_agent",
         agentId: "cloud-1",
+        review: "checking",
         title: "Fix flaky calendar test",
         status: "running",
         url: "https://example.test/agents/cloud-1",
@@ -434,7 +435,9 @@ const working: Scenario = {
         kind: "cloud_agent",
         agentId: "cloud-2",
         title: "Add CSV export",
-        status: "finished",
+        status: "failed",
+        launchFailed: true,
+        failureReason: "The project has no origin to start from.",
         url: "https://example.test/agents/cloud-2",
         prUrl: "https://example.test/pull/42",
       },

@@ -23,6 +23,8 @@ import {
   resultPrompt,
   startedNote,
 } from "./background-helpers.prompt.js";
+import { paintCloudAgentCard } from "./cloud-agent-card.js";
+import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { helperResultText, MAX_PARALLEL_SUBAGENTS } from "./pi-runtime-subagent.js";
 import type { RunContext } from "./run-context.js";
@@ -197,6 +199,12 @@ export async function returnHelperOutcome(
         select: { threadId: true },
       })
     : null;
+  const jobAgentId = jobAgentIdOf(
+    await deps.prisma.run.findUnique({
+      where: { id: run.id },
+      select: { clientNonce: true },
+    }),
+  );
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat (and the cloud-agent wake): thread first.
     if (source) await tx.$queryRaw`SELECT id FROM threads WHERE id = ${source.threadId} FOR UPDATE`;
@@ -216,41 +224,84 @@ export async function returnHelperOutcome(
     });
     const blocks = Array.isArray(card?.blocks) ? (card.blocks as MessageBlock[]) : [];
     const helper = blocks.find((block): block is HelperBlock => block.kind === "subagent");
-    // The chat was cleared since: nothing is left to settle or answer.
-    if (!card || !helper) return null;
+    // A cloud agent's job review ran on the job's own card, which has no helper card of its own.
+    const job = jobAgentId
+      ? blocks.find(
+          (block): block is JobBlock =>
+            block.kind === "cloud_agent" && block.agentId === jobAgentId,
+        )
+      : undefined;
+    // The chat was cleared since, or the job's card moved on to a newer attempt: nothing is left
+    // to settle or answer.
+    if (!card || (!helper && !job)) return null;
+    const name = helper?.name ?? job!.title;
     const question =
-      outcome.status === "stopped" ? undefined : await jobOwnerQuestion(tx, helper.agentId);
+      outcome.status === "stopped" || !jobAgentId
+        ? undefined
+        : await jobOwnerQuestion(tx, jobAgentId);
+    const failedJob = jobAgentId
+      ? await tx.cloudAgent.findUnique({
+          where: { id: jobAgentId },
+          select: { id: true, status: true, remoteId: true },
+        })
+      : null;
+    const recovery = failedJob ? failedStartRecoveryPrompt(failedJob) : "";
     const helperText =
       outcome.status === "stopped"
         ? STOPPED_HELPER_RESULT
         : helperResultText(outcome.text.trim() || "done.", undefined, RESULT_LIMIT);
     // The owner must see what they are asked to decide, even when the helper left it out.
-    const result =
+    const result = [
       question && !helperText.includes(question)
         ? `${helperText}\n\nNeeds you: ${question}`
-        : helperText;
-    const settled: HelperBlock = {
-      ...helper,
-      status: outcome.status === "completed" ? "completed" : "failed",
-      progress: undefined,
-      result,
-    };
-    const nextBlocks = blocks.map((block) => (block === helper ? settled : block));
-    await tx.message.update({
-      where: { id: card.id },
-      data: { blocks: nextBlocks as Prisma.InputJsonValue },
-    });
-    const event = await appendEventInTransaction(tx, {
-      spaceId: run.spaceId,
-      threadId: card.threadId,
-      botId: run.botId,
-      type: "thread.message.updated",
-      payload: { messageId: card.id, role: "bot", blocks: nextBlocks },
-    });
+        : helperText,
+      recovery,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    let eventSeq: number;
+    if (helper) {
+      const settled: HelperBlock = {
+        ...helper,
+        status: outcome.status === "completed" ? "completed" : "failed",
+        progress: undefined,
+        result,
+      };
+      const nextBlocks = blocks.map((block) => (block === helper ? settled : block));
+      await tx.message.update({
+        where: { id: card.id },
+        data: { blocks: nextBlocks as Prisma.InputJsonValue },
+      });
+      eventSeq = (
+        await appendEventInTransaction(tx, {
+          spaceId: run.spaceId,
+          threadId: card.threadId,
+          botId: run.botId,
+          type: "thread.message.updated",
+          payload: { messageId: card.id, role: "bot", blocks: nextBlocks },
+        })
+      ).seq;
+    } else {
+      // Another wake may still be checking this job; only the last review clears the state.
+      const pendingReviews = await tx.run.count({
+        where: {
+          id: { not: run.id },
+          spaceId: run.spaceId,
+          status: { in: ["queued", "running"] },
+          OR: JOB_WAKE_KINDS.map((kind) => ({
+            clientNonce: { startsWith: `${kind}:${jobAgentId}:` },
+          })),
+        },
+      });
+      if (!pendingReviews)
+        await tx.cloudAgent.updateMany({ where: { id: jobAgentId }, data: { reviewingAt: null } });
+      eventSeq = (await paintCloudAgentCard(tx, jobAgentId!)) ?? card.seq;
+    }
+    const event = { seq: eventSeq };
     if (outcome.status === "stopped") return { threadId: card.threadId, eventSeq: event.seq };
     // A cloud agent's job helper answers on the card alone, so the main chat does not run for a
     // result unless the helper failed or left the owner something to decide.
-    if (await jobResultSettlesAlone(tx, helper.agentId)) {
+    if (jobAgentId && (await jobResultSettlesAlone(tx, jobAgentId))) {
       await markThreadUnreadForMembers(tx, {
         threadId: card.threadId,
         spaceId: run.spaceId,
@@ -277,7 +328,7 @@ export async function returnHelperOutcome(
         botId: run.botId,
         threadId: card.threadId,
         userId: run.userId,
-        prompt: resultPrompt(helper.name, outcome.status, result),
+        prompt: resultPrompt(name, outcome.status, result),
         status: "queued",
       },
     });
@@ -308,10 +359,18 @@ export async function returnHelperOutcome(
   }
 }
 
-/** The decision a job helper's last verdict left for the owner, if this card is a job helper's. */
-async function jobOwnerQuestion(tx: Prisma.TransactionClient, executionId: string) {
-  const [kind, agentId] = executionId.split(":");
-  if (kind !== "cloud-agent-wake-run" && kind !== "cloud-agent-attention") return undefined;
+type JobBlock = Extract<MessageBlock, { kind: "cloud_agent" }>;
+
+const JOB_WAKE_KINDS = ["cloud-agent-wake-run", "cloud-agent-attention"];
+
+/** The cloud agent a job helper run reviews, from the wake identity it was created with. */
+function jobAgentIdOf(run: { clientNonce: string | null } | null) {
+  const [kind, agentId] = run?.clientNonce?.split(":") ?? [];
+  return kind && agentId && JOB_WAKE_KINDS.includes(kind) ? agentId : undefined;
+}
+
+/** The decision a job helper's last verdict left for the owner, if the helper reviewed a job. */
+async function jobOwnerQuestion(tx: Prisma.TransactionClient, agentId: string) {
   const agent = await tx.cloudAgent.findUnique({
     where: { id: agentId },
     select: { ownerQuestion: true },
@@ -320,18 +379,15 @@ async function jobOwnerQuestion(tx: Prisma.TransactionClient, executionId: strin
 }
 
 /**
- * A job helper's result stays on its card, a failure included (the wake retries on its own),
- * unless it left an open question or approval the owner has to decide. Its card carries the wake
- * identity (`cloud-agent-wake-run:<agent>:...`) as its execution id.
+ * A job helper's result stays on the job's card, a failure included (the wake retries on its
+ * own), unless it left an open question or approval the owner has to decide.
  */
-async function jobResultSettlesAlone(tx: Prisma.TransactionClient, executionId: string) {
-  const [kind, agentId] = executionId.split(":");
-  if (kind !== "cloud-agent-wake-run" && kind !== "cloud-agent-attention") return false;
+async function jobResultSettlesAlone(tx: Prisma.TransactionClient, agentId: string) {
   const agent = await tx.cloudAgent.findUnique({
     where: { id: agentId },
-    select: { attention: true, followup: true },
+    select: { attention: true, followup: true, status: true, remoteId: true },
   });
-  if (!agent) return false;
+  if (!agent || (agent.status === "failed" && !agent.remoteId)) return false;
   const open = Array.isArray(agent.attention) && agent.attention.length > 0;
   return !open || agent.followup != null;
 }

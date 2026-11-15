@@ -54,9 +54,11 @@ export type CloudAgentTone = "attention" | "active" | "success" | "danger" | "mu
 export function cloudAgentState(
   job: Pick<
     CloudAgentBlock,
-    "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion"
+    "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion" | "launchFailed"
   >,
 ): CloudAgentState {
+  // A launch that never started has nothing to answer, whatever the bot asked the owner after it.
+  if (job.launchFailed) return "failed";
   if (job.ownerQuestion) return "needsInput";
   if (job.status !== "running") return job.status;
   if (job.needsInput) return "needsInput";
@@ -166,5 +168,39 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(typeof payload.projectName === "string" && payload.projectName
       ? { projectName: payload.projectName.slice(0, 100) }
       : {}),
+    ...(payload.launchFailed === true ? { launchFailed: true } : {}),
+    ...(typeof payload.failureReason === "string" && payload.failureReason.trim()
+      ? { failureReason: payload.failureReason.trim().slice(0, CLOUD_AGENT_REASON_MAX) }
+      : {}),
+    ...(payload.review === "checking" ||
+    payload.review === "accepted" ||
+    payload.review === "rejected" ||
+    payload.review === "needs_owner"
+      ? { review: payload.review }
+      : {}),
+    ...(Array.isArray(payload.attempts) && payload.attempts.length
+      ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }
+      : {}),
   };
+}
+
+const CLOUD_AGENT_REASON_MAX = 300;
+const CLOUD_AGENT_ATTEMPTS_MAX = 5;
+const ATTEMPT_STATUSES = ["running", "finished", "failed", "cancelled", "expired"] as const;
+
+function cloudAgentAttempt(value: unknown): NonNullable<CloudAgentBlock["attempts"]>[number][] {
+  const attempt = value as Record<string, unknown> | null;
+  if (typeof attempt?.agentId !== "string") return [];
+  const status = ATTEMPT_STATUSES.find((known) => known === attempt.status);
+  if (!status) return [];
+  return [
+    {
+      agentId: attempt.agentId,
+      status,
+      ...(typeof attempt.failureReason === "string" && attempt.failureReason
+        ? { failureReason: attempt.failureReason.slice(0, CLOUD_AGENT_REASON_MAX) }
+        : {}),
+      ...(typeof attempt.startedAt === "string" ? { startedAt: attempt.startedAt } : {}),
+    },
+  ];
 }

@@ -1,10 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
 import { allowedAppLink, ChatMarkdown } from "@rakazo/chat-ui/native";
-import { cloudAgentHttpsUrl } from "@rakazo/core";
+import { cloudAgentHttpsUrl, cloudAgentState } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
+import { useJobStateLabel } from "../components/job-status";
 import { LoadFailure } from "../components/load-failure";
 import { NativeActionButton } from "../components/native-action-button";
 import { mobileTokens } from "../lib/appearance";
@@ -24,6 +25,7 @@ function JobDetails({ agentId }: { agentId: string }) {
   const router = useRouter();
   const tokens = mobileTokens();
   const colorScheme = useResolvedAppearance();
+  const stateLabel = useJobStateLabel();
   const { detail, error, refresh } = useCloudJob(agentId);
   const job = detail?.job;
   if (!job)
@@ -82,6 +84,21 @@ function JobDetails({ agentId }: { agentId: string }) {
           <Text selectable style={{ color: tokens.foreground, ...typeScale.secondary }}>
             {detail.brief}
           </Text>
+        </View>
+      ) : null}
+      {job.attempts?.length ? (
+        <View style={{ gap: 6 }}>
+          <Text style={label}>{t`Earlier attempts`}</Text>
+          {job.attempts.map((attempt) => (
+            <Text
+              key={attempt.agentId}
+              style={{ color: tokens.mutedForeground, ...typeScale.footnote }}
+            >
+              {[stateLabel(cloudAgentState(attempt)), attempt.failureReason]
+                .filter(Boolean)
+                .join(": ")}
+            </Text>
+          ))}
         </View>
       ) : null}
       {detail?.result ? (

@@ -76,6 +76,8 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
   interactionMode: z.enum(["default", "plan"]).optional(),
   /** The bot's own name for one agreed request; launching it again returns the same agent. */
   requestKey: z.string().trim().min(1).max(120).optional(),
+  /** An agent that failed to start; this launch is its next attempt at the same request. */
+  replaces: id.optional(),
   /** What the owner agreed to, in their words, and how the result will be judged. */
   agreement: z.string().trim().min(1).max(4_000).optional(),
   acceptance: z.string().trim().min(1).max(4_000).optional(),

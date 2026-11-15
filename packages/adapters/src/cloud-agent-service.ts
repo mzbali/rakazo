@@ -1,10 +1,6 @@
 import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
 import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
-import {
-  BACKGROUND_HELPER_TRIGGER,
-  cloudAgentBlockFromPayload,
-  cloudAgentProjectName,
-} from "@rakazo/core";
+import { BACKGROUND_HELPER_TRIGGER, cloudAgentProjectName } from "@rakazo/core";
 import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -13,6 +9,7 @@ import {
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { messageBot } from "./bot-messages.js";
+import { cloudAgentBlock } from "./cloud-agent-card.js";
 import type {
   CloudAgentActor,
   CloudAgentConnection,
@@ -27,6 +24,9 @@ import {
   lockCloudAgentWakeThread,
   repaintCloudAgentCard,
 } from "./cloud-agent-poll.js";
+import { failedStartRecovery } from "./cloud-agent-recovery.prompt.js";
+import type { RejectedLaunch } from "./cloud-agent-replacement.js";
+import { replacedAttempt, takeOverCloudAgentCard } from "./cloud-agent-replacement.js";
 import {
   CLOUD_AGENT_REPORT_USAGE,
   cloudAgentLaunchSchema,
@@ -111,17 +111,7 @@ export async function cloudAgentFor(
   return (await deps.userCloudAgents?.forKey(agent.providerKey, { spaceId, userId })) ?? null;
 }
 
-export function cloudAgentBlock(agent: CloudAgent) {
-  return cloudAgentBlockFromPayload({
-    ...agent,
-    agentId: agent.id,
-    note: agent.launchNote,
-    startedAt: agent.createdAt,
-    projectName: agent.projectName,
-    queued: agent.queuedAt !== null,
-    needsInput: Array.isArray(agent.attention) && agent.attention.length > 0,
-  });
-}
+export { cloudAgentBlock };
 
 /** The bot whose request this is, when another bot's message started the run. */
 export interface CloudAgentOrigin {
@@ -160,65 +150,83 @@ export async function executeCloudAgentTool(
       request.runtimeMode = ceiling;
       clampNote = `Runtime mode clamped to ${ceiling}.`;
     }
-    const result = await deps.prisma.$transaction(async (tx): Promise<PostedCard> => {
-      // Serialize with clearThread before creating either the intent or its card.
-      await tx.thread.update({
-        where: { id: run.threadId, spaceId: context.spaceId },
-        data: { nextMessageSeq: { increment: 0 } },
-      });
-      // Same-key launches from one member's chats meet here, so the second finds the first.
-      await lockBotSlots(tx, context.botId);
-      const existing =
-        (await tx.cloudAgent.findUnique({ where: { operationKey: context.operationId } })) ??
-        (request.requestKey
-          ? await tx.cloudAgent.findUnique({
-              where: {
-                spaceId_userId_botId_requestKey: {
-                  spaceId: context.spaceId,
-                  userId: context.userId,
-                  botId: context.botId,
-                  requestKey: request.requestKey,
+    const result = await deps.prisma.$transaction(
+      async (tx): Promise<PostedCard | RejectedLaunch> => {
+        // Serialize with clearThread before creating either the intent or its card.
+        await tx.thread.update({
+          where: { id: run.threadId, spaceId: context.spaceId },
+          data: { nextMessageSeq: { increment: 0 } },
+        });
+        // Same-key launches from one member's chats meet here, so the second finds the first.
+        await lockBotSlots(tx, context.botId);
+        const existing =
+          (await tx.cloudAgent.findUnique({ where: { operationKey: context.operationId } })) ??
+          (request.requestKey
+            ? await tx.cloudAgent.findUnique({
+                where: {
+                  spaceId_userId_botId_requestKey: {
+                    spaceId: context.spaceId,
+                    userId: context.userId,
+                    botId: context.botId,
+                    requestKey: request.requestKey,
+                  },
                 },
-              },
-            })
-          : null);
-      if (existing) {
-        if (existing.spaceId !== context.spaceId || existing.userId !== context.userId) {
-          throw new Error("Cloud agent operation scope changed");
+              })
+            : null);
+        if (existing && existing.operationKey === context.operationId) {
+          if (existing.spaceId !== context.spaceId || existing.userId !== context.userId) {
+            throw new Error("Cloud agent operation scope changed");
+          }
+          // A retry returns the agent it started even when new agents now go elsewhere, as after a
+          // T3 Code grant lapsed; the agent's poll reaches it through its own provider key.
+          return { agent: existing };
         }
-        // A retry returns the agent it started even when new agents now go elsewhere, as after a
-        // T3 Code grant lapsed; the agent's poll reaches it through its own provider key.
-        return { agent: existing };
-      }
-      const { requestKey, agreement, acceptance, ...launchRequest } = request;
-      const queued =
-        (await activeCloudAgentCount(tx, connection!.key, context.botId)) >=
-        CLOUD_AGENT_ACTIVE_LIMIT;
-      const created = await tx.cloudAgent.create({
-        data: {
-          operationKey: context.operationId,
-          providerKey: connection!.key,
-          spaceId: context.spaceId,
-          userId: context.userId,
-          botId: context.botId,
-          threadId: run.threadId,
-          title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
-          projectName: cloudAgentProjectName(request.repository) ?? null,
-          launchRequest,
-          // The launch request is cleared once sent; a job thread's helper still needs the brief.
-          ...(cloudAgentJobThreadsEnabled()
-            ? { launchBrief: request.prompt.slice(0, MAX_LAUNCH_BRIEF) }
-            : {}),
+        // The same request launched again after its attempt failed to start is the next attempt,
+        // named by the request key or by the failed attempt's id; nothing else links two launches.
+        const predecessor = await replacedAttempt(tx, context, request, existing);
+        if ("agent" in predecessor || "rejected" in predecessor) return predecessor;
+        const {
           requestKey,
           agreement,
           acceptance,
-          originBotId: origin?.botId,
-          originMessageId: origin?.messageId,
-          ...(queued ? { queuedAt: new Date(), nextPollAt: null } : {}),
-        },
-      });
-      return postCloudAgentCard(tx, deps, context, run, created);
-    }, THREAD_LOCK_TRANSACTION_OPTIONS);
+          replaces: _replaces,
+          ...launchRequest
+        } = request;
+        const queued =
+          (await activeCloudAgentCount(tx, connection!.key, context.botId)) >=
+          CLOUD_AGENT_ACTIVE_LIMIT;
+        const created = await tx.cloudAgent.create({
+          data: {
+            operationKey: context.operationId,
+            providerKey: connection!.key,
+            spaceId: context.spaceId,
+            userId: context.userId,
+            botId: context.botId,
+            threadId: run.threadId,
+            title: request.prompt.split(/\r?\n/, 1)[0]!.slice(0, 80),
+            projectName: cloudAgentProjectName(request.repository) ?? null,
+            launchRequest,
+            // The launch request is cleared once sent; a job thread's helper still needs the brief.
+            ...(cloudAgentJobThreadsEnabled()
+              ? { launchBrief: request.prompt.slice(0, MAX_LAUNCH_BRIEF) }
+              : {}),
+            requestKey,
+            agreement,
+            acceptance,
+            originBotId: origin?.botId,
+            originMessageId: origin?.messageId,
+            replacesId: predecessor.replaces?.id,
+            ...(queued ? { queuedAt: new Date(), nextPollAt: null } : {}),
+          },
+        });
+        const taken = predecessor.replaces
+          ? await takeOverCloudAgentCard(tx, deps, context, run, created, predecessor.replaces)
+          : undefined;
+        return taken ?? postCloudAgentCard(tx, deps, context, run, created);
+      },
+      THREAD_LOCK_TRANSACTION_OPTIONS,
+    );
+    if ("rejected" in result) return { error: result.rejected };
     agent = result.agent;
     if (result.seq !== undefined)
       await deps.events
@@ -486,7 +494,7 @@ export async function markCloudAgentWaiting(
   });
 }
 
-interface PostedCard {
+export interface PostedCard {
   agent: CloudAgent;
   seq?: number;
   firstResponseRunId?: string;
@@ -531,9 +539,11 @@ async function postCloudAgentCard(
 
 export function cloudAgentStatusResult(agent: CloudAgent) {
   const { kind: _kind, agentId, ...snapshot } = cloudAgentBlock(agent);
+  const retry = failedStartRecovery(agent);
   return {
     id: agentId,
     ...snapshot,
+    ...(retry ? { retry } : {}),
     ...(agent.attention ? { attention: agent.attention } : {}),
     ...(agent.historyGapAt ? { historyGap: true } : {}),
     ...(agent.failureReason ? { failureReason: agent.failureReason } : {}),

@@ -37,6 +37,11 @@ msgstr "{0, plural, one {#か月分の無料期間を獲得} other {#か月分�
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, other {#か月分の無料期間}}"
 
+#. placeholder {0}: models.length
+#: apps/web/src/pages/model-settings/provider-page.tsx
+msgid "{0, plural, one {# model} other {# models}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -232,6 +237,10 @@ msgstr "{connectedCount, plural, other {#件接続済み}}"
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, other {{peer}とのメッセージ#件}}"
 
+#: apps/mobile/components/model-providers.tsx
+msgid "{count, plural, one {# model} other {# models}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# 行} other {# 行}}"
@@ -264,6 +273,10 @@ msgstr "{count}個のファイル"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "{count}か月分の無料期間を獲得"
+
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+msgid "{count} jobs"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "{count} months"
@@ -871,6 +884,11 @@ msgstr "いろいろ少しずつ"
 msgid "A command's output"
 msgstr "コマンドの出力"
 
+#: apps/mobile/app/(settings)/labs.tsx
+#: apps/web/src/pages/LabsSettingsPanel.tsx
+msgid "A kanban board of tickets your bots can work on"
+msgstr ""
+
 #: apps/mobile/components/approval-settings-rows.tsx
 #: apps/web/src/components/ApprovalRulesSettings.tsx
 msgid "A model approves routine actions and asks you about the rest."
@@ -1221,7 +1239,6 @@ msgstr "住所2"
 msgid "Adds"
 msgstr "追加されるもの"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/compatible-endpoint-form.tsx
 #: apps/mobile/components/routine-schedule-editor.tsx
@@ -1229,7 +1246,6 @@ msgstr "追加されるもの"
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/memory-providers/MemoryProviderAdvanced.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
 #: apps/web/src/pages/routine-editor/model-settings.tsx
 #: apps/web/src/pages/shell/bot-panel.tsx
@@ -1800,7 +1816,7 @@ msgstr "Avatar Studio"
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
-#: apps/web/src/components/vault/VaultPageHeader.tsx
+#: apps/web/src/components/SettingsPageHeader.tsx
 #: apps/web/src/pages/AdminAccessPage.tsx
 #: apps/web/src/pages/AdminPluginsPage.tsx
 #: apps/web/src/pages/Artifacts.tsx
@@ -1893,8 +1909,10 @@ msgstr "ブロック中"
 
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/app/(settings)/labs.tsx
 #: apps/web/src/components/SidebarFooter.tsx
 #: apps/web/src/pages/Board.tsx
+#: apps/web/src/pages/LabsSettingsPanel.tsx
 msgid "Board"
 msgstr "ボード"
 
@@ -2021,6 +2039,10 @@ msgstr "独自のモデルを使うボット"
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Brain label"
 msgstr "Brainラベル"
+
+#: apps/mobile/app/job.tsx
+msgid "Brief"
+msgstr ""
 
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
@@ -2194,7 +2216,7 @@ msgstr "返信をキャンセル"
 msgid "Canceled"
 msgstr "キャンセル済み"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "キャンセル済み"
@@ -2363,6 +2385,11 @@ msgstr "接続を確認して、もう一度お試しください。"
 msgid "Check your email"
 msgstr "メールを確認してください"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Checking"
+msgstr ""
+
 #: apps/web/src/components/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "コンピューターの設定を確認中…"
@@ -2497,6 +2524,7 @@ msgstr "クリア中…"
 #: apps/mobile/app/space-members.tsx
 #: apps/mobile/components/sheet-close-button.ios.tsx
 #: apps/mobile/components/sheet-close-button.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/components/ErrorBoundary.tsx
 #: apps/web/src/pages/KnowledgeSection.tsx
 #: apps/web/src/pages/MessagingSettingsPanel.tsx
@@ -2566,6 +2594,7 @@ msgid "Close panel"
 msgstr "パネルを閉じる"
 
 #: apps/web/src/components/ArtifactFileCard.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 msgid "Close preview"
 msgstr "プレビューを閉じる"
 
@@ -2590,7 +2619,7 @@ msgstr "音声設定を閉じる"
 msgid "Cloud"
 msgstr "クラウド"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-row.tsx
 msgid "Cloud agent"
 msgstr "クラウドエージェント"
 
@@ -2914,6 +2943,10 @@ msgstr "接続中…"
 msgid "Connection"
 msgstr "接続"
 
+#: apps/mobile/app/(settings)/model-settings.tsx
+msgid "Connection not found"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/(settings)/plugin.tsx
 msgid "Connection pending"
@@ -2949,9 +2982,8 @@ msgstr "連絡先"
 msgid "Contains code to run"
 msgstr "実行するコードを含みます"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Context limit"
 msgstr "コンテキスト上限"
 
@@ -2996,6 +3028,11 @@ msgstr "{name}で続行"
 msgid "Continue with email"
 msgstr "メールで続行"
 
+#: apps/mobile/components/social-sign-in-buttons.tsx
+#: apps/web/src/components/SocialSignInButtons.tsx
+msgid "Continue with passkey"
+msgstr ""
+
 #: apps/mobile/components/computer-keyboard-bar.tsx
 msgid "Control"
 msgstr "Control"
@@ -3028,6 +3065,7 @@ msgstr "コピーしました"
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/(settings)/vault.tsx
+#: apps/mobile/components/quote-copy-menu.tsx
 #: apps/mobile/components/run-error-sheet.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -3048,6 +3086,10 @@ msgstr "{address} をコピー"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Copy {label}"
 msgstr "{label} をコピー"
+
+#: apps/mobile/components/quote-copy-menu.tsx
+msgid "Copy as Markdown"
+msgstr ""
 
 #: apps/mobile/components/code-copy-button.tsx
 #: apps/mobile/components/thread/message-row.tsx
@@ -3512,6 +3554,14 @@ msgstr "画像を読み込めませんでした"
 msgid "Could not load integrations"
 msgstr "連携を読み込めませんでした"
 
+#: apps/mobile/app/job.tsx
+msgid "Could not load job"
+msgstr ""
+
+#: apps/mobile/app/jobs.tsx
+msgid "Could not load jobs"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/McpServersOverlay.tsx
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
@@ -3530,9 +3580,11 @@ msgstr "メモリを読み込めませんでした"
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/(settings)/model-picker.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/(settings)/models.tsx
 #: apps/mobile/app/bot-model.tsx
 #: apps/mobile/app/bot-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/use-model-settings.ts
 msgid "Could not load model settings"
 msgstr "モデル設定を読み込めませんでした"
@@ -3813,6 +3865,7 @@ msgid "Could not run routine"
 msgstr "ルーティンを実行できませんでした"
 
 #: apps/mobile/app/(settings)/general.tsx
+#: apps/mobile/app/(settings)/labs.tsx
 #: apps/mobile/app/(settings)/memory-note.tsx
 #: apps/mobile/app/(settings)/team-conversation.tsx
 #: apps/mobile/components/vault-item-editor.tsx
@@ -3846,6 +3899,11 @@ msgstr "グループを保存できませんでした"
 #: apps/web/src/pages/onboarding/use-onboarding-model.ts
 msgid "Could not save model"
 msgstr "モデルを保存できませんでした"
+
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Could not save model settings"
+msgstr ""
 
 #: apps/mobile/app/routine.tsx
 #: apps/web/src/pages/shell/use-routine-editor.ts
@@ -4132,6 +4190,11 @@ msgstr "ウォレットを読み込めませんでした"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "更新できませんでした。最後に読み込んだメッセージを表示しています。"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Couldn't start"
+msgstr ""
+
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
 msgstr "コンピューターを起動できませんでした"
@@ -4140,6 +4203,10 @@ msgstr "コンピューターを起動できませんでした"
 #: apps/web/src/pages/AccountSettingsOverlay.tsx
 msgid "Couldn't update bot style"
 msgstr "ボットのスタイルを更新できませんでした"
+
+#: apps/web/src/pages/LabsSettingsPanel.tsx
+msgid "Couldn't update Labs"
+msgstr ""
 
 #: apps/web/src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
@@ -4382,13 +4449,10 @@ msgstr "拒否"
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bot-look-picker.tsx
-#: apps/mobile/components/compatible-endpoint-form.tsx
 #: apps/mobile/components/model-role-settings.tsx
 #: apps/web/src/components/ComputerProviderSettings.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/ModelRoleSettings.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Default"
 msgstr "デフォルト"
@@ -4791,6 +4855,7 @@ msgstr "アカウントをお持ちでないですか？"
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-settings.tsx
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/mobile/components/select-text-sheet.tsx
@@ -4859,6 +4924,10 @@ msgstr "複製"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "各名前は一度だけ使用できます。"
+
+#: apps/mobile/app/job.tsx
+msgid "Earlier attempts"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-profile.tsx
@@ -4969,27 +5038,24 @@ msgstr "サーバーのURLを入力してください"
 msgid "Enter a valid email"
 msgstr "有効なメールアドレスを入力してください"
 
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_CONTEXT_WINDOW} for the context limit."
 msgstr "コンテキスト上限には1〜{MAX_MODEL_CONTEXT_WINDOW}の整数を入力してください。"
 
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_MAX_TOKENS} for maximum output tokens."
 msgstr "最大出力トークン数には1〜{MAX_MODEL_MAX_TOKENS}の整数を入力してください。"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 msgid "Enter a whole number from 1 to {max} for maximum output tokens."
 msgstr "最大出力トークン数には1〜{max}の整数を入力してください。"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 msgid "Enter a whole number from 1 to {max} for the context limit."
 msgstr "コンテキスト上限には1〜{max}の整数を入力してください。"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to 1000 for the image limit."
 msgstr "画像の上限には1〜1000の整数を入力してください。"
 
@@ -5137,7 +5203,10 @@ msgstr "exact-model-id"
 msgid "Expand"
 msgstr "展開"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar-roster.tsx
 msgid "Expand {0}"
 msgstr "{0}を展開"
@@ -5150,7 +5219,7 @@ msgstr "{name}を展開"
 msgid "Expand table"
 msgstr "テーブルを拡大"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "expired"
 msgstr "期限切れ"
@@ -5196,8 +5265,6 @@ msgid "External conversation"
 msgstr "外部の会話"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Extra high"
 msgstr "非常に高い"
 
@@ -5206,7 +5273,7 @@ msgstr "非常に高い"
 msgid "Extra high"
 msgstr "非常に高い"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "failed"
 msgstr "失敗"
@@ -5331,7 +5398,7 @@ msgstr "ブラウザでログインを完了してください:"
 msgid "Finish subscription sign-in, then test again."
 msgstr "サブスクリプションのログインを完了してから、もう一度テストしてください。"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "finished"
 msgstr "完了"
@@ -5669,8 +5736,6 @@ msgstr "文字起こしを非表示"
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/lib/ticket-priority.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "High"
 msgstr "高"
 
@@ -6003,6 +6068,13 @@ msgstr "リンクは使えなくなります。この操作は元に戻せませ
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "共有リンクは使えなくなり、チャット内のカードは削除済みと表示されます。元に戻すことはできません。"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/components/inbox-header.tsx
+#: apps/mobile/lib/use-home-header.ts
+msgid "Jobs"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "参加"
@@ -6068,6 +6140,13 @@ msgid "Label"
 msgstr "ラベル"
 
 #: apps/mobile/app/(settings)/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/app/(settings)/labs.tsx
+#: apps/web/src/pages/settings-nav.ts
+msgid "Labs"
+msgstr ""
+
+#: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/(settings)/general.tsx
 #: apps/mobile/app/(settings)/language.tsx
 #: apps/web/src/pages/AccountSettingsOverlay.tsx
@@ -6091,6 +6170,10 @@ msgstr "前回の確認 {0}: 変更あり"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Last check {0}: no changes"
 msgstr "前回の確認 {0}: 変更なし"
+
+#: apps/web/src/components/SocialSignInButtons.tsx
+msgid "Last used"
+msgstr ""
 
 #: apps/web/src/components/DesktopUpdates.tsx
 msgid "Later"
@@ -6315,8 +6398,6 @@ msgstr "キーが含まれているようです"
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/lib/ticket-priority.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Low"
 msgstr "低"
 
@@ -6341,15 +6422,9 @@ msgid "Manage"
 msgstr "管理"
 
 #. placeholder {0}: option.name
-#. placeholder {0}: providerName(choice)
-#: apps/web/src/pages/ModelRoleSettings.tsx
 #: apps/web/src/pages/SettingsOverlay.tsx
 msgid "Manage {0}"
 msgstr "{0} を管理"
-
-#: apps/mobile/components/model-role-settings.tsx
-msgid "Manage {provider}"
-msgstr "{provider} を管理"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/ModelCredits.tsx
@@ -6362,10 +6437,20 @@ msgstr "請求を管理"
 msgid "Manage MCP servers"
 msgstr "MCPサーバーを管理"
 
+#: apps/mobile/components/model-role-settings.tsx
+#: apps/web/src/pages/ModelRoleSettings.tsx
+msgid "Manage model"
+msgstr ""
+
 #: apps/mobile/app/bot-settings.tsx
 #: apps/web/src/pages/shell/bot-settings-sections.tsx
 msgid "Manage other bots"
 msgstr "他のボットを管理"
+
+#: apps/mobile/components/model-role-settings.tsx
+#: apps/web/src/pages/ModelRoleSettings.tsx
+msgid "Manage provider"
+msgstr ""
 
 #: apps/web/src/pages/plugins/domain-search.tsx
 msgid "Manual"
@@ -6400,8 +6485,6 @@ msgid "Marketing"
 msgstr "マーケティング"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Max"
 msgstr "最大"
 
@@ -6414,19 +6497,20 @@ msgstr "最大"
 msgid "Maximize"
 msgstr "最大化"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Maximum images per request"
 msgstr "リクエストあたりの最大画像数"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/ModelSettingsOverlay.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Maximum output tokens"
 msgstr "最大出力トークン数"
+
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Maximum output tokens must be below the context limit."
+msgstr ""
 
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -6445,8 +6529,6 @@ msgstr "MCPサーバー"
 
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Medium"
 msgstr "中"
 
@@ -6589,8 +6671,6 @@ msgid "Microphone failed"
 msgstr "マイクのエラー"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Minimal"
 msgstr "最小"
 
@@ -6671,6 +6751,8 @@ msgstr "モデルプロバイダー"
 #: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/(settings)/account.tsx
 #: apps/mobile/app/(settings)/space.tsx
+#: apps/mobile/components/connection-model-list.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/settings-nav.ts
 #: apps/web/src/pages/SpaceSettingOverrides.tsx
@@ -6858,6 +6940,11 @@ msgstr "OAuth クライアント ID が必要です"
 msgid "Needs attention"
 msgstr "要対応"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "needs input"
+msgstr ""
+
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6873,11 +6960,17 @@ msgstr "ログインが必要"
 msgid "Needs takeover"
 msgstr "引き継ぎが必要"
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "対応が必要"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Needs you: {ownerQuestion}"
+msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts
@@ -7069,6 +7162,10 @@ msgstr "ボットなし"
 msgid "No bots match"
 msgstr "一致するボットはありません"
 
+#: apps/mobile/app/jobs.tsx
+msgid "No jobs yet"
+msgstr ""
+
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/AskCard.tsx
 #: apps/web/src/components/SecretAskCard.tsx
@@ -7094,8 +7191,10 @@ msgstr "このページに一致するアーティファクトはありません
 msgid "No matching bots"
 msgstr "一致するボットはありません"
 
+#: apps/mobile/components/connection-model-list.tsx
 #: apps/mobile/components/model-picker-list.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
@@ -7453,6 +7552,7 @@ msgstr "自分のみ"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
+#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7465,7 +7565,10 @@ msgstr "自分のみ"
 msgid "Open"
 msgstr "開く"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar-roster.tsx
 msgid "Open {0}"
 msgstr "{0}を開く"
@@ -7490,6 +7593,10 @@ msgstr "<0>{0}</0>を開いて、このコードを入力してください:"
 #: apps/web/src/pages/shell/chat-header.tsx
 msgid "Open call"
 msgstr "通話を開く"
+
+#: apps/mobile/app/job.tsx
+msgid "Open chat"
+msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8057,7 +8164,7 @@ msgstr "プロバイダー"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "公開サーバーには https:// が必要です。HTTPはローカルネットワークでのみ使用できます。"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/app/job.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "プルリクエスト"
@@ -8069,6 +8176,11 @@ msgstr "ボットに仕事を任せましょう"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "質問、承認、操作の引き継ぎ"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "queued"
+msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8123,12 +8235,6 @@ msgstr "準備完了"
 #: apps/web/src/pages/PluginSubmissionsPanel.tsx
 msgid "Reason"
 msgstr "理由"
-
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
-msgid "Reasoning effort"
-msgstr "推論レベル"
 
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Recall and write"
@@ -8593,6 +8699,11 @@ msgstr "コンピューターをリセットしますか？"
 msgid "Reset password"
 msgstr "パスワードをリセット"
 
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Reset to defaults"
+msgstr ""
+
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/pages/Auth.tsx
 msgid "Reset your password"
@@ -8670,10 +8781,18 @@ msgstr "復元しました"
 msgid "Restoring your workspace"
 msgstr "ワークスペースを復元中"
 
+#: apps/mobile/app/job.tsx
+msgid "Result"
+msgstr ""
+
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
 msgstr "通知を再開"
+
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes when it's back · since {since}"
+msgstr ""
 
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
@@ -8824,7 +8943,7 @@ msgstr "今すぐ実行"
 msgid "Run time must be in the future."
 msgstr "実行日時は未来の日時を指定してください。"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "running"
 msgstr "実行中"
@@ -8883,6 +9002,7 @@ msgstr "土曜日"
 
 #: apps/mobile/app/(settings)/memory-note.tsx
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/(settings)/profile.tsx
 #: apps/mobile/app/(settings)/skill.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
@@ -8914,6 +9034,7 @@ msgstr "土曜日"
 #: apps/web/src/pages/KnowledgeSection.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/RoutineEditor.tsx
@@ -8977,7 +9098,9 @@ msgid "Saved, but this server fills logins only on their own site."
 msgstr "保存しましたが、このサーバーはログインを本来のサイトでのみ入力します。"
 
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/lib/use-subscription-sign-in.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/use-model-settings.ts
 msgid "Saved."
 msgstr "保存しました。"
@@ -8992,6 +9115,7 @@ msgid "Saving..."
 msgstr "保存中..."
 
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/app/group-settings.tsx
 #: apps/web/src/components/SecretAskCard.tsx
@@ -9000,6 +9124,7 @@ msgstr "保存中..."
 #: apps/web/src/pages/GroupPanel.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/RoutineEditor.tsx
@@ -9043,6 +9168,7 @@ msgstr "画面が接続されていません"
 #: apps/web/src/components/VaultSettings.tsx
 #: apps/web/src/pages/Artifacts.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/plugins/domain-search.tsx
@@ -9093,6 +9219,7 @@ msgstr "MCPサーバーで「{query}」を検索"
 
 #: apps/web/src/components/FoundModelPicker.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/shell/chat-model-picker.tsx
 msgid "Search models"
@@ -9376,6 +9503,10 @@ msgstr "共有メモリ"
 #: apps/web/src/components/VaultSettings.tsx
 msgid "Show"
 msgstr "表示"
+
+#: apps/mobile/app/jobs.tsx
+msgid "Show {count} more"
+msgstr ""
 
 #: apps/mobile/components/thread/message-bubble.tsx
 msgid "Show {label}"
@@ -9970,15 +10101,13 @@ msgstr "要約と事実"
 msgid "Sunday"
 msgstr "日曜日"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Supports images"
 msgstr "画像に対応"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Supports thinking"
 msgstr "思考に対応"
 
@@ -10499,6 +10628,7 @@ msgstr "このメモはもう存在しません"
 
 #: apps/mobile/app/page.tsx
 #: apps/mobile/components/pages/page-card.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/lib/pages.ts
 msgid "This page couldn't be shown."
 msgstr "このページを表示できませんでした。"
@@ -10889,6 +11019,11 @@ msgstr "ミュート解除"
 #: apps/web/src/pages/BotContextMenu.tsx
 msgid "Unpin"
 msgstr "ピン留めを解除"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "unreachable"
+msgstr ""
 
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
@@ -11509,6 +11644,7 @@ msgstr "対応しない"
 msgid "Work"
 msgstr "仕事"
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
 #: apps/web/src/pages/ActivityList.tsx

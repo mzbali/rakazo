@@ -37,6 +37,11 @@ msgstr "{0, plural, one {# gratis maand verdiend} other {# gratis maanden verdie
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, one {# gratis maand} other {# gratis maanden}}"
 
+#. placeholder {0}: models.length
+#: apps/web/src/pages/model-settings/provider-page.tsx
+msgid "{0, plural, one {# model} other {# models}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -232,6 +237,10 @@ msgstr "{connectedCount, plural, one {# gekoppeld} other {# gekoppeld}}"
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, one {# bericht met {peer}} other {# berichten met {peer}}}"
 
+#: apps/mobile/components/model-providers.tsx
+msgid "{count, plural, one {# model} other {# models}}"
+msgstr ""
+
 #: apps/web/src/components/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# rij} other {# rijen}}"
@@ -264,6 +273,10 @@ msgstr "{count} bestanden"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "{count} gratis maanden verdiend"
+
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+msgid "{count} jobs"
+msgstr ""
 
 #: apps/web/src/lib/billing.ts
 msgid "{count} months"
@@ -871,6 +884,11 @@ msgstr "Van alles een beetje"
 msgid "A command's output"
 msgstr "De uitvoer van een commando"
 
+#: apps/mobile/app/(settings)/labs.tsx
+#: apps/web/src/pages/LabsSettingsPanel.tsx
+msgid "A kanban board of tickets your bots can work on"
+msgstr ""
+
 #: apps/mobile/components/approval-settings-rows.tsx
 #: apps/web/src/components/ApprovalRulesSettings.tsx
 msgid "A model approves routine actions and asks you about the rest."
@@ -1221,7 +1239,6 @@ msgstr "Adresregel 2"
 msgid "Adds"
 msgstr "Bevat"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/compatible-endpoint-form.tsx
 #: apps/mobile/components/routine-schedule-editor.tsx
@@ -1229,7 +1246,6 @@ msgstr "Bevat"
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/memory-providers/MemoryProviderAdvanced.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/onboarding/model-step.tsx
 #: apps/web/src/pages/routine-editor/model-settings.tsx
 #: apps/web/src/pages/shell/bot-panel.tsx
@@ -1800,7 +1816,7 @@ msgstr "Avatarstudio"
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
-#: apps/web/src/components/vault/VaultPageHeader.tsx
+#: apps/web/src/components/SettingsPageHeader.tsx
 #: apps/web/src/pages/AdminAccessPage.tsx
 #: apps/web/src/pages/AdminPluginsPage.tsx
 #: apps/web/src/pages/Artifacts.tsx
@@ -1893,8 +1909,10 @@ msgstr "Geblokkeerd"
 
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/app/(settings)/labs.tsx
 #: apps/web/src/components/SidebarFooter.tsx
 #: apps/web/src/pages/Board.tsx
+#: apps/web/src/pages/LabsSettingsPanel.tsx
 msgid "Board"
 msgstr "Bord"
 
@@ -2021,6 +2039,10 @@ msgstr "Bots met een eigen model"
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Brain label"
 msgstr "Breinlabel"
+
+#: apps/mobile/app/job.tsx
+msgid "Brief"
+msgstr ""
 
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
@@ -2194,7 +2216,7 @@ msgstr "Antwoord annuleren"
 msgid "Canceled"
 msgstr "Geannuleerd"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "cancelled"
 msgstr "geannuleerd"
@@ -2363,6 +2385,11 @@ msgstr "Controleer je verbinding en probeer het opnieuw."
 msgid "Check your email"
 msgstr "Controleer je e-mail"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Checking"
+msgstr ""
+
 #: apps/web/src/components/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "Computerinstallatie controleren…"
@@ -2497,6 +2524,7 @@ msgstr "Bezig met wissen…"
 #: apps/mobile/app/space-members.tsx
 #: apps/mobile/components/sheet-close-button.ios.tsx
 #: apps/mobile/components/sheet-close-button.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/components/ErrorBoundary.tsx
 #: apps/web/src/pages/KnowledgeSection.tsx
 #: apps/web/src/pages/MessagingSettingsPanel.tsx
@@ -2566,6 +2594,7 @@ msgid "Close panel"
 msgstr "Paneel sluiten"
 
 #: apps/web/src/components/ArtifactFileCard.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 msgid "Close preview"
 msgstr "Voorbeeld sluiten"
 
@@ -2590,7 +2619,7 @@ msgstr "Steminstellingen sluiten"
 msgid "Cloud"
 msgstr "Cloud"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-row.tsx
 msgid "Cloud agent"
 msgstr "Cloudagent"
 
@@ -2914,6 +2943,10 @@ msgstr "Bezig met verbinden…"
 msgid "Connection"
 msgstr "Verbinding"
 
+#: apps/mobile/app/(settings)/model-settings.tsx
+msgid "Connection not found"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/(settings)/plugin.tsx
 msgid "Connection pending"
@@ -2949,9 +2982,8 @@ msgstr "Contacten"
 msgid "Contains code to run"
 msgstr "Bevat code om uit te voeren"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Context limit"
 msgstr "Contextlimiet"
 
@@ -2996,6 +3028,11 @@ msgstr "Doorgaan met {name}"
 msgid "Continue with email"
 msgstr "Doorgaan met e-mail"
 
+#: apps/mobile/components/social-sign-in-buttons.tsx
+#: apps/web/src/components/SocialSignInButtons.tsx
+msgid "Continue with passkey"
+msgstr ""
+
 #: apps/mobile/components/computer-keyboard-bar.tsx
 msgid "Control"
 msgstr "Ctrl"
@@ -3028,6 +3065,7 @@ msgstr "Gekopieerd"
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/(settings)/vault.tsx
+#: apps/mobile/components/quote-copy-menu.tsx
 #: apps/mobile/components/run-error-sheet.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/vault-item-sheet.tsx
@@ -3048,6 +3086,10 @@ msgstr "{address} kopiëren"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Copy {label}"
 msgstr "{label} kopiëren"
+
+#: apps/mobile/components/quote-copy-menu.tsx
+msgid "Copy as Markdown"
+msgstr ""
 
 #: apps/mobile/components/code-copy-button.tsx
 #: apps/mobile/components/thread/message-row.tsx
@@ -3512,6 +3554,14 @@ msgstr "Afbeelding laden mislukt"
 msgid "Could not load integrations"
 msgstr "Integraties laden mislukt"
 
+#: apps/mobile/app/job.tsx
+msgid "Could not load job"
+msgstr ""
+
+#: apps/mobile/app/jobs.tsx
+msgid "Could not load jobs"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/McpServersOverlay.tsx
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
@@ -3530,9 +3580,11 @@ msgstr "Geheugen kon niet worden geladen"
 
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/(settings)/model-picker.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/(settings)/models.tsx
 #: apps/mobile/app/bot-model.tsx
 #: apps/mobile/app/bot-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/use-model-settings.ts
 msgid "Could not load model settings"
 msgstr "Modelinstellingen laden mislukt"
@@ -3813,6 +3865,7 @@ msgid "Could not run routine"
 msgstr "Routine uitvoeren mislukt"
 
 #: apps/mobile/app/(settings)/general.tsx
+#: apps/mobile/app/(settings)/labs.tsx
 #: apps/mobile/app/(settings)/memory-note.tsx
 #: apps/mobile/app/(settings)/team-conversation.tsx
 #: apps/mobile/components/vault-item-editor.tsx
@@ -3846,6 +3899,11 @@ msgstr "Groep opslaan mislukt"
 #: apps/web/src/pages/onboarding/use-onboarding-model.ts
 msgid "Could not save model"
 msgstr "Model opslaan mislukt"
+
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Could not save model settings"
+msgstr ""
 
 #: apps/mobile/app/routine.tsx
 #: apps/web/src/pages/shell/use-routine-editor.ts
@@ -4132,6 +4190,11 @@ msgstr "Je wallet laden mislukt"
 msgid "Couldn't refresh — showing the last loaded messages."
 msgstr "Kon niet vernieuwen — de laatst geladen berichten worden getoond."
 
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Couldn't start"
+msgstr ""
+
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
 msgstr "De computer kon niet worden gestart"
@@ -4140,6 +4203,10 @@ msgstr "De computer kon niet worden gestart"
 #: apps/web/src/pages/AccountSettingsOverlay.tsx
 msgid "Couldn't update bot style"
 msgstr "Botstijl bijwerken mislukt"
+
+#: apps/web/src/pages/LabsSettingsPanel.tsx
+msgid "Couldn't update Labs"
+msgstr ""
 
 #: apps/web/src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't update messaging settings"
@@ -4382,13 +4449,10 @@ msgstr "Weigeren"
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bot-look-picker.tsx
-#: apps/mobile/components/compatible-endpoint-form.tsx
 #: apps/mobile/components/model-role-settings.tsx
 #: apps/web/src/components/ComputerProviderSettings.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/ModelRoleSettings.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 #: apps/web/src/pages/shell/avatar-studio-popover.tsx
 msgid "Default"
 msgstr "Standaard"
@@ -4791,6 +4855,7 @@ msgstr "Heb je geen account?"
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-settings.tsx
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/mobile/components/select-text-sheet.tsx
@@ -4859,6 +4924,10 @@ msgstr "Dupliceren"
 #: apps/web/src/pages/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "Elke naam kan maar één keer worden gebruikt."
+
+#: apps/mobile/app/job.tsx
+msgid "Earlier attempts"
+msgstr ""
 
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/app/bot-profile.tsx
@@ -4969,27 +5038,24 @@ msgstr "Voer een server-URL in"
 msgid "Enter a valid email"
 msgstr "Voer een geldig e-mailadres in"
 
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_CONTEXT_WINDOW} for the context limit."
 msgstr "Voer een geheel getal van 1 tot {MAX_MODEL_CONTEXT_WINDOW} in voor de contextlimiet."
 
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to {MAX_MODEL_MAX_TOKENS} for maximum output tokens."
 msgstr "Voer een geheel getal van 1 tot {MAX_MODEL_MAX_TOKENS} in voor het maximale aantal uitvoertokens."
 
-#: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 msgid "Enter a whole number from 1 to {max} for maximum output tokens."
 msgstr "Voer een geheel getal van 1 tot {max} in voor het maximale aantal uitvoertokens."
 
-#: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 msgid "Enter a whole number from 1 to {max} for the context limit."
 msgstr "Voer een geheel getal van 1 tot {max} in voor de contextlimiet."
 
-#: apps/mobile/app/(settings)/model-connection.tsx
-#: apps/web/src/pages/model-settings/use-model-settings.ts
-#: apps/web/src/pages/onboarding/use-onboarding-model.ts
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Enter a whole number from 1 to 1000 for the image limit."
 msgstr "Voer een geheel getal van 1 tot 1000 in voor de afbeeldingslimiet."
 
@@ -5137,7 +5203,10 @@ msgstr "exact-model-id"
 msgid "Expand"
 msgstr "Uitklappen"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar-roster.tsx
 msgid "Expand {0}"
 msgstr "{0} uitklappen"
@@ -5150,7 +5219,7 @@ msgstr "{name} uitklappen"
 msgid "Expand table"
 msgstr "Tabel uitvouwen"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "expired"
 msgstr "verlopen"
@@ -5196,8 +5265,6 @@ msgid "External conversation"
 msgstr "Extern gesprek"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Extra high"
 msgstr "Extra hoog"
 
@@ -5206,7 +5273,7 @@ msgstr "Extra hoog"
 msgid "Extra high"
 msgstr "Extra hoog"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "failed"
 msgstr "mislukt"
@@ -5331,7 +5398,7 @@ msgstr "Rond de aanmelding af in je browser:"
 msgid "Finish subscription sign-in, then test again."
 msgstr "Rond de abonnementsaanmelding af en test daarna opnieuw."
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "finished"
 msgstr "voltooid"
@@ -5669,8 +5736,6 @@ msgstr "Transcript verbergen"
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/lib/ticket-priority.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "High"
 msgstr "Hoog"
 
@@ -6003,6 +6068,13 @@ msgstr "De link werkt dan niet meer. Dit kan niet ongedaan worden gemaakt."
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "De gedeelde link werkt dan niet meer en de kaarten in de chat tonen hem als verwijderd. Dit kan niet ongedaan worden gemaakt."
 
+#: apps/mobile/app/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/components/inbox-header.tsx
+#: apps/mobile/lib/use-home-header.ts
+msgid "Jobs"
+msgstr ""
+
 #: apps/web/src/pages/Invite.tsx
 msgid "Join"
 msgstr "Deelnemen"
@@ -6068,6 +6140,13 @@ msgid "Label"
 msgstr "Label"
 
 #: apps/mobile/app/(settings)/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/app/(settings)/labs.tsx
+#: apps/web/src/pages/settings-nav.ts
+msgid "Labs"
+msgstr ""
+
+#: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/(settings)/general.tsx
 #: apps/mobile/app/(settings)/language.tsx
 #: apps/web/src/pages/AccountSettingsOverlay.tsx
@@ -6091,6 +6170,10 @@ msgstr "Laatste controle {0}: gewijzigd"
 #: apps/web/src/pages/routine-editor/trigger-cards.tsx
 msgid "Last check {0}: no changes"
 msgstr "Laatste controle {0}: geen wijzigingen"
+
+#: apps/web/src/components/SocialSignInButtons.tsx
+msgid "Last used"
+msgstr ""
 
 #: apps/web/src/components/DesktopUpdates.tsx
 msgid "Later"
@@ -6315,8 +6398,6 @@ msgstr "Lijkt een sleutel te bevatten"
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/lib/ticket-priority.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Low"
 msgstr "Laag"
 
@@ -6341,15 +6422,9 @@ msgid "Manage"
 msgstr "Beheren"
 
 #. placeholder {0}: option.name
-#. placeholder {0}: providerName(choice)
-#: apps/web/src/pages/ModelRoleSettings.tsx
 #: apps/web/src/pages/SettingsOverlay.tsx
 msgid "Manage {0}"
 msgstr "{0} beheren"
-
-#: apps/mobile/components/model-role-settings.tsx
-msgid "Manage {provider}"
-msgstr "{provider} beheren"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/web/src/components/ModelCredits.tsx
@@ -6362,10 +6437,20 @@ msgstr "Facturatie beheren"
 msgid "Manage MCP servers"
 msgstr "MCP-servers beheren"
 
+#: apps/mobile/components/model-role-settings.tsx
+#: apps/web/src/pages/ModelRoleSettings.tsx
+msgid "Manage model"
+msgstr ""
+
 #: apps/mobile/app/bot-settings.tsx
 #: apps/web/src/pages/shell/bot-settings-sections.tsx
 msgid "Manage other bots"
 msgstr "Andere bots beheren"
+
+#: apps/mobile/components/model-role-settings.tsx
+#: apps/web/src/pages/ModelRoleSettings.tsx
+msgid "Manage provider"
+msgstr ""
 
 #: apps/web/src/pages/plugins/domain-search.tsx
 msgid "Manual"
@@ -6400,8 +6485,6 @@ msgid "Marketing"
 msgstr "Marketing"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Max"
 msgstr "Max"
 
@@ -6414,19 +6497,20 @@ msgstr "Max"
 msgid "Maximize"
 msgstr "Maximaliseren"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Maximum images per request"
 msgstr "Maximum aantal afbeeldingen per verzoek"
 
-#: apps/mobile/app/(settings)/model-connection.tsx
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/ModelSettingsOverlay.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Maximum output tokens"
 msgstr "Maximaal aantal uitvoertokens"
+
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Maximum output tokens must be below the context limit."
+msgstr ""
 
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "MCP endpoint"
@@ -6445,8 +6529,6 @@ msgstr "MCP-servers"
 
 #: apps/mobile/lib/thinking-level.ts
 #: apps/web/src/pages/memory-providers/HindsightSettingsForm.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Medium"
 msgstr "Gemiddeld"
 
@@ -6589,8 +6671,6 @@ msgid "Microphone failed"
 msgstr "Microfoon mislukt"
 
 #: apps/mobile/lib/thinking-level.ts
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
 msgid "Minimal"
 msgstr "Minimaal"
 
@@ -6671,6 +6751,8 @@ msgstr "Modelprovider"
 #: apps/mobile/app/(settings)/_layout.tsx
 #: apps/mobile/app/(settings)/account.tsx
 #: apps/mobile/app/(settings)/space.tsx
+#: apps/mobile/components/connection-model-list.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/settings-nav.ts
 #: apps/web/src/pages/SpaceSettingOverrides.tsx
@@ -6858,6 +6940,11 @@ msgstr "OAuth-client-ID nodig"
 msgid "Needs attention"
 msgstr "Heeft aandacht nodig"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "needs input"
+msgstr ""
+
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
 msgid "Needs input"
@@ -6873,11 +6960,17 @@ msgstr "Aanmelden vereist"
 msgid "Needs takeover"
 msgstr "Heeft overname nodig"
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/ComputerCard.tsx
 #: apps/web/src/components/ComputerCard.tsx
 #: apps/web/src/lib/roster-status.ts
 msgid "Needs you"
 msgstr "Heeft jou nodig"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Needs you: {ownerQuestion}"
+msgstr ""
 
 #: apps/mobile/lib/import-setup.ts
 #: apps/web/src/pages/shell/import-status.ts
@@ -7069,6 +7162,10 @@ msgstr "Geen bots"
 msgid "No bots match"
 msgstr "Geen bots gevonden"
 
+#: apps/mobile/app/jobs.tsx
+msgid "No jobs yet"
+msgstr ""
+
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/AskCard.tsx
 #: apps/web/src/components/SecretAskCard.tsx
@@ -7094,8 +7191,10 @@ msgstr "Geen overeenkomende artefacten op deze pagina."
 msgid "No matching bots"
 msgstr "Geen overeenkomende bots"
 
+#: apps/mobile/components/connection-model-list.tsx
 #: apps/mobile/components/model-picker-list.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/shell/chat-model-picker.tsx
 msgid "No matching models"
@@ -7453,6 +7552,7 @@ msgstr "Alleen jij"
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
+#: apps/mobile/app/job.tsx
 #: apps/mobile/app/pages.tsx
 #: apps/mobile/components/ImportSetupCard.tsx
 #: apps/web/src/components/bot-templates/bot-templates-dialog.tsx
@@ -7465,7 +7565,10 @@ msgstr "Alleen jij"
 msgid "Open"
 msgstr "Openen"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar-roster.tsx
 msgid "Open {0}"
 msgstr "{0} openen"
@@ -7490,6 +7593,10 @@ msgstr "Open <0>{0}</0> en voer deze code in:"
 #: apps/web/src/pages/shell/chat-header.tsx
 msgid "Open call"
 msgstr "Gesprek openen"
+
+#: apps/mobile/app/job.tsx
+msgid "Open chat"
+msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8057,7 +8164,7 @@ msgstr "Aanbieders"
 msgid "Public servers need https://. HTTP only works on your local network."
 msgstr "Openbare servers vereisen https://. HTTP werkt alleen op je lokale netwerk."
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/app/job.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Pull request"
 msgstr "Pull request"
@@ -8069,6 +8176,11 @@ msgstr "Zet je bots aan het werk"
 #: apps/mobile/app/(settings)/general.tsx
 msgid "Questions, approvals, takeover"
 msgstr "Vragen, goedkeuringen, overname"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "queued"
+msgstr ""
 
 #: apps/mobile/lib/activity.ts
 #: apps/web/src/pages/ActivityList.tsx
@@ -8123,12 +8235,6 @@ msgstr "Klaar"
 #: apps/web/src/pages/PluginSubmissionsPanel.tsx
 msgid "Reason"
 msgstr "Reden"
-
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
-msgid "Reasoning effort"
-msgstr "Redeneerinspanning"
 
 #: apps/web/src/pages/memory-providers/SerenitySettingsForm.tsx
 msgid "Recall and write"
@@ -8593,6 +8699,11 @@ msgstr "Computer opnieuw instellen?"
 msgid "Reset password"
 msgstr "Wachtwoord opnieuw instellen"
 
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
+msgid "Reset to defaults"
+msgstr ""
+
 #: apps/mobile/app/sign-in.tsx
 #: apps/web/src/pages/Auth.tsx
 msgid "Reset your password"
@@ -8670,10 +8781,18 @@ msgstr "Hersteld"
 msgid "Restoring your workspace"
 msgstr "Je werkruimte herstellen"
 
+#: apps/mobile/app/job.tsx
+msgid "Result"
+msgstr ""
+
 #: apps/mobile/components/bot-organize-modal.tsx
 #: apps/mobile/components/inbox-swipe-row.ios.tsx
 msgid "Resume notifications"
 msgstr "Meldingen hervatten"
+
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes when it's back · since {since}"
+msgstr ""
 
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
@@ -8824,7 +8943,7 @@ msgstr "Nu uitvoeren"
 msgid "Run time must be in the future."
 msgstr "Het uitvoertijdstip moet in de toekomst liggen."
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "running"
 msgstr "draait"
@@ -8883,6 +9002,7 @@ msgstr "zaterdag"
 
 #: apps/mobile/app/(settings)/memory-note.tsx
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/(settings)/profile.tsx
 #: apps/mobile/app/(settings)/skill.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
@@ -8914,6 +9034,7 @@ msgstr "zaterdag"
 #: apps/web/src/pages/KnowledgeSection.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/RoutineEditor.tsx
@@ -8977,7 +9098,9 @@ msgid "Saved, but this server fills logins only on their own site."
 msgstr "Opgeslagen, maar deze server vult logins alleen in op hun eigen site."
 
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/lib/use-subscription-sign-in.ts
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/use-model-settings.ts
 msgid "Saved."
 msgstr "Opgeslagen."
@@ -8992,6 +9115,7 @@ msgid "Saving..."
 msgstr "Bezig met opslaan..."
 
 #: apps/mobile/app/(settings)/model-connection.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/app/group-settings.tsx
 #: apps/web/src/components/SecretAskCard.tsx
@@ -9000,6 +9124,7 @@ msgstr "Bezig met opslaan..."
 #: apps/web/src/pages/GroupPanel.tsx
 #: apps/web/src/pages/McpServerForm.tsx
 #: apps/web/src/pages/model-settings/connection-controls.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/ModelSettingsOverlay.tsx
 #: apps/web/src/pages/RoutineEditor.tsx
@@ -9043,6 +9168,7 @@ msgstr "Scherm niet verbonden"
 #: apps/web/src/components/VaultSettings.tsx
 #: apps/web/src/pages/Artifacts.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/providers-section.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/plugins/domain-search.tsx
@@ -9093,6 +9219,7 @@ msgstr "MCP-servers doorzoeken op “{query}”"
 
 #: apps/web/src/components/FoundModelPicker.tsx
 #: apps/web/src/pages/model-settings/compatible-model-fields.tsx
+#: apps/web/src/pages/model-settings/provider-page.tsx
 #: apps/web/src/pages/model-settings/role-model-picker.tsx
 #: apps/web/src/pages/shell/chat-model-picker.tsx
 msgid "Search models"
@@ -9376,6 +9503,10 @@ msgstr "Gedeeld geheugen"
 #: apps/web/src/components/VaultSettings.tsx
 msgid "Show"
 msgstr "Tonen"
+
+#: apps/mobile/app/jobs.tsx
+msgid "Show {count} more"
+msgstr ""
 
 #: apps/mobile/components/thread/message-bubble.tsx
 msgid "Show {label}"
@@ -9970,15 +10101,13 @@ msgstr "Samenvattingen en feiten"
 msgid "Sunday"
 msgstr "zondag"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Supports images"
 msgstr "Ondersteunt afbeeldingen"
 
-#: apps/mobile/components/compatible-endpoint-form.tsx
-#: apps/web/src/pages/model-settings/compatible-model-fields.tsx
-#: apps/web/src/pages/onboarding/model-step.tsx
+#: apps/mobile/app/(settings)/model-settings.tsx
+#: apps/web/src/pages/model-settings/model-settings-panel.tsx
 msgid "Supports thinking"
 msgstr "Ondersteunt denken"
 
@@ -10499,6 +10628,7 @@ msgstr "Deze notitie bestaat niet meer"
 
 #: apps/mobile/app/page.tsx
 #: apps/mobile/components/pages/page-card.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/lib/pages.ts
 msgid "This page couldn't be shown."
 msgstr "Deze pagina kon niet worden weergegeven."
@@ -10889,6 +11019,11 @@ msgstr "Dempen opheffen"
 #: apps/web/src/pages/BotContextMenu.tsx
 msgid "Unpin"
 msgstr "Vastzetten opheffen"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "unreachable"
+msgstr ""
 
 #: apps/mobile/components/inbox-rows.tsx
 msgid "unread"
@@ -11509,6 +11644,7 @@ msgstr "Wordt niet gedaan"
 msgid "Work"
 msgstr "Werk"
 
+#: apps/mobile/app/jobs.tsx
 #: apps/mobile/components/bot-avatar.tsx
 #: apps/mobile/components/inbox-activity.tsx
 #: apps/web/src/pages/ActivityList.tsx

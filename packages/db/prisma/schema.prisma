@@ -1430,9 +1430,14 @@ model CloudAgent {
   ownerQuestion       String?
   /// The bot's run that messaged or is waiting on this agent's thread; it reports the result itself while it runs.
   waitingRunId        String?
+  /// The earlier attempt this one replaces: the same request launched again after that one failed to start.
+  replacesId          String?
+  /// When the hidden review of this agent's work began; cleared when it ends.
+  reviewingAt         DateTime?
   createdAt           DateTime @default(now())
 
   @@unique([spaceId, userId, botId, requestKey])
+  @@index([replacesId])
   @@index([providerKey, nextPollAt])
   @@index([botId, queuedAt])
   @@index([spaceId, userId, id])

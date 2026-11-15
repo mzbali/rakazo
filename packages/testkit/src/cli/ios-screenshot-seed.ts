@@ -820,6 +820,13 @@ const SCREENSHOT_JOBS: {
   listOnly?: boolean;
   brief?: string;
   result?: string;
+  /** Refused before anything remote started. */
+  launchFailed?: boolean;
+  failureReason?: string;
+  /** Its hidden review is under way. */
+  checking?: boolean;
+  /** An earlier attempt of the same request, kept as a failed row linked to this one. */
+  attempts?: { agentId: string; status: "failed"; failureReason: string }[];
   minutesAgo: number;
 }[] = [
   {
@@ -870,6 +877,41 @@ const SCREENSHOT_JOBS: {
     status: "failed",
     projectName: "billing-api",
     minutesAgo: 1500,
+  },
+  // Refused at launch, with a question attached: still failed, never "needs you".
+  {
+    key: "nostart",
+    title: "Update the changelog",
+    status: "failed",
+    launchFailed: true,
+    failureReason: "The project has no origin to start from.",
+    ownerQuestion: "Retry from the local branch?",
+    projectName: "storefront",
+    minutesAgo: 20,
+  },
+  // A relaunch after a refused launch: one card, the earlier attempt only in its details.
+  {
+    key: "retried",
+    title: "Fix the cart total",
+    status: "running",
+    projectName: "storefront",
+    minutesAgo: 8,
+    attempts: [
+      {
+        agentId: "ios-screenshot-job-retried-first",
+        status: "failed" as const,
+        failureReason: "The project has no origin to start from.",
+      },
+    ],
+  },
+  // Finished and being checked: the same card says Checking, no helper card follows.
+  {
+    key: "checking",
+    title: "Add the order export test",
+    status: "finished",
+    checking: true,
+    projectName: "storefront",
+    minutesAgo: 14,
   },
   ...[
     "Rename the checkout events",
@@ -923,6 +965,25 @@ async function ensureRequestCards(
   for (const job of SCREENSHOT_JOBS) {
     const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
     const url = `https://jobs.example.com/${job.key}`;
+    for (const earlier of job.attempts ?? [])
+      await prisma.cloudAgent.create({
+        data: {
+          id: earlier.agentId,
+          operationKey: earlier.agentId,
+          providerKey: "emulator",
+          spaceId: input.spaceId,
+          userId: input.userId,
+          botId: input.botId,
+          threadId: input.threadId,
+          title: job.title,
+          status: earlier.status,
+          failureReason: earlier.failureReason,
+          launchRequest: {},
+          launchDispatched: true,
+          nextPollAt: null,
+          createdAt: new Date(startedAt.getTime() - 60_000),
+        },
+      });
     await prisma.cloudAgent.create({
       data: {
         id: `ios-screenshot-job-${job.key}`,
@@ -941,7 +1002,10 @@ async function ensureRequestCards(
         launchRequest: {},
         // Launched and never polled again, so the worker leaves these rows as they are.
         launchDispatched: true,
-        remoteId: job.key,
+        replacesId: job.attempts?.[0]?.agentId ?? null,
+        remoteId: job.launchFailed ? null : job.key,
+        failureReason: job.failureReason ?? null,
+        reviewingAt: job.checking ? new Date() : null,
         nextPollAt: null,
         launchNote: job.note ?? null,
         launchBrief: job.brief ?? null,
@@ -966,6 +1030,10 @@ async function ensureRequestCards(
         ...(job.prUrl ? { prUrl: job.prUrl } : {}),
         ...(job.note ? { note: job.note } : {}),
         ...(job.projectName ? { projectName: job.projectName } : {}),
+        ...(job.launchFailed ? { launchFailed: true } : {}),
+        ...(job.failureReason ? { failureReason: job.failureReason } : {}),
+        ...(job.checking ? { review: "checking" as const } : {}),
+        ...(job.attempts ? { attempts: job.attempts } : {}),
       },
     ]);
   }

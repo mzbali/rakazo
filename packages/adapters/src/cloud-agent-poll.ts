@@ -19,16 +19,16 @@ import type { CloudAgent } from "@rakazo/db";
 import { appendEventInTransaction, Prisma, THREAD_LOCK_TRANSACTION_OPTIONS } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { postRelayPointer } from "./bot-messages.js";
+import { cloudAgentCardBlock, paintCloudAgentCard } from "./cloud-agent-card.js";
 import {
   cloudAgentJobThreadsEnabled,
   jobHelperTaskPrompt,
   jobThreadFor,
-  postJobHelperCard,
 } from "./cloud-agent-job-thread.js";
+import { failedStartRecoveryPrompt } from "./cloud-agent-recovery.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   canWake,
-  cloudAgentBlock,
   cloudAgentFor,
   enqueueCloudAgent,
   openQuestion,
@@ -523,24 +523,7 @@ export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: strin
       where: { id: saved.threadId, spaceId: saved.spaceId },
       data: { nextEventSeq: { increment: 0 } },
     });
-    const message = await tx.message.findFirst({
-      where: { id: saved.messageId ?? "", threadId: saved.threadId },
-    });
-    if (!message) return undefined;
-    const nextBlock = cloudAgentBlock(saved);
-    const blocks = (message.blocks as MessageBlock[]).map((block) =>
-      block.kind === "cloud_agent" && block.agentId === saved.id ? nextBlock : block,
-    );
-    if (JSON.stringify(blocks) === JSON.stringify(message.blocks)) return undefined;
-    await tx.message.update({ where: { id: message.id }, data: { blocks } });
-    const event = await appendEventInTransaction(tx, {
-      spaceId: saved.spaceId,
-      threadId: saved.threadId,
-      botId: saved.botId,
-      type: "thread.cloud_agent",
-      payload: { messageId: message.id, ...nextBlock },
-    });
-    return event.seq;
+    return paintCloudAgentCard(tx, agentId);
   });
   const agent = await deps.prisma.cloudAgent.findUnique({
     where: { id: agentId },
@@ -616,7 +599,7 @@ async function finishPoll(
     const wakeSeqs: number[] = [];
     const wakeOptions = { jobThread: true, seqs: wakeSeqs, jobs: deps.jobs };
     if (message && !detached) {
-      const nextBlock = cloudAgentBlock(saved);
+      const nextBlock = await cloudAgentCardBlock(tx, saved);
       const blocks = (message.blocks as MessageBlock[]).map((block) =>
         block.kind === "cloud_agent" && block.agentId === agent.id ? nextBlock : block,
       );
@@ -763,6 +746,7 @@ export async function createCloudAgentWake(
   clientNonce: string,
   options: CloudAgentWakeOptions = {},
 ): Promise<string[]> {
+  prompt = [prompt, failedStartRecoveryPrompt(agent)].filter(Boolean).join("\n\n");
   // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
   // also come here; no in-process lock can protect wakes created on another instance.
   await lockCloudAgentWakeThread(tx, agent);
@@ -805,9 +789,10 @@ export async function createCloudAgentWake(
       return [queued.id];
     }
   }
-  // A job helper's one result lands on a card in the main chat, which its run settles.
-  const card = job ? await postJobHelperCard(tx, agent, clientNonce) : undefined;
-  if (card) options.seqs?.push(card.seq);
+  // A job helper's review shows as Checking on the job's own card, which its run settles; the
+  // run's source is that card, so stopping the chat still reaches it.
+  const card = job ? await startJobReview(tx, agent) : undefined;
+  if (card?.seq !== undefined) options.seqs?.push(card.seq);
   const task = await tx.task.create({
     data: {
       spaceId: agent.spaceId,
@@ -829,7 +814,7 @@ export async function createCloudAgentWake(
       trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
       clientNonce,
       cloudAgentWakeNonces: [clientNonce],
-      ...(card ? { sourceMessageId: card.messageId } : {}),
+      ...(card?.messageId ? { sourceMessageId: card.messageId } : {}),
     },
   });
   await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
@@ -837,6 +822,13 @@ export async function createCloudAgentWake(
 }
 
 const TERMINAL_WAKE_NONCE = "cloud-agent-wake-run";
+
+/** Marks the job as being checked and repaints its card; the review adds no card of its own. */
+async function startJobReview(tx: Tx, agent: CloudAgent) {
+  await tx.cloudAgent.update({ where: { id: agent.id }, data: { reviewingAt: new Date() } });
+  const seq = await paintCloudAgentCard(tx, agent.id);
+  return { messageId: agent.messageId ?? undefined, seq };
+}
 
 /**
  * Records, in the transaction that makes a bot's report run for finished work, the backup that

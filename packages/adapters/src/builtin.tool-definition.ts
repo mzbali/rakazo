@@ -989,7 +989,12 @@ export const builtinAgentTools: ConnectorTool[] = [
         requestKey: {
           type: "string",
           description:
-            "Your stable name for this agreed request; reusing it returns the same agent.",
+            "Your stable name for this agreed request; reusing it returns the same agent. If that agent failed to start, it launches the request again as a new attempt on the same card.",
+        },
+        replaces: {
+          type: "string",
+          description:
+            "The id of an agent that failed to start, when you launch the same request again without a requestKey.",
         },
         agreement: { type: "string", description: "What the user agreed to, in their words." },
         acceptance: { type: "string", description: "How you will judge the result." },

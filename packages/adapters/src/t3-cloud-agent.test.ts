@@ -203,7 +203,7 @@ describe("T3 cloud agent provider (offline conformance)", () => {
       message: "Fix it",
       clientRequestId: "abcdef123456",
       projectId: "project:1",
-      workspaceStrategy: { type: "worktree", baseRef: "origin/HEAD", startFromOrigin: true },
+      workspaceStrategy: { type: "worktree", baseRef: "HEAD" },
     });
 
     // A workspace without a project, or a project that is not the named repository's, starts nothing.

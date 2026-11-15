@@ -149,6 +149,23 @@ const CloudAgentFields = z.object({
   projectName: z.string().optional(),
   /** A decision the owner has to make before the job can go on. */
   ownerQuestion: z.string().optional(),
+  /** The launch itself was refused, so no remote work ever started and nothing waits on the owner. */
+  launchFailed: z.boolean().optional(),
+  /** Why the provider refused the launch or ended the work, when it said. */
+  failureReason: z.string().optional(),
+  /** The job's hidden review: under way, or the verdict it reached. */
+  review: z.enum(["checking", "accepted", "rejected", "needs_owner"]).optional(),
+  /** Earlier attempts at the same request, oldest first; the card shows only the current one. */
+  attempts: z
+    .array(
+      z.object({
+        agentId: z.string(),
+        status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
+        failureReason: z.string().optional(),
+        startedAt: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 /** One job in the jobs list: the card's fields and the chat that holds it. */

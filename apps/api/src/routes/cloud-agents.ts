@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { cloudAgentBlock } from "@rakazo/adapters";
+import { cloudAgentBlock, previousAttempts } from "@rakazo/adapters";
 import type { RouterContext } from "./context.js";
 
 const JOBS_LIMIT = 100;
@@ -21,28 +21,45 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
     ]);
     const names = new Map(bots.map((bot) => [bot.id, bot.name]));
     const conversations = new Map(threads.map((thread) => [thread.id, thread]));
-    return agents.map((agent) => {
-      const { kind: _kind, ...job } = cloudAgentBlock(agent);
-      const thread = conversations.get(agent.threadId);
-      return {
-        ...job,
-        botId: agent.botId,
-        botName: names.get(agent.botId) ?? "",
-        threadId: agent.threadId,
-        ...(thread?.groupId ? { groupId: thread.groupId, groupName: thread.group?.name } : {}),
-      };
-    });
+    return Promise.all(
+      agents.map(async (agent) => {
+        const { kind: _kind, ...job } = cloudAgentBlock(
+          agent,
+          agent.replacesId ? await previousAttempts(deps.prisma, agent) : [],
+        );
+        const thread = conversations.get(agent.threadId);
+        return {
+          ...job,
+          botId: agent.botId,
+          botName: names.get(agent.botId) ?? "",
+          threadId: agent.threadId,
+          ...(thread?.groupId ? { groupId: thread.groupId, groupName: thread.group?.name } : {}),
+        };
+      }),
+    );
   }
   return {
     cloudAgents: {
       list: authed.cloudAgents.list.handler(async ({ context }) => {
         const { spaceId, userId } = context.actor;
-        const agents = await deps.prisma.cloudAgent.findMany({
+        const found = await deps.prisma.cloudAgent.findMany({
           where: { spaceId, userId },
           orderBy: { createdAt: "desc" },
           take: JOBS_LIMIT,
         });
-        return presentJobs(agents, spaceId);
+        // A replaced attempt belongs to its replacement's row; only the current attempt is listed.
+        const replaced = new Set(
+          (
+            await deps.prisma.cloudAgent.findMany({
+              where: { replacesId: { in: found.map((agent) => agent.id) } },
+              select: { replacesId: true },
+            })
+          ).map((agent) => agent.replacesId),
+        );
+        return presentJobs(
+          found.filter((agent) => !replaced.has(agent.id)),
+          spaceId,
+        );
       }),
       detail: authed.cloudAgents.detail.handler(async ({ context, input }) => {
         const { spaceId, userId } = context.actor;

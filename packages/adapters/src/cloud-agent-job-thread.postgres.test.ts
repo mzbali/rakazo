@@ -188,7 +188,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     await h.finish(agentId);
   }
 
-  it("runs a terminal wake in a hidden helper thread, with one card in the main chat", async () => {
+  it("runs a terminal wake in a hidden helper thread, reviewing on the job's own card", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup(40);
     const agentId = await h.launch();
@@ -217,13 +217,15 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(isJobHelperRun(helperRun!)).toBe(true);
     expect(h.enqueue).toHaveBeenCalledWith(runContinueJob(helperRun!.id));
 
-    // The main chat gained exactly the helper's running card.
-    const added = (await h.messagesIn(h.thread.id)).slice(before);
-    expect(added).toHaveLength(1);
-    expect(added[0]!.blocks).toMatchObject([{ kind: "subagent", status: "running" }]);
-    expect(helperRun!.sourceMessageId).toBe(added[0]!.id);
+    // The main chat gained no card: the job's own card says it is being checked.
+    const chat = await h.messagesIn(h.thread.id);
+    expect(chat).toHaveLength(before);
+    expect(chat.at(-1)!.blocks).toMatchObject([
+      { kind: "cloud_agent", status: "finished", review: "checking" },
+    ]);
+    expect(helperRun!.sourceMessageId).toBe(agent.messageId);
 
-    // Its result settles that card and does not start a main chat run.
+    // Its result updates that card and does not start a main chat run.
     await runAsSystem("helper ends", () =>
       asSystem(prisma).run.update({ where: { id: helperRun!.id }, data: { status: "completed" } }),
     );
@@ -235,10 +237,9 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       ),
     );
     const settled = await h.messagesIn(h.thread.id);
-    expect(settled).toHaveLength(before + 1);
-    expect(settled.at(-1)!.blocks).toMatchObject([
-      { kind: "subagent", status: "completed", result: "Accepted: the README covers install." },
-    ]);
+    expect(settled).toHaveLength(before);
+    expect(settled.at(-1)!.blocks).toMatchObject([{ kind: "cloud_agent", status: "finished" }]);
+    expect(settled.at(-1)!.blocks).not.toMatchObject([{ review: "checking" }]);
     expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
   });
 
@@ -366,12 +367,11 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     const blocks = (await h.messagesIn(h.thread.id)).flatMap(
       (message) => message.blocks as Array<Record<string, unknown>>,
     );
-    expect(blocks.find((block) => block.kind === "subagent")).toMatchObject({
-      result: `Next, investigate the Homebrew record.\n\nNeeds you: ${question}`,
-    });
-    expect(blocks.find((block) => block.kind === "cloud_agent")).toMatchObject({
-      ownerQuestion: question,
-    });
+    // The job's card carries the question and the verdict; no helper card is added.
+    expect(blocks.find((block) => block.kind === "subagent")).toBeUndefined();
+    expect(blocks.filter((block) => block.kind === "cloud_agent")).toMatchObject([
+      { ownerQuestion: question, review: "rejected" },
+    ]);
 
     // New work on the agent clears it from the card.
     await runAsSystem("agent run tool call", () =>
@@ -523,18 +523,18 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(expedited!.availableAt!.getTime()).toBeLessThanOrEqual(Date.now());
     await check();
     expect(await helperRuns()).toBe(2);
-    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
     // Running again, as the backup would at its own run-at, adds nothing.
     await check();
     expect(await helperRuns()).toBe(2);
-    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
   });
 
   it("wakes at the backup's run-at when the reporting run is still going", async () => {
     const { h, helperRuns, check, before } = await heldWake("running");
     await check();
     expect(await helperRuns()).toBe(2);
-    expect(await h.messagesIn(h.thread.id)).toHaveLength(before + 1);
+    expect(await h.messagesIn(h.thread.id)).toHaveLength(before);
   });
 
   it("wakes for a follow-up sent after a result the run received before the poll saw it", async () => {
@@ -696,7 +696,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(mainRuns.map((run) => run.trigger)).toEqual(["user", HELPER_RESULT_TRIGGER]);
   });
 
-  it("settles the card and cancels a wake that became stale", async () => {
+  it("clears Checking and cancels a wake that became stale", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup(2);
     const agentId = await h.launch();
@@ -724,7 +724,8 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect((await h.runsIn(agent.jobThreadId!)).map((run) => run.status)).toEqual(["cancelled"]);
     expect((await h.runsIn(h.thread.id)).map((run) => run.trigger)).toEqual(["user"]);
     const card = (await h.messagesIn(h.thread.id)).at(-1)!;
-    expect(card.blocks).toMatchObject([{ kind: "subagent", status: "failed", result: "stopped" }]);
+    expect(card.blocks).toMatchObject([{ kind: "cloud_agent" }]);
+    expect(card.blocks).not.toMatchObject([{ review: "checking" }]);
   });
 
   it("changes nothing while the flag is off", async () => {

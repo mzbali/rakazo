@@ -161,6 +161,15 @@ jobs:
         run: node --test scripts/lazy-vendors.test.mjs
       - name: Repo checks
         run: node --test scripts/checks/*.test.mjs
+      - name: Catalogs list every message
+        # A message missing from the catalogs reaches a release build uncompiled, so a placeholder
+        # in it shows raw ("Needs you: {0}"). Extraction must add or drop nothing in any catalog.
+        run: |
+          pnpm intl:extract
+          git diff --exit-code -- packages/i18n/locales || {
+            echo "::error::Run pnpm intl:extract and commit the catalogs."
+            exit 1
+          }
 
   # The unit suite is CPU-bound; six runners keep it under the native install floor.
   unit-tests-shard:

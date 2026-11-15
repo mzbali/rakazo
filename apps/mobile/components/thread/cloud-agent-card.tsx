@@ -99,7 +99,8 @@ export function CloudAgentCards({
   const counts = [...stateCounts(states)]
     .map(([state, count]) => `${count} ${stateLabel(state)}`)
     .join(" · ");
-  const heading = t`${jobs.length} jobs`;
+  const count = jobs.length;
+  const heading = t`${count} jobs`;
   return (
     <View
       {...actionProps}

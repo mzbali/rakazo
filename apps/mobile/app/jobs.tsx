@@ -106,6 +106,7 @@ export default function JobsScreen() {
     ({ item }: { item: JobListItem }) => {
       if (item.kind === "header") return <ShelfHeader shelf={item.shelf} count={item.count} />;
       if (item.kind === "job") return <JobListRow job={item.job} onOpen={open} />;
+      const { count } = item;
       return (
         <Pressable
           onPress={() => {
@@ -115,7 +116,7 @@ export default function JobsScreen() {
           accessibilityRole="button"
           style={styles.more}
         >
-          <Text style={styles.moreLabel}>{t`Show ${item.count} more`}</Text>
+          <Text style={styles.moreLabel}>{t`Show ${count} more`}</Text>
         </Pressable>
       );
     },

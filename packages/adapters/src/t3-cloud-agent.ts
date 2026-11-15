@@ -344,10 +344,10 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           ...(project
             ? {
                 projectId: project.id,
+                // Local HEAD: a project with no remote has no origin/HEAD to start from.
                 workspaceStrategy: request.workspaceStrategy ?? {
                   type: "worktree",
-                  baseRef: "origin/HEAD",
-                  startFromOrigin: true,
+                  baseRef: "HEAD",
                 },
               }
             : { scratch: true }),

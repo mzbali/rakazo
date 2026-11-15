@@ -1,11 +1,8 @@
-import type { MessageBlock } from "@rakazo/contracts";
 import { escapePromptData } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
-import { appendEventInTransaction, createThreadMessageInTransaction } from "@rakazo/db";
 import { helperPrompt } from "./background-helpers.prompt.js";
 
 type Tx = Prisma.TransactionClient;
-type HelperBlock = Extract<MessageBlock, { kind: "subagent" }>;
 
 /** Longest launch brief kept for the helper; the rest of the record is small by nature. */
 export const MAX_LAUNCH_BRIEF = 2_000;
@@ -35,32 +32,6 @@ export async function jobThreadFor(tx: Tx, agent: CloudAgent): Promise<string> {
   });
   await tx.cloudAgent.update({ where: { id: agent.id }, data: { jobThreadId: thread.id } });
   return thread.id;
-}
-
-/** The one card this wake leaves in the bot's main chat; the helper's result settles it. */
-export async function postJobHelperCard(tx: Tx, agent: CloudAgent, executionId: string) {
-  const card: HelperBlock = {
-    kind: "subagent",
-    agentId: executionId,
-    name: agent.title,
-    task: "Reviewing its progress",
-    status: "running",
-  };
-  const message = await createThreadMessageInTransaction(tx, {
-    threadId: agent.threadId,
-    role: "bot",
-    blocks: [card],
-    botId: agent.botId,
-    markUnread: false,
-  });
-  const event = await appendEventInTransaction(tx, {
-    spaceId: agent.spaceId,
-    threadId: agent.threadId,
-    botId: agent.botId,
-    type: "thread.message.created",
-    payload: { messageId: message.id, role: "bot", blocks: [card] },
-  });
-  return { messageId: message.id, seq: event.seq };
 }
 
 function clip(value: string, limit = MAX_FIELD) {

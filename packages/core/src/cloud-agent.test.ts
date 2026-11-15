@@ -137,4 +137,23 @@ describe("reported owner questions after completion", () => {
       "finished",
     );
   });
+
+  it("never reads a failed launch as waiting on the owner, and carries attempts and review", () => {
+    const failed = { status: "failed", ownerQuestion: "Retry?", launchFailed: true } as const;
+    expect(cloudAgentState(failed)).toBe("failed");
+    expect(cloudAgentState({ status: "failed", ownerQuestion: "Retry?" })).toBe("needsInput");
+    const block = cloudAgentBlockFromPayload({
+      agentId: "b",
+      status: "running",
+      review: "checking",
+      attempts: [
+        { agentId: "a", status: "failed", failureReason: "no origin" },
+        { agentId: "x", status: "bogus" },
+      ],
+    });
+    expect(block).toMatchObject({
+      review: "checking",
+      attempts: [{ agentId: "a", status: "failed", failureReason: "no origin" }],
+    });
+  });
 });

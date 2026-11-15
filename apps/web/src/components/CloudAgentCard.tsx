@@ -19,6 +19,7 @@ export function CloudAgentCard({
   const state = cloudAgentState(block);
   const tone = cloudAgentTone(state);
   const prHref = cloudAgentHttpsUrl(block.prUrl);
+  const ownerQuestion = block.ownerQuestion;
   const href = prHref ?? cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url);
   const content = (
     <Card size="sm" className="w-80 max-w-full" data-testid="cloud-agent-card">
@@ -39,7 +40,9 @@ export function CloudAgentCard({
                     : "text-muted-foreground"
             }
           >
-            {state === "unreachable" ? (
+            {block.launchFailed ? (
+              <Trans>Couldn't start</Trans>
+            ) : state === "unreachable" ? (
               <Trans>unreachable</Trans>
             ) : state === "needsInput" ? (
               <Trans>needs input</Trans>
@@ -63,9 +66,19 @@ export function CloudAgentCard({
             <Trans>Resumes when it's back · since {since}</Trans>
           </span>
         ) : null}
-        {block.ownerQuestion ? (
+        {state === "failed" && block.failureReason ? (
+          <span className="text-destructive" dir="auto">
+            {block.failureReason}
+          </span>
+        ) : null}
+        {state === "needsInput" && ownerQuestion ? (
           <span className="font-medium text-warning" dir="auto">
-            <Trans>Needs you: {block.ownerQuestion}</Trans>
+            <Trans>Needs you: {ownerQuestion}</Trans>
+          </span>
+        ) : null}
+        {block.review === "checking" ? (
+          <span className="text-muted-foreground">
+            <Trans>Checking</Trans>
           </span>
         ) : null}
         {prHref ? (

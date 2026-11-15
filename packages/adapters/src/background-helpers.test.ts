@@ -124,6 +124,7 @@ describe("returning a helper's outcome", () => {
       run: { updateMany: vi.fn(async () => ({ count: 0 })) },
     };
     const prisma = {
+      run: { findUnique: vi.fn(async () => null) },
       message: { findUnique: vi.fn(async () => ({ threadId: "chat" })) },
       $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };
@@ -170,6 +171,7 @@ describe("passing a helper's result back in a shared space", () => {
       task: { create: vi.fn(async () => ({ id: "wake-task" })) },
     };
     const prisma = {
+      run: { findUnique: vi.fn(async () => null) },
       message: { findUnique: vi.fn(async () => ({ threadId: "chat" })) },
       $transaction: vi.fn(async (work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     };

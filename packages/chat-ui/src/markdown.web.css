@@ -539,8 +539,9 @@ a.rk-chat-link:hover .rk-chat-link-label {
   height: 100%;
 }
 
-.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb > img,
-.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb > button {
+/* The thumbnail's image may sit inside the embed's own button, so reach it at any depth. */
+.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb img,
+.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb button {
   width: 100%;
   height: 100%;
   margin: 0;

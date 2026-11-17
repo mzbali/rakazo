@@ -223,6 +223,28 @@ button.rk-table-sort {
   overflow-wrap: normal;
 }
 
+/* Inline, the outer columns line up with the prose around the table. */
+.rk-table-card .rk-table th:first-child,
+.rk-table-card .rk-table td:first-child {
+  padding-inline-start: 0;
+}
+
+.rk-table-card .rk-table th:last-child,
+.rk-table-card .rk-table td:last-child {
+  padding-inline-end: 0;
+}
+
+/* Inline, sort arrows show on the header being pointed at, focused, or sorted. */
+.rk-table-card .rk-table-sort-icon {
+  opacity: 0;
+}
+
+.rk-table-card th:hover .rk-table-sort-icon,
+.rk-table-card th:focus-within .rk-table-sort-icon,
+.rk-table-card th[aria-sort] .rk-table-sort-icon {
+  opacity: 1;
+}
+
 .rk-table-card:hover > .rk-table-head .rk-table-tool,
 .rk-table-card:focus-within > .rk-table-head .rk-table-tool {
   opacity: 1;

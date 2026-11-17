@@ -17,6 +17,8 @@ const SITE_LABEL_MAX = 18;
 const SENTENCE_END = /[.?!。！？…]/u;
 const JOINING_GAP = /^[\s\p{P}]*$/u;
 const TRAILING_TEXT = /^(?:\s*$|[ \t]*\n|\s*[^\s\p{L}\p{N}])/u;
+/** The parts of a page title, as in "Mars Facts | NASA Science". */
+const TITLE_PARTS = /\s+[-–—|·•]\s+|:\s+/u;
 
 export const CITED_SOURCES_MAX = 12;
 export const CITATION_URL_PREFIX = "rakazo-cite:";
@@ -233,6 +235,46 @@ function endsClaim(following: MdNode | undefined): boolean {
   return following.type === "text" && TRAILING_TEXT.test(following.value ?? "");
 }
 
+/** Letters and digits only, lowercased, so "BBC News" and "bbc-news" compare equal. */
+function labelKey(value: string): string {
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function nodeText(node: MdNode): string {
+  return node.value ?? (node.children ?? []).map(nodeText).join("");
+}
+
+function hostKey(url: string): string {
+  try {
+    return labelKey(new URL(url).hostname);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Whether a link's words name its page (the site, its address, a part of its title or a footnote
+ * number) rather than carry the claim. Only those become a pill, so a claim keeps its words.
+ */
+function namesSource(node: MdNode, url: string, item: SourceItem): boolean {
+  const key = labelKey(nodeText(node));
+  if (!key || /^\d+$/.test(key)) return true;
+  const site = labelKey(item.site);
+  if (key === site || (key.length >= 3 && site.startsWith(key))) return true;
+  if (key.includes(site) && hostKey(url).endsWith(key)) return true;
+  return item.title.split(TITLE_PARTS).some((part) => labelKey(part) === key);
+}
+
+function citedUrl(
+  node: MdNode,
+  byUrl: ReadonlyMap<string, SourceItem>,
+  definitions: ReadonlyMap<string, string>,
+): string | undefined {
+  const url = matchingUrl(node, byUrl, definitions);
+  const item = url ? byUrl.get(url) : undefined;
+  return url && item && namesSource(node, url, item) ? url : undefined;
+}
+
 function markdownLinkLabel(label: string): string {
   return label.replace(/[\\[\]]/g, (character) => `\\${character}`);
 }
@@ -257,7 +299,7 @@ function groupChildren(
   while (index < children.length) {
     const child = children[index];
     if (!child) break;
-    const url = matchingUrl(child, byUrl, definitions);
+    const url = citedUrl(child, byUrl, definitions);
     if (!url) {
       if (child.type !== "link" && child.type !== "linkReference" && child.children) {
         groupChildren(child.children, byUrl, definitions, groups, replacements);
@@ -270,7 +312,7 @@ function groupChildren(
     while (next < children.length) {
       const candidate = children[next];
       if (!candidate) break;
-      const nextUrl = matchingUrl(candidate, byUrl, definitions);
+      const nextUrl = citedUrl(candidate, byUrl, definitions);
       if (nextUrl) {
         run.push({ node: candidate, url: nextUrl });
         next += 1;
@@ -282,7 +324,7 @@ function groupChildren(
         after += 1;
       }
       const following = children[after];
-      const followingUrl = following ? matchingUrl(following, byUrl, definitions) : undefined;
+      const followingUrl = following ? citedUrl(following, byUrl, definitions) : undefined;
       if (!following || !followingUrl) break;
       run.push({ node: following, url: followingUrl });
       next = after + 1;
@@ -317,7 +359,7 @@ function groupChildren(
 
 /**
  * Rewrite cited links into one `rakazo-cite:` marker per adjacent cluster. Anything that is not a
- * recorded source, including a link inside code, stays as written.
+ * recorded source, a link whose words are the claim, or a link inside code, stays as written.
  */
 export function citationMarkdown(
   markdown: string,

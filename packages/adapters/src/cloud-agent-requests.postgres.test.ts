@@ -83,11 +83,13 @@ class ScriptedProvider implements CloudAgentProvider {
   }
   replies = 0;
   replyPrompts: string[] = [];
+  replyKeys: (string | undefined)[] = [];
   /** Makes the next reply wait for the test, then refuse as a busy provider would. */
   refuseReply?: Promise<void>;
-  async reply(id: string, request: { prompt: string }) {
+  async reply(id: string, request: { prompt: string; idempotencyKey?: string }) {
     this.replies += 1;
     this.replyPrompts.push(request.prompt);
+    this.replyKeys.push(request.idempotencyKey);
     if (this.refuseReply) {
       const refusal = this.refuseReply;
       this.refuseReply = undefined;
@@ -1420,6 +1422,21 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       await t.poll(id);
       expect(t.provider.replyPrompts).toEqual([CONTINUE]);
       expect((await t.state(id)).quotaResetsAt).toBeNull();
+      expect(await t.wakeNonces()).toEqual([]);
+    });
+
+    it("sends the continuation again, as the same message, when the first send did not land", async () => {
+      const { t, id, remote } = await going();
+      const reset = new Date(Date.now() - 60_000);
+      pause(remote, reset, false);
+      t.provider.refuseReply = Promise.resolve();
+      await t.poll(id);
+      // Nothing records a send the provider never accepted, so the pause still shows.
+      expect((await t.state(id)).quotaContinuedFor).toBeNull();
+      await t.poll(id);
+      expect(t.provider.replyPrompts).toEqual([CONTINUE, CONTINUE]);
+      expect(new Set(t.provider.replyKeys).size).toBe(1);
+      expect((await t.state(id)).quotaContinuedFor?.toISOString()).toBe(reset.toISOString());
       expect(await t.wakeNonces()).toEqual([]);
     });
 

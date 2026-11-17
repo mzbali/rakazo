@@ -5,13 +5,12 @@ import type {
   CloudAgentSnapshot,
 } from "@rakazo/adapter-kit";
 import type { CloudAgent, Prisma } from "@rakazo/db";
+import { QUOTA_CONTINUE_PROMPT } from "./cloud-agent-quota.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import { enqueueCloudAgent } from "./cloud-agent-service.js";
 
 /** How long after a usage limit resets before the next poll. The provider may resume at the reset. */
 export const QUOTA_POLL_MARGIN_MS = 2 * 60_000;
-/** Sent once, as the same piece of work, when the provider will not resume a limited thread itself. */
-const QUOTA_CONTINUE_PROMPT = "Continue where you left off.";
 
 /** The next poll for a usage-limit pause: shortly after the reset, and never before now plus the margin. */
 export function quotaPausePollAt(resetAt: Date, now = Date.now()): Date {
@@ -87,8 +86,8 @@ export function storedQuotaReset(snapshot: CloudAgentSnapshot): Date | null {
 
 /**
  * When a usage limit has reset and the provider will not continue the thread, send the
- * continuation once. A retried poll sees the marker and does not send it again. Returns nothing
- * when another poll owns the row; `fenced` is the poll's version and lease fence.
+ * continuation as the same piece of work. Returns nothing when another poll owns the row;
+ * `fenced` is the poll's version and lease fence.
  */
 export async function continueAfterQuota(
   deps: CloudAgentDeps,
@@ -103,34 +102,26 @@ export async function continueAfterQuota(
   if (decision === "sent")
     return { ...snapshot, quotaResetsAt: undefined, quotaAutoResume: undefined };
   const resetAt = new Date(snapshot.quotaResetsAt!);
+  // The key makes every send for this reset the same message, so a poll that crashed before
+  // recording it sends again and the provider keeps one. The marker only records an accepted send.
+  const sent = await provider.reply(
+    agent.remoteId!,
+    {
+      prompt: QUOTA_CONTINUE_PROMPT,
+      idempotencyKey: `quota-continue:${agent.id}:${resetAt.toISOString()}`,
+    },
+    context,
+  );
   const marked = await deps.prisma.cloudAgent.updateMany({
     where: fenced,
     data: { quotaContinuedFor: resetAt },
   });
   if (!marked.count) return null;
-  try {
-    const sent = await provider.reply(
-      agent.remoteId!,
-      {
-        prompt: QUOTA_CONTINUE_PROMPT,
-        idempotencyKey: `quota-continue:${agent.id}:${resetAt.toISOString()}`,
-      },
-      context,
-    );
-    return {
-      ...snapshot,
-      status: "running",
-      ...(sent.latestRunId ? { latestRunId: sent.latestRunId } : {}),
-      quotaResetsAt: undefined,
-      quotaAutoResume: undefined,
-    };
-  } catch (error) {
-    // The send did not land, so the next poll may try again. The idempotency key covers a reply
-    // the provider accepted and whose response we lost.
-    await deps.prisma.cloudAgent.updateMany({
-      where: { id: agent.id, leaseToken: agent.leaseToken },
-      data: { quotaContinuedFor: null },
-    });
-    throw error;
-  }
+  return {
+    ...snapshot,
+    status: "running",
+    ...(sent.latestRunId ? { latestRunId: sent.latestRunId } : {}),
+    quotaResetsAt: undefined,
+    quotaAutoResume: undefined,
+  };
 }

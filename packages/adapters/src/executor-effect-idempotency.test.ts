@@ -367,7 +367,12 @@ describe("mutating tool effect idempotency keys", () => {
       expect(f.results[0]).toEqual(
         name === "generate_video"
           ? { jobId: "saved-media", status: "queued" }
-          : { status: "completed", artifactId: "saved-image" },
+          : {
+              status: "completed",
+              artifactId: "saved-image",
+              // A recovered image can still be placed in the reply.
+              embed: "![generated.png](image:saved-image)",
+            },
       );
       expect(f.effects[0]?.status).toBe("completed");
       f.setCalls([{ name, args, executionId: "another-call-after-restart" }]);

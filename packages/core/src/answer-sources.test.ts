@@ -238,6 +238,8 @@ describe("citationMarkdown", () => {
     expect(citationMarkdown(carried, dated).markdown).toBe(carried);
     const sentence = `Budget news. [The agency will cancel the lander](${NASA}). More next week.`;
     expect(citationMarkdown(sentence, dated).markdown).toBe(sentence);
+    const headline = `Mars once had water.\n[Rover finds a lake bed under the ice](${NASA})`;
+    expect(citationMarkdown(headline, dated).markdown).toBe(headline);
   });
 
   it("pulls a space in so punctuation sits against the pill", () => {

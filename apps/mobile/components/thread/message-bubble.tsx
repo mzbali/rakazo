@@ -612,7 +612,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
           paddingVertical: 12,
           gap: 8,
         } as const);
-    const imageWidth = outgoing ? undefined : "100%";
+    const imageWidth = message.role === "user" ? undefined : "100%";
     return (
       <View style={hasInlineImages ? { width: imageWidth, maxWidth: "100%", gap: 8 } : bubbleStyle}>
         {((showBotSenderName || authorName) && speaker) || caption ? (
@@ -654,7 +654,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                   artifactId={attachment.artifactId}
                   name={attachment.name ?? t`Image`}
                   mimeType={attachment.mimeType ?? "image/png"}
-                  fill={!outgoing}
+                  fill={message.role !== "user"}
                   source={attachment.source}
                   labelColor={outgoing ? tokens.chatUserForeground : tokens.foreground}
                   pressableProps={actionProps}

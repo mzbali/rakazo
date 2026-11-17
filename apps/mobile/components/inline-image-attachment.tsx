@@ -23,11 +23,11 @@ const MAX_INLINE_HEIGHT = 360;
 
 type ImageSource = NonNullable<Extract<MessageBlock, { kind: "image" }>["source"]>;
 
-/** Fill the column, keeping the picture's ratio and stopping at a readable height. */
+/** Fill the column, keeping the picture's ratio, never enlarging it, and stopping at a readable height. */
 function placedImageSize(natural: ImageSize, column: number, maxHeight: number): ImageSize {
   const width = Math.max(1, natural.width);
   const height = Math.max(1, natural.height);
-  const scale = Math.min(column / width, maxHeight / height);
+  const scale = Math.min(1, column / width, maxHeight / height);
   return {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),

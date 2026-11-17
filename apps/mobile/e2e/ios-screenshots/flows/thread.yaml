@@ -30,8 +30,9 @@ name: Thread
 - eraseText: 40
 - hideKeyboard
 - openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
+# The newest reply places its visual and image between its sentences.
 - extendedWaitUntil:
-    visible: ".*The fixture launch plan is ready.*"
+    visible: ".*The picture is the same rise.*"
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000
@@ -93,7 +94,11 @@ name: Thread
 # A visual that fits works in the chat; its Expand button grows it in place.
 - openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
 - extendedWaitUntil:
-    visible: "Expand Launch path"
+    visible: ".*The picture is the same rise.*"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Expand Launch path"
+    direction: UP
     timeout: 20000
 - waitForAnimationToEnd:
     timeout: 3000

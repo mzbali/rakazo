@@ -185,7 +185,9 @@ function MarkdownEmbedImage({
 }) {
   const resolve = useContext(MarkdownEmbedContext);
   const resolved = resolve?.(embed);
-  if (resolved) return <View>{resolved}</View>;
+  // A paragraph lays its children out as a wrapping row, where a card without its own width
+  // collapses; the embed takes the paragraph's full width as its own block.
+  if (resolved) return <View style={{ width: "100%" }}>{resolved}</View>;
   return <Text style={labelStyle}>{alt || ""}</Text>;
 }
 

@@ -358,6 +358,20 @@ describe("local history retrieval", () => {
       ]),
     ).toBe("visible");
   });
+  it("omits a sources list from retrieved text", () => {
+    expect(
+      historyMessageText([
+        { kind: "text", text: "A day is long [NASA](https://science.nasa.gov/mars/facts/)." },
+        {
+          kind: "sources",
+          items: [
+            { url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" },
+          ],
+        },
+      ]),
+    ).toBe("A day is long [NASA](https://science.nasa.gov/mars/facts/).");
+  });
+
   it("reads a visual as its title and summary, never its code", () => {
     const blocks = [{ kind: "visual", title: "Flow", text: "A goes to B.", code: "drawFlow()" }];
     expect(historyMessageText(blocks)).toBe("Flow: A goes to B.");

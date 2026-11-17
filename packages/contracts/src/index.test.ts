@@ -68,6 +68,25 @@ describe("contracts", () => {
     );
   });
 
+  it("parses a sources block and rejects an empty or oversized list", () => {
+    const item = {
+      url: "https://science.nasa.gov/mars/facts/",
+      title: "Mars Facts",
+      site: "nasa",
+    };
+    expect(MessageBlock.parse({ kind: "sources", items: [item] })).toEqual({
+      kind: "sources",
+      items: [item],
+    });
+    expect(MessageBlock.safeParse({ kind: "sources", items: [] }).success).toBe(false);
+    expect(
+      MessageBlock.safeParse({
+        kind: "sources",
+        items: Array.from({ length: 13 }, () => item),
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts structured live activity progress", () => {
     expect(MessageBlock.parse({ kind: "progress", text: "Using browser", activity: true })).toEqual(
       { kind: "progress", text: "Using browser", activity: true },

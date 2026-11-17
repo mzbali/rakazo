@@ -11,6 +11,7 @@ import type {
 } from "@rakazo/contracts";
 import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
 import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
+import { messageSources } from "@rakazo/core/answer-sources";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { UserRound } from "lucide-react";
 import type { ReactNode } from "react";
@@ -55,6 +56,20 @@ import {
   McpApprovalCard,
 } from "./message-cards";
 import { MessageHoverActions } from "./message-hover-actions";
+
+/** Citation pills for a text block, and the sources row on the last one. */
+function citedSources(
+  messageBlocks: readonly MessageBlock[],
+  rendered: readonly MessageBlock[],
+  index: number,
+  kind: string,
+) {
+  if (kind !== "text") return {};
+  const sources = messageSources(messageBlocks);
+  if (sources.length === 0) return {};
+  const lastText = rendered.findLastIndex((block) => block.kind === "text");
+  return { sources, sourcesRow: index === lastText };
+}
 
 /** Bot text on the chat surface. The transcript frame sets the column width. */
 function BotProse({ children, className }: { children: ReactNode; className?: string }) {
@@ -318,6 +333,7 @@ export const MessageView = memo(function MessageView({
                       streaming={block.kind === "progress"}
                       renderMention={renderMention}
                       onOpenPage={openPage}
+                      {...citedSources(message.blocks, visibleNarrationBlocks, i, block.kind)}
                     >
                       {block.text}
                     </ChatMarkdown>
@@ -598,7 +614,11 @@ export const MessageView = memo(function MessageView({
               <div key={i} className="relative w-full">
                 <BotProse>
                   <div data-quote-message-id={quoteMessageId}>
-                    <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
+                    <ChatMarkdown
+                      renderMention={renderMention}
+                      onOpenPage={openPage}
+                      {...citedSources(message.blocks, blocks, i, block.kind)}
+                    >
                       {block.text}
                     </ChatMarkdown>
                   </div>

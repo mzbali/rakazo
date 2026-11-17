@@ -717,6 +717,29 @@ const embeds: Scenario = {
   ],
 };
 
+const MARS_DAY = "https://science.nasa.gov/mars/facts/";
+const MARS_YEAR = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+const research: Scenario = {
+  id: "research",
+  label: "Research answer",
+  messages: [
+    user("How long is a day on Mars?"),
+    bot([
+      {
+        kind: "text",
+        text: `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days [NASA year](${MARS_DAY}) [ESA](${MARS_YEAR}).`,
+      },
+      {
+        kind: "sources",
+        items: [
+          { url: MARS_DAY, title: "Mars Facts", site: "nasa" },
+          { url: MARS_YEAR, title: "Mars Express", site: "esa" },
+        ],
+      },
+    ]),
+  ],
+};
+
 const SCENARIOS: Scenario[] = [
   conversation,
   textStyles,
@@ -728,6 +751,7 @@ const SCENARIOS: Scenario[] = [
   rich,
   embeds,
   calls,
+  research,
 ];
 
 const IMAGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="480" height="320" fill="#d4d4d4"/><circle cx="160" cy="150" r="70" fill="#a3a3a3"/><rect x="250" y="90" width="150" height="120" rx="12" fill="#737373"/></svg>`;

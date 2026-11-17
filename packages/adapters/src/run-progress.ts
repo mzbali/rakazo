@@ -12,11 +12,12 @@ import {
   redactSecretsAfter,
   withToolStepOutcomes,
 } from "@rakazo/core";
+import { withCitedSourceBlock } from "@rakazo/core/answer-sources";
 import type { Run } from "@rakazo/db";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { IMAGE_RETURNING_COMPUTER_TOOLS } from "./model-vision.js";
 import type { ReplyState, RunContext } from "./run-context.js";
-import { publishMessage } from "./run-messages.js";
+import { publishMessage, redactBlocks } from "./run-messages.js";
 import {
   messageBlocksText,
   runAllowsSilentEmpty,
@@ -149,7 +150,7 @@ export async function publishInterimMessage(ctx: RunContext, text: string, markU
     deps,
     run,
     "bot",
-    [{ kind: "text", text }],
+    redactBlocks(withCitedSourceBlock([{ kind: "text", text }], ctx.trust?.sources), ctx.secrets),
     markUnread,
     nextProgressNonce(ctx),
   );

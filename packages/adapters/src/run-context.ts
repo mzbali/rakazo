@@ -19,6 +19,7 @@ import type {
 } from "@rakazo/contracts";
 import type { ToolStepOutcome } from "@rakazo/core";
 import { createStreamingRedactor } from "@rakazo/core";
+import type { RecordedSource } from "@rakazo/core/answer-sources";
 import { toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import type { Bot, Computer, effectiveMemoryScope, Run, Task, Thread } from "@rakazo/db";
 import { dropRunTurnCheckpoint, saveRunTurnCheckpoint } from "@rakazo/db";
@@ -285,6 +286,8 @@ export interface RunTools {
 export type RunTrust = ReturnType<typeof createRunTrustLoaders> & {
   /** Exact URLs a web search returned; fetching one needs no approval. */
   searchResultUrls: Set<string>;
+  /** Pages a web search or fetch returned, keyed by normalized URL. */
+  sources: Map<string, RecordedSource>;
 };
 
 export interface RunProviders {

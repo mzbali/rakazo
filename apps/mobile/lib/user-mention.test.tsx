@@ -42,6 +42,9 @@ vi.mock("@rakazo/chat-ui/native", () => {
       .filter((part) => part.value);
   return {
     ChatMarkdown: ({ children }: { children?: ReactNode }) => createElement("p", null, children),
+    defaultMarkdownCopy: {},
+    MarkdownCopyProvider: ({ children }: { children?: ReactNode }) =>
+      createElement(Fragment, null, children),
     plainTextLinkParts,
     LinkifiedText: ({
       children,

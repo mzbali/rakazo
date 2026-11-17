@@ -211,6 +211,18 @@ export function markdownStyles(palette: ColorTokens) {
       textDecorationLine: "underline",
       textDecorationColor: palette.input,
     },
+    cite: {
+      color: palette.foreground,
+      backgroundColor: palette.muted,
+      fontWeight: "500",
+      textDecorationLine: "none",
+      borderRadius: 999,
+    },
+    sources_row: {
+      color: palette.mutedForeground,
+      marginTop: 8,
+      textDecorationLine: "none",
+    },
     // A page named in a message keeps the text's colour; only a faint underline marks it.
     page_chip_title: {
       textDecorationLine: "underline",

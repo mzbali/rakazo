@@ -179,7 +179,8 @@ export function foldPeerReplies<T extends PresentableMessage>(
           block.kind === "chart" ||
           block.kind === "app" ||
           block.kind === "page" ||
-          block.kind === "visual",
+          block.kind === "visual" ||
+          block.kind === "sources",
       )
     )
       return false;

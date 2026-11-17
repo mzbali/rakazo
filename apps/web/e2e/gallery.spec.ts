@@ -34,6 +34,11 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
         await dark.click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByTestId("gallery-frame")).not.toBeEmpty();
+      if (label === "Research answer") {
+        await expect(page.getByRole("button", { name: "nasa", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "nasa +1", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "2 sources", exact: true })).toBeVisible();
+      }
       if (label === "Inline embeds") {
         await expect(page.getByText("Revenue climbed through the quarter.")).toBeVisible();
         await expect(page.getByText("September is the high month.")).toBeVisible();

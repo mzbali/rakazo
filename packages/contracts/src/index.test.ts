@@ -87,6 +87,28 @@ describe("contracts", () => {
     ).toBe(false);
   });
 
+  it("keeps an optional page on an image and ignores one that is not a page", () => {
+    const image = {
+      kind: "image" as const,
+      artifactId: "art-1",
+      mimeType: "image/png",
+      name: "Harbor",
+    };
+    expect(MessageBlock.parse(image)).toEqual(image);
+    expect(
+      MessageBlock.parse({
+        ...image,
+        source: { url: "https://www.space.com/harbor", site: "space" },
+      }),
+    ).toEqual({
+      ...image,
+      source: { url: "https://www.space.com/harbor", site: "space" },
+    });
+    expect(MessageBlock.safeParse({ ...image, source: { url: "", site: "space" } }).success).toBe(
+      false,
+    );
+  });
+
   it("accepts structured live activity progress", () => {
     expect(MessageBlock.parse({ kind: "progress", text: "Using browser", activity: true })).toEqual(
       { kind: "progress", text: "Using browser", activity: true },

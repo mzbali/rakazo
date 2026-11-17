@@ -15,8 +15,12 @@ const SITE_MAX = 40;
 const SITE_LABEL_MAX = 18;
 /** A citation cluster stops at a sentence end, so the pill stays with the claim it supports. */
 const SENTENCE_END = /[.?!。！？…]/u;
+/** The text before a link already finished its sentence, ignoring a closing quote or bracket. */
+const SENTENCE_ENDED = /[.?!。！？…]['"”’)\]]*$/u;
 const JOINING_GAP = /^[\s\p{P}]*$/u;
 const TRAILING_TEXT = /^(?:\s*$|[ \t]*\n|\s*[^\s\p{L}\p{N}])/u;
+/** A space the model left between a pill marker and the punctuation that follows it. */
+const PILL_PUNCTUATION_GAP = /(\]\(rakazo-cite:\d+\))[ \t]+(?=[.?!。！？…,;:)])/gu;
 /** The parts of a page title, as in "Mars Facts | NASA Science". */
 const TITLE_PARTS = /\s+[-–—|·•]\s+|:\s+/u;
 
@@ -265,14 +269,60 @@ function namesSource(node: MdNode, url: string, item: SourceItem): boolean {
   return item.title.split(TITLE_PARTS).some((part) => labelKey(part) === key);
 }
 
-function citedUrl(
+/** A recorded-source link, whether or not its words name the page. */
+function recordedLinkUrl(
   node: MdNode,
   byUrl: ReadonlyMap<string, SourceItem>,
   definitions: ReadonlyMap<string, string>,
 ): string | undefined {
-  const url = matchingUrl(node, byUrl, definitions);
-  const item = url ? byUrl.get(url) : undefined;
-  return url && item && namesSource(node, url, item) ? url : undefined;
+  return matchingUrl(node, byUrl, definitions);
+}
+
+function namesRecordedSource(
+  node: MdNode,
+  url: string,
+  byUrl: ReadonlyMap<string, SourceItem>,
+): boolean {
+  const item = byUrl.get(url);
+  return item ? namesSource(node, url, item) : false;
+}
+
+/**
+ * The text immediately before this node already ended a sentence ("…in 2031. [NASA, 16 November]").
+ * A link the next words read through is not in that position.
+ */
+function sentenceEndedBefore(children: readonly MdNode[], start: number): boolean {
+  for (let index = start - 1; index >= 0; index -= 1) {
+    const node = children[index];
+    if (!node || node.type === "break") continue;
+    if (node.type !== "text") return false;
+    const value = node.value ?? "";
+    if (value.trim() === "") continue;
+    return SENTENCE_ENDED.test(value.trimEnd());
+  }
+  return false;
+}
+
+/** The run is the whole content of one parenthesis, as in "was cut ([Space.com, 11 November])." */
+function parenWraps(children: readonly MdNode[], start: number, next: number): boolean {
+  const before = children[start - 1];
+  const after = children[next];
+  return (
+    before?.type === "text" &&
+    /\(\s*$/u.test(before.value ?? "") &&
+    after?.type === "text" &&
+    /^\s*\)/u.test(after.value ?? "")
+  );
+}
+
+/**
+ * The claim ends after the closing parenthesis. The parenthesis itself is not the ending: "…) and
+ * more" keeps the link, while "…)." is a citation.
+ */
+function claimEndedAfterParen(following: MdNode | undefined): boolean {
+  if (following?.type !== "text") return false;
+  const rest = (following.value ?? "").replace(/^\s*\)/u, "");
+  return TRAILING_TEXT.test(rest);
 }
 
 function markdownLinkLabel(label: string): string {
@@ -288,6 +338,86 @@ function sourcesByUrl(sources: readonly SourceItem[]): Map<string, SourceItem> {
   return map;
 }
 
+type RunEntry = { node: MdNode; url: string };
+
+function gatherRun(
+  children: readonly MdNode[],
+  start: number,
+  accept: (node: MdNode, url: string) => boolean,
+  byUrl: ReadonlyMap<string, SourceItem>,
+  definitions: ReadonlyMap<string, string>,
+): { run: RunEntry[]; next: number } {
+  const first = children[start];
+  const firstUrl = first ? recordedLinkUrl(first, byUrl, definitions) : undefined;
+  if (!first || !firstUrl || !accept(first, firstUrl)) return { run: [], next: start };
+  const run: RunEntry[] = [{ node: first, url: firstUrl }];
+  let next = start + 1;
+  while (next < children.length) {
+    const candidate = children[next];
+    if (!candidate) break;
+    const nextUrl = recordedLinkUrl(candidate, byUrl, definitions);
+    if (nextUrl && accept(candidate, nextUrl)) {
+      run.push({ node: candidate, url: nextUrl });
+      next += 1;
+      continue;
+    }
+    if (!isJoiningGap(candidate)) break;
+    let after = next + 1;
+    while (after < children.length && children[after] && isJoiningGap(children[after]!)) {
+      after += 1;
+    }
+    const following = children[after];
+    const followingUrl = following ? recordedLinkUrl(following, byUrl, definitions) : undefined;
+    if (!following || !followingUrl || !accept(following, followingUrl)) break;
+    run.push({ node: following, url: followingUrl });
+    next = after + 1;
+  }
+  return { run, next };
+}
+
+/**
+ * A cluster is a citation when every link names its page and the claim ends, or — whatever the
+ * words say — when it sits after the sentence or is the parenthesis at the end of the claim.
+ */
+function isCitationRun(
+  run: readonly RunEntry[],
+  children: readonly MdNode[],
+  start: number,
+  next: number,
+  byUrl: ReadonlyMap<string, SourceItem>,
+): boolean {
+  const after = children[next];
+  if (run.every((entry) => namesRecordedSource(entry.node, entry.url, byUrl)) && endsClaim(after)) {
+    return true;
+  }
+  if (sentenceEndedBefore(children, start) && endsClaim(after)) return true;
+  return parenWraps(children, start, next) && claimEndedAfterParen(after);
+}
+
+function emitRun(
+  run: readonly RunEntry[],
+  byUrl: ReadonlyMap<string, SourceItem>,
+  groups: CitationGroup[],
+  replacements: Replacement[],
+) {
+  const start = nodeRange(run[0]?.node ?? { type: "text" });
+  const end = nodeRange(run[run.length - 1]?.node ?? { type: "text" });
+  if (!start || !end) return;
+  const items: SourceItem[] = [];
+  const seen = new Set<string>();
+  for (const entry of run) {
+    if (seen.has(entry.url)) continue;
+    seen.add(entry.url);
+    const item = byUrl.get(entry.url);
+    if (item) items.push(item);
+  }
+  const first = items[0];
+  if (!first) return;
+  const groupIndex = groups.length;
+  groups.push({ index: groupIndex, items });
+  replacements.push({ start: start.start, end: end.end, index: groupIndex, site: first.site });
+}
+
 function groupChildren(
   children: readonly MdNode[],
   byUrl: ReadonlyMap<string, SourceItem>,
@@ -299,7 +429,7 @@ function groupChildren(
   while (index < children.length) {
     const child = children[index];
     if (!child) break;
-    const url = citedUrl(child, byUrl, definitions);
+    const url = recordedLinkUrl(child, byUrl, definitions);
     if (!url) {
       if (child.type !== "link" && child.type !== "linkReference" && child.children) {
         groupChildren(child.children, byUrl, definitions, groups, replacements);
@@ -307,59 +437,35 @@ function groupChildren(
       index += 1;
       continue;
     }
-    const run: { node: MdNode; url: string }[] = [{ node: child, url }];
-    let next = index + 1;
-    while (next < children.length) {
-      const candidate = children[next];
-      if (!candidate) break;
-      const nextUrl = citedUrl(candidate, byUrl, definitions);
-      if (nextUrl) {
-        run.push({ node: candidate, url: nextUrl });
-        next += 1;
+    const recorded = gatherRun(children, index, () => true, byUrl, definitions);
+    if (isCitationRun(recorded.run, children, index, recorded.next, byUrl)) {
+      emitRun(recorded.run, byUrl, groups, replacements);
+      index = recorded.next;
+      continue;
+    }
+    // A trailing named link must still pill when an earlier claim-link made the whole run fail.
+    if (namesRecordedSource(child, url, byUrl)) {
+      const named = gatherRun(
+        children,
+        index,
+        (node, linkUrl) => namesRecordedSource(node, linkUrl, byUrl),
+        byUrl,
+        definitions,
+      );
+      if (named.run.length > 0 && endsClaim(children[named.next])) {
+        emitRun(named.run, byUrl, groups, replacements);
+        index = named.next;
         continue;
       }
-      if (!isJoiningGap(candidate)) break;
-      let after = next + 1;
-      while (after < children.length && children[after] && isJoiningGap(children[after]!)) {
-        after += 1;
-      }
-      const following = children[after];
-      const followingUrl = following ? citedUrl(following, byUrl, definitions) : undefined;
-      if (!following || !followingUrl) break;
-      run.push({ node: following, url: followingUrl });
-      next = after + 1;
     }
-    const start = nodeRange(run[0]?.node ?? child);
-    const last = run[run.length - 1];
-    const end = last ? nodeRange(last.node) : undefined;
-    if (start && end && endsClaim(children[next])) {
-      const items: SourceItem[] = [];
-      const seen = new Set<string>();
-      for (const entry of run) {
-        if (seen.has(entry.url)) continue;
-        seen.add(entry.url);
-        const item = byUrl.get(entry.url);
-        if (item) items.push(item);
-      }
-      const first = items[0];
-      if (first) {
-        const groupIndex = groups.length;
-        groups.push({ index: groupIndex, items });
-        replacements.push({
-          start: start.start,
-          end: end.end,
-          index: groupIndex,
-          site: first.site,
-        });
-      }
-    }
-    index = next;
+    index += 1;
   }
 }
 
 /**
- * Rewrite cited links into one `rakazo-cite:` marker per adjacent cluster. Anything that is not a
- * recorded source, a link whose words are the claim, or a link inside code, stays as written.
+ * Rewrite cited links into one `rakazo-cite:` marker per adjacent cluster. A recorded source is a
+ * citation when its words name the page, when it sits after the sentence, or when it is the
+ * parenthesis at the end of the claim. A link the sentence reads through stays as written.
  */
 export function citationMarkdown(
   markdown: string,
@@ -382,7 +488,7 @@ export function citationMarkdown(
     const end = wrapped ? replacement.end + 1 : replacement.end;
     next = `${next.slice(0, start)}${marker}${next.slice(end)}`;
   }
-  return { markdown: next, groups };
+  return { markdown: next.replace(PILL_PUNCTUATION_GAP, "$1"), groups };
 }
 
 /** Streaming text stays as written: a pill would jump while the link is still arriving. */

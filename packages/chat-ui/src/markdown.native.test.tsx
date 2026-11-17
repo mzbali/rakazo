@@ -2613,6 +2613,10 @@ describe("native citation pills", () => {
       "nasa +1",
       "2 sources",
     ]);
+    const sourcesButton = container.querySelector("[data-accessibility-label='2 sources']");
+    expect(
+      sourcesButton?.querySelectorAll("[data-accessibility-elements-hidden='true']"),
+    ).toHaveLength(3);
     const links = [...container.querySelectorAll<HTMLElement>("[data-accessibility-role='link']")];
     expect(links.map((link) => link.getAttribute("data-accessibility-label"))).toEqual(["notes"]);
     await act(async () => {
@@ -2646,5 +2650,29 @@ describe("native citation pills", () => {
     );
     expect(one).toContain('data-accessibility-label="nasa"');
     expect(one).not.toContain("1 source");
+  });
+
+  it("draws a dated cluster as one pill and keeps the full stop inside it", () => {
+    const space = "https://www.space.com/mars-sample-return";
+    const html = renderToStaticMarkup(
+      <ChatMarkdown
+        sources={[
+          ...citedSources,
+          { url: space, title: "Mars sample return", site: "space" },
+          { url: "https://www.bbc.co.uk/news/science", title: "News", site: "bbc" },
+        ]}
+        sourcesRow
+      >
+        {`The mission returns samples in 2031. [NASA, 16 November](${NASA}) · [Space.com](${space}).`}
+      </ChatMarkdown>,
+    );
+    const pill = html.match(
+      /<rn-pressable[^>]*data-accessibility-label="nasa \+1"[\s\S]*?<\/rn-pressable>/,
+    );
+    expect(pill?.[0]).toContain(".");
+    expect(html).not.toMatch(/<\/rn-pressable>\s*<rn-text[^>]*>\s*\./);
+    expect(html).not.toContain("16 November");
+    const marks = html.match(/data-accessibility-label="4 sources"[\s\S]*$/);
+    expect(marks?.[0].match(/data-accessibility-elements-hidden="true"/g)).toHaveLength(4);
   });
 });

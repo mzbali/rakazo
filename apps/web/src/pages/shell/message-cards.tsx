@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { useLinkPrompt } from "@rakazo/chat-ui/web";
+import { LinkFavicon, useExternalLinkOpener, useLinkPrompt } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
 import { appConnectedInput, waitForConnection } from "@rakazo/core";
 import { Button, Dialog, DialogClose, DialogContent, DialogTitle } from "@rakazo/ui-web";
@@ -511,18 +511,22 @@ export function ArtifactImage({
   artifactId,
   name,
   thumbnail = false,
+  source,
 }: {
   target: ArtifactTarget;
   artifactId: string;
   name: string;
   /** A media row: a fixed square, cropped, that still opens the same viewer. */
   thumbnail?: boolean;
+  /** The page a saved web image came from. An upload has none, and shows no label. */
+  source?: Extract<MessageBlock, { kind: "image" }>["source"];
 }) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const src = useArtifactImage(target, artifactId, visible);
+  const { open: openSource, dialog: sourceDialog } = useExternalLinkOpener();
 
   useEffect(() => {
     const element = container.current;
@@ -544,7 +548,7 @@ export function ArtifactImage({
   }, []);
 
   return (
-    <div ref={container} className={thumbnail ? "size-full" : undefined}>
+    <div ref={container} className={thumbnail ? "size-full" : "w-full"}>
       {src ? (
         <button
           type="button"
@@ -552,13 +556,17 @@ export function ArtifactImage({
           className={
             thumbnail
               ? "size-full overflow-hidden bg-muted"
-              : "max-w-[240px] overflow-hidden rounded-2xl"
+              : "block w-full overflow-hidden rounded-2xl"
           }
         >
           <img
             src={src}
             alt={name}
-            className={thumbnail ? "size-full object-cover" : "max-h-48 w-full object-cover"}
+            className={
+              thumbnail
+                ? "size-full object-cover"
+                : "h-auto max-h-96 w-full rounded-2xl object-contain"
+            }
           />
         </button>
       ) : thumbnail ? (
@@ -568,6 +576,17 @@ export function ArtifactImage({
       ) : (
         <div className="rounded-2xl bg-muted px-4 py-3 text-body text-muted-foreground">{name}</div>
       )}
+      {source && !thumbnail ? (
+        <button
+          type="button"
+          className="rk-chat-image-source"
+          onClick={() => openSource(source.url)}
+        >
+          <LinkFavicon href={source.url} />
+          <span className="truncate">{source.site}</span>
+        </button>
+      ) : null}
+      {sourceDialog}
       {src ? (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent

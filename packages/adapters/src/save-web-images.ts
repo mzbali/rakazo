@@ -1,5 +1,6 @@
 import { ARTIFACT_NAME_MAX_LENGTH } from "@rakazo/contracts";
 import { embedLine, messageBlockForArtifact } from "@rakazo/core";
+import { citationSiteLabel } from "@rakazo/core/answer-sources";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
 import type { RunContext } from "./run-context.js";
@@ -16,10 +17,19 @@ const FETCH_FIRST =
 const NOT_AN_IMAGE = "Only PNG, JPEG, WebP and GIF images can be saved.";
 const SVG = "SVG images are not saved.";
 
-type SavedImage = { bytes: Uint8Array; mimeType: string; extension: string; caption: string };
+type ImagePageSource = { url: string; site: string };
+
+type SavedImage = {
+  bytes: Uint8Array;
+  mimeType: string;
+  extension: string;
+  caption: string;
+  source?: ImagePageSource;
+};
 
 export type SaveWebImagesDeps = {
-  trustedUrls: ReadonlySet<string>;
+  /** Image URLs a fetch named. `get` is the page, when the caller remembered one. */
+  trustedUrls: { has(url: string): boolean; get?(url: string): string | undefined };
   /** False when the outbound site gate would not allow the fetch. */
   siteAllowed: (url: string) => boolean;
   fetch?: typeof globalThis.fetch;
@@ -85,6 +95,16 @@ function imageKind(
   return signature.extension;
 }
 
+const SOURCE_URL_MAX = 2048;
+
+/** The page label under a saved image. An upload, or a page with no site name, has none. */
+function imageSource(pageUrl: string | undefined): ImagePageSource | undefined {
+  if (!pageUrl || pageUrl.length > SOURCE_URL_MAX) return undefined;
+  const site = citationSiteLabel(pageUrl);
+  if (!site) return undefined;
+  return { url: pageUrl, site };
+}
+
 function captionOf(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const caption = value.replace(/\s+/g, " ").trim();
@@ -132,11 +152,13 @@ async function saveOne(entry: unknown, deps: SaveWebImagesDeps): Promise<ImageRe
   }
   const kind = imageKind(fetched.contentType, fetched.body);
   if (kind === SVG || kind === NOT_AN_IMAGE) return { error: kind };
+  const source = imageSource(deps.trustedUrls.get?.(url));
   const stored = await deps.save({
     bytes: fetched.body,
     mimeType: mediaType(fetched.contentType),
     extension: kind,
     caption,
+    ...(source ? { source } : {}),
   });
   return { embed: embedLine("image", caption, stored.artifactId) };
 }
@@ -168,11 +190,12 @@ export async function postSavedWebImage(
       operationId: call.executionId,
       name: image.caption,
       onAttached: async (tx, artifact) => {
+        const block = messageBlockForArtifact(artifact);
         committed = await persistMessageInTransaction(
           tx,
           run,
           "bot",
-          [messageBlockForArtifact(artifact)],
+          [block.kind === "image" && image.source ? { ...block, source: image.source } : block],
           run.trigger === "bot_message" ? false : undefined,
           undefined,
           false,

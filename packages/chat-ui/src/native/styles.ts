@@ -222,10 +222,33 @@ export function markdownStyles(palette: ColorTokens) {
       fontWeight: fontWeight.medium,
       flexShrink: 1,
     },
+    cite_punct: {
+      ...typeScale.body,
+      color: palette.foreground,
+    },
     sources_row: {
       color: palette.mutedForeground,
-      marginTop: 8,
       textDecorationLine: "none",
+    },
+    sources_pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 6,
+      marginTop: 8,
+      paddingLeft: 3,
+      paddingRight: 10,
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: palette.muted,
+    },
+    sources_mark: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      borderColor: palette.background,
+      overflow: "hidden",
     },
     // A page named in a message keeps the text's colour; only a faint underline marks it.
     page_chip_title: {
@@ -377,6 +400,11 @@ export const layout = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  // The capsule and the punctuation after it share one inline view, so the mark hugs the pill.
+  citeRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
   // A citation: a capsule a little shorter than the line, lowered onto the text like a favicon.
   citePill: {
     flexDirection: "row",
@@ -393,5 +421,17 @@ export const layout = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
+  },
+  sourcesMarks: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sourcesMarkOverlap: {
+    marginStart: -5,
+  },
+  sourcesTile: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
 });

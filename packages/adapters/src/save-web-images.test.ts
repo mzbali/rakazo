@@ -106,14 +106,21 @@ function deps(siteAllowed: (url: string) => boolean = () => true) {
 }
 
 describe("rememberFetchedPageImage", () => {
-  it("records only an https URL the page named", () => {
-    const urls = new Set<string>();
-    rememberFetchedPageImage(urls, "https://CDN.Example.Test/ferry.jpg");
-    rememberFetchedPageImage(urls, "http://cdn.example.test/ferry.jpg");
-    rememberFetchedPageImage(urls, "javascript:alert(1)");
-    rememberFetchedPageImage(urls, "data:image/png;base64,aaaa");
-    rememberFetchedPageImage(urls, 12);
-    expect([...urls]).toEqual(["https://cdn.example.test/ferry.jpg"]);
+  it("records an https image and the first page that named it", () => {
+    const urls = new Map<string, string>();
+    rememberFetchedPageImage(
+      urls,
+      "https://CDN.Example.Test/ferry.jpg",
+      "https://www.space.com/story",
+    );
+    rememberFetchedPageImage(urls, "https://cdn.example.test/ferry.jpg", "https://nasa.gov/later");
+    rememberFetchedPageImage(urls, "http://cdn.example.test/ferry.jpg", "https://nasa.gov/x");
+    rememberFetchedPageImage(urls, "javascript:alert(1)", "https://nasa.gov/x");
+    rememberFetchedPageImage(urls, "data:image/png;base64,aaaa", "https://nasa.gov/x");
+    rememberFetchedPageImage(urls, 12, "https://nasa.gov/x");
+    expect([...urls]).toEqual([
+      ["https://cdn.example.test/ferry.jpg", "https://www.space.com/story"],
+    ]);
   });
 });
 
@@ -204,6 +211,22 @@ describe("saveWebImages", () => {
       bytes: PNG,
     });
     expect(options.saved[1]).toMatchObject({ mimeType: "image/jpeg", extension: "jpg" });
+    expect(options.saved[0]).not.toHaveProperty("source");
+  });
+
+  it("passes the page a fetched image came from", async () => {
+    const options = deps();
+    const pages = new Map<string, string>([
+      ["https://cdn.example.test/harbor.png", "https://www.space.com/harbor"],
+    ]);
+    const result = await saveWebImages(
+      { images: [{ url: "https://cdn.example.test/harbor.png", caption: "Harbor" }] },
+      { ...options, trustedUrls: pages },
+    );
+    expect(result).toEqual({ images: [{ embed: "![Harbor](image:art-1)" }] });
+    expect(options.saved[0]).toMatchObject({
+      source: { url: "https://www.space.com/harbor", site: "space" },
+    });
   });
 
   it("rejects a bad list before fetching", async () => {
@@ -354,5 +377,31 @@ describe("postSavedWebImage", () => {
       { attempt: 1 },
     );
     expect(notify).toHaveBeenCalledWith("thread", 4, "run-1");
+
+    await postSavedWebImage(ctx, { executionId: "exec-1" } as ToolCall, {
+      bytes: PNG,
+      mimeType: "image/png",
+      extension: "png",
+      caption: "Harbor ferry",
+      source: { url: "https://www.space.com/harbor", site: "space" },
+    });
+    expect(persist).toHaveBeenLastCalledWith(
+      {},
+      ctx.run,
+      "bot",
+      [
+        {
+          kind: "image",
+          artifactId: "art-posted",
+          mimeType: "image/png",
+          name: "Harbor ferry",
+          source: { url: "https://www.space.com/harbor", site: "space" },
+        },
+      ],
+      undefined,
+      undefined,
+      false,
+      { attempt: 1 },
+    );
   });
 });

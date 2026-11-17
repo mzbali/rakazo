@@ -155,6 +155,7 @@ export default function PeerChat() {
                 style={[
                   styles.message,
                   item.blocks?.some((block) => block.kind === "page") && { width: "85%" },
+                  hasInlineImages && { width: "85%" },
                   sent ? styles.sent : styles.received,
                   hasInlineImages ? { gap: 8 } : bubbleStyle,
                 ]}
@@ -185,7 +186,7 @@ export default function PeerChat() {
                   if (block.kind === "chart")
                     return <Text key={index} style={styles.muted}>{`[chart: ${block.name}]`}</Text>;
                   if (block.kind !== "file" && block.kind !== "image") return null;
-                  if (isInlineImageBlock(block))
+                  if (block.kind === "image" && isInlineImageBlock(block))
                     return (
                       <InlineImageAttachment
                         key={index}
@@ -193,6 +194,7 @@ export default function PeerChat() {
                         artifactId={block.artifactId}
                         name={block.name}
                         mimeType={block.mimeType}
+                        source={block.source}
                         labelColor={tokens.foreground}
                         onOpen={() =>
                           router.push({

@@ -991,6 +991,7 @@ export {
   withBlockMentions,
 } from "./markdown";
 export { allowedAppLink } from "./markdown.js";
+export { LinkFavicon } from "./markdown-citations.web";
 export type { MarkdownCopy } from "./markdown-copy";
 export { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";

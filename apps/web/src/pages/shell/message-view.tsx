@@ -563,6 +563,7 @@ export const MessageView = memo(function MessageView({
                   target={artifactTarget}
                   artifactId={block.artifactId}
                   name={block.name}
+                  source={block.source}
                 />
               </div>
             );

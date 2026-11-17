@@ -34,6 +34,7 @@ describe("web citation pills", () => {
     });
     expect(labels(container, "button.rk-chat-cite")).toEqual(["nasa", "nasa +1"]);
     expect(container.querySelector("button.rk-chat-sources")?.textContent).toBe("2 sources");
+    expect(container.querySelectorAll("button.rk-chat-sources .rk-chat-link-tile")).toHaveLength(2);
     const plain = container.querySelector("a.rk-chat-link");
     expect(plain?.getAttribute("href")).toBe("https://notes.example.test/mars");
     expect(plain?.textContent).toBe("notes");
@@ -70,5 +71,21 @@ describe("web citation pills", () => {
     expect(one).toContain("rk-chat-cite");
     expect(one).not.toContain("rk-chat-sources");
     expect(one).not.toContain("1 source");
+  });
+
+  it("draws a dated cluster as one pill, and keeps the full stop against it", () => {
+    const space = "https://www.space.com/mars-sample-return";
+    const html = renderToStaticMarkup(
+      <ChatMarkdown
+        sources={[...sources, { url: space, title: "Mars sample return", site: "space" }]}
+        sourcesRow
+      >
+        {`The mission returns samples in 2031. [NASA, 16 November](${NASA}) · [Space.com](${space}).`}
+      </ChatMarkdown>,
+    );
+    expect(html).toContain('aria-label="nasa +1"');
+    expect(html).not.toContain("16 November");
+    expect(html).toContain("</button>.");
+    expect(html.match(/class="rk-chat-link-tile/g)).toHaveLength(4);
   });
 });

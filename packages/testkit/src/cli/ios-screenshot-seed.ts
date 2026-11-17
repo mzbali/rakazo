@@ -1428,7 +1428,7 @@ async function ensureAnswerSources(
     blocks: [
       {
         kind: "text",
-        text: `A day on Mars lasts about ${ANSWER_SOURCES_MARKER} [NASA](${ANSWER_SOURCES_DAY}). A year there is 687 Earth days [NASA year](${ANSWER_SOURCES_DAY}) [ESA](${ANSWER_SOURCES_YEAR}).`,
+        text: `A day on Mars lasts about ${ANSWER_SOURCES_MARKER} [NASA](${ANSWER_SOURCES_DAY}). A year there is 687 Earth days [nasa.gov](${ANSWER_SOURCES_DAY}) [ESA](${ANSWER_SOURCES_YEAR}).`,
       },
       {
         kind: "sources",

@@ -163,8 +163,24 @@ describe("citationMarkdown", () => {
     );
   });
 
+  it("keeps a claim written as the link's words as a link", () => {
+    const answer = `The rover [landed in Jezero crater in 2021](${NASA}). It is [49 km wide](${ESA}), seen from orbit.`;
+    const prepared = citationMarkdown(answer, sources);
+    expect(prepared.groups).toEqual([]);
+    expect(prepared.markdown).toBe(answer);
+  });
+
+  it("draws a pill for a link named by its address, a part of its title or a number", () => {
+    const news = { url: BBC, title: "Rover lands on Mars - BBC News", site: "bbc" };
+    const answer = `It is red [nasa.gov](${NASA}). It landed [BBC News](${BBC}). It has two moons [2](${WIKI}).`;
+    const prepared = citationMarkdown(answer, [...sources, news]);
+    expect(prepared.markdown).toBe(
+      "It is red [nasa](rakazo-cite:0). It landed [bbc](rakazo-cite:1). It has two moons [wikipedia](rakazo-cite:2).",
+    );
+  });
+
   it("keeps one pill when the same page is cited twice in a cluster", () => {
-    const prepared = citationMarkdown(`[NASA](${NASA}) [NASA again](${NASA})`, sources);
+    const prepared = citationMarkdown(`[NASA](${NASA}) [nasa.gov](${NASA})`, sources);
     expect(prepared.groups).toEqual([{ index: 0, items: [sources[0]!] }]);
     expect(prepared.markdown).toBe("[nasa](rakazo-cite:0)");
   });

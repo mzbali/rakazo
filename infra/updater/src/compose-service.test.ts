@@ -227,9 +227,13 @@ describe("the point-in-time recovery sidecar", () => {
     expect(pitr.image).toBe(`rakazo-pitr:${hash.digest("hex").slice(0, 16)}`);
   });
 
-  it("runs the apt security helper smoke, including the copy equality check", () => {
-    execFileSync("bash", [path.join(composeDir, "apt-security.smoke.sh")], { stdio: "inherit" });
-  });
+  // The smoke runs dpkg and apt tooling, which only Linux has.
+  it.skipIf(process.platform !== "linux")(
+    "runs the apt security helper smoke, including the copy equality check",
+    () => {
+      execFileSync("bash", [path.join(composeDir, "apt-security.smoke.sh")], { stdio: "inherit" });
+    },
+  );
 
   it("builds on the same pinned Postgres image as the database", () => {
     const dockerfile = readFileSync(path.join(composeDir, "Dockerfile.pitr"), "utf8");

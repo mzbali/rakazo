@@ -611,8 +611,10 @@ it("fills the column for a bot answer and keeps a user bubble at chat width", ()
     expect(regular.width).toBe(avatar ? undefined : "100%");
     expect(regular.maxWidth).toBe(avatar ? undefined : "100%");
     expect(regular.menuMaxWidth).toBe(360 - gutter);
+    expect(regular.menuFullWidth).toBe(true);
   }
   const user = measure("regular", false, false, "user");
+  expect(user.menuFullWidth).toBe(false);
   expect(user.width).toBeUndefined();
   expect(user.maxWidth).toBe("90%");
   expect(user.menuMaxWidth).toBe(324);

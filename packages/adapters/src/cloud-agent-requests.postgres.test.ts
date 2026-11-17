@@ -1440,6 +1440,26 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       expect(await t.wakeNonces()).toEqual([]);
     });
 
+    it("never counts the pause toward a pull request watch's limit", async () => {
+      const { t, id, remote } = await going();
+      Object.assign(remote, { watching: true, watchIdle: true });
+      pause(remote, new Date(Date.now() + 30 * 60 * 60_000), false);
+      await t.poll(id);
+      expect((await t.state(id)).watchingSince).toBeNull();
+
+      // Even a clock already a day old does not stop the work the continuation just resumed.
+      const reset = new Date(Date.now() - 60_000);
+      pause(remote, reset, false);
+      await asSystem(prisma).cloudAgent.update({
+        where: { id },
+        data: { watchingSince: new Date(Date.now() - 25 * 3_600_000) },
+      });
+      await t.poll(id);
+      const row = await t.state(id);
+      expect(t.provider.replyPrompts).toEqual([CONTINUE]);
+      expect(row).toMatchObject({ status: "running", cancelRequested: false, watchingSince: null });
+    });
+
     it("lets an open question win, and keeps polling it instead of waiting out the reset", async () => {
       const { t, id, remote } = await going();
       const reset = new Date(Date.now() + 3 * 60 * 60_000);

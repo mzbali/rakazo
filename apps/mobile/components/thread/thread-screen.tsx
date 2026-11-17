@@ -78,6 +78,7 @@ import { createThreadHeaderStyles } from "../thread-header-styles";
 import { QuoteSheet } from "./quote-sheet";
 import { ThreadComposerDock } from "./thread-composer-dock";
 import { ThreadEdgeFade } from "./thread-edge-fade";
+import { ThreadEmbeds } from "./thread-embeds";
 import { useThreadHeader } from "./thread-header";
 import { ThreadJobsPill } from "./thread-jobs-pill";
 import { LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
@@ -619,26 +620,40 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
       >
         {/* The keyboard's padding shrinks this, so the floating composer rides above it. */}
         <View style={{ flex: 1 }}>
-          <NewestPageCards.Provider value={newestPages}>
-            <ThreadMessageList
-              scroll={scroll}
-              pinnedListHandlers={paging.pinnedListHandlers}
-              threadKey={threadKey}
-              headerClearance={headerClearance}
-              bottomInset={bottomInset}
-              columnPadding={columnPadding}
-              visibleMessages={visibleMessages}
-              liveItems={liveItems}
-              renderItem={renderItem}
-              renderMessageRow={renderMessageRow}
-              loadEarlierControl={loadEarlierControl}
-              failedSendBubbles={failedSendBubbles}
-              errorNotice={errorNotice}
-              workingFooter={workingFooter}
-              loadingNewer={paging.loadingNewer}
-              showLatest={showLatest}
-            />
-          </NewestPageCards.Provider>
+          <ThreadEmbeds
+            messages={snap?.messages ?? []}
+            threadTarget={artifactTarget}
+            onPreviewImage={(target) =>
+              router.push({
+                pathname: "/image",
+                params: { ...target, ...(groupId ? { groupId } : { botId }) },
+              })
+            }
+            onPreviewFile={(artifactId) =>
+              router.push({ pathname: "/artifact", params: { artifactId, exact: "1" } })
+            }
+          >
+            <NewestPageCards.Provider value={newestPages}>
+              <ThreadMessageList
+                scroll={scroll}
+                pinnedListHandlers={paging.pinnedListHandlers}
+                threadKey={threadKey}
+                headerClearance={headerClearance}
+                bottomInset={bottomInset}
+                columnPadding={columnPadding}
+                visibleMessages={visibleMessages}
+                liveItems={liveItems}
+                renderItem={renderItem}
+                renderMessageRow={renderMessageRow}
+                loadEarlierControl={loadEarlierControl}
+                failedSendBubbles={failedSendBubbles}
+                errorNotice={errorNotice}
+                workingFooter={workingFooter}
+                loadingNewer={paging.loadingNewer}
+                showLatest={showLatest}
+              />
+            </NewestPageCards.Provider>
+          </ThreadEmbeds>
           {headerHeight > 0 ? (
             // Ends halfway down the floating header's 44pt pills.
             <ThreadEdgeFade

@@ -5,7 +5,7 @@ import { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { closeUnterminatedFence } from "./markdown";
+import { closeUnterminatedFence, markdownEmbed } from "./markdown";
 import type { LinkFavicons } from "./markdown.web";
 import {
   allowAppLinks,
@@ -14,6 +14,7 @@ import {
   LinkFaviconsContext,
   LinkifiedText,
   MarkdownCopyProvider,
+  MarkdownEmbedContext,
   MarkdownLinkPromptProvider,
   RemoteImagesContext,
   useLinkPrompt,
@@ -1000,5 +1001,44 @@ describe("web markdown parser failure", () => {
     });
     container.remove();
     vi.restoreAllMocks();
+  });
+});
+
+describe("web markdown embeds", () => {
+  it("reads a visual or image href and rejects anything else", () => {
+    expect(markdownEmbed("visual:message_1", "Flow")).toEqual({
+      kind: "visual",
+      id: "message_1",
+      label: "Flow",
+    });
+    expect(markdownEmbed("image:art-1", "Quarter")).toEqual({
+      kind: "image",
+      id: "art-1",
+      label: "Quarter",
+    });
+    expect(markdownEmbed("https://example.test/a.png", "plot")).toBeUndefined();
+    expect(markdownEmbed("visual:has space", "Flow")).toBeUndefined();
+  });
+
+  it("draws a resolved embed in place and leaves an unknown one as its title", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Quarter trend</figure>}>
+        <ChatMarkdown>
+          {"Revenue climbed.\n\n![Quarter trend](visual:message_1)\n\nSeptember is highest."}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).toContain("<figure>Quarter trend</figure>");
+    expect(html).toContain('class="rk-chat-embed"');
+    expect(html).not.toContain("<p><figure>");
+    expect(html).toContain("Revenue climbed.");
+    expect(html).toContain("September is highest.");
+
+    const missing = renderToStaticMarkup(
+      <ChatMarkdown>{"See ![Quarter trend](visual:missing) here."}</ChatMarkdown>,
+    );
+    expect(missing).toContain("Quarter trend");
+    expect(missing).not.toContain("visual:missing");
+    expect(missing).not.toContain("rk-chat-embed");
   });
 });

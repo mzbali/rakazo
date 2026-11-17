@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { plainEmbedReferences } from "./embed-references.js";
 
 /** A fenced block becomes a mention of itself, with its language if known. */
 function describeCodeBlock(fence: string): string {
@@ -286,8 +287,8 @@ export function speechFromBlocks(blocks: MessageBlock[]): string {
   return blocks
     .map((block) => {
       if (block.kind === "text" || block.kind === "progress" || block.kind === "meta")
-        return block.text;
-      if (block.kind === "ask") return block.text;
+        return plainEmbedReferences(block.text);
+      if (block.kind === "ask") return plainEmbedReferences(block.text);
       if (block.kind === "cloud_agent")
         return `${block.title}: ${block.status}${block.prUrl ? ` ${block.prUrl}` : ""}`;
       if (block.kind === "computer") return block.text;

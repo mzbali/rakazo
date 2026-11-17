@@ -15,6 +15,7 @@ import {
   liveActivityLine,
   liveMessageComposing,
   peerExchangeLines,
+  placedEmbedMessages,
   projectBotMentions,
   projectMessageReactions,
   separateAskAnswers,
@@ -53,6 +54,7 @@ import { TimeSeparator, UnreadDivider } from "./chat-context";
 import type { ImportSetupTarget } from "./import-setup-card";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
+import { TranscriptEmbeds } from "./transcript-embeds";
 
 /** User bubbles stay a chat width. Bot answers use the shared reading column. */
 export function bubbleFrameWidth(role: ThreadMessage["role"]) {
@@ -189,9 +191,18 @@ export const Transcript = memo(function Transcript({
     () => new Map(messages.map((message) => [message.id, message])),
     [messages],
   );
+  // Placed cards stay in `messages` so the reply can draw them, and leave the row list.
+  const placedEmbedIds = useMemo(
+    () => new Set(placedEmbedMessages(messages).map((message) => message.id)),
+    [messages],
+  );
+  const listedMessages = useMemo(
+    () => messages.filter((message) => !placedEmbedIds.has(message.id)),
+    [messages, placedEmbedIds],
+  );
   const committedMentions = useRef(new Map<string, ChildBotBlock[]>());
   const mentionView = useMemo(() => {
-    const view = projectBotMentions(messages);
+    const view = projectBotMentions(listedMessages);
     for (const [id, mentions] of view.mentions) {
       const previous = committedMentions.current.get(id);
       if (
@@ -202,7 +213,7 @@ export const Transcript = memo(function Transcript({
       }
     }
     return view;
-  }, [messages]);
+  }, [listedMessages]);
   const committedPages = useRef<ReturnType<typeof projectPageCards> | null>(null);
   const pageView = useMemo(() => {
     const view = projectPageCards(mentionView.visibleMessages);
@@ -482,248 +493,250 @@ export const Transcript = memo(function Transcript({
   );
 
   return (
-    <div className="relative flex min-h-0 flex-1">
-      <div
-        ref={scrollRef}
-        data-testid="transcript"
-        onPointerDown={(event) => {
-          lastScrollTop.current = event.currentTarget.scrollTop;
-          autoScrolling.current = false;
-          following.current = false;
-        }}
-        onTouchStart={(event) => {
-          lastScrollTop.current = event.currentTarget.scrollTop;
-          autoScrolling.current = false;
-          following.current = false;
-        }}
-        onScrollEnd={followIfNearEnd}
-        onWheel={(event) => {
-          if (event.deltaY < 0) {
+    <TranscriptEmbeds messages={messages} target={artifactTarget}>
+      <div className="relative flex min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          data-testid="transcript"
+          onPointerDown={(event) => {
             lastScrollTop.current = event.currentTarget.scrollTop;
             autoScrolling.current = false;
             following.current = false;
-          }
-        }}
-        onScroll={(event) => {
-          const scrolledDown = transcriptMovedDown(
-            lastScrollTop.current,
-            event.currentTarget.scrollTop,
-          );
-          lastScrollTop.current = event.currentTarget.scrollTop;
-          const nearEnd = transcriptIsNearEnd(event.currentTarget);
-          setAtEnd(nearEnd);
-          // A jump scroll owns the viewport until its animation settles; its
-          // own near-end crossings must not re-arm tail-following.
-          if (jumpScrolling.current) return;
-          if (nearEnd) {
-            if (scrolledDown) following.current = true;
-            if (autoScrolling.current) {
-              autoScrolling.current = false;
-              window.clearTimeout(autoScrollTimer.current);
-            }
-          } else if (!autoScrolling.current) {
+          }}
+          onTouchStart={(event) => {
+            lastScrollTop.current = event.currentTarget.scrollTop;
+            autoScrolling.current = false;
             following.current = false;
-          }
-        }}
-        className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-12 md:pt-[84px] md:pb-13 ${TRANSCRIPT_CONTENT_PADDING}`}
-        style={
-          userBubble
-            ? ({
-                "--chat-user": userBubble.background,
-                "--chat-user-foreground": userBubble.foreground,
-              } as CSSProperties)
-            : undefined
-        }
-      >
-        {olderCursor != null ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={loadingOlder}
-            onClick={() => void loadOlder()}
-            aria-label={t`Load earlier messages`}
-            className="self-center text-muted-foreground"
-          >
-            {loadingOlder ? <Spinner aria-label={t`Loading…`} /> : null}
-            {t`Load earlier messages`}
-          </Button>
-        ) : null}
-        {groupVoiceChats(reactionView.visibleMessages).map((item) => {
-          if (item.kind === "voiceChat") {
-            return (
-              <div key={item.key}>
-                {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
-                  <TimeSeparator
-                    createdAt={item.messages[0].createdAt}
-                    locale={i18n.locale || "en"}
-                  />
-                ) : null}
-                {voiceChatHoldsMessage(item, unreadDividerId) ? (
-                  <UnreadDivider
-                    afterSeparator={Boolean(
-                      item.messages[0] && separatorIds.has(item.messages[0].id),
-                    )}
-                  />
-                ) : null}
-                <VoiceChatCard
-                  group={item}
-                  revealMessageId={scrollRequest?.messageId}
-                  onCallBack={onCallBack}
-                />
-              </div>
+          }}
+          onScrollEnd={followIfNearEnd}
+          onWheel={(event) => {
+            if (event.deltaY < 0) {
+              lastScrollTop.current = event.currentTarget.scrollTop;
+              autoScrolling.current = false;
+              following.current = false;
+            }
+          }}
+          onScroll={(event) => {
+            const scrolledDown = transcriptMovedDown(
+              lastScrollTop.current,
+              event.currentTarget.scrollTop,
             );
+            lastScrollTop.current = event.currentTarget.scrollTop;
+            const nearEnd = transcriptIsNearEnd(event.currentTarget);
+            setAtEnd(nearEnd);
+            // A jump scroll owns the viewport until its animation settles; its
+            // own near-end crossings must not re-arm tail-following.
+            if (jumpScrolling.current) return;
+            if (nearEnd) {
+              if (scrolledDown) following.current = true;
+              if (autoScrolling.current) {
+                autoScrolling.current = false;
+                window.clearTimeout(autoScrollTimer.current);
+              }
+            } else if (!autoScrolling.current) {
+              following.current = false;
+            }
+          }}
+          className={`rk-scroll isolate flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto scroll-pt-16 scroll-pb-7 pt-20 pb-12 md:pt-[84px] md:pb-13 ${TRANSCRIPT_CONTENT_PADDING}`}
+          style={
+            userBubble
+              ? ({
+                  "--chat-user": userBubble.background,
+                  "--chat-user-foreground": userBubble.foreground,
+                } as CSSProperties)
+              : undefined
           }
-          const message = item.message;
-          if (!messageHasVisibleBlocks(message.blocks, showToolActivity)) return null;
-          const peerReceipt = isPeerReceiptBlocks(message.blocks);
-          const messageReactions = reactionView.reactions.get(message.id);
-          return (
-            <Fragment key={message.id}>
-              {separatorIds.has(message.id) ? (
-                <TimeSeparator createdAt={message.createdAt} locale={i18n.locale || "en"} />
-              ) : null}
-              {message.id === unreadDividerId ? (
-                <UnreadDivider afterSeparator={separatorIds.has(message.id)} />
-              ) : null}
-              <div
-                data-message-id={message.id}
-                className={peerReceipt ? "relative" : "group/message relative hover:z-[1]"}
-              >
+        >
+          {olderCursor != null ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={loadingOlder}
+              onClick={() => void loadOlder()}
+              aria-label={t`Load earlier messages`}
+              className="self-center text-muted-foreground"
+            >
+              {loadingOlder ? <Spinner aria-label={t`Loading…`} /> : null}
+              {t`Load earlier messages`}
+            </Button>
+          ) : null}
+          {groupVoiceChats(reactionView.visibleMessages).map((item) => {
+            if (item.kind === "voiceChat") {
+              return (
+                <div key={item.key}>
+                  {item.messages[0] && separatorIds.has(item.messages[0].id) ? (
+                    <TimeSeparator
+                      createdAt={item.messages[0].createdAt}
+                      locale={i18n.locale || "en"}
+                    />
+                  ) : null}
+                  {voiceChatHoldsMessage(item, unreadDividerId) ? (
+                    <UnreadDivider
+                      afterSeparator={Boolean(
+                        item.messages[0] && separatorIds.has(item.messages[0].id),
+                      )}
+                    />
+                  ) : null}
+                  <VoiceChatCard
+                    group={item}
+                    revealMessageId={scrollRequest?.messageId}
+                    onCallBack={onCallBack}
+                  />
+                </div>
+              );
+            }
+            const message = item.message;
+            if (!messageHasVisibleBlocks(message.blocks, showToolActivity)) return null;
+            const peerReceipt = isPeerReceiptBlocks(message.blocks);
+            const messageReactions = reactionView.reactions.get(message.id);
+            return (
+              <Fragment key={message.id}>
+                {separatorIds.has(message.id) ? (
+                  <TimeSeparator createdAt={message.createdAt} locale={i18n.locale || "en"} />
+                ) : null}
+                {message.id === unreadDividerId ? (
+                  <UnreadDivider afterSeparator={separatorIds.has(message.id)} />
+                ) : null}
                 <div
-                  className={
-                    peerReceipt
-                      ? undefined
-                      : `relative flex ${message.role === "user" ? "justify-end" : "justify-start"}`
-                  }
+                  data-message-id={message.id}
+                  className={peerReceipt ? "relative" : "group/message relative hover:z-[1]"}
                 >
                   <div
-                    data-testid={peerReceipt ? undefined : "message-bubble-frame"}
                     className={
                       peerReceipt
                         ? undefined
-                        : // Asks keep their card's width, so the action rail stays beside the card.
-                          message.blocks.some(
-                              (block) => block.kind === "ask" || block.kind === "mcp_approval",
-                            )
-                          ? "relative w-full min-w-0 max-w-xl"
-                          : message.role === "bot"
-                            ? `relative min-w-0 ${bubbleFrameWidth("bot")}`
-                            : `relative ${
-                                message.blocks.some(
-                                  (block) =>
-                                    block.kind === "app_connect" ||
-                                    block.kind === "page" ||
-                                    block.kind === "visual" ||
-                                    block.kind === "computer",
-                                ) || pageView.pages.has(message.id)
-                                  ? "w-full"
-                                  : "w-fit"
-                              } min-w-0 ${bubbleFrameWidth("user")}`
+                        : `relative flex ${message.role === "user" ? "justify-end" : "justify-start"}`
                     }
                   >
-                    <MessageView
-                      artifactTarget={artifactTarget}
-                      message={message}
-                      separateAnswers={separateAnswers.get(message.id)}
-                      meId={meId}
-                      markedUnread={message.id === markedUnreadMessageId}
-                      mentions={mentionView.mentions.get(message.id)}
-                      pages={pageView.pages.get(message.id)}
-                      isPageSuperseded={pageView.isSuperseded}
-                      canAnswer={answerableAskIds.has(message.id)}
-                      canDismiss={dismissableAskIds.has(message.id)}
-                      onOpenBot={onOpenBot}
-                      onOpenPeerMessages={onOpenPeerMessages}
-                      peerExchange={exchanges.lines.get(message.id)}
-                      onAnswer={onAnswer}
-                      speakerName={
+                    <div
+                      data-testid={peerReceipt ? undefined : "message-bubble-frame"}
+                      className={
                         peerReceipt
                           ? undefined
-                          : message.role === "bot"
-                            ? memberName?.(message.botId)
+                          : // Asks keep their card's width, so the action rail stays beside the card.
+                            message.blocks.some(
+                                (block) => block.kind === "ask" || block.kind === "mcp_approval",
+                              )
+                            ? "relative w-full min-w-0 max-w-xl"
+                            : message.role === "bot"
+                              ? `relative min-w-0 ${bubbleFrameWidth("bot")}`
+                              : `relative ${
+                                  message.blocks.some(
+                                    (block) =>
+                                      block.kind === "app_connect" ||
+                                      block.kind === "page" ||
+                                      block.kind === "visual" ||
+                                      block.kind === "computer",
+                                  ) || pageView.pages.has(message.id)
+                                    ? "w-full"
+                                    : "w-fit"
+                                } min-w-0 ${bubbleFrameWidth("user")}`
+                      }
+                    >
+                      <MessageView
+                        artifactTarget={artifactTarget}
+                        message={message}
+                        separateAnswers={separateAnswers.get(message.id)}
+                        meId={meId}
+                        markedUnread={message.id === markedUnreadMessageId}
+                        mentions={mentionView.mentions.get(message.id)}
+                        pages={pageView.pages.get(message.id)}
+                        isPageSuperseded={pageView.isSuperseded}
+                        canAnswer={answerableAskIds.has(message.id)}
+                        canDismiss={dismissableAskIds.has(message.id)}
+                        onOpenBot={onOpenBot}
+                        onOpenPeerMessages={onOpenPeerMessages}
+                        peerExchange={exchanges.lines.get(message.id)}
+                        onAnswer={onAnswer}
+                        speakerName={
+                          peerReceipt
+                            ? undefined
+                            : message.role === "bot"
+                              ? memberName?.(message.botId)
+                              : undefined
+                        }
+                        memberName={memberName}
+                        peerBot={peerBot}
+                        replyParent={
+                          message.replyToMessageId
+                            ? messageById.get(message.replyToMessageId)
                             : undefined
-                      }
-                      memberName={memberName}
-                      peerBot={peerBot}
-                      replyParent={
-                        message.replyToMessageId
-                          ? messageById.get(message.replyToMessageId)
-                          : undefined
-                      }
-                      onJumpToMessage={jumpToMessage}
-                      onRefresh={onRefresh}
-                      onBotChanged={onBotChanged}
-                      onAddRoutine={onAddRoutine}
-                      voiceReady={voiceReady}
-                      speaking={speakingMessageId === message.id}
-                      callHoldsSpeaker={callHoldsSpeaker}
-                      onSpeak={onSpeak}
-                      onOpenComputer={onOpenComputer}
-                      onReleaseComputer={onReleaseComputer}
-                      onOpenImportSetup={onOpenImportSetup}
-                      rpc={rpc}
-                      showToolActivity={showToolActivity}
-                      onReply={onReply}
-                      onMarkUnread={onMarkUnread}
-                      onReact={onReact}
-                    />
+                        }
+                        onJumpToMessage={jumpToMessage}
+                        onRefresh={onRefresh}
+                        onBotChanged={onBotChanged}
+                        onAddRoutine={onAddRoutine}
+                        voiceReady={voiceReady}
+                        speaking={speakingMessageId === message.id}
+                        callHoldsSpeaker={callHoldsSpeaker}
+                        onSpeak={onSpeak}
+                        onOpenComputer={onOpenComputer}
+                        onReleaseComputer={onReleaseComputer}
+                        onOpenImportSetup={onOpenImportSetup}
+                        rpc={rpc}
+                        showToolActivity={showToolActivity}
+                        onReply={onReply}
+                        onMarkUnread={onMarkUnread}
+                        onReact={onReact}
+                      />
+                    </div>
                   </div>
+                  {!peerReceipt && messageReactions ? (
+                    <div
+                      data-testid="message-reactions"
+                      className={cn(
+                        "mt-1 flex flex-wrap gap-1",
+                        message.role === "user" && "justify-end",
+                      )}
+                    >
+                      {[...messageReactions].map(([emoji, count]) => (
+                        <span
+                          key={emoji}
+                          className="rounded-full border border-border bg-muted px-2 py-0.5 text-label"
+                        >
+                          {emoji}
+                          {count > 1 ? ` ${count}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                {!peerReceipt && messageReactions ? (
-                  <div
-                    data-testid="message-reactions"
-                    className={cn(
-                      "mt-1 flex flex-wrap gap-1",
-                      message.role === "user" && "justify-end",
-                    )}
-                  >
-                    {[...messageReactions].map(([emoji, count]) => (
-                      <span
-                        key={emoji}
-                        className="rounded-full border border-border bg-muted px-2 py-0.5 text-label"
-                      >
-                        {emoji}
-                        {count > 1 ? ` ${count}` : ""}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </Fragment>
-          );
-        })}
-        {running &&
-        !messages.some(
-          (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
-        ) ? (
-          <ActiveBotGlyph bots={workingBots} label={workingLabel} />
+              </Fragment>
+            );
+          })}
+          {running &&
+          !messages.some(
+            (message) => message.id.startsWith("progress:") && liveMessageComposing(message.blocks),
+          ) ? (
+            <ActiveBotGlyph bots={workingBots} label={workingLabel} />
+          ) : null}
+        </div>
+        {quoteDraft ? (
+          <QuoteSelectionButton
+            range={quoteDraft.range}
+            onQuote={() => {
+              onQuote(quoteDraft.message, quoteDraft.text);
+              window.getSelection()?.removeAllRanges();
+              setQuoteDraft(null);
+            }}
+          />
         ) : null}
+        <Button
+          ref={jumpButtonRef}
+          variant="floating"
+          size="icon-lg"
+          aria-label={t`Jump to latest`}
+          aria-hidden={atEnd}
+          tabIndex={atEnd ? -1 : 0}
+          onClick={jumpToLatest}
+          className={`absolute bottom-11 left-1/2 z-20 -translate-x-1/2 shadow-md transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${
+            atEnd ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100"
+          }`}
+        >
+          <ArrowDown strokeWidth={1.8} className="size-[17px]" />
+        </Button>
       </div>
-      {quoteDraft ? (
-        <QuoteSelectionButton
-          range={quoteDraft.range}
-          onQuote={() => {
-            onQuote(quoteDraft.message, quoteDraft.text);
-            window.getSelection()?.removeAllRanges();
-            setQuoteDraft(null);
-          }}
-        />
-      ) : null}
-      <Button
-        ref={jumpButtonRef}
-        variant="floating"
-        size="icon-lg"
-        aria-label={t`Jump to latest`}
-        aria-hidden={atEnd}
-        tabIndex={atEnd ? -1 : 0}
-        onClick={jumpToLatest}
-        className={`absolute bottom-11 left-1/2 z-20 -translate-x-1/2 shadow-md transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${
-          atEnd ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100"
-        }`}
-      >
-        <ArrowDown strokeWidth={1.8} className="size-[17px]" />
-      </Button>
-    </div>
+    </TranscriptEmbeds>
   );
 });
 

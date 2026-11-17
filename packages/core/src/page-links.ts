@@ -10,7 +10,7 @@ const ESCAPABLE = /[!-/:-@[-`{-~]/;
  * so finding closers never rescans the text. `skipTo[at]` is where a run starting at `at` leaves
  * off: past its closer, to the end for an unclosed fence, or past itself for a lone span.
  */
-function codeSkips(text: string): Int32Array {
+export function codeSkipEnds(text: string): Int32Array {
   const starts: number[] = [];
   const ends: number[] = [];
   const fences: boolean[] = [];
@@ -74,7 +74,7 @@ function codeSkips(text: string): Int32Array {
  * Code spans and fenced blocks are left as written.
  */
 export function pageLinksAsTitles(text: string): string {
-  const skips = text.includes("`") || text.includes("~~~") ? codeSkips(text) : null;
+  const skips = text.includes("`") || text.includes("~~~") ? codeSkipEnds(text) : null;
   let out = "";
   let copied = 0;
   let at = 0;

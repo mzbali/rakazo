@@ -125,10 +125,12 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   );
 });
 
-export type { ChatMarkdownProps, LinkFavicons } from "./markdown";
+export type { ChatMarkdownProps, LinkFavicons, MarkdownEmbed } from "./markdown";
 export {
   allowAppLinks,
   LinkFaviconsContext,
+  MarkdownEmbedContext,
+  markdownEmbed,
   plainTextLinkParts,
   RemoteImagesContext,
   useLinkFavicon,

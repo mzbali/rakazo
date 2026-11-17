@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { plainEmbedReferences } from "./embed-references.js";
 import { messagingProviderLabel } from "./messaging-providers.js";
 
 /** A relayed chat-app message with who sent it and over what. */
@@ -14,7 +15,7 @@ export function selectableMessageText(message: { blocks: readonly MessageBlock[]
     .map((block) => {
       if (block.kind === "channel_message") return channelMessageLine(block);
       if (block.kind === "text" || block.kind === "progress" || block.kind === "ask")
-        return block.text;
+        return plainEmbedReferences(block.text);
       return "";
     })
     .filter(Boolean)

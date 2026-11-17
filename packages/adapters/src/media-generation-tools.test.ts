@@ -85,6 +85,7 @@ describe("bot media tools", () => {
     expect(await generateMediaFromTool(options)).toEqual({
       status: "completed",
       artifactId: "artifact",
+      embed: "![generated.png](image:artifact)",
     });
     expect(externalEffect.create.mock.invocationCallOrder[0]).toBeLessThan(
       generate.mock.invocationCallOrder[0]!,
@@ -207,7 +208,15 @@ describe("bot media tools", () => {
           name,
           args: name === "generate_video" ? { jobId: row.id } : { prompt: "draw" },
         }),
-      ).toEqual({ status: "completed", artifactId: artifact.id });
+      ).toEqual(
+        name === "generate_image"
+          ? {
+              status: "completed",
+              artifactId: artifact.id,
+              embed: "![generated.png](image:artifact)",
+            }
+          : { status: "completed", artifactId: artifact.id },
+      );
       expect(image).not.toHaveBeenCalled();
       expect(poll).not.toHaveBeenCalled();
       expect(attach).not.toHaveBeenCalled();

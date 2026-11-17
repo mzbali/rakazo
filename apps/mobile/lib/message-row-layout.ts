@@ -39,10 +39,13 @@ export function messageRowLayout(
   const content = columnWidth - COLUMN_PADDING - gutter;
   // A bot answer is one column beside its avatar. User bubbles stay capped.
   if (role !== "user") {
+    // The menu measures its trigger unconstrained, so prose needs the width set there for
+    // diagrams and other content without a width of their own.
+    const prose = blocks.some((block) => block.kind === "text");
     return {
       width: full || !activityBotId ? "100%" : undefined,
       maxWidth: full || !activityBotId ? "100%" : undefined,
-      menuFullWidth: wideAsk || fillsBubble,
+      menuFullWidth: wideAsk || fillsBubble || prose,
       menuMaxWidth: isCenteredAgentEvent(blocks) ? columnWidth - COLUMN_PADDING : content,
     } as const;
   }

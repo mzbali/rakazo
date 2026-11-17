@@ -236,7 +236,7 @@ it("gives a bot answer the reading column and keeps a user message in a bubble",
   const userFrame = container.querySelector<HTMLElement>(
     '[data-message-id="m1"] [data-testid="message-bubble-frame"]',
   );
-  expect(botFrame?.className).toContain("max-w-xl");
+  expect(botFrame?.className).toContain("max-w-3xl");
   expect(botFrame?.className).not.toContain("39rem");
   expect(userFrame?.className).toContain("39rem");
   const botBubble = container.querySelector(

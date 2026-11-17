@@ -333,8 +333,13 @@ describe("native markdown tables", () => {
       expect(row.width).toBeGreaterThan(0);
       expect(row.width).toBe(row.cells.reduce((total, width) => total + width, 0));
     }
-    const narrowWidth = narrow[0]?.width ?? 0;
-    for (const row of wide) expect(row.width).toBeGreaterThan(narrowWidth);
+    // Six short columns keep the minimum width each, so the row stays wider
+    // than a phone column instead of squeezing. A long cell can make the
+    // three-column table wider still once cells use the body type.
+    const wideRow = wide[0];
+    expect(wideRow?.cells).toHaveLength(6);
+    expect(wideRow?.cells.every((cell) => cell >= 64)).toBe(true);
+    expect(wideRow?.width).toBeGreaterThanOrEqual(64 * 6);
   });
 
   it("renders cell text and keeps inline links tappable inside cells", () => {
@@ -361,7 +366,7 @@ describe("native markdown tables", () => {
     expect(city).toBeGreaterThan(96);
     expect(city).toBeLessThan(notes ?? 0);
     expect(notes).toBeLessThan(400);
-    expect(html.match(/data-font-weight="500"/g)).toHaveLength(3);
+    expect(html.match(/data-font-weight="600"/g)).toHaveLength(3);
     expect(html).toContain('data-flex-shrink="0"');
   });
 
@@ -556,11 +561,8 @@ describe("native markdown tables", () => {
         </ChatMarkdown>,
       );
       const hairline = "1";
-      expect(html).toMatch(
-        new RegExp(
-          `<rn-scroll-view[^>]*data-border-color="${palette.input}"[^>]*data-border-width="${hairline}"`,
-        ),
-      );
+      const tableScroll = html.match(/<rn-scroll-view[^>]*>/)?.[0] ?? "";
+      expect(tableScroll).not.toMatch(new RegExp(`data-border-width="${hairline}"`));
       const rows = html.match(
         new RegExp(
           `<rn-view[^>]*data-border-color="${palette.input}"[^>]*data-border-bottom-width="${hairline}"`,
@@ -580,7 +582,7 @@ describe("native markdown tables", () => {
       const colorOf = (label: string) =>
         texts.findLast((text) => text.textContent === label)?.getAttribute("data-color");
       expect(colorOf("Name")).toBe(palette.foreground);
-      expect(colorOf("Alice")).toBe(palette.mutedForeground);
+      expect(colorOf("Alice")).toBe(palette.foreground);
       expect(colorOf("A quote")).toBe(palette.mutedForeground);
       expect(bulletDots(html)[0]?.getAttribute("data-background-color")).toBe(
         palette.faintForeground,
@@ -1397,16 +1399,18 @@ describe("native markdown type", () => {
     ).toBe("10");
   });
 
-  it("sets table headers in medium and cells at 14pt on an 18pt line", () => {
+  it("sets table headers in semibold and cells in the body type", () => {
     const html = renderToStaticMarkup(<ChatMarkdown>{THREE_COLUMN_TABLE}</ChatMarkdown>);
     expect(textStyle(html, "Status")).toMatchObject({
-      "data-font-size": "14",
-      "data-line-height": "18",
-      "data-font-weight": "500",
+      "data-color": darkTokens.foreground,
+      "data-font-size": "17",
+      "data-line-height": "22",
+      "data-font-weight": "600",
     });
     expect(textStyle(html, "queued")).toMatchObject({
-      "data-font-size": "14",
-      "data-line-height": "18",
+      "data-color": darkTokens.foreground,
+      "data-font-size": "17",
+      "data-line-height": "22",
     });
   });
 

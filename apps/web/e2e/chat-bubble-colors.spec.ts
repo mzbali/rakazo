@@ -35,7 +35,7 @@ test("user bubbles stay close to the avatar color with white text in both themes
       .locator("[data-message-id]")
       .filter({ has: botBubble })
       .getByTestId("message-bubble-frame");
-    await expect(botFrame).toHaveClass(/max-w-xl/);
+    await expect(botFrame).toHaveClass(/max-w-3xl/);
     // The send button stays quiet on an empty draft...
     const send = page.getByRole("button", { name: "Send", exact: true });
     await expect(send).toBeDisabled();

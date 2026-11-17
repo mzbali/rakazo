@@ -601,12 +601,13 @@ export const Transcript = memo(function Transcript({
                     className={
                       peerReceipt
                         ? undefined
-                        : message.role === "bot"
-                          ? `relative min-w-0 ${bubbleFrameWidth("bot")}`
-                          : message.blocks.some(
-                                (block) => block.kind === "ask" || block.kind === "mcp_approval",
-                              )
-                            ? "relative w-full min-w-0 max-w-xl"
+                        : // Asks keep their card's width, so the action rail stays beside the card.
+                          message.blocks.some(
+                              (block) => block.kind === "ask" || block.kind === "mcp_approval",
+                            )
+                          ? "relative w-full min-w-0 max-w-xl"
+                          : message.role === "bot"
+                            ? `relative min-w-0 ${bubbleFrameWidth("bot")}`
                             : `relative ${
                                 message.blocks.some(
                                   (block) =>

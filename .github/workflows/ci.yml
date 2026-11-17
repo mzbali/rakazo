@@ -245,7 +245,12 @@ jobs:
   native-computer:
     name: Native computer (${{ matrix.os }})
     needs: changes
-    if: needs.changes.outputs.native == 'true'
+    # Forks run it after merging instead of on pull requests: a hosted macOS runner can take half an
+    # hour to start, nothing needs this job, and their desktop changes are rare.
+    if: >-
+      always() && (github.repository == 'elie222/rakazo'
+      && needs.changes.outputs.native == 'true'
+      || github.repository != 'elie222/rakazo' && github.event_name == 'push')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:

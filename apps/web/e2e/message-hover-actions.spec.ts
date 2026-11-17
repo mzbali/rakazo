@@ -173,7 +173,7 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
   // Measure a unique visible bubble, so an oversized wrapper cannot hide a gap.
   const botBubble = botRow.getByTestId("message-bot-bubble").first();
   await expectBotProse(botBubble);
-  await expect(botRow.getByTestId("message-bubble-frame")).toHaveClass(/max-w-xl/);
+  await expect(botRow.getByTestId("message-bubble-frame")).toHaveClass(/max-w-3xl/);
   await expect
     .poll(async () => {
       const railBox = await botRail.boundingBox();
@@ -444,7 +444,7 @@ test.describe("touch message actions", () => {
     await expect(rail.getByRole("button", { name: "Reply", exact: true })).toBeVisible();
     const botBubble = row.getByTestId("message-bot-bubble").first();
     await expectBotProse(botBubble);
-    await expect(row.getByTestId("message-bubble-frame")).toHaveClass(/max-w-xl/);
+    await expect(row.getByTestId("message-bubble-frame")).toHaveClass(/max-w-3xl/);
     const bubbleBox = await botBubble.boundingBox();
     const railBox = await rail.boundingBox();
     expect(bubbleBox).not.toBeNull();

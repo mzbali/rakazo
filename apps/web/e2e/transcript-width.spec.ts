@@ -57,17 +57,22 @@ async function expectReadingColumn(page: Page, theme: "light" | "dark") {
     .locator("[data-message-id]")
     .filter({ has: bot })
     .getByTestId("message-bubble-frame");
-  await expect(frame).toHaveClass(/max-w-xl/);
+  await expect(frame).toHaveClass(/max-w-3xl/);
   const measured = await frame.evaluate((element) => {
     const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
-    return { maxWidth: getComputedStyle(element).maxWidth, reading: 36 * rem };
+    const row = element.parentElement!.getBoundingClientRect().width;
+    return {
+      width: element.getBoundingClientRect().width,
+      expected: Math.min(48 * rem, row - 6 * rem),
+    };
   });
-  expect(measured.maxWidth).toBe(`${measured.reading}px`);
+  // The answer stops at the reading measure and leaves room beside it for the action rail.
+  expect(measured.width).toBeCloseTo(measured.expected, 0);
   const table = page.getByTestId("message-bot-bubble").filter({ has: page.locator("table") });
   await expect(table).toBeVisible();
   await expect(
     page.locator("[data-message-id]").filter({ has: table }).getByTestId("message-bubble-frame"),
-  ).toHaveClass(/max-w-xl/);
+  ).toHaveClass(/max-w-3xl/);
   const user = page
     .getByTestId("message-user-bubble")
     .filter({ hasText: "Keep the summary short." });

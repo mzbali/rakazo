@@ -7,6 +7,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { isQuestionAskBlock } from "./ask-kind.js";
 import { blocksToAgentHistoryText } from "./attachments.js";
+import { plainEmbedReferences } from "./embed-references.js";
 import {
   compactReplyExcerpt,
   MAX_QUOTABLE_SOURCE_LENGTH,
@@ -45,7 +46,7 @@ type NormalizedText = {
 
 /** Render Markdown to the text exposed by the web renderer, without UI chrome. */
 export function visibleTextFromMarkdown(markdown: string): string {
-  const mdast = markdownParser.parse(markdown);
+  const mdast = markdownParser.parse(plainEmbedReferences(markdown));
   salvageSkippedTableHtml(mdast as MdastNode);
   return toText(toHast(mdast));
 }

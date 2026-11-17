@@ -236,6 +236,7 @@ import {
   CodeCopyButtonContext,
   LinkFaviconsContext,
   LinkifiedText,
+  MarkdownEmbedContext,
   MarkdownLinkPromptProvider,
   MarkdownLongPressContext,
   MermaidDiagramContext,
@@ -2324,6 +2325,32 @@ describe("native markdown page links", () => {
       root.unmount();
     });
     container.remove();
+  });
+});
+
+describe("native markdown embeds", () => {
+  it("draws a resolved embed in place and leaves an unknown one as its title", () => {
+    const resolved = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) => createElement("embed-card", { "data-kind": embed.kind }, embed.label)}
+      >
+        <ChatMarkdown>
+          {"Revenue climbed.\n\n![Quarter trend](visual:message_1)\n\nSeptember is highest."}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(resolved).toContain("<embed-card");
+    expect(resolved).toContain('data-kind="visual"');
+    expect(resolved).toContain("Quarter trend");
+    expect(resolved).toContain("Revenue climbed.");
+    expect(resolved).not.toContain("visual:message_1");
+
+    const missing = renderToStaticMarkup(
+      <ChatMarkdown>{"See ![Quarter trend](visual:missing) here."}</ChatMarkdown>,
+    );
+    expect(missing).toContain("Quarter trend");
+    expect(missing).not.toContain("visual:missing");
+    expect(missing).not.toContain("<embed-card");
   });
 });
 

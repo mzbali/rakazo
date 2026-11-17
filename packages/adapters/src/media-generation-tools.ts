@@ -6,13 +6,23 @@ import type {
 } from "@rakazo/adapter-kit";
 import { MediaGenerationError } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
-import { messageBlockForArtifact } from "@rakazo/core";
+import { embedLine, messageBlockForArtifact } from "@rakazo/core";
 import type { ExternalEffect, Prisma, PrismaClient } from "@rakazo/db";
 import { isUniqueViolation } from "@rakazo/db";
 import { z } from "zod";
 import { mediaPromptSchema, validateGeneratedMedia } from "./media-generation-provider.js";
 
 export const MEDIA_JOB_KIND = "media_generation_job";
+
+function completedMedia(video: boolean, artifactId: string, name: string) {
+  return video
+    ? { status: "completed" as const, artifactId }
+    : {
+        status: "completed" as const,
+        artifactId,
+        embed: embedLine("image", name, artifactId),
+      };
+}
 const savedJob = z.object({
   provider: z.string(),
   jobId: z.string().optional(),
@@ -88,8 +98,18 @@ export async function generateMediaFromTool(options: {
       if (prior) {
         const saved = savedJob.safeParse(prior.result);
         if (saved.success && saved.data.artifactId) {
-          if (prior.status === "media_completed")
-            return { status: "completed", artifactId: saved.data.artifactId };
+          if (prior.status === "media_completed") {
+            if (video) return { status: "completed", artifactId: saved.data.artifactId };
+            const named = await prisma.artifact.findFirst({
+              where: {
+                id: saved.data.artifactId,
+                spaceId: run.spaceId,
+                userId: run.userId,
+                botId: run.botId,
+              },
+            });
+            return completedMedia(false, saved.data.artifactId, named?.name || "image");
+          }
           reservation = prior;
         } else {
           if (video && saved.success && saved.data.jobId)
@@ -145,7 +165,7 @@ export async function generateMediaFromTool(options: {
       });
       if (!artifact) return { error: "Generated attachment is unavailable." };
       await options.publish(messageBlockForArtifact(artifact), reservation.id, artifact.id);
-      return { status: "completed", artifactId: artifact.id };
+      return completedMedia(video, artifact.id, artifact.name);
     }
     if (video && typeof args.jobId === "string") {
       const claim = await prisma.externalEffect.updateMany({
@@ -239,7 +259,11 @@ export async function generateMediaFromTool(options: {
       throw error;
     }
     await options.publish(attached.block, reservation.id, attached.artifactId);
-    return { status: "completed", artifactId: attached.artifactId };
+    const name =
+      attached.block.kind === "image" || attached.block.kind === "file"
+        ? attached.block.name
+        : "image";
+    return completedMedia(video, attached.artifactId, name);
   } catch (error) {
     context.signal.throwIfAborted();
     return {

@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { toolStepsHistoryText } from "@rakazo/core";
+import { plainEmbedReferences, toolStepsHistoryText } from "@rakazo/core";
 import type { Prisma } from "./client.js";
 
 function objectBlocks(blocks: Prisma.JsonValue): MessageBlock[] {
@@ -28,7 +28,7 @@ function conversationText(block: MessageBlock): string[] {
   ].includes(block.kind) &&
     "text" in block &&
     typeof block.text === "string"
-    ? [block.text]
+    ? [plainEmbedReferences(block.text)]
     : [];
 }
 

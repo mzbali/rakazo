@@ -34,6 +34,18 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
         await dark.click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByTestId("gallery-frame")).not.toBeEmpty();
+      if (label === "Inline embeds") {
+        await expect(page.getByText("Revenue climbed through the quarter.")).toBeVisible();
+        await expect(page.getByText("September is the high month.")).toBeVisible();
+        await expect(page.getByText("The picture is the same rise.")).toBeVisible();
+        await expect
+          .poll(() =>
+            page
+              .locator('img[alt="quarter.png"]')
+              .evaluate((image: HTMLImageElement) => image.naturalWidth),
+          )
+          .toBeGreaterThan(0);
+      }
       if (label === "Rich content") {
         // Both load after mount and fall back quietly, so wait for the real content.
         await expect(page.locator("svg[class^='plot-']")).toBeVisible();

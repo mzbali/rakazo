@@ -23,6 +23,7 @@ import {
   chatAppTakeoverText,
   nextBotMessageHop,
   pageLinksAsTitles,
+  plainEmbedReferences,
   teamChatResponseText,
 } from "@rakazo/core";
 import type { DatabaseOutage, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
@@ -1383,7 +1384,7 @@ function extractText(
     .flatMap(
       (block: { kind?: unknown; text?: unknown; pageId?: unknown; title?: unknown } | null) => {
         if (block?.kind === "text" && typeof block.text === "string")
-          return [pageLinksAsTitles(block.text)];
+          return [pageLinksAsTitles(plainEmbedReferences(block.text))];
         if (options.asks && block?.kind === "ask") {
           const ask = chatAppAskText(block as MessageBlock);
           return ask ? [ask] : [];

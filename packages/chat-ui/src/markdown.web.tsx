@@ -42,6 +42,8 @@ import {
   LinkFaviconsPausedContext,
   linkFaviconOrigin,
   linkLabel,
+  MarkdownEmbedContext,
+  markdownEmbed,
   markdownLinkDisplayParts,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
@@ -448,9 +450,16 @@ function RemoteImageButton({
 function MarkdownImage({ src = "", alt, title }: { src?: string; alt?: string; title?: string }) {
   const enclosingLink = useContext(InsideLinkContext);
   const loadRemote = useContext(RemoteImagesContext);
+  const resolveEmbed = useContext(MarkdownEmbedContext);
+  const embed = markdownEmbed(src, alt);
   const remote = remoteMarkdownImage(src);
   // Bumping this redraws after a tap. Whether the image shows is read from the current URL.
   const [, setRevision] = useState(0);
+  if (embed) {
+    const resolved = resolveEmbed?.(embed);
+    if (resolved) return resolved;
+    return alt || "";
+  }
   const rejectedLink = enclosingLink === "rejected";
   if (inlineMarkdownImageSrc(src)) {
     return <img src={src} alt={alt ?? ""} title={title} loading="lazy" />;
@@ -682,8 +691,25 @@ export function PageIcon({ className }: { className?: string }) {
   );
 }
 
+type EmbedParagraphNode = {
+  children?: { type?: string; tagName?: string; value?: string; properties?: { src?: unknown } }[];
+};
+
 const components: Components = {
   a: MarkdownAnchor,
+  // A paragraph that is only an embed becomes a div, so the card is not nested in a p.
+  p({ node, children }) {
+    const element = node as EmbedParagraphNode | undefined;
+    const content = (element?.children ?? []).filter(
+      (child) => child.type !== "text" || (child.value ?? "").trim() !== "",
+    );
+    const only = content.length === 1 ? content[0] : undefined;
+    const src = typeof only?.properties?.src === "string" ? only.properties.src : undefined;
+    if (only?.tagName === "img" && markdownEmbed(src)) {
+      return <div className="rk-chat-embed">{children}</div>;
+    }
+    return <p>{children}</p>;
+  },
   img({ node: _node, src, alt, title }) {
     return (
       <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} title={title} />
@@ -888,10 +914,12 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   );
 });
 
-export type { ChatMarkdownProps, LinkFavicons } from "./markdown";
+export type { ChatMarkdownProps, LinkFavicons, MarkdownEmbed } from "./markdown";
 export {
   allowAppLinks,
   LinkFaviconsContext,
+  MarkdownEmbedContext,
+  markdownEmbed,
   RemoteImagesContext,
   useLinkFavicon,
   withBlockMentions,

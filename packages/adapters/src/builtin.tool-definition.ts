@@ -254,7 +254,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "generate_image",
     description:
-      "Generate one image from a prompt and attach it to chat. Uses the deployment media model and may incur charges. Do not retry failed submissions automatically.",
+      "Generate one image from a prompt and attach it to chat. Place the result's embed line in your reply where the image belongs. Uses the deployment media model and may incur charges. Do not retry failed submissions automatically.",
     inputSchema: {
       type: "object",
       properties: { prompt: { type: "string", minLength: 1, maxLength: 4000 } },
@@ -453,7 +453,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "attach_file",
     description:
-      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. The file stays in place; users can open it from the message and from the Artifacts tab. For a self-contained HTML page, document, or anything else meant to be viewed on its own — give it name and description: a title and a one-line summary. Skip them for an ordinary attachment like a log file or export. To UPDATE something you already made, call this again with the exact same name — it becomes a new version of that same artifact instead of a separate one; a different name always starts a new artifact.",
+      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. When the result includes embed, place that line in your reply where the image belongs. The file stays in place; users can open it from the message and from the Artifacts tab. For a self-contained HTML page, document, or anything else meant to be viewed on its own — give it name and description: a title and a one-line summary. Skip them for an ordinary attachment like a log file or export. To UPDATE something you already made, call this again with the exact same name — it becomes a new version of that same artifact instead of a separate one; a different name always starts a new artifact.",
     inputSchema: {
       type: "object",
       properties: {
@@ -670,7 +670,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "render_plot",
     description:
-      'Render a chart from tabular data as a PNG and attach it to the chat. Backed by Observable Plot: bar, line, area, scatter, histogram, heatmap, box plot, facets, and more via a declarative JSON spec. Call with {"charts": true} FIRST to list every chart type with a complete runnable example spec ({"charts": "<keyword>"} searches), then copy the closest example and substitute your rows and columns. {"help": true} returns the full guide. Pass rows inline as data, or data_path for a .csv/.tsv/.json file in your home.',
+      'Render a chart from tabular data as a PNG and attach it to the chat. When the result includes embed, place that line in your reply where the chart belongs. Backed by Observable Plot: bar, line, area, scatter, histogram, heatmap, box plot, facets, and more via a declarative JSON spec. Call with {"charts": true} FIRST to list every chart type with a complete runnable example spec ({"charts": "<keyword>"} searches), then copy the closest example and substitute your rows and columns. {"help": true} returns the full guide. Pass rows inline as data, or data_path for a .csv/.tsv/.json file in your home.',
     inputSchema: {
       type: "object",
       properties: {
@@ -733,7 +733,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "show_visual",
     description:
-      'Draw a diagram, chart, comparison or small tool in the chat, above your reply, without saving a page. Pass JSX written against the Rakazo page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
+      'Draw a diagram, chart, comparison or small tool in the chat, without saving a page. Place the embed it returns in your reply where the visual belongs. Pass JSX written against the Rakazo page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
     inputSchema: {
       type: "object",
       properties: {

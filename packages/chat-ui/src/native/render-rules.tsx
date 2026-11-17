@@ -5,11 +5,16 @@ import type {
 } from "@ronradtke/react-native-markdown-display";
 import { renderRules as libraryRenderRules } from "@ronradtke/react-native-markdown-display";
 import type { ReactNode } from "react";
+import { useContext } from "react";
+import type { StyleProp, TextStyle } from "react-native";
 import { StyleSheet, Text, View } from "react-native";
+import type { MarkdownEmbed } from "../markdown";
 import {
   inlineMarkdownImageSrc,
   isProseFence,
   linkLabel,
+  MarkdownEmbedContext,
+  markdownEmbed,
   markdownMentionId,
   markdownPageId,
   remoteMarkdownImage,
@@ -121,6 +126,15 @@ export const renderRules: RenderRules = {
   image: (node, _children, parents, styleMap) => {
     const src = node.attributes.src ?? "";
     const alt = node.attributes.alt;
+    const embed = markdownEmbed(src, alt);
+    if (embed) {
+      const linkParent = enclosingLink(parents);
+      const linkOpens = Boolean(
+        linkParent && sanitizeMarkdownUrl(linkParent.attributes.href ?? ""),
+      );
+      const labelStyle = linkOpens ? styleMap.link : styleMap.plain_text;
+      return <MarkdownEmbedImage key={node.key} embed={embed} alt={alt} labelStyle={labelStyle} />;
+    }
     if (inlineMarkdownImageSrc(src)) {
       return (
         <FitImage
@@ -159,6 +173,21 @@ export const renderRules: RenderRules = {
     );
   },
 };
+
+function MarkdownEmbedImage({
+  embed,
+  alt,
+  labelStyle,
+}: {
+  embed: MarkdownEmbed;
+  alt?: string;
+  labelStyle: StyleProp<TextStyle>;
+}) {
+  const resolve = useContext(MarkdownEmbedContext);
+  const resolved = resolve?.(embed);
+  if (resolved) return <View>{resolved}</View>;
+  return <Text style={labelStyle}>{alt || ""}</Text>;
+}
 
 function renderMarkdownLink(
   node: ASTNode,

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { BotSecretDestination, MessageBlock } from "@rakazo/contracts";
 import { encodeCardSecret, encodeContactSecret, encodeLoginSecret } from "@rakazo/contracts";
+import { embedLine } from "@rakazo/core";
 import { allocateTicketNumber, createDb, createThreadMessage, ensureBoard } from "@rakazo/db";
 import { pageViewerCode } from "@rakazo/page-kit/compile";
 import { PNG } from "pngjs";
@@ -363,6 +364,13 @@ export async function seedIosScreenshotFixture(input: {
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
     await ensureText(db.prisma, group.threadId, "bot", writer.id, DIAGRAM_REPLY);
     await ensureVisual(db.prisma, group.threadId, writer.id);
+    await ensureInlineEmbeds(input.apiUrl, populated.headers, db.prisma, {
+      threadId: group.threadId,
+      botId: writer.id,
+      groupId: group.id,
+      spaceId: me.spaceId,
+      userId: me.userId,
+    });
     await ensurePage(db.prisma, {
       threadId: researcher.threadId,
       botId: researcher.id,
@@ -1299,6 +1307,111 @@ async function ensureVisual(
         title: "Launch path",
         text: VISUAL_SUMMARY,
         code: pageViewerCode(VISUAL_SOURCE),
+      },
+    ],
+  });
+}
+
+const INLINE_REPLY = "September is the high month.";
+const INLINE_VISUAL_SUMMARY = "Revenue rose each month, and September was the high.";
+const INLINE_VISUAL_SOURCE = [
+  "const Trend = () => (",
+  '  <Diagram direction="horizontal" nodes={[{ id: "jul", label: "Jul" }, { id: "aug", label: "Aug" }, { id: "sep", label: "Sep" }]} edges={[{ from: "jul", to: "aug" }, { from: "aug", to: "sep" }]} />',
+  ");",
+  "export default Trend;",
+].join("\n");
+
+/** The same answer as the web gallery: a visual and an image placed inside one reply. */
+async function ensureInlineEmbeds(
+  apiUrl: string,
+  headers: Record<string, string>,
+  prisma: ReturnType<typeof createDb>["prisma"],
+  input: { threadId: string; botId: string; groupId: string; spaceId: string; userId: string },
+) {
+  const messages = await prisma.message.findMany({
+    where: { threadId: input.threadId },
+    select: { blocks: true },
+  });
+  if (messages.some((message) => JSON.stringify(message.blocks).includes(INLINE_REPLY))) return;
+  const image = await rpc<ArtifactRow>(apiUrl, headers, "artifacts/create", {
+    groupId: input.groupId,
+    name: "inline-quarter.png",
+    mimeType: "image/png",
+    contentBase64: chartPng().toString("base64"),
+    clientNonce: "ios-screenshot-inline-quarter",
+  });
+  const task = await prisma.task.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      prompt: "Show the quarter inside the reply",
+      status: "completed",
+    },
+  });
+  const run = await prisma.run.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      taskId: task.id,
+      status: "completed",
+      trigger: "user",
+      modelProvider: "scripted",
+      modelId: "scripted",
+      startedAt: new Date(Date.now() - 2_000),
+      completedAt: new Date(),
+    },
+  });
+  const visual = await createThreadMessage(prisma, {
+    threadId: input.threadId,
+    role: "bot",
+    botId: input.botId,
+    runId: run.id,
+    blocks: [
+      {
+        kind: "visual",
+        title: "Quarter trend",
+        text: INLINE_VISUAL_SUMMARY,
+        code: pageViewerCode(INLINE_VISUAL_SOURCE),
+      },
+    ],
+  });
+  await createThreadMessage(prisma, {
+    threadId: input.threadId,
+    role: "bot",
+    botId: input.botId,
+    runId: run.id,
+    blocks: [
+      {
+        kind: "image",
+        artifactId: image.id,
+        mimeType: "image/png",
+        name: "inline-quarter.png",
+      },
+    ],
+  });
+  await createThreadMessage(prisma, {
+    threadId: input.threadId,
+    role: "bot",
+    botId: input.botId,
+    runId: run.id,
+    blocks: [
+      {
+        kind: "text",
+        text: [
+          "Revenue climbed through the quarter.",
+          "",
+          embedLine("visual", "Quarter trend", visual.id),
+          "",
+          INLINE_REPLY,
+          "",
+          embedLine("image", "Quarter", image.id),
+          "",
+          "The picture is the same rise.",
+        ].join("\n"),
       },
     ],
   });

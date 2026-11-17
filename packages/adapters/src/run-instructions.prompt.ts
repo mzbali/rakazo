@@ -419,7 +419,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "render_plot",
-      'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. Call render_plot with {"help": true} before your first chart to read the full guide.',
+      'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. When it returns embed, place that line in your reply where the chart belongs. Call render_plot with {"help": true} before your first chart to read the full guide.',
     ),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
@@ -429,7 +429,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "show_visual",
-      'When a diagram, chart, comparison or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). It is not saved; use save_page for something the user will keep, share or update.',
+      'When a diagram, chart, comparison or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.',
     ),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,

@@ -2,6 +2,7 @@ import {
   expandPeerReplies,
   foldPeerReplies,
   peerExchangeLines,
+  placedEmbedMessages,
   projectBotMentions,
   projectMessageReactions,
   shouldShowBotSenderName,
@@ -74,12 +75,18 @@ export function useThreadTranscript(messages: MobileMessage[] | undefined, inGro
       }),
     [peerTranscript, reactionView],
   );
+  const placedEmbedIds = useMemo(
+    () => new Set(placedEmbedMessages(messages ?? []).map((message) => message.id)),
+    [messages],
+  );
   const visibleMessages = useMemo(
     () =>
       reactionView.visibleMessages.filter(
-        (message) => !exchanges.lineOf.has(message.id) || exchanges.lines.has(message.id),
+        (message) =>
+          !placedEmbedIds.has(message.id) &&
+          (!exchanges.lineOf.has(message.id) || exchanges.lines.has(message.id)),
       ),
-    [reactionView, exchanges],
+    [reactionView, exchanges, placedEmbedIds],
   );
 
   return {

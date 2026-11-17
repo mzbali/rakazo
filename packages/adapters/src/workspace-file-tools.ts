@@ -2,7 +2,7 @@ import type { AdapterContext, ComputerRef, SandboxProvider } from "@rakazo/adapt
 import { isSandboxProviderOutage } from "@rakazo/adapter-kit";
 import type { ComputerMode } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
-import { redactSecrets } from "@rakazo/core";
+import { embedLine, redactSecrets } from "@rakazo/core";
 import { PLOT_TOOL_GUIDE, searchChartCatalog } from "@rakazo/core/plot-catalog";
 import { getLogger } from "@rakazo/logging";
 import { JSDOM } from "jsdom";
@@ -282,6 +282,7 @@ export async function renderPlotFromTool(
       context,
     );
     let attached = false;
+    let embed: string | undefined;
     const chartName = outPath.split("/").pop() ?? "chart";
     const chartRows = rows ?? (args.spec as { data?: unknown[] }).data ?? [];
     const chartSpec = { ...(args.spec as Record<string, unknown>) };
@@ -320,8 +321,12 @@ export async function renderPlotFromTool(
       );
       await publishMessage(deps, run, "bot", [result.block]);
       attached = true;
+      // A chart block has no artifact id. Only the PNG fallback can be placed in the reply.
+      if (result.block.kind === "image" || result.block.kind === "file") {
+        embed = embedLine("image", result.block.name, result.block.artifactId);
+      }
     }
-    return finish({ ok: true, path: outPath, attached });
+    return finish({ ok: true, path: outPath, attached, ...(embed ? { embed } : {}) });
   } catch (error) {
     const message = redactSecrets(
       error instanceof Error ? error.message : String(error),

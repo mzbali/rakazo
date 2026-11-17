@@ -1,6 +1,7 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { ATTACHMENT_MAX_BYTES } from "@rakazo/contracts";
 import {
+  embedLine,
   inferAttachmentMimeType,
   isBackgroundRunTrigger,
   messageBlockForArtifact,
@@ -174,7 +175,17 @@ export const fileTools: ToolHandlers = {
           .notify(run.threadId, committed.eventSeq, committed.firstResponseRunId)
           .catch((error) => getLogger().error("thread message realtime notification", error));
       await recordComputerAction(ctx, call, "attach_file", filePath);
-      return call.finish({ ok: true, artifactId: saved.artifactId, path: filePath });
+      // Only an image that was actually posted can be placed. A file card stays on its own row.
+      const embed =
+        committed && saved.block.kind === "image"
+          ? embedLine("image", saved.block.name, saved.artifactId)
+          : undefined;
+      return call.finish({
+        ok: true,
+        artifactId: saved.artifactId,
+        path: filePath,
+        ...(embed ? { embed } : {}),
+      });
     } catch (error) {
       return fail(error instanceof Error ? error.message : "could not attach file");
     }

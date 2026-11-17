@@ -42,7 +42,10 @@ describe("show_visual", () => {
       summary: "  Your message goes to the bot,\nwhich replies. ",
       source: FLOW,
     });
-    expect(result).toMatchObject({ shown: true });
+    expect(result).toMatchObject({
+      shown: true,
+      embed: "![Message flow](visual:message-1)",
+    });
     expect(publishMessage).toHaveBeenCalledTimes(1);
     const [, , role, blocks] = publishMessage.mock.calls[0]!;
     expect(role).toBe("bot");

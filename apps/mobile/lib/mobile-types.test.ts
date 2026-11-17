@@ -228,6 +228,11 @@ describe("mobile thread event reduction", () => {
     );
   });
 
+  it("keeps embed references as written, since the message card renders this markdown", () => {
+    const text = "Revenue climbed.\n\n![Quarter trend](visual:msg-1)\n\n![Quarter](image:art-1)";
+    expect(blockText(mobileMessage("embeds", [{ kind: "text", text }]))).toBe(text);
+  });
+
   it("formats channel messages with their platform attribution", () => {
     expect(
       blockText(

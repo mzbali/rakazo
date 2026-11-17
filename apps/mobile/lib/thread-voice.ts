@@ -1,6 +1,6 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { memberName, resolvePersonaColorDef } from "@rakazo/core";
+import { memberName, plainEmbedReferences, resolvePersonaColorDef } from "@rakazo/core";
 import { useNavigation, useRouter } from "expo-router";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
@@ -30,10 +30,10 @@ import {
 } from "./voice-call-entry";
 import { onShortcutVoiceChat, takeShortcutVoiceChat } from "./voice-chat-intent";
 
-const ATTACHMENT_PLACEHOLDER_LINE = /^\[(?:image|file|chart): .*\]$/;
+const ATTACHMENT_PLACEHOLDER_LINE = /^\[(?:image|file|chart|visual): .*\]$/;
 
 function speakableMessageText(message: MobileMessage): string {
-  return blockText(message)
+  return plainEmbedReferences(blockText(message))
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !ATTACHMENT_PLACEHOLDER_LINE.test(line))

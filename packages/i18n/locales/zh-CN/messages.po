@@ -3787,6 +3787,7 @@ msgstr "无法打开电脑"
 
 #: apps/mobile/app/peer-chat.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 msgid "Could not open file"
 msgstr "无法打开文件"
 
@@ -11095,6 +11096,7 @@ msgstr "重试"
 #: apps/mobile/components/image-artifact-viewer.tsx
 #: apps/mobile/components/organization-menu.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 #: apps/mobile/components/thread/thread-header.tsx
 #: apps/mobile/lib/approval-settings.ts
 #: apps/mobile/lib/bot-lifecycle.ts

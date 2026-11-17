@@ -673,6 +673,50 @@ const textStyles: Scenario = {
   ],
 };
 
+const embeds: Scenario = {
+  id: "embeds",
+  label: "Inline embeds",
+  messages: [
+    user("How did the quarter go?"),
+    bot(
+      [
+        {
+          kind: "visual",
+          title: "Quarter trend",
+          text: "Revenue rose each month, and September was the high.",
+          code: "export default () => null",
+        },
+      ],
+      { id: "visual-quarter", runId: "run-embeds" },
+    ),
+    bot(
+      [
+        {
+          kind: "image",
+          artifactId: "image-inline",
+          mimeType: "image/svg+xml",
+          name: "quarter.png",
+        },
+      ],
+      { id: "image-quarter", runId: "run-embeds" },
+    ),
+    say(
+      [
+        "Revenue climbed through the quarter.",
+        "",
+        "![Quarter trend](visual:visual-quarter)",
+        "",
+        "September is the high month.",
+        "",
+        "![Quarter](image:image-inline)",
+        "",
+        "The picture is the same rise.",
+      ].join("\n"),
+      { runId: "run-embeds" },
+    ),
+  ],
+};
+
 const SCENARIOS: Scenario[] = [
   conversation,
   textStyles,
@@ -682,6 +726,7 @@ const SCENARIOS: Scenario[] = [
   working,
   team,
   rich,
+  embeds,
   calls,
 ];
 

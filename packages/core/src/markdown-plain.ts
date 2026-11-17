@@ -1,3 +1,5 @@
+import { plainEmbedReferences } from "./embed-references.js";
+
 const PAYLOAD_MARK = "\uE000";
 /**
  * A preview collapses to one line. Cap the source so a huge reply cannot
@@ -36,7 +38,7 @@ export function plainTextFromMarkdown(
   };
 
   const source = boundedPreviewSource(markdown, maxSource);
-  let text = source.text.replaceAll(PAYLOAD_MARK, markToken);
+  let text = plainEmbedReferences(source.text).replaceAll(PAYLOAD_MARK, markToken);
   text = takeFencedCode(text, stash, source.truncated);
   text = takeInlineCode(text, stash);
   text = takeEscapes(text, stash);

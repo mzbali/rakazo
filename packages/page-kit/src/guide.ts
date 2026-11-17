@@ -150,7 +150,7 @@ export default Dashboard;
 /** Returned by show_visual {"help": true}: how a visual differs from a page, then the kit guide. */
 export const VISUAL_GUIDE = `# Visuals
 
-A visual is a small piece of page-kit JSX drawn inside the chat, above your reply: a diagram, a chart, a comparison, a small calculator. It is not saved as a page and cannot be changed later; show a new one instead. For something the user will keep, share or update, use save_page.
+A visual is a small piece of page-kit JSX drawn inside the chat: a diagram, a chart, a comparison, a small calculator. Place the embed show_visual returns in your reply where the visual belongs. It is not saved as a page and cannot be changed later; show a new one instead. For something the user will keep, share or update, use save_page.
 
 - Call show_visual {title, summary, source}. summary is one or two plain sentences with the visual's point and key figures: it is what the user reads where the visual cannot be drawn, and what you see of it later.
 - The chat shows it at the width of a message (about 360 to 720 pixels) and at most about 560 pixels tall; tapping it opens it full size, where its controls work. Keep it to one idea: a Diagram, one chart, a short Table or a few Metrics. A phone shows about 340 pixels across, so a Diagram of more than two steps reads better vertical.

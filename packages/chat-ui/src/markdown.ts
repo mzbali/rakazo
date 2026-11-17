@@ -28,6 +28,32 @@ export function markdownPageId(href: string | undefined): string | undefined {
   return href ? PAGE_URL_PATTERN.exec(href)?.[1] : undefined;
 }
 
+const EMBED_URL_PATTERN = /^(visual|image):([A-Za-z0-9_-]{1,64})$/;
+
+/** A `visual:<messageId>` or `image:<artifactId>` image, as the reply wrote it. */
+export type MarkdownEmbed = {
+  kind: "visual" | "image";
+  id: string;
+  label: string;
+};
+
+/** The embed an image href names, if it is one. The label is the image's alt text. */
+export function markdownEmbed(href: string | undefined, label = ""): MarkdownEmbed | undefined {
+  const match = href ? EMBED_URL_PATTERN.exec(href.trim()) : null;
+  if (!match) return undefined;
+  const kind = match[1];
+  if (kind !== "visual" && kind !== "image") return undefined;
+  return { kind, id: match[2]!, label };
+}
+
+/**
+ * Draws a resolved embed. The app looks the id up among messages it already holds.
+ * Returning null leaves the title as plain text. Nothing is fetched.
+ */
+export type MarkdownEmbedResolver = (embed: MarkdownEmbed) => ReactNode | null;
+
+export const MarkdownEmbedContext = createContext<MarkdownEmbedResolver | null>(null);
+
 const MENTION_URL_PREFIX = "rakazo-mention:";
 
 /** The id of a mention link, if this href is one. */

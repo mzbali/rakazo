@@ -3787,6 +3787,7 @@ msgstr "Impossible d'ouvrir l'ordinateur"
 
 #: apps/mobile/app/peer-chat.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 msgid "Could not open file"
 msgstr "Impossible d'ouvrir le fichier"
 
@@ -11095,6 +11096,7 @@ msgstr "Réessayer"
 #: apps/mobile/components/image-artifact-viewer.tsx
 #: apps/mobile/components/organization-menu.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 #: apps/mobile/components/thread/thread-header.tsx
 #: apps/mobile/lib/approval-settings.ts
 #: apps/mobile/lib/bot-lifecycle.ts

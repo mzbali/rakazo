@@ -308,8 +308,9 @@ attaches it to the chat.
    example and substitute your rows and column names.
 3. Call render_plot with {"spec": {...}, "data": [...]} or
    {"spec": {...}, "data_path": "sales.csv"}.
-4. The tool attaches the PNG to the chat automatically (attach: false to skip)
-   and returns the output path, for example charts/plot-1.png.
+4. The tool attaches the chart to the chat automatically (attach: false to skip)
+   and returns the output path, for example charts/plot-1.png. When the result
+   includes embed, place that line in your reply where the chart belongs.
 5. Iterate: adjust marks, scales, and facets until the chart answers the
    question. Prefer several small focused charts over one crowded chart.
 

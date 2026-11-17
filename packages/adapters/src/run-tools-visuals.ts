@@ -5,7 +5,7 @@ import {
   VISUAL_CODE_MAX_BYTES,
   VISUAL_SUMMARY_MAX_LENGTH,
 } from "@rakazo/contracts";
-import { containsSecret } from "@rakazo/core";
+import { containsSecret, embedLine } from "@rakazo/core";
 import { checkPageSource, VISUAL_GUIDE } from "@rakazo/page-kit/validate";
 import type { RunContext } from "./run-context.js";
 import { publishMessage } from "./run-messages.js";
@@ -19,7 +19,8 @@ function summaryText(value: unknown): string | null {
 }
 
 /**
- * Draws page-kit JSX in the chat as its own message, above the reply, without saving a page.
+ * Draws page-kit JSX in the chat as its own message, without saving a page.
+ * The reply places the returned embed where the visual belongs.
  * The source goes through the page check, and the compiled code must stay small because it
  * travels inside the message.
  */
@@ -55,12 +56,14 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   }
   const block: MessageBlock = { kind: "visual", title: title.data, text: summary, code };
   // A background run posts nothing to the chat, and a cancelled run's message does not commit.
-  if (!(await publishMessage(ctx.deps, ctx.run, "bot", [block]))) {
+  const posted = await publishMessage(ctx.deps, ctx.run, "bot", [block]);
+  if (!posted) {
     return { error: "The visual was not posted to the chat; nothing was shown." };
   }
   return {
     shown: true,
-    note: "The visual is in the chat above your reply. Do not repeat what it shows or paste its source.",
+    embed: embedLine("visual", title.data, posted.id),
+    note: "Place embed in your reply where the visual belongs. Do not repeat what it shows or paste its source.",
     ...(check.warnings?.length ? { warnings: check.warnings } : {}),
   };
 }

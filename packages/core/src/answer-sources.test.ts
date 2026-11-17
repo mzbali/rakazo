@@ -151,9 +151,16 @@ describe("citationMarkdown", () => {
     expect(prepared.groups[0]?.items.map((item) => item.site)).toEqual(["nasa", "esa"]);
     expect(prepared.groups[1]?.items.map((item) => item.site)).toEqual(["wikipedia"]);
     expect(prepared.markdown).toBe(
-      "A day lasts 24 hours ([nasa](rakazo-cite:0)). A year is 687 days [wikipedia](rakazo-cite:1).",
+      "A day lasts 24 hours [nasa](rakazo-cite:0). A year is 687 days [wikipedia](rakazo-cite:1).",
     );
-    expect(prepared.markdown.endsWith(".")).toBe(true);
+  });
+
+  it("keeps a link the sentence reads on through as a link", () => {
+    const answer = `Read [the mission page](${NASA}) for the timeline, then [ESA](${ESA})\nnext line.`;
+    const prepared = citationMarkdown(answer, sources);
+    expect(prepared.markdown).toBe(
+      `Read [the mission page](${NASA}) for the timeline, then [esa](rakazo-cite:0)\nnext line.`,
+    );
   });
 
   it("keeps one pill when the same page is cited twice in a cluster", () => {
@@ -174,9 +181,9 @@ describe("citationMarkdown", () => {
 
   it("leaves a source past the cap as an ordinary link", () => {
     const capped = sources.slice(0, 1);
-    const answer = `[NASA](${NASA}) and [ESA](${ESA})`;
+    const answer = `Mars [NASA](${NASA}). Venus [ESA](${ESA}).`;
     expect(citationMarkdown(answer, capped).markdown).toBe(
-      `[nasa](rakazo-cite:0) and [ESA](${ESA})`,
+      `Mars [nasa](rakazo-cite:0). Venus [ESA](${ESA}).`,
     );
   });
 

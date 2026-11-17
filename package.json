@@ -16,6 +16,7 @@
     "check": "turbo check",
     "lint": "biome check .",
     "checks": "node --test scripts/checks/*.test.mjs",
+    "verify": "bash scripts/verify.sh",
     "format": "biome check --write .",
     "db:generate": "pnpm --filter @rakazo/db generate",
     "db:migrate": "pnpm --filter @rakazo/api db:migrate",

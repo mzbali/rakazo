@@ -188,7 +188,9 @@ describe("ChatMarkdown", () => {
     expect(html).toContain('aria-label="Download CSV"');
     expect(html).toContain('aria-label="Expand table"');
     expect(html).toContain("Alpha");
-    expect(html).toContain("2 rows");
+    // Inline, a table that fits on one page has no count or row numbers under it.
+    expect(html).not.toContain("2 rows");
+    expect(html).not.toContain("rk-table-gutter");
   });
 
   it("right-aligns numeric table columns", () => {

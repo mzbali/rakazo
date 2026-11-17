@@ -2388,6 +2388,8 @@ describe("native markdown embeds", () => {
     expect(html.match(/data-width="5"/g)).toHaveLength(1);
     expect(html).toContain("The evening boat is back.");
     expect(html).toContain("A note without an image.");
+    // The title starts at the copy's edge, with no space left over from after the image.
+    expect(html).not.toContain('"> </rn-text>');
     expect(html).not.toContain('data-gap="0"');
 
     const rows = renderToStaticMarkup(

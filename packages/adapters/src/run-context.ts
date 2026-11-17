@@ -288,8 +288,8 @@ export type RunTrust = ReturnType<typeof createRunTrustLoaders> & {
   searchResultUrls: Set<string>;
   /** Pages a web search or fetch returned, keyed by normalized URL. */
   sources: Map<string, RecordedSource>;
-  /** Exact image URLs a fetched page named. The page chose them, not text in this run. */
-  pageImageUrls: Set<string>;
+  /** Image URL to the page that named it. The page chose them, not text in this run. */
+  pageImageUrls: Map<string, string>;
 };
 
 export interface RunProviders {

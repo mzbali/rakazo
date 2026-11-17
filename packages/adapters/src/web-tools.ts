@@ -2,11 +2,20 @@ import type { AdapterContext, WebFetchProvider, WebSearchProvider } from "@rakaz
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { clampMaxChars, clampMaxResults, clampOffset } from "./web-limits.js";
 
-/** Remember an https image a fetched page named. Text in the run cannot add one. */
-export function rememberFetchedPageImage(urls: Set<string>, image: unknown) {
+/**
+ * Remember an https image a fetched page named, and the page it came from. Text in the run cannot
+ * add one. The first page wins. An image with no page is still trusted, with an empty page.
+ */
+export function rememberFetchedPageImage(
+  urls: Map<string, string>,
+  image: unknown,
+  pageUrl?: unknown,
+) {
   if (typeof image !== "string") return;
   const url = normalizedHttpUrl(image);
-  if (url?.startsWith("https://")) urls.add(url);
+  if (!url?.startsWith("https://") || urls.has(url)) return;
+  const page = typeof pageUrl === "string" ? normalizedHttpUrl(pageUrl) : undefined;
+  urls.set(url, page ?? "");
 }
 
 export async function webSearchFromTool(

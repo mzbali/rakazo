@@ -139,6 +139,9 @@ export const ChatMarkdown = memo(function ChatMarkdown({
                   open={openLink}
                   cancel={linkCopy.cancel}
                   style={styles.sources_row}
+                  pill={styles.sources_pill}
+                  mark={styles.sources_mark}
+                  plate={styles.link_favicon_plate}
                 />
               ) : null}
             </DiagramSurfaceContext.Provider>
@@ -169,6 +172,6 @@ export type { MermaidDiagramProps } from "./native/code";
 export { CodeCopyButtonContext, MermaidDiagramContext } from "./native/code";
 export { RemoteMarkdownImage } from "./native/images";
 export { LinkifiedText } from "./native/linkified-text";
-export { useNativeLinkConfirm } from "./native/links";
+export { FaviconTile, useNativeLinkConfirm } from "./native/links";
 export { QuoteMenuContext } from "./native/quotes";
 export { MarkdownLongPressContext } from "./native/sideways-scroll";

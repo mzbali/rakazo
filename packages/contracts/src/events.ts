@@ -457,6 +457,13 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     artifactId: Id,
     mimeType: z.string(),
     name: z.string(),
+    /** The page a saved web image came from. Absent for an upload. */
+    source: z
+      .object({
+        url: z.string().min(1).max(2048),
+        site: z.string().min(1).max(40),
+      })
+      .optional(),
   }),
   z.object({
     kind: z.literal("file"),

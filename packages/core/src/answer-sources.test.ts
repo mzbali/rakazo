@@ -163,6 +163,16 @@ describe("citationMarkdown", () => {
     );
   });
 
+  it("still pills a named source that follows a claim, or that ends before a comma", () => {
+    const claim = `The rover [landed in 2021](${NASA}) [ESA](${ESA}).`;
+    expect(citationMarkdown(claim, sources).markdown).toBe(
+      `The rover [landed in 2021](${NASA}) [esa](rakazo-cite:0).`,
+    );
+    expect(citationMarkdown(`See [NASA](${NASA}), then read on.`, sources).markdown).toBe(
+      "See [nasa](rakazo-cite:0), then read on.",
+    );
+  });
+
   it("keeps a claim written as the link's words as a link", () => {
     const answer = `The rover [landed in Jezero crater in 2021](${NASA}). It is [49 km wide](${ESA}), seen from orbit.`;
     const prepared = citationMarkdown(answer, sources);
@@ -200,6 +210,38 @@ describe("citationMarkdown", () => {
     const answer = `Mars [NASA](${NASA}). Venus [ESA](${ESA}).`;
     expect(citationMarkdown(answer, capped).markdown).toBe(
       `Mars [nasa](rakazo-cite:0). Venus [ESA](${ESA}).`,
+    );
+  });
+
+  it("cites a recorded source by where it sits, whatever its words say", () => {
+    const space = "https://www.space.com/mars-sample-return";
+    const dated = [...sources, { url: space, title: "Mars sample return", site: "space" }];
+    const cluster = `The mission returns samples in 2031. [NASA, 16 November](${NASA}) · [Space.com](${space})`;
+    const clustered = citationMarkdown(cluster, dated);
+    expect(clustered.groups).toHaveLength(1);
+    expect(clustered.groups[0]?.items.map((item) => item.site)).toEqual(["nasa", "space"]);
+    expect(clustered.markdown).toBe("The mission returns samples in 2031. [nasa](rakazo-cite:0)");
+
+    const parenthetical = `The budget was cut ([Space.com, 11 November 2026](${space})).`;
+    const wrapped = citationMarkdown(parenthetical, dated);
+    expect(wrapped.groups).toHaveLength(1);
+    expect(wrapped.groups[0]?.items.map((item) => item.url)).toEqual([space]);
+    expect(wrapped.markdown).toBe("The budget was cut [space](rakazo-cite:0).");
+  });
+
+  it("keeps a parenthetical link the sentence reads on through", () => {
+    const space = "https://www.space.com/mars-sample-return";
+    const dated = [...sources, { url: space, title: "Mars sample return", site: "space" }];
+    const answer = `The crater was cut ([Space.com, 11 November 2026](${space})) and mapped ([49 km across](${ESA})) and deep.`;
+    expect(citationMarkdown(answer, dated).markdown).toBe(answer);
+    const carried = `It returns samples in 2031. [NASA, 16 November](${NASA}) and then more.`;
+    expect(citationMarkdown(carried, dated).markdown).toBe(carried);
+  });
+
+  it("pulls a space in so punctuation sits against the pill", () => {
+    const answer = `It landed in 2031 [NASA](${NASA}) .`;
+    expect(citationMarkdown(answer, sources).markdown).toBe(
+      "It landed in 2031 [nasa](rakazo-cite:0).",
     );
   });
 

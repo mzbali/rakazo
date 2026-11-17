@@ -1,7 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { MEDIA_ROW_NATIVE_PT } from "@rakazo/chat-ui/native";
+import { FaviconTile, MEDIA_ROW_NATIVE_PT, useNativeLinkConfirm } from "@rakazo/chat-ui/native";
+import type { MessageBlock } from "@rakazo/contracts";
+import { typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useState } from "react";
-import type { PressableProps } from "react-native";
+import type { LayoutChangeEvent, PressableProps } from "react-native";
 import {
   ActivityIndicator,
   Image,
@@ -15,9 +17,44 @@ import { mobileTokens } from "../lib/appearance";
 import type { MobileArtifactTarget } from "../lib/artifact-open";
 import { imageArtifactPreview } from "../lib/artifact-open";
 import type { ImageSize } from "../lib/inline-image";
-import { fitImageSize } from "../lib/inline-image";
 
 const MAX_INLINE_HEIGHT = 360;
+
+type ImageSource = NonNullable<Extract<MessageBlock, { kind: "image" }>["source"]>;
+
+/** Fill the column, keeping the picture's ratio and stopping at a readable height. */
+function placedImageSize(natural: ImageSize, column: number, maxHeight: number): ImageSize {
+  const width = Math.max(1, natural.width);
+  const height = Math.max(1, natural.height);
+  const scale = Math.min(column / width, maxHeight / height);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+function ImageSourceLabel({ source }: { source: ImageSource }) {
+  const open = useNativeLinkConfirm();
+  const tokens = mobileTokens();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={source.site}
+      hitSlop={8}
+      onPress={() => open(source.url)}
+      style={styles.source}
+    >
+      <FaviconTile
+        href={source.url}
+        plate={{ backgroundColor: tokens.faviconPlate, padding: 2 }}
+        style={styles.sourceIcon}
+      />
+      <Text style={[styles.sourceSite, { color: tokens.mutedForeground }]} numberOfLines={1}>
+        {source.site}
+      </Text>
+    </Pressable>
+  );
+}
 
 /**
  * An image attachment rendered inside a chat bubble. The artifact is fetched through the
@@ -33,6 +70,7 @@ export function InlineImageAttachment({
   pressableProps,
   labelColor,
   thumbnail = false,
+  source,
 }: {
   threadTarget: MobileArtifactTarget;
   artifactId: string;
@@ -43,11 +81,18 @@ export function InlineImageAttachment({
   labelColor: string;
   /** A media row: a fixed square, cropped to fill, that still opens the viewer. */
   thumbnail?: boolean;
+  /** The page a saved web image came from. An upload has none, and shows no label. */
+  source?: ImageSource;
 }) {
   const { t } = useLingui();
   const tokens = mobileTokens();
   const { width: windowWidth } = useWindowDimensions();
-  const maxWidth = Math.min(Math.round(windowWidth * 0.68), 400);
+  const [columnWidth, setColumnWidth] = useState(0);
+  const onColumnLayout = (event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    if (next > 0 && next !== columnWidth) setColumnWidth(next);
+  };
+  const column = columnWidth > 0 ? columnWidth : Math.max(1, Math.round(windowWidth - 32));
   const [state, setState] = useState<
     { status: "loading" } | { status: "ready"; uri: string; size: ImageSize } | { status: "error" }
   >({ status: "loading" });
@@ -101,9 +146,8 @@ export function InlineImageAttachment({
     );
   }
 
-  if (state.status === "ready") {
-    const size = fitImageSize(state.size, maxWidth, MAX_INLINE_HEIGHT);
-    return (
+  const picture =
+    state.status === "ready" ? (
       <Pressable
         {...pressableProps}
         accessibilityRole="imagebutton"
@@ -112,31 +156,50 @@ export function InlineImageAttachment({
       >
         <Image
           source={{ uri: state.uri }}
-          style={[styles.image, size, { backgroundColor: tokens.muted }]}
+          style={[
+            styles.image,
+            placedImageSize(state.size, column, MAX_INLINE_HEIGHT),
+            { backgroundColor: tokens.muted },
+          ]}
           accessibilityIgnoresInvertColors
         />
       </Pressable>
+    ) : (
+      <Pressable {...pressableProps} onPress={state.status === "error" ? onOpen : undefined}>
+        <View style={[styles.placeholder, { backgroundColor: tokens.muted }]}>
+          <Text style={[styles.label, { color: labelColor }]}>🖼 {name}</Text>
+          {state.status === "loading" ? (
+            <ActivityIndicator
+              color={tokens.mutedForeground}
+              accessibilityLabel={t`Loading image…`}
+            />
+          ) : (
+            <Text style={[styles.hint, { color: tokens.mutedForeground }]}>{t`Tap to open`}</Text>
+          )}
+        </View>
+      </Pressable>
     );
-  }
   return (
-    <Pressable {...pressableProps} onPress={state.status === "error" ? onOpen : undefined}>
-      <View style={[styles.placeholder, { backgroundColor: tokens.muted }]}>
-        <Text style={[styles.label, { color: labelColor }]}>🖼 {name}</Text>
-        {state.status === "loading" ? (
-          <ActivityIndicator
-            color={tokens.mutedForeground}
-            accessibilityLabel={t`Loading image…`}
-          />
-        ) : (
-          <Text style={[styles.hint, { color: tokens.mutedForeground }]}>{t`Tap to open`}</Text>
-        )}
-      </View>
-    </Pressable>
+    <View style={styles.column} onLayout={onColumnLayout}>
+      {picture}
+      {source && !thumbnail ? <ImageSourceLabel source={source} /> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  column: { width: "100%", alignSelf: "stretch" },
   image: { borderRadius: 12, overflow: "hidden" },
+  source: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 6,
+    maxWidth: "100%",
+  },
+  sourceIcon: { width: 16, height: 16, borderRadius: 4 },
+  sourceSite: { ...typeScale.caption, flexShrink: 1 },
   thumb: {
     width: MEDIA_ROW_NATIVE_PT,
     height: MEDIA_ROW_NATIVE_PT,

@@ -90,9 +90,17 @@ export function SourcesRow({
 }) {
   const copy = useMarkdownCopy();
   const label = copy.sourcesCount(items.length);
+  const marks = items.slice(0, 3);
   return (
     <Popover>
       <PopoverTrigger className="rk-chat-sources" aria-label={label}>
+        <span className="rk-chat-sources-marks" aria-hidden="true">
+          {marks.map((item, index) => (
+            <span key={item.url} className={index > 0 ? "rk-chat-sources-overlap" : undefined}>
+              <LinkFavicon href={item.url} />
+            </span>
+          ))}
+        </span>
         {label}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto max-w-80 gap-0 p-1">

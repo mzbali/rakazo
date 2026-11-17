@@ -31,6 +31,7 @@ export function TranscriptEmbeds({
             artifactId={found.block.artifactId}
             name={found.block.name}
             thumbnail={embed.frame === "thumbnail"}
+            source={found.block.source}
           />
         );
       }

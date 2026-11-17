@@ -159,11 +159,15 @@ export const renderRules: RenderRules = {
       </View>
     );
   },
-  text: (node, _children, parents, styleMap, inherited) => (
-    <Text key={node.key} style={textStyleForParents(inherited, parents, styleMap)}>
-      {node.content}
-    </Text>
-  ),
+  text: (node, _children, parents, styleMap, inherited) => {
+    const content = textBesideCitation(node, parents);
+    if (!content) return null;
+    return (
+      <Text key={node.key} style={textStyleForParents(inherited, parents, styleMap)}>
+        {content}
+      </Text>
+    );
+  },
   table: (node, children, _parent, styleMap) => (
     <TableScrollView key={node.key} table={node} style={styleMap._VIEW_SAFE_table}>
       {children}
@@ -184,9 +188,10 @@ export const renderRules: RenderRules = {
       {children}
     </TableCell>
   ),
-  link: (node, children, _parent, styleMap) => renderMarkdownLink(node, children, styleMap, false),
-  blocklink: (node, children, _parent, styleMap) =>
-    renderMarkdownLink(node, children, styleMap, true),
+  link: (node, children, parents, styleMap) =>
+    renderMarkdownLink(node, children, parents, styleMap, false),
+  blocklink: (node, children, parents, styleMap) =>
+    renderMarkdownLink(node, children, parents, styleMap, true),
   // Replaces the library rule, which loads any http(s) image and prefixes https:// to the rest.
   image: (node, _children, parents, styleMap) => {
     const src = node.attributes.src ?? "";
@@ -271,14 +276,47 @@ function MarkdownEmbedImage({
   return <Text style={labelStyle}>{alt || ""}</Text>;
 }
 
+/** A full stop, comma or similar mark sitting right after a pill. */
+const HUGGED_PUNCTUATION = /^[ \t]*([.?!。！？…,;:)]+)/u;
+
+function sibling(node: ASTNode, parents: readonly ASTNode[], offset: number): ASTNode | undefined {
+  const host = parents[0];
+  if (!host) return undefined;
+  return host.children[host.children.indexOf(node) + offset];
+}
+
+function citationTrailing(node: ASTNode, parents: readonly ASTNode[]): string {
+  const next = sibling(node, parents, 1);
+  if (next?.type !== "text") return "";
+  return HUGGED_PUNCTUATION.exec(next.content)?.[1] ?? "";
+}
+
+/** Drop the mark the pill drew, so it is not also a text run after the inline view. */
+function textBesideCitation(node: ASTNode, parents: readonly ASTNode[]): string {
+  const previous = sibling(node, parents, -1);
+  if (previous?.type !== "link" && previous?.type !== "blocklink") return node.content;
+  if (citationGroupIndex(previous.attributes.href) === undefined) return node.content;
+  return node.content.replace(HUGGED_PUNCTUATION, "");
+}
+
 function renderMarkdownLink(
   node: ASTNode,
   children: ReactNode[],
+  parents: readonly ASTNode[],
   styleMap: MarkdownStyleMap,
   block: boolean,
 ) {
   const cited = citationGroupIndex(node.attributes.href);
-  if (cited !== undefined) return <CitationPill key={node.key} index={cited} styleMap={styleMap} />;
+  if (cited !== undefined) {
+    return (
+      <CitationPill
+        key={node.key}
+        index={cited}
+        styleMap={styleMap}
+        trailing={citationTrailing(node, parents)}
+      />
+    );
+  }
   const pageId = markdownPageId(node.attributes.href);
   if (pageId) {
     return (

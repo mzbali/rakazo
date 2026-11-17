@@ -1476,7 +1476,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
         const searchResultUrls = new Set<string>();
         const sources = new Map<string, { url: string; title: string }>();
-        const pageImageUrls = new Set<string>();
+        const pageImageUrls = new Map<string, string>();
         const initiallyTainted =
           !ownerStartedRun ||
           Boolean(turnCheckpoint) ||

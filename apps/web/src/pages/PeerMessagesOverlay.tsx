@@ -212,6 +212,7 @@ export function PeerMessagesOverlay({
                             target={{ botId }}
                             artifactId={block.artifactId}
                             name={block.name}
+                            source={block.source}
                           />
                         ) : block.kind === "file" ? (
                           <ArtifactFileCard

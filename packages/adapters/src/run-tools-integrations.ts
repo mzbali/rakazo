@@ -225,7 +225,13 @@ export const integrationTools: ToolHandlers = {
         typeof found.title === "string" ? found.title : "",
       );
     }
-    if ("image" in found) rememberFetchedPageImage(ctx.trust.pageImageUrls, found.image);
+    if ("image" in found) {
+      rememberFetchedPageImage(
+        ctx.trust.pageImageUrls,
+        found.image,
+        isFetchedPage(found) ? found.url : undefined,
+      );
+    }
     return call.finish(found);
   },
   async save_web_images(ctx, call) {

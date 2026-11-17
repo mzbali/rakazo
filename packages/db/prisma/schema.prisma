@@ -1430,7 +1430,7 @@ model CloudAgent {
   endedAt             DateTime?
   /// When the provider stopped this work on a usage limit. The next poll is shortly after, and the card says when it resumes. Cleared once the limit is gone.
   quotaResetsAt       DateTime?
-  /// The limit reset a continuation was already sent for, so a retried poll does not send it again.
+  /// The limit reset whose continuation the provider accepted, so a later poll does not send it again.
   quotaContinuedFor   DateTime?
   /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
   followupBrief       String?

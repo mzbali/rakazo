@@ -278,7 +278,8 @@ export const TableCard = memo(function TableCard({
         <section className="rk-table-scroll" aria-label={copy.table} tabIndex={0}>
           {tableView("card")}
         </section>
-        {pager}
+        {/* Inline, a table that fits on one page needs no count under it. */}
+        {showPagination ? pager : null}
       </div>
       <DialogContent
         showCloseButton={false}
@@ -345,7 +346,8 @@ function TableView({
     <table className="rk-table" aria-label={copy.markdownTable}>
       <thead>
         <tr>
-          <th className="rk-table-gutter" scope="col" aria-label={copy.row} />
+          {/* Row numbers belong to the expanded view; inline, the table reads as prose. */}
+          {expanded ? <th className="rk-table-gutter" scope="col" aria-label={copy.row} /> : null}
           {columns.map((column, i) => (
             <SortableColumnHeader
               key={i}
@@ -361,14 +363,14 @@ function TableView({
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={columns.length + 1} className="rk-table-empty">
+            <td colSpan={columns.length + (expanded ? 1 : 0)} className="rk-table-empty">
               {copy.noRows}
             </td>
           </tr>
         ) : (
           rows.map((row, rowIndex) => (
             <tr key={rowKeys.get(row)}>
-              <td className="rk-table-gutter">{rowOffset + rowIndex + 1}</td>
+              {expanded ? <td className="rk-table-gutter">{rowOffset + rowIndex + 1}</td> : null}
               {columns.map((_, columnIndex) => {
                 const value = row[columnIndex] ?? "";
                 return (

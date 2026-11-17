@@ -1232,6 +1232,8 @@ export interface WebFetchResult {
   title: string;
   text: string;
   truncated: boolean;
+  /** An absolute https image the page named as its main image, when it named one. */
+  image?: string;
 }
 
 /** Page-level browser on the bot computer (DOM refs), not a hosted browser vendor. */

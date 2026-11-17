@@ -113,16 +113,17 @@ export class KeylessHttpWebProvider implements WebProvider {
     });
     if (!body.trim()) throw new Error(`Failed to fetch content from ${url}`);
     const mediaType = contentType?.split(";", 1)[0]?.trim().toLowerCase();
-    const extracted =
+    const markup =
       mediaType === "text/plain" ||
       mediaType === "text/markdown" ||
       mediaType === "application/json" ||
-      mediaType?.endsWith("+json")
-        ? { title: "Untitled", text: body }
-        : extractReadableText(body, url);
+      mediaType?.endsWith("+json");
+    const extracted = markup ? { title: "Untitled", text: body } : extractReadableText(body, url);
+    const image = markup ? undefined : pageImageUrl(body, url);
     return {
       url,
       title: extracted.title,
+      ...(image ? { image } : {}),
       ...pageWindow(extracted.text.slice(offset), maxChars, offset),
     };
   }
@@ -162,6 +163,40 @@ function unwrapDuckDuckGoUrl(rawUrl: string): string {
   } catch {
     return rawUrl;
   }
+}
+
+const PAGE_IMAGE_META: ReadonlyArray<readonly ["property" | "name", string]> = [
+  ["property", "og:image"],
+  ["property", "og:image:secure_url"],
+  ["name", "twitter:image"],
+  ["property", "twitter:image"],
+];
+
+/**
+ * The page's main image, when its markup names one: an absolute https URL.
+ * Relative addresses are resolved against the final page URL. Anything else is ignored.
+ */
+export function pageImageUrl(html: string, pageUrl: string): string | undefined {
+  let document: Document;
+  try {
+    document = new JSDOM(html, { url: pageUrl }).window.document;
+  } catch {
+    return undefined;
+  }
+  for (const [attribute, value] of PAGE_IMAGE_META) {
+    const content = document
+      .querySelector(`meta[${attribute}="${value}"]`)
+      ?.getAttribute("content")
+      ?.trim();
+    if (!content) continue;
+    try {
+      const resolved = new URL(content, pageUrl);
+      if (resolved.protocol === "https:") return resolved.href;
+    } catch {
+      // A later tag may still name an image this one could not.
+    }
+  }
+  return undefined;
 }
 
 export function extractReadableText(html: string, url: string): { title: string; text: string } {

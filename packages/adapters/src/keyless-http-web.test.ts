@@ -4,6 +4,7 @@ import { FakeWebProvider } from "./fake-web.js";
 import {
   extractReadableText,
   KeylessHttpWebProvider,
+  pageImageUrl,
   parseDuckDuckGoResults,
 } from "./keyless-http-web.js";
 import {
@@ -176,6 +177,73 @@ describe("keyless HTTP web provider", () => {
     await started;
     controller.abort(new Error("cancelled"));
     await expect(pending).resolves.toEqual({ error: "cancelled" });
+  });
+
+  it("returns the page image from HTML and omits it for text, markdown and JSON", async () => {
+    const html = [
+      "<title>Harbor ferry</title>",
+      '<meta property="og:image" content="https://cdn.example.test/ferry.jpg">',
+      "<article><h1>Harbor ferry</h1><p>The evening boat is running again after the lock repair.</p></article>",
+    ].join("");
+    const htmlProvider = new KeylessHttpWebProvider({
+      fetch: async () => new Response(html, { headers: { "content-type": "text/html" } }),
+      resolveHostname: publicResolver,
+    });
+    await expect(
+      webFetchFromTool(htmlProvider, ctx, { url: "https://example.test/news" }),
+    ).resolves.toMatchObject({
+      title: "Harbor ferry",
+      image: "https://cdn.example.test/ferry.jpg",
+      text: expect.stringContaining("The evening boat is running again"),
+    });
+
+    for (const contentType of ["text/plain", "text/markdown", "application/json"]) {
+      const provider = new KeylessHttpWebProvider({
+        fetch: async () => new Response(html, { headers: { "content-type": contentType } }),
+        resolveHostname: publicResolver,
+      });
+      const result = await webFetchFromTool(provider, ctx, { url: "https://example.test/news" });
+      expect(result).not.toHaveProperty("image");
+    }
+  });
+
+  it("resolves a relative page image against the final URL", async () => {
+    const provider = new KeylessHttpWebProvider({
+      fetch: async (input) =>
+        String(input).endsWith("/start")
+          ? new Response(null, {
+              status: 302,
+              headers: { location: "https://news.example.test/story" },
+            })
+          : new Response(
+              '<title>Story</title><meta property="og:image" content="/pic.jpg"><p>Hello from the story.</p>',
+              { headers: { "content-type": "text/html" } },
+            ),
+      resolveHostname: publicResolver,
+    });
+    await expect(
+      webFetchFromTool(provider, ctx, { url: "https://example.test/start" }),
+    ).resolves.toMatchObject({
+      url: "https://news.example.test/story",
+      image: "https://news.example.test/pic.jpg",
+    });
+  });
+
+  it("keeps an https page image when the readable article is missing", async () => {
+    const provider = new KeylessHttpWebProvider({
+      fetch: async () =>
+        new Response(
+          '<html><head><title>Bare</title><meta property="og:image" content="https://cdn.example.test/bare.jpg"></head><body></body></html>',
+          { headers: { "content-type": "text/html" } },
+        ),
+      resolveHostname: publicResolver,
+    });
+    await expect(
+      webFetchFromTool(provider, ctx, { url: "https://example.test/bare" }),
+    ).resolves.toMatchObject({
+      title: "Bare",
+      image: "https://cdn.example.test/bare.jpg",
+    });
   });
 
   it("still extracts HTML and does not treat similar media types as plain text", async () => {
@@ -353,6 +421,47 @@ describe("keyless HTTP web provider", () => {
       return `<div class="result"><a class="result__a" href="https://example.test/${i}">T${i}</a><div class="result__snippet">S${i}</div></div>`;
     }).join("");
     expect(parseDuckDuckGoResults(html, 3)).toHaveLength(3);
+  });
+});
+
+describe("pageImageUrl", () => {
+  const page = "https://news.example.test/story";
+
+  it("prefers og:image, then its secure url, then twitter", () => {
+    expect(
+      pageImageUrl(
+        '<meta property="og:image" content="https://cdn.example.test/og.jpg"><meta name="twitter:image" content="https://cdn.example.test/tw.jpg">',
+        page,
+      ),
+    ).toBe("https://cdn.example.test/og.jpg");
+    expect(
+      pageImageUrl(
+        '<meta property="og:image" content="http://cdn.example.test/og.jpg"><meta property="og:image:secure_url" content="https://cdn.example.test/secure.jpg">',
+        page,
+      ),
+    ).toBe("https://cdn.example.test/secure.jpg");
+    expect(
+      pageImageUrl('<meta name="twitter:image" content="https://cdn.example.test/tw.jpg">', page),
+    ).toBe("https://cdn.example.test/tw.jpg");
+    expect(
+      pageImageUrl(
+        '<meta property="twitter:image" content="https://cdn.example.test/prop.jpg">',
+        page,
+      ),
+    ).toBe("https://cdn.example.test/prop.jpg");
+  });
+
+  it("resolves a relative image and skips anything that is not https", () => {
+    expect(pageImageUrl('<meta property="og:image" content="photos/ferry.jpg">', page)).toBe(
+      "https://news.example.test/photos/ferry.jpg",
+    );
+    expect(
+      pageImageUrl(
+        '<meta property="og:image" content="javascript:alert(1)"><meta name="twitter:image" content="https://cdn.example.test/ok.jpg">',
+        page,
+      ),
+    ).toBe("https://cdn.example.test/ok.jpg");
+    expect(pageImageUrl("<title>No image</title>", page)).toBeUndefined();
   });
 });
 

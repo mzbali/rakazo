@@ -6,7 +6,7 @@ import type {
 } from "@ronradtke/react-native-markdown-display";
 import { renderRules as libraryRenderRules } from "@ronradtke/react-native-markdown-display";
 import type { ReactNode } from "react";
-import { useContext } from "react";
+import { Children, Fragment, useContext } from "react";
 import type { StyleProp, TextStyle } from "react-native";
 import { StyleSheet, Text, View } from "react-native";
 import type { MarkdownEmbed } from "../markdown";
@@ -38,14 +38,39 @@ import {
   WORD_JOINER,
 } from "./links";
 import { listItemRule } from "./lists";
+import { isMediaRowNode, isMediaThumb, MediaThumb, openingImageNode } from "./media-row";
 import { blockquoteRule } from "./quotes";
 import { layout } from "./styles";
 import { TableCell, TableRow, TableScrollView } from "./table";
 
 // Keep links as Text so they stay inside textgroup; Pressable (a View) is laid out
 // outside the text flow and collapses the bubble height, overlapping later messages.
+function mediaHost(parents: readonly ASTNode[]): ASTNode | undefined {
+  return parents.find((parent) => parent.type === "list_item" || parent.type === "paragraph");
+}
+
+function listRule(
+  node: ASTNode,
+  children: ReactNode[],
+  styleMap: MarkdownStyleMap,
+  kind: "bullet_list" | "ordered_list",
+) {
+  const allMedia =
+    node.children.length > 0 && node.children.every((child) => isMediaRowNode(child));
+  const style = styleMap[`_VIEW_SAFE_${kind}`];
+  return (
+    <View key={node.key} style={allMedia ? [style, { gap: 0 }] : style}>
+      {children}
+    </View>
+  );
+}
+
 export const renderRules: RenderRules = {
   list_item: listItemRule,
+  bullet_list: (node, children, _parent, styleMap) =>
+    listRule(node, children, styleMap, "bullet_list"),
+  ordered_list: (node, children, _parent, styleMap) =>
+    listRule(node, children, styleMap, "ordered_list"),
   blockquote: blockquoteRule,
   fence: (node, _children, _parents, styleMap, _onCopyCode, colorScheme) => {
     const info = typeof node.sourceInfo === "string" ? node.sourceInfo : "";
@@ -88,14 +113,39 @@ export const renderRules: RenderRules = {
       </View>
     );
   },
-  textgroup: (node, children, _parent, styleMap) => (
-    <Text
-      key={node.key}
-      style={[styleMap.textgroup, contraryDirection(cellPlainText(node)) && layout.farSideBlock]}
-    >
-      {children}
-    </Text>
-  ),
+  textgroup: (node, children, _parent, styleMap) => {
+    // A thumbnail is a view. Leaving it inside Text would drop it out of the line.
+    if (Children.toArray(children).some(isMediaThumb)) {
+      return <Fragment key={node.key}>{children}</Fragment>;
+    }
+    return (
+      <Text
+        key={node.key}
+        style={[styleMap.textgroup, contraryDirection(cellPlainText(node)) && layout.farSideBlock]}
+      >
+        {children}
+      </Text>
+    );
+  },
+  paragraph: (node, children, _parents, styleMap) => {
+    const flat = Children.toArray(children);
+    const thumb = flat.find(isMediaThumb);
+    // The first paragraph of a list item is unwrapped, so the list item lays that row out.
+    // A thumb that reaches a paragraph is a standalone row, or a later paragraph of its own.
+    if (!thumb) {
+      return (
+        <View key={node.key} style={styleMap._VIEW_SAFE_paragraph}>
+          {children}
+        </View>
+      );
+    }
+    return (
+      <View key={node.key} style={styleMap.media_row}>
+        {thumb}
+        <View style={styleMap.media_copy}>{flat.filter((child) => child !== thumb)}</View>
+      </View>
+    );
+  },
   text: (node, _children, parents, styleMap, inherited) => (
     <Text key={node.key} style={textStyleForParents(inherited, parents, styleMap)}>
       {node.content}
@@ -135,7 +185,22 @@ export const renderRules: RenderRules = {
         linkParent && sanitizeMarkdownUrl(linkParent.attributes.href ?? ""),
       );
       const labelStyle = linkOpens ? styleMap.link : styleMap.plain_text;
-      return <MarkdownEmbedImage key={node.key} embed={embed} alt={alt} labelStyle={labelStyle} />;
+      const host = mediaHost(parents);
+      const thumbnail =
+        embed.kind === "image" && host !== undefined && openingImageNode(host) === node;
+      const image = (
+        <MarkdownEmbedImage
+          embed={thumbnail ? { ...embed, frame: "thumbnail" } : embed}
+          alt={alt}
+          labelStyle={labelStyle}
+        />
+      );
+      if (!thumbnail) return <Fragment key={node.key}>{image}</Fragment>;
+      return (
+        <MediaThumb key={node.key} style={styleMap.media_thumb}>
+          {image}
+        </MediaThumb>
+      );
     }
     if (inlineMarkdownImageSrc(src)) {
       return (

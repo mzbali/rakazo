@@ -13,7 +13,7 @@ const sources: SourceItem[] = [
   { url: NASA, title: "Mars Facts", site: "nasa" },
   { url: ESA, title: "Mars Express", site: "esa" },
 ];
-const answer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [NASA year](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
+const answer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [nasa.gov](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
 
 function labels(container: ParentNode, selector: string) {
   return [...container.querySelectorAll(selector)].map((node) => node.textContent);

@@ -727,7 +727,7 @@ const research: Scenario = {
     bot([
       {
         kind: "text",
-        text: `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days [NASA year](${MARS_DAY}) [ESA](${MARS_YEAR}).`,
+        text: `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days [nasa.gov](${MARS_DAY}) [ESA](${MARS_YEAR}).`,
       },
       {
         kind: "sources",

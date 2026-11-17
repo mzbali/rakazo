@@ -2589,7 +2589,7 @@ const citedSources = [
   { url: NASA, title: "Mars Facts", site: "nasa" },
   { url: ESA, title: "Mars Express", site: "esa" },
 ];
-const citedAnswer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [NASA year](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
+const citedAnswer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [nasa.gov](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
 
 describe("native citation pills", () => {
   it("draws one pill, a +1 pill and the sources row, and leaves another link as a link", async () => {

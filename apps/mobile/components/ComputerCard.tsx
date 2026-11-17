@@ -9,18 +9,8 @@ import {
 import { typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useState } from "react";
 import type { ViewProps } from "react-native";
-import {
-  Alert,
-  AppState,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Alert, AppState, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { rpc } from "../lib/api";
-import { threadCardWidth } from "../lib/message-presentation";
 import { native, useMobileTokens, useResolvedAppearance } from "../lib/native";
 import { useThreadReadOnly } from "../lib/thread-read-only";
 import { errorText } from "../lib/user-error";
@@ -75,7 +65,6 @@ export function ComputerCard({
   const readOnly = useThreadReadOnly();
   const tokens = useMobileTokens();
   const colorScheme = useResolvedAppearance();
-  const { width: windowWidth } = useWindowDimensions();
   const pending = block.state === TAKEOVER_COMPUTER_PENDING_STATE;
   const [expanded, setExpanded] = useState(false);
   const [releasing, setReleasing] = useState(false);
@@ -131,7 +120,7 @@ export function ComputerCard({
   return (
     <View
       testID="computer-card"
-      style={[styles.card, { width: threadCardWidth(windowWidth), backgroundColor: native.fill }]}
+      style={[styles.card, { width: "100%", backgroundColor: native.fill }]}
     >
       {pending ? (
         header

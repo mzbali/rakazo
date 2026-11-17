@@ -12,11 +12,10 @@ import type { Href } from "expo-router";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import type { ViewProps } from "react-native";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { rpc } from "../lib/api";
 import type { ImportSetupBlock } from "../lib/import-setup";
 import { importSetupDetail } from "../lib/import-setup";
-import { threadCardWidth } from "../lib/message-presentation";
 import { native, useMobileTokens } from "../lib/native";
 import { useThreadReadOnly } from "../lib/thread-read-only";
 import { NativeActionButton } from "./native-action-button";
@@ -53,7 +52,6 @@ export function ImportSetupCard({
   const router = useRouter();
   const readOnly = useThreadReadOnly();
   const tokens = useMobileTokens();
-  const { width: windowWidth } = useWindowDimensions();
   const [state, setState] = useState<AgentImportSetupState | null>(null);
   const retired = isRetiredImportSetup(block);
 
@@ -74,10 +72,7 @@ export function ImportSetupCard({
   );
 
   if (retired) return null;
-  const cardStyle = [
-    styles.card,
-    { width: threadCardWidth(windowWidth), backgroundColor: native.fill },
-  ];
+  const cardStyle = [styles.card, { width: "100%", backgroundColor: native.fill }];
 
   if (isImportSetupComplete(block, state)) {
     return (

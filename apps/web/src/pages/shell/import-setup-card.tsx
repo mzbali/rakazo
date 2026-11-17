@@ -57,7 +57,7 @@ export function ImportSetupCard({
       <BuiCard
         data-testid="import-setup-card"
         data-complete="true"
-        className="w-[420px] max-w-full px-[18px] py-[14px] text-body text-foreground"
+        className="w-full px-[18px] py-[14px] text-body text-foreground"
       >
         <SuccessPop label={t`Setup complete`} />
       </BuiCard>
@@ -65,7 +65,7 @@ export function ImportSetupCard({
   }
 
   return (
-    <BuiCard data-testid="import-setup-card" className="w-[420px] max-w-full px-[18px] py-[14px]">
+    <BuiCard data-testid="import-setup-card" className="w-full px-[18px] py-[14px]">
       <p className="text-body-lg text-foreground/90">
         <Trans>Finish setting up</Trans>
       </p>

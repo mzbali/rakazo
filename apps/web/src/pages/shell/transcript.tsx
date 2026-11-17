@@ -47,18 +47,18 @@ import {
 } from "../../lib/quote-selection";
 import type { createSpaceRpc } from "../../lib/rpc";
 import { messageHasVisibleBlocks } from "../../lib/tool-activity-view";
-import { TRANSCRIPT_CONTENT_PADDING } from "../../lib/transcript-layout";
+import { BOT_PROSE_FRAME, TRANSCRIPT_CONTENT_PADDING } from "../../lib/transcript-layout";
 import { transcriptIsNearEnd, transcriptMovedDown } from "../../lib/transcript-scroll";
 import { TimeSeparator, UnreadDivider } from "./chat-context";
 import type { ImportSetupTarget } from "./import-setup-card";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
 
-/** Bubbles stop at a readable line length instead of stretching with wide windows. */
+/** User bubbles stay a chat width. Bot answers use the shared reading column. */
 export function bubbleFrameWidth(role: ThreadMessage["role"]) {
   return role === "user"
     ? "max-w-[min(84%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(84%,39rem)]"
-    : "max-w-[min(88%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(88%,39rem)]";
+    : BOT_PROSE_FRAME;
 }
 
 export const Transcript = memo(function Transcript({
@@ -601,21 +601,23 @@ export const Transcript = memo(function Transcript({
                     className={
                       peerReceipt
                         ? undefined
-                        : message.blocks.some(
-                              (block) => block.kind === "ask" || block.kind === "mcp_approval",
-                            )
-                          ? "relative w-full min-w-0 max-w-xl"
-                          : `relative ${
-                              message.blocks.some(
-                                (block) =>
-                                  block.kind === "app_connect" ||
-                                  block.kind === "page" ||
-                                  block.kind === "visual" ||
-                                  block.kind === "computer",
-                              ) || pageView.pages.has(message.id)
-                                ? "w-full"
-                                : "w-fit"
-                            } min-w-0 ${bubbleFrameWidth(message.role)}`
+                        : message.role === "bot"
+                          ? `relative min-w-0 ${bubbleFrameWidth("bot")}`
+                          : message.blocks.some(
+                                (block) => block.kind === "ask" || block.kind === "mcp_approval",
+                              )
+                            ? "relative w-full min-w-0 max-w-xl"
+                            : `relative ${
+                                message.blocks.some(
+                                  (block) =>
+                                    block.kind === "app_connect" ||
+                                    block.kind === "page" ||
+                                    block.kind === "visual" ||
+                                    block.kind === "computer",
+                                ) || pageView.pages.has(message.id)
+                                  ? "w-full"
+                                  : "w-fit"
+                              } min-w-0 ${bubbleFrameWidth("user")}`
                     }
                   >
                     <MessageView

@@ -99,8 +99,9 @@ export async function continueAfterQuota(
 ): Promise<CloudAgentSnapshot | null> {
   const decision = quotaPauseDecision(snapshot, agent.quotaContinuedFor);
   if (decision === "none" || decision === "wait") return snapshot;
+  // A continued thread is working again, not idling on its pull request.
   if (decision === "sent")
-    return { ...snapshot, quotaResetsAt: undefined, quotaAutoResume: undefined };
+    return { ...snapshot, quotaResetsAt: undefined, quotaAutoResume: undefined, watchIdle: false };
   const resetAt = new Date(snapshot.quotaResetsAt!);
   // The key makes every send for this reset the same message, so a poll that crashed before
   // recording it sends again and the provider keeps one. The marker only records an accepted send.
@@ -123,5 +124,6 @@ export async function continueAfterQuota(
     ...(sent.latestRunId ? { latestRunId: sent.latestRunId } : {}),
     quotaResetsAt: undefined,
     quotaAutoResume: undefined,
+    watchIdle: false,
   };
 }

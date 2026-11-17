@@ -47,7 +47,7 @@ import {
   cloudAgentWakeNonces,
   terminalWakePrompt,
 } from "./cloud-agent-wake-start.js";
-import { watchOutlasted } from "./cloud-agent-watch.js";
+import { watchIdle, watchOutlasted } from "./cloud-agent-watch.js";
 import { notifyCloudAgentUnreachable } from "./run-notifications.js";
 import { goalDrivesAgent, recordScopedGoalBackup, startScopedGoal } from "./scoped-goal-service.js";
 
@@ -333,7 +333,7 @@ export async function pollCloudAgent(
     await finishPoll(
       deps,
       agent,
-      watchOutlasted(snapshot, agent) ? { ...data, cancelRequested: true } : data,
+      watchOutlasted(observed, agent) ? { ...data, cancelRequested: true } : data,
       false,
       snapshot.missedAttention,
     );
@@ -401,7 +401,7 @@ function snapshotData(
     ...(snapshot.watching !== undefined
       ? {
           prWatching: snapshot.watching,
-          watchingSince: snapshot.watchIdle ? (agent.watchingSince ?? new Date()) : null,
+          watchingSince: watchIdle(snapshot) ? (agent.watchingSince ?? new Date()) : null,
         }
       : {}),
     // Shown on the card only: nothing in it wakes the bot.

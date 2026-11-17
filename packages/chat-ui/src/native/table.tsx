@@ -7,7 +7,7 @@ import { View } from "react-native";
 import { cellPlainText } from "./ast";
 import { SidewaysScrollView } from "./sideways-scroll";
 
-const TABLE_FONT_SIZE = typeScale.caption.fontSize;
+const TABLE_FONT_SIZE = typeScale.body.fontSize;
 const TABLE_CELL_GUTTER = 16;
 const TABLE_MIN_COLUMN_WIDTH = 64;
 const TABLE_MAX_COLUMN_WIDTH = 220;

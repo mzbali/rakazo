@@ -131,21 +131,21 @@ export function markdownStyles(palette: ColorTokens) {
       color: palette.faintForeground,
     },
     table: {
-      borderColor: palette.input,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 0,
+      borderRadius: 0,
     },
     tr: {
       borderColor: palette.input,
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
     th: {
-      ...typeScale.caption,
+      ...typeScale.body,
       color: palette.foreground,
-      fontWeight: fontWeight.medium,
+      fontWeight: fontWeight.semibold,
     },
     td: {
-      ...typeScale.caption,
-      color: palette.mutedForeground,
+      ...typeScale.body,
+      color: palette.foreground,
     },
     bullet_list: {
       gap: BLOCK_GAP,

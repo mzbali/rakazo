@@ -1,6 +1,7 @@
-/* Interactive card for GFM markdown tables (rk-table-*). `.rk-table-box` is
-   the shared scope for internal styles — it sits on the inline card and on
-   the portaled dialog, so cell/scroll rules reach both. */
+/* GFM markdown tables (rk-table-*). Inline tables read as part of the prose.
+   `.rk-table-box` is the shared scope for internal styles — it sits on the
+   inline table and on the portaled dialog, so cell and scroll rules reach both.
+   The dialog keeps its own frame. */
 
 .rk-table-head {
   display: flex;
@@ -49,17 +50,13 @@
   max-height: 20em;
 }
 
-.rk-table td {
-  font-family: var(--font-mono);
-  font-size: 0.92em;
-  color: var(--foreground);
-}
-
 .rk-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--muted);
+  /* Opaque, or scrolled rows show through. Matches the answer surface. */
+  background: var(--background);
+  color: var(--foreground);
   font-weight: 600;
   text-align: left;
 }
@@ -144,7 +141,6 @@ button.rk-table-sort {
   min-width: 2.2em;
   text-align: center;
   color: var(--muted-foreground);
-  background: var(--muted);
   border-inline-end: 1px solid var(--border);
   font-size: 0.85em;
   padding-left: 0.3em;
@@ -177,19 +173,19 @@ button.rk-table-sort {
 .rk-chat-markdown .rk-table-card {
   position: relative;
   margin: 0.65em 0;
-  border: 1px solid var(--border);
-  border-radius: 0.75em;
-  background: var(--card);
-  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
 }
 
-/* Inline card: reserved static strip so tools never overlay sortable headers.
-   Tools fade in on hover/focus; the dialog head stays always-visible. */
+/* Reserved static strip so tools never overlay sortable headers, with no
+   border or fill of its own. Tools fade in on hover/focus; the dialog head
+   stays always visible inside the dialog frame. */
 .rk-table-card > .rk-table-head {
   position: static;
-  padding: 0.3em 0.45em;
+  padding: 0.1em 0;
   border: 0;
-  border-bottom: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
 }
@@ -213,7 +209,7 @@ button.rk-table-sort {
   overflow: visible;
   margin: 0;
   border-collapse: collapse;
-  font-size: 0.85em;
+  font-size: 1em;
 }
 
 .rk-table-box .rk-table th,
@@ -221,6 +217,8 @@ button.rk-table-sort {
   border: 0;
   border-bottom: 1px solid var(--border);
   padding: 0.35em 0.75em;
+  color: var(--foreground);
+  font-family: inherit;
   white-space: nowrap;
   overflow-wrap: normal;
 }
@@ -283,6 +281,10 @@ button.rk-table-sort {
 .rk-table-dialog .rk-table-cell-text {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.rk-table-dialog .rk-table thead th {
+  background: var(--popover);
 }
 
 .rk-table-dialog .rk-table-cell-text {

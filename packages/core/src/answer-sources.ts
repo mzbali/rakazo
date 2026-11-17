@@ -16,6 +16,7 @@ const SITE_LABEL_MAX = 18;
 /** A citation cluster stops at a sentence end, so the pill stays with the claim it supports. */
 const SENTENCE_END = /[.?!。！？…]/u;
 const JOINING_GAP = /^[\s\p{P}]*$/u;
+const TRAILING_TEXT = /^(?:\s*$|[ \t]*\n|\s*[^\s\p{L}\p{N}])/u;
 
 export const CITED_SOURCES_MAX = 12;
 export const CITATION_URL_PREFIX = "rakazo-cite:";
@@ -223,6 +224,15 @@ function isJoiningGap(node: MdNode): boolean {
   );
 }
 
+/**
+ * Whether citations end their claim here: at the end of the line or before punctuation. A link
+ * the sentence reads on through ("see [the analysis](…) for details") keeps its words.
+ */
+function endsClaim(following: MdNode | undefined): boolean {
+  if (!following || following.type === "break") return true;
+  return following.type === "text" && TRAILING_TEXT.test(following.value ?? "");
+}
+
 function markdownLinkLabel(label: string): string {
   return label.replace(/[\\[\]]/g, (character) => `\\${character}`);
 }
@@ -280,7 +290,7 @@ function groupChildren(
     const start = nodeRange(run[0]?.node ?? child);
     const last = run[run.length - 1];
     const end = last ? nodeRange(last.node) : undefined;
-    if (start && end) {
+    if (start && end && endsClaim(children[next])) {
       const items: SourceItem[] = [];
       const seen = new Set<string>();
       for (const entry of run) {
@@ -324,7 +334,11 @@ export function citationMarkdown(
   let next = markdown;
   for (const replacement of replacements) {
     const marker = `[${markdownLinkLabel(replacement.site)}](${CITATION_URL_PREFIX}${replacement.index})`;
-    next = `${next.slice(0, replacement.start)}${marker}${next.slice(replacement.end)}`;
+    // The pill is its own bracket, so "claim ([NASA](…))" drops the parentheses around it.
+    const wrapped = next[replacement.start - 1] === "(" && next[replacement.end] === ")";
+    const start = wrapped ? replacement.start - 1 : replacement.start;
+    const end = wrapped ? replacement.end + 1 : replacement.end;
+    next = `${next.slice(0, start)}${marker}${next.slice(end)}`;
   }
   return { markdown: next, groups };
 }

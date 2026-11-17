@@ -116,7 +116,13 @@ export const renderRules: RenderRules = {
   textgroup: (node, children, _parent, styleMap) => {
     // A thumbnail is a view. Leaving it inside Text would drop it out of the line.
     if (Children.toArray(children).some(isMediaThumb)) {
-      return <Fragment key={node.key}>{children}</Fragment>;
+      // The space between the image and the title would indent the title past the text below.
+      const kept = children.filter((_, index) => {
+        const previous = node.children[index - 1];
+        const child = node.children[index];
+        return !(previous?.type === "image" && child?.type === "text" && !child.content.trim());
+      });
+      return <Fragment key={node.key}>{kept}</Fragment>;
     }
     return (
       <Text

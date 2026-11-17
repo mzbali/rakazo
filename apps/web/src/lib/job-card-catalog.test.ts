@@ -20,6 +20,7 @@ const PHASE_WORDS = [
   "Checking",
   "Done",
   "Needs you",
+  "Resumes",
   "Couldn't start",
   "Stopped",
   "Expired",

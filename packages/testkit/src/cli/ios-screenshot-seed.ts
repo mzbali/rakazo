@@ -890,6 +890,8 @@ const SCREENSHOT_JOBS: {
   progress?: string;
   /** Minutes the work ran before it ended; the card's clock stops there. */
   ranMinutes?: number;
+  /** A usage-limit pause: the job stays running and says it resumes this many minutes from now. */
+  resumesInMinutes?: number;
   /** Refused before anything remote started. */
   launchFailed?: boolean;
   failureReason?: string;
@@ -928,6 +930,16 @@ const SCREENSHOT_JOBS: {
     note: "Picked sonnet-5-5 on main (simple).",
     progress:
       "Reading the theme tokens, then wiring the settings toggle to the saved appearance. Next: a test that flips it twice.",
+  },
+  // Stopped on a usage limit: still a working job, quiet, and it says when it resumes.
+  {
+    key: "paused",
+    title: "Rewrite the search index",
+    status: "running",
+    projectName: "storefront",
+    minutesAgo: 25,
+    resumesInMinutes: 90,
+    note: "Picked sonnet-5-5 on main (simple).",
   },
   // Finished with a pull request and nothing waiting on the owner: the Done card.
   {
@@ -1080,6 +1092,9 @@ async function ensureRequestCards(
   ]);
   for (const job of SCREENSHOT_JOBS) {
     const startedAt = new Date(Date.now() - job.minutesAgo * 60_000);
+    const resumesAt = job.resumesInMinutes
+      ? new Date(Date.now() + job.resumesInMinutes * 60_000)
+      : undefined;
     const url = `https://jobs.example.com/${job.key}`;
     const endedAt =
       job.status === "running" || job.ranMinutes === undefined
@@ -1138,6 +1153,7 @@ async function ensureRequestCards(
         resultText: job.result ?? null,
         progressText: job.progress ?? null,
         endedAt: endedAt ?? null,
+        quotaResetsAt: resumesAt ?? null,
         ownerQuestion: job.ownerQuestion ?? null,
         questionPrompt: job.question
           ? JSON.stringify({ requestId: "ios-screenshot-ask", ...job.question })
@@ -1156,6 +1172,7 @@ async function ensureRequestCards(
         url,
         startedAt: startedAt.toISOString(),
         ...(endedAt ? { endedAt: endedAt.toISOString() } : {}),
+        ...(resumesAt ? { quotaResetsAt: resumesAt.toISOString() } : {}),
         ...(job.progress ? { progress: job.progress } : {}),
         ...(job.needsInput ? { needsInput: true } : {}),
         ...(job.ownerQuestion ? { ownerQuestion: job.ownerQuestion } : {}),

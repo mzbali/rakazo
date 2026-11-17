@@ -8927,6 +8927,11 @@ msgstr "워크스페이스 복원 중"
 msgid "Resume notifications"
 msgstr "알림 다시 켜기"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Resumes when it's back · since {since}"
 msgstr ""

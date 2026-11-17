@@ -37,10 +37,12 @@ type CloudAgentBlock = Extract<MessageBlock, { kind: "cloud_agent" }>;
 
 /**
  * What a cloud-agent job is doing, in the order an owner cares: `needsInput` first, because it
- * is the one state that waits on them. `tone` is the colour family every client uses.
+ * is the one state that waits on them. A usage-limit pause comes next: the work is waiting on
+ * the provider, not on the owner. `tone` is the colour family every client uses.
  */
 export type CloudAgentState =
   | "needsInput"
+  | "paused"
   | "unreachable"
   | "queued"
   | "running"
@@ -51,17 +53,24 @@ export type CloudAgentState =
 
 export type CloudAgentTone = "attention" | "active" | "success" | "danger" | "muted";
 
-export function cloudAgentState(
-  job: Pick<
-    CloudAgentBlock,
-    "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion" | "launchFailed"
-  >,
-): CloudAgentState {
+type CloudAgentStateJob = Pick<
+  CloudAgentBlock,
+  | "status"
+  | "queued"
+  | "needsInput"
+  | "unreachableSince"
+  | "ownerQuestion"
+  | "launchFailed"
+  | "quotaResetsAt"
+>;
+
+export function cloudAgentState(job: CloudAgentStateJob): CloudAgentState {
   // A launch that never started has nothing to answer, whatever the bot asked the owner after it.
   if (job.launchFailed) return "failed";
   if (job.ownerQuestion) return "needsInput";
   if (job.status !== "running") return job.status;
   if (job.needsInput) return "needsInput";
+  if (quotaResetMs(job.quotaResetsAt) !== undefined) return "paused";
   if (job.unreachableSince) return "unreachable";
   return job.queued ? "queued" : "running";
 }
@@ -76,21 +85,20 @@ export type CloudAgentPhase =
   | "checking"
   | "done"
   | "needsYou"
+  | "resumes"
   | "couldntStart"
   | "stopped"
   | "expired";
 
-type PhaseJob = Pick<
-  CloudAgentBlock,
-  "status" | "queued" | "needsInput" | "unreachableSince" | "ownerQuestion" | "launchFailed"
-> &
-  Partial<Pick<CloudAgentBlock, "review" | "url">>;
+type PhaseJob = CloudAgentStateJob & Partial<Pick<CloudAgentBlock, "review" | "url">>;
 
 export function cloudAgentPhase(job: PhaseJob): CloudAgentPhase {
   const state = cloudAgentState(job);
   switch (state) {
     case "needsInput":
       return "needsYou";
+    case "paused":
+      return "resumes";
     case "queued":
       return "starting";
     case "running":
@@ -113,6 +121,8 @@ export function cloudAgentJobTone(job: PhaseJob): CloudAgentTone {
   switch (phase) {
     case "needsYou":
       return "attention";
+    case "resumes":
+      return "muted";
     case "starting":
     case "working":
     case "checking":
@@ -153,9 +163,45 @@ export function cloudAgentElapsed(
   return Number.isNaN(ended) ? undefined : formatCloudAgentElapsed(ended - started);
 }
 
-/** Whether the elapsed clock should tick: the work has not ended. */
-export function cloudAgentTicking(job: Pick<CloudAgentBlock, "status" | "startedAt">): boolean {
-  return job.status === "running" && Boolean(job.startedAt);
+/** Whether the elapsed clock should tick: the work has not ended and is not waiting out a limit. */
+export function cloudAgentTicking(
+  job: Pick<CloudAgentBlock, "status" | "startedAt" | "quotaResetsAt">,
+): boolean {
+  return job.status === "running" && Boolean(job.startedAt) && !job.quotaResetsAt;
+}
+
+/**
+ * Local time a paused job resumes. The date joins it when that time is not today.
+ * `locale` and `timeZone` pin a test; the card leaves them out so the owner sees their own.
+ */
+export function formatCloudAgentResumeAt(
+  iso: string,
+  nowMs: number,
+  options?: { locale?: string; timeZone?: string },
+): string | undefined {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return undefined;
+  const zone = options?.timeZone ? { timeZone: options.timeZone } : {};
+  const dayKey = (ms: number) =>
+    new Intl.DateTimeFormat("en-US", {
+      ...zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(ms);
+  const sameDay = dayKey(at) === dayKey(nowMs);
+  return new Intl.DateTimeFormat(options?.locale, {
+    ...zone,
+    hour: "numeric",
+    minute: "2-digit",
+    ...(sameDay ? {} : { month: "short", day: "numeric" }),
+  }).format(at);
+}
+
+function quotaResetMs(iso: string | undefined): number | undefined {
+  if (!iso) return undefined;
+  const at = Date.parse(iso);
+  return Number.isNaN(at) ? undefined : at;
 }
 
 /** The pull request's number from its link ("https://host/org/app/pull/12" gives 12). */
@@ -253,6 +299,8 @@ export function cloudAgentShelf(state: CloudAgentState): CloudAgentShelf {
   switch (state) {
     case "needsInput":
       return "needsYou";
+    case "paused":
+      return "working";
     case "finished":
     case "failed":
     case "cancelled":
@@ -307,6 +355,13 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
       : typeof ended === "string" && !Number.isNaN(Date.parse(ended))
         ? ended
         : undefined;
+  const quota = payload.quotaResetsAt;
+  const quotaResetsAt =
+    quota instanceof Date
+      ? quota.toISOString()
+      : typeof quota === "string" && !Number.isNaN(Date.parse(quota))
+        ? new Date(quota).toISOString()
+        : undefined;
   const since = payload.unreachableSince;
   const unreachableSince =
     since instanceof Date
@@ -333,6 +388,7 @@ export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): Cl
     ...(model ? { model } : {}),
     ...(startedAt ? { startedAt } : {}),
     ...(endedAt ? { endedAt } : {}),
+    ...(quotaResetsAt ? { quotaResetsAt } : {}),
     ...(progress ? { progress } : {}),
     ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
       ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }

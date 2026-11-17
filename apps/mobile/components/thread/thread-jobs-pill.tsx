@@ -1,5 +1,11 @@
 import { useLingui } from "@lingui/react/macro";
-import { cloudAgentElapsed, cloudAgentTicking } from "@rakazo/core";
+import {
+  cloudAgentElapsed,
+  cloudAgentJobTone,
+  cloudAgentPhase,
+  cloudAgentTicking,
+  formatCloudAgentResumeAt,
+} from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { Pressable, Text, View } from "react-native";
 import { mobileTokens } from "../../lib/appearance";
@@ -21,7 +27,13 @@ export function ThreadJobsPill({ pill, onPress }: { pill: JobPill; onPress: () =
   const started = job.startedAt ? Date.parse(job.startedAt) : undefined;
   const now = useNow(cloudAgentTicking(job), started);
   const needsYou = pill.kind === "needsYou";
-  const elapsed = needsYou ? undefined : cloudAgentElapsed(job, now);
+  const phase = cloudAgentPhase(job);
+  const resumeAt =
+    !needsYou && phase === "resumes" && job.quotaResetsAt
+      ? formatCloudAgentResumeAt(job.quotaResetsAt, now)
+      : undefined;
+  const elapsed = needsYou || resumeAt ? undefined : cloudAgentElapsed(job, now);
+  const tone = needsYou ? "attention" : cloudAgentJobTone(job);
   const text = needsYou
     ? t`Needs you`
     : pill.count === 1
@@ -32,7 +44,7 @@ export function ThreadJobsPill({ pill, onPress }: { pill: JobPill; onPress: () =
       <Pressable
         testID="thread-jobs-pill"
         accessibilityRole="button"
-        accessibilityLabel={elapsed ? `${text}, ${elapsed}` : text}
+        accessibilityLabel={resumeAt || elapsed ? `${text}, ${resumeAt ?? elapsed}` : text}
         onPress={() => {
           hapticSelection();
           onPress();
@@ -54,7 +66,7 @@ export function ThreadJobsPill({ pill, onPress }: { pill: JobPill; onPress: () =
             borderColor: tokens.glassStroke,
           }}
         >
-          <JobStatusDot tone={needsYou ? "attention" : "active"} tokens={tokens} />
+          <JobStatusDot tone={tone} tokens={tokens} />
           <Text
             style={{
               color: needsYou ? jobToneColor(tokens, "attention") : tokens.mutedForeground,
@@ -64,7 +76,7 @@ export function ThreadJobsPill({ pill, onPress }: { pill: JobPill; onPress: () =
           >
             {text}
           </Text>
-          {elapsed ? (
+          {resumeAt || elapsed ? (
             <Text
               style={{
                 color: tokens.faintForeground,
@@ -72,7 +84,7 @@ export function ThreadJobsPill({ pill, onPress }: { pill: JobPill; onPress: () =
                 ...typeScale.footnote,
               }}
             >
-              {elapsed}
+              {resumeAt ?? elapsed}
             </Text>
           ) : null}
           <NativeSymbol

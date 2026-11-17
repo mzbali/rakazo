@@ -15,7 +15,12 @@ import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "./cloud-agent-poll.js";
+import {
+  createCloudAgentWake,
+  pollCloudAgent,
+  QUOTA_POLL_MARGIN_MS,
+  UNREACHABLE_AFTER_MS,
+} from "./cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,
@@ -44,6 +49,8 @@ class ScriptedProvider implements CloudAgentProvider {
       /** A pull request watch with no run working. */
       watching?: boolean;
       watchIdle?: boolean;
+      quotaResetsAt?: string;
+      quotaAutoResume?: boolean;
     }
   >();
   launches = 0;
@@ -79,10 +86,12 @@ class ScriptedProvider implements CloudAgentProvider {
     };
   }
   replies = 0;
+  replyPrompts: string[] = [];
   /** Makes the next reply wait for the test, then refuse as a busy provider would. */
   refuseReply?: Promise<void>;
-  async reply(id: string) {
+  async reply(id: string, request: { prompt: string }) {
     this.replies += 1;
+    this.replyPrompts.push(request.prompt);
     if (this.refuseReply) {
       const refusal = this.refuseReply;
       this.refuseReply = undefined;
@@ -1321,5 +1330,118 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
     });
     expect(JSON.stringify(received.map((message) => message.blocks))).toContain(question);
+  });
+
+  describe("a usage-limit pause", () => {
+    const CONTINUE = "Continue where you left off.";
+
+    async function going() {
+      const t = await setup();
+      const id = await t.launch(1);
+      await t.poll(id);
+      return { t, id, remote: await t.remote(id) };
+    }
+
+    function pause(
+      remote: Awaited<ReturnType<typeof going>>["remote"],
+      reset: Date,
+      autoResume: boolean,
+    ) {
+      remote.status = "running";
+      remote.quotaResetsAt = reset.toISOString();
+      remote.quotaAutoResume = autoResume;
+    }
+
+    function near(actual: Date | null, expected: number) {
+      expect(actual).not.toBeNull();
+      expect(Math.abs(actual!.getTime() - expected)).toBeLessThan(2_000);
+    }
+
+    it("stays running, skips the completion wake, and polls shortly after the reset", async () => {
+      const { t, id, remote } = await going();
+      const reset = new Date(Date.now() + 3 * 60 * 60_000);
+      pause(remote, reset, true);
+      await t.poll(id);
+      const row = await t.state(id);
+      expect(row).toMatchObject({ status: "running", verdict: null, ownerQuestion: null });
+      expect(row.quotaResetsAt?.toISOString()).toBe(reset.toISOString());
+      expect(row.nextPollAt?.toISOString()).toBe(
+        new Date(reset.getTime() + QUOTA_POLL_MARGIN_MS).toISOString(),
+      );
+      expect(await t.wakeNonces()).toEqual([]);
+      expect(t.provider.replies).toBe(0);
+
+      delete remote.quotaResetsAt;
+      delete remote.quotaAutoResume;
+      const before = Date.now();
+      await t.poll(id);
+      const resumed = await t.state(id);
+      expect(resumed.quotaResetsAt).toBeNull();
+      expect(resumed.status).toBe("running");
+      near(resumed.nextPollAt, before + 5_000);
+      expect(await t.wakeNonces()).toEqual([]);
+
+      const later = new Date(Date.now() + 6 * 60 * 60_000);
+      pause(remote, later, true);
+      await t.poll(id);
+      expect((await t.state(id)).nextPollAt?.toISOString()).toBe(
+        new Date(later.getTime() + QUOTA_POLL_MARGIN_MS).toISOString(),
+      );
+      expect(t.provider.replies).toBe(0);
+    });
+
+    it("waits out a reset the provider will resume itself, even after that time has passed", async () => {
+      const { t, id, remote } = await going();
+      const reset = new Date(Date.now() - 60_000);
+      pause(remote, reset, true);
+      const before = Date.now();
+      await t.poll(id);
+      const row = await t.state(id);
+      expect(row.status).toBe("running");
+      expect(row.quotaResetsAt?.toISOString()).toBe(reset.toISOString());
+      near(row.nextPollAt, before + QUOTA_POLL_MARGIN_MS);
+      expect(t.provider.replyPrompts).toEqual([]);
+      expect(await t.wakeNonces()).toEqual([]);
+    });
+
+    it("sends the continuation once when the provider will not, and not again on the next poll", async () => {
+      const { t, id, remote } = await going();
+      const before = await t.state(id);
+      const reset = new Date(Date.now() - 60_000);
+      pause(remote, reset, false);
+      await t.poll(id);
+      const row = await t.state(id);
+      expect(t.provider.replyPrompts).toEqual([CONTINUE]);
+      expect(row).toMatchObject({
+        status: "running",
+        quotaResetsAt: null,
+        verdict: null,
+        generation: before.generation,
+      });
+      expect(row.quotaContinuedFor?.toISOString()).toBe(reset.toISOString());
+      expect(await t.wakeNonces()).toEqual([]);
+
+      await t.poll(id);
+      expect(t.provider.replyPrompts).toEqual([CONTINUE]);
+      expect((await t.state(id)).quotaResetsAt).toBeNull();
+      expect(await t.wakeNonces()).toEqual([]);
+    });
+
+    it("lets an open question win, and keeps polling it instead of waiting out the reset", async () => {
+      const { t, id, remote } = await going();
+      const reset = new Date(Date.now() + 3 * 60 * 60_000);
+      pause(remote, reset, false);
+      remote.attention = [{ requestId: "q1", kind: "question" }];
+      const before = Date.now();
+      await t.poll(id);
+      const row = await t.state(id);
+      expect(row.status).toBe("running");
+      expect(row.ownerQuestion).toBeNull();
+      expect(row.attention).toEqual([{ requestId: "q1", kind: "question" }]);
+      expect(row.quotaResetsAt?.toISOString()).toBe(reset.toISOString());
+      near(row.nextPollAt, before + 5_000);
+      expect(t.provider.replies).toBe(0);
+      expect(await t.wakeNonces()).toEqual([`cloud-agent-attention:${id}:q1`]);
+    });
   });
 });

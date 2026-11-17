@@ -8928,6 +8928,11 @@ msgstr "正在還原工作空間"
 msgid "Resume notifications"
 msgstr "恢復通知"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Resumes when it's back · since {since}"
 msgstr ""

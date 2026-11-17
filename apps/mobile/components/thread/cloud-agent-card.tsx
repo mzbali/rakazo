@@ -108,7 +108,9 @@ export function CloudAgentCards({
       ? "active"
       : tones.includes("danger")
         ? "danger"
-        : "success";
+        : phases.every((phase) => phase === "resumes")
+          ? "muted"
+          : "success";
   const counts = [...phaseCounts(phases)]
     .map(([phase, count]) => `${count} ${phaseLabel(phase)}`)
     .join(" · ");

@@ -26,6 +26,15 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
   /** Threads settled through `t3_thread_organize`. */
   readonly settled: string[] = [];
 
+  /**
+   * The latest run stopped on a usage limit. `autoResume` means the server sends the continuation
+   * itself at `resetAt`; otherwise the poller sends it once the reset has passed.
+   */
+  pauseForQuota(threadId: string, resetAt: string, autoResume: boolean) {
+    this.complete(threadId, "failed");
+    this.threads.get(threadId)!.usageLimit = { resetAt, autoResume };
+  }
+
   /** The agent says something while its run is still going. */
   say(threadId: string, text: string) {
     const thread = this.threads.get(threadId)!;
@@ -82,6 +91,7 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
               ? [{ threadId: thread.threadId, requestId: "request-1", kind: "approval" }]
               : [],
           link: this.linkOf(thread.threadId),
+          ...(thread.usageLimit ? { limit: thread.usageLimit } : {}),
         },
       },
     };

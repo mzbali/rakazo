@@ -143,6 +143,11 @@ const eventsSchema = z.object({
       z.object({ threadId: z.string(), requestId: z.string(), kind: z.string() }),
     ),
     link: z.string(),
+    /**
+     * Set when the latest run failed on a usage limit and nothing ran after it.
+     * Older servers omit it. `autoResume` means the server sends the continuation itself.
+     */
+    limit: z.object({ resetAt: z.string(), autoResume: z.boolean() }).nullable().optional(),
   }),
 });
 const sendSchema = z.object({ runId: z.string() });
@@ -462,6 +467,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
         state = { ...again, idle: false };
     }
     const run = state.latestRun;
+    const limit = usageLimit(state.limit);
     const pending = new Set(state.pendingRequests.map((request) => request.requestId));
     const missedAttention = [...requests]
       .filter(
@@ -470,8 +476,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
           (request.status === "expired" || request.status === "cancelled"),
       )
       .map(([requestId, request]) => attentionOf(requestId, request.kind));
-    const status: CloudAgentStatus =
-      !drained || !state.idle || !run ? "running" : terminalStatus(run.status);
+    // A usage limit is a pause: the run failed, and the work continues after the reset.
+    const status: CloudAgentStatus = limit
+      ? "running"
+      : !drained || !state.idle || !run
+        ? "running"
+        : terminalStatus(run.status);
     const result =
       status === "finished" && run ? await this.finalMessage(id, run.runId, context) : undefined;
     // The events carry no text, so the latest line is read only when this poll saw new events.
@@ -509,6 +519,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       historyGap,
       ...(result ? { result } : {}),
       ...(progress ? { progress: progress.slice(0, PROGRESS_CHARS) } : {}),
+      ...limit,
     };
   }
 
@@ -601,7 +612,14 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
    * peek skips, which may hold a question that closed and still owes a wake.
    */
   private async handle(id: string, context: AdapterContext): Promise<CloudAgentSnapshot> {
-    return { ...(await this.peek(id, context)), status: "running" };
+    // A question just answered may still show the limit for a moment. Poll soon and let the
+    // next read put the pause back if the thread is still stopped.
+    const {
+      quotaResetsAt: _reset,
+      quotaAutoResume: _resume,
+      ...snapshot
+    } = await this.peek(id, context);
+    return { ...snapshot, status: "running" };
   }
 
   async reply(
@@ -664,7 +682,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
       },
     );
     const snapshot = await this.peek(id, context);
-    return snapshot.status === "failed" ? { ...snapshot, status: "cancelled" } : snapshot;
+    // A limit pause reports running. Stopping it ends the job, the same as a run that already failed.
+    if (snapshot.status === "failed" || snapshot.quotaResetsAt) {
+      const { quotaResetsAt: _reset, quotaAutoResume: _resume, ...rest } = snapshot;
+      return { ...rest, status: "cancelled" };
+    }
+    return snapshot;
   }
 
   async pullRequests(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]> {
@@ -953,6 +976,16 @@ function terminalStatus(status: string): CloudAgentStatus {
   if (status === "completed") return "finished";
   if (status === "cancelled" || status === "rolled_back") return "cancelled";
   return "failed";
+}
+
+/** A usage-limit stop with a known reset. A missing or unreadable time behaves as no limit. */
+function usageLimit(
+  limit: { resetAt: string; autoResume: boolean } | null | undefined,
+): { quotaResetsAt: string; quotaAutoResume: boolean } | undefined {
+  if (!limit) return undefined;
+  const at = Date.parse(limit.resetAt);
+  if (Number.isNaN(at)) return undefined;
+  return { quotaResetsAt: new Date(at).toISOString(), quotaAutoResume: limit.autoResume };
 }
 
 type T3Project = z.infer<typeof projectsSchema>["projects"][number];

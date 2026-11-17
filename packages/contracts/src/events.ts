@@ -151,6 +151,8 @@ const CloudAgentFields = z.object({
   startedAt: z.string().optional(),
   /** ISO time the work ended; the elapsed clock stops here. */
   endedAt: z.string().optional(),
+  /** ISO time a usage-limit pause ends and the work continues. The job stays running. */
+  quotaResetsAt: z.string().optional(),
   /** The latest thing the agent said while it works, clipped. */
   progress: z.string().optional(),
   /** The repository or project the work is for. */

@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+
+import { formatCloudAgentResumeAt } from "@rakazo/core";
 import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -100,6 +102,27 @@ it("holds the clock still once the work has ended", async () => {
     })
   ).textContent;
   expect(text).toContain("12m");
+});
+
+it("says when a paused job resumes, quietly, without a progress line", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-17T12:00:00.000Z"));
+  try {
+    const reset = "2026-11-17T18:30:00.000Z";
+    const card = await render({
+      ...running,
+      startedAt: "2026-11-17T11:00:00.000Z",
+      quotaResetsAt: reset,
+      progress: "Reading the router",
+    });
+    expect(card.textContent).toContain("Resumes");
+    expect(card.textContent).toContain(formatCloudAgentResumeAt(reset, Date.now()));
+    expect(card.textContent).not.toContain("Working");
+    expect(card.textContent).not.toContain("Needs you");
+    expect(card.textContent).not.toContain("Reading the router");
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("shows the needs-you state only once, followed by the question", async () => {

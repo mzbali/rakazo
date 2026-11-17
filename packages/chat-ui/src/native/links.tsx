@@ -128,32 +128,47 @@ export function isWebsiteLink(node: ASTNode): boolean {
   return node.type === "link" && Boolean(href && linkFaviconOrigin(href)) && !astHasImage(node);
 }
 
-export function LinkFavicon({ href, plate }: { href: string; plate: StyleProp<ViewStyle> }) {
+/** The site's icon on its plate, or the globe when it has none. */
+export function FaviconTile({
+  href,
+  plate,
+  style,
+}: {
+  href: string;
+  plate: StyleProp<ViewStyle>;
+  style?: StyleProp<ViewStyle>;
+}) {
   const { icon, unusable } = useLinkFavicon(href);
   const globe = useContext(LinkFaviconsContext)?.globe;
+  return (
+    <View style={[layout.linkTile, style, icon ? plate : undefined]}>
+      {icon ? (
+        <Image
+          source={{ uri: icon }}
+          style={layout.linkIcon}
+          resizeMode="contain"
+          onLoad={(event) => {
+            // A 1×1 image is a tracking pixel, not an icon.
+            const { width, height } = event.nativeEvent.source;
+            if (width <= 1 || height <= 1) unusable();
+          }}
+          onError={unusable}
+        />
+      ) : (
+        globe
+      )}
+    </View>
+  );
+}
+
+export function LinkFavicon({ href, plate }: { href: string; plate: StyleProp<ViewStyle> }) {
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={layout.linkMarker}
     >
-      <View style={[layout.linkTile, icon ? plate : undefined]}>
-        {icon ? (
-          <Image
-            source={{ uri: icon }}
-            style={layout.linkIcon}
-            resizeMode="contain"
-            onLoad={(event) => {
-              // A 1×1 image is a tracking pixel, not an icon.
-              const { width, height } = event.nativeEvent.source;
-              if (width <= 1 || height <= 1) unusable();
-            }}
-            onError={unusable}
-          />
-        ) : (
-          globe
-        )}
-      </View>
+      <FaviconTile href={href} plate={plate} />
     </View>
   );
 }

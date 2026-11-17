@@ -931,16 +931,6 @@ const SCREENSHOT_JOBS: {
     progress:
       "Reading the theme tokens, then wiring the settings toggle to the saved appearance. Next: a test that flips it twice.",
   },
-  // Stopped on a usage limit: still a working job, quiet, and it says when it resumes.
-  {
-    key: "paused",
-    title: "Rewrite the search index",
-    status: "running",
-    projectName: "storefront",
-    minutesAgo: 25,
-    resumesInMinutes: 90,
-    note: "Picked sonnet-5-5 on main (simple).",
-  },
   // Finished with a pull request and nothing waiting on the owner: the Done card.
   {
     key: "done",
@@ -1034,6 +1024,16 @@ const SCREENSHOT_JOBS: {
     checking: true,
     projectName: "storefront",
     minutesAgo: 14,
+  },
+  // Stopped on a usage limit: still a working job, quiet, and it says when it resumes.
+  {
+    key: "paused",
+    title: "Rewrite the search index",
+    status: "running",
+    projectName: "storefront",
+    minutesAgo: 25,
+    resumesInMinutes: 90,
+    note: "Picked sonnet-5-5 on main (simple).",
   },
   ...[
     "Rename the checkout events",

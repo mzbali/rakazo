@@ -12,6 +12,13 @@ import type {
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
 import { z } from "zod";
+import {
+  candidateNames,
+  normalizeRepository,
+  projectNames,
+  projectsSchema,
+  repositoryKeys,
+} from "./t3-cloud-agent-projects.js";
 import { parseThreadWork, shownPullRequest } from "./t3-cloud-agent-pull-requests.js";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
 import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
@@ -107,20 +114,6 @@ const timelineSchema = z.object({
 const listSchema = z.object({
   threads: z.array(
     z.object({ threadId: z.string(), title: z.string(), link: z.string().optional() }),
-  ),
-});
-const projectsSchema = z.object({
-  projects: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string().optional(),
-      workspaceRoot: z.string().optional(),
-      archivedAt: z.string().nullish(),
-      defaultModelSelection: z.record(z.string(), z.unknown()).nullish(),
-      repositoryIdentity: z
-        .object({ webUrl: z.string().optional(), canonicalKey: z.string().optional() })
-        .nullish(),
-    }),
   ),
 });
 const eventsSchema = z.object({
@@ -986,48 +979,4 @@ function usageLimit(
   const at = Date.parse(limit.resetAt);
   if (Number.isNaN(at)) return undefined;
   return { quotaResetsAt: new Date(at).toISOString(), quotaAutoResume: limit.autoResume };
-}
-
-type T3Project = z.infer<typeof projectsSchema>["projects"][number];
-
-function repositoryKeys(project: T3Project): string[] {
-  const identity = project.repositoryIdentity;
-  return [identity?.webUrl, identity?.canonicalKey]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeRepository);
-}
-
-/** What the owner may call a project: its title, repository name or workspace folder. */
-function projectNames(project: T3Project): string[] {
-  const last = (value: string) => value.split("/").filter(Boolean).at(-1) ?? "";
-  return [
-    project.title,
-    last(project.workspaceRoot ?? ""),
-    ...repositoryKeys(project).flatMap((key) => [last(key), key.split("/").slice(-2).join("/")]),
-  ]
-    .map((value) => value?.trim().toLowerCase())
-    .filter((value): value is string => Boolean(value));
-}
-
-/** Titles that fit the failure reason's limit, so a refusal shows the bot what it can choose. */
-function candidateNames(projects: T3Project[]): string {
-  const titles: string[] = [];
-  let length = 0;
-  for (const project of projects) {
-    const title = project.title || project.id;
-    if (length + title.length > 600) return `Projects: ${titles.join(", ")}, …`;
-    titles.push(title);
-    length += title.length + 2;
-  }
-  return titles.length ? `Projects: ${titles.join(", ")}.` : "There are no projects.";
-}
-
-function normalizeRepository(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^(https?:\/\/|git@)/, "")
-    .replace(/:/, "/")
-    .replace(/\.git$/, "")
-    .replace(/\/$/, "");
 }

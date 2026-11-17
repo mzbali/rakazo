@@ -15,12 +15,8 @@ import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import {
-  createCloudAgentWake,
-  pollCloudAgent,
-  QUOTA_POLL_MARGIN_MS,
-  UNREACHABLE_AFTER_MS,
-} from "./cloud-agent-poll.js";
+import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "./cloud-agent-poll.js";
+import { QUOTA_POLL_MARGIN_MS } from "./cloud-agent-quota.js";
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,

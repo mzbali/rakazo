@@ -113,15 +113,22 @@ export const renderRules: RenderRules = {
       </View>
     );
   },
-  textgroup: (node, children, _parent, styleMap) => {
+  textgroup: (node, children, parents, styleMap) => {
+    // The space between a row's image and its title would indent the title past the text below.
+    // The image sits either in this group or just before it in a list item.
+    const thumbed = Children.toArray(children).some(isMediaThumb);
+    const host = parents[0];
+    const before = host?.children[host.children.indexOf(node) - 1];
+    const inRow = thumbed || (host !== undefined && isMediaRowNode(host));
+    const kept = inRow
+      ? children.filter((_, index) => {
+          const previous = index === 0 ? before : node.children[index - 1];
+          const child = node.children[index];
+          return !(previous?.type === "image" && child?.type === "text" && !child.content.trim());
+        })
+      : children;
     // A thumbnail is a view. Leaving it inside Text would drop it out of the line.
-    if (Children.toArray(children).some(isMediaThumb)) {
-      // The space between the image and the title would indent the title past the text below.
-      const kept = children.filter((_, index) => {
-        const previous = node.children[index - 1];
-        const child = node.children[index];
-        return !(previous?.type === "image" && child?.type === "text" && !child.content.trim());
-      });
+    if (thumbed) {
       return <Fragment key={node.key}>{kept}</Fragment>;
     }
     return (
@@ -129,7 +136,7 @@ export const renderRules: RenderRules = {
         key={node.key}
         style={[styleMap.textgroup, contraryDirection(cellPlainText(node)) && layout.farSideBlock]}
       >
-        {children}
+        {kept}
       </Text>
     );
   },

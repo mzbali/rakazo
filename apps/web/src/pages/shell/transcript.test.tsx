@@ -7,7 +7,8 @@ import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { rpc } from "../../lib/rpc";
-import { Transcript } from "./transcript";
+import { BOT_PROSE_FRAME } from "../../lib/transcript-layout";
+import { bubbleFrameWidth, Transcript } from "./transcript";
 
 const stableT = (strings: TemplateStringsArray, ...values: unknown[]) =>
   String.raw(strings, ...values);
@@ -223,4 +224,27 @@ it("drops the quote pill when an edit removes only one end of the selection", as
 
   expect(window.getSelection()!.getRangeAt(0).collapsed).toBe(false);
   expect(document.querySelector("[data-quote-selection]")).toBeNull();
+});
+
+it("gives a bot answer the reading column and keeps a user message in a bubble", () => {
+  expect(bubbleFrameWidth("bot")).toBe(BOT_PROSE_FRAME);
+  expect(bubbleFrameWidth("user")).toContain("39rem");
+  render(baseProps(history()));
+  const botFrame = container.querySelector<HTMLElement>(
+    '[data-message-id="m2"] [data-testid="message-bubble-frame"]',
+  );
+  const userFrame = container.querySelector<HTMLElement>(
+    '[data-message-id="m1"] [data-testid="message-bubble-frame"]',
+  );
+  expect(botFrame?.className).toContain("max-w-xl");
+  expect(botFrame?.className).not.toContain("39rem");
+  expect(userFrame?.className).toContain("39rem");
+  const botBubble = container.querySelector(
+    '[data-message-id="m2"] [data-testid="message-bot-bubble"]',
+  );
+  expect(botBubble?.className).not.toMatch(/bg-muted|rounded/);
+  const userBubble = container.querySelector(
+    '[data-message-id="m1"] [data-testid="message-user-bubble"]',
+  );
+  expect(userBubble?.className).toContain("rounded-2xl");
 });

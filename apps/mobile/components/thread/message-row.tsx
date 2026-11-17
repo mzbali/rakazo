@@ -379,7 +379,12 @@ export const MessageRow = memo(function MessageRow({
     hasLike,
     optimisticLike,
   ]);
-  const layout = messageRowLayout(message.blocks, { activityBotId, inGroup, columnWidth });
+  const layout = messageRowLayout(message.blocks, {
+    activityBotId,
+    inGroup,
+    columnWidth,
+    role: message.role,
+  });
   return (
     <View
       key={message.id}

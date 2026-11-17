@@ -539,10 +539,13 @@ it("stretches secret inputs and equal actions, enabling Save only with input", a
   expect(button("Save").dataset.prominence).toBe("primary");
 });
 
-it("fills the message column only for secret asks, including answered and login asks", async () => {
+it("renders every ask across the column and marks only secret asks full for the menu", async () => {
   const isWideAskBlock = (blocks: unknown[]) =>
-    messageRowLayout(blocks as MobileMessage["blocks"], { inGroup: false, columnWidth: 400 })
-      .menuFullWidth;
+    messageRowLayout(blocks as MobileMessage["blocks"], {
+      inGroup: false,
+      columnWidth: 400,
+      role: "bot",
+    }).menuFullWidth;
   for (const status of ["pending", "answered"]) {
     for (const ask of [{ input: "secret" }, loginAsk]) {
       expect(isWideAskBlock([{ kind: "ask", ...ask, status }])).toBe(true);
@@ -555,10 +558,10 @@ it("fills the message column only for secret asks, including answered and login 
     false,
   );
   await render({});
-  expect((container.firstElementChild as HTMLElement).style.width).toBe("90%");
+  expect((container.firstElementChild as HTMLElement).style.width).toBe("100%");
 });
 
-it("uses the full column for wide asks and reserves only the visible avatar gutter", () => {
+it("fills the column for a bot answer and keeps a user bubble at chat width", () => {
   const blocks = {
     wide: [{ kind: "ask", text: "Secret", input: "secret", status: "pending" }],
     regular: [{ kind: "text", text: "Hello" }],
@@ -583,11 +586,17 @@ it("uses the full column for wide asks and reserves only the visible avatar gutt
       },
     ],
   };
-  const measure = (kind: keyof typeof blocks, avatar: boolean, inGroup: boolean) =>
+  const measure = (
+    kind: keyof typeof blocks,
+    avatar: boolean,
+    inGroup: boolean,
+    role: "bot" | "user" = "bot",
+  ) =>
     messageRowLayout(blocks[kind] as MobileMessage["blocks"], {
       activityBotId: avatar ? "bot-1" : undefined,
       inGroup,
       columnWidth: 400,
+      role,
     });
   for (const [avatar, inGroup, gutter] of [
     [false, false, 0],
@@ -599,15 +608,19 @@ it("uses the full column for wide asks and reserves only the visible avatar gutt
     expect(wide.maxWidth).toBe("100%");
     expect(wide.menuMaxWidth).toBe(400 - 40 - gutter);
     const regular = measure("regular", avatar, inGroup);
-    expect(regular.width).toBeUndefined();
-    expect(regular.maxWidth).toBe(avatar ? undefined : "90%");
-    expect(regular.menuMaxWidth).toBe(avatar ? 360 - gutter : 324);
+    expect(regular.width).toBe(avatar ? undefined : "100%");
+    expect(regular.maxWidth).toBe(avatar ? undefined : "100%");
+    expect(regular.menuMaxWidth).toBe(360 - gutter);
   }
+  const user = measure("regular", false, false, "user");
+  expect(user.width).toBeUndefined();
+  expect(user.maxWidth).toBe("90%");
+  expect(user.menuMaxWidth).toBe(324);
   for (const kind of ["appConnect", "mcpApproval", "options", "page"] as const) {
     const card = measure(kind, false, false);
-    expect(card.width).toBe("90%");
-    expect(card.maxWidth).toBe("90%");
-    expect(card.menuMaxWidth).toBe(324);
+    expect(card.width).toBe("100%");
+    expect(card.maxWidth).toBe("100%");
+    expect(card.menuMaxWidth).toBe(360);
     expect(card.menuFullWidth).toBe(true);
   }
   const allow = [
@@ -620,10 +633,10 @@ it("uses the full column for wide asks and reserves only the visible avatar gutt
   ]) {
     const layout = messageRowLayout(
       [{ kind: "ask", text: "Allow?", status: "pending", actions: allow, ...ask }],
-      { inGroup: false, columnWidth: 400 },
+      { inGroup: false, columnWidth: 400, role: "bot" },
     );
     expect(layout.menuFullWidth).toBe(false);
-    expect(layout.width).toBeUndefined();
+    expect(layout.width).toBe("100%");
   }
 });
 
@@ -685,7 +698,7 @@ it("stacks option buttons in a non-wrapping full-width column and keeps approval
 });
 
 it.each([undefined, "pending", "answered"] as const)(
-  "only widens option questions while their buttons are displayed (status: %s)",
+  "keeps the reply menu full only while option buttons are displayed (status: %s)",
   (status) => {
     const layout = messageRowLayout(
       [
@@ -696,9 +709,9 @@ it.each([undefined, "pending", "answered"] as const)(
           actions: [{ id: "choice-1", label: "Plan a trip" }],
         },
       ],
-      { inGroup: false, columnWidth: 400 },
+      { inGroup: false, columnWidth: 400, role: "bot" },
     );
-    expect(layout.width).toBe(status === "answered" ? undefined : "90%");
+    expect(layout.width).toBe("100%");
     expect(layout.menuFullWidth).toBe(status !== "answered");
   },
 );

@@ -246,7 +246,7 @@ export function AskBlock({
   return (
     <View
       style={{
-        width: secretInput ? "100%" : "90%",
+        width: "100%",
         borderRadius: 18,
         backgroundColor: tokens.card,
         paddingHorizontal: 16,

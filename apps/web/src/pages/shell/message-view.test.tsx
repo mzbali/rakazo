@@ -140,6 +140,35 @@ it("names a new bot inline in the reply, in its color", () => {
   expect(onOpenBot).toHaveBeenCalledWith("child");
 });
 
+function expectProse(bubble: Element | null) {
+  expect(bubble).not.toBeNull();
+  expect(bubble?.className).toContain("w-full");
+  expect(bubble?.className).not.toMatch(/bg-muted|rounded|px-|py-/);
+}
+
+it("renders a bot reply as prose on the chat surface", () => {
+  renderView("bot", [{ kind: "text", text: "Here is the plan." }]);
+  const bubble = container.querySelector('[data-testid="message-bot-bubble"]');
+  expectProse(bubble);
+  expect(bubble?.textContent).toContain("Here is the plan.");
+  expect(
+    bubble?.querySelector("[data-quote-message-id]")?.getAttribute("data-quote-message-id"),
+  ).toBe("message");
+});
+
+it("uses the same prose for a mixed reply and a live progress line", () => {
+  renderView("bot", [
+    { kind: "text", text: "Working." },
+    { kind: "meta", text: "Saved" },
+  ]);
+  expectProse(container.querySelector('[data-testid="message-bot-bubble"]'));
+
+  renderView("bot", [{ kind: "progress", text: "Still going" }]);
+  const progress = container.querySelector('[data-testid="message-bot-bubble"]');
+  expectProse(progress);
+  expect(progress?.textContent).toContain("Still going");
+});
+
 it("puts the bot first when the reply does not name it", () => {
   renderMessage([{ kind: "text", text: "Ready when you are." }], existingBot, [planner()]);
   expect(container.querySelector('[data-testid="message-bot-bubble"]')?.textContent).toBe(
@@ -297,6 +326,8 @@ it("keeps my own message unnamed on the right", () => {
   expect(container.textContent).toBe("Book the table");
   expect(row.className).toContain("justify-end");
   expect(bubble.className).toContain("bg-chat-user");
+  expect(bubble.className).toContain("rounded-2xl");
+  expect(bubble.className).toContain("px-[18px]");
 });
 
 it("names the person a reply quotes instead of saying You", () => {

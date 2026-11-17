@@ -13,6 +13,7 @@ import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
 import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { UserRound } from "lucide-react";
+import type { ReactNode } from "react";
 import { memo, useCallback, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";
 import { AskCard } from "../../components/AskCard";
@@ -54,6 +55,19 @@ import {
   McpApprovalCard,
 } from "./message-cards";
 import { MessageHoverActions } from "./message-hover-actions";
+
+/** Bot text on the chat surface. The transcript frame sets the column width. */
+function BotProse({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      data-testid="message-bot-bubble"
+      className={cn("w-full min-w-0 text-body-lg text-foreground", className)}
+      dir="auto"
+    >
+      {children}
+    </div>
+  );
+}
 
 export const MessageView = memo(function MessageView({
   artifactTarget,
@@ -275,63 +289,57 @@ export const MessageView = memo(function MessageView({
     return (
       <>
         {messageContext}
-        <div className="relative w-fit max-w-full [@media(hover:none)]:w-full">
-          <div className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full">
-            <div
-              data-testid="message-bot-bubble"
-              className="max-w-full space-y-2.5 rounded-2xl bg-muted px-[18px] py-3 text-body-lg text-foreground"
-              dir="auto"
-            >
-              {visibleNarrationBlocks.map((block, i) => {
-                if (block.kind === "steps") {
-                  return (
-                    <ToolActivityDisclosure
-                      key={i}
-                      live={isLive}
-                      stepCount={toolStepCount(block.steps)}
-                      durationMs={block.durationMs}
+        <div className="relative w-full">
+          <BotProse className="space-y-2.5">
+            {visibleNarrationBlocks.map((block, i) => {
+              if (block.kind === "steps") {
+                return (
+                  <ToolActivityDisclosure
+                    key={i}
+                    live={isLive}
+                    stepCount={toolStepCount(block.steps)}
+                    durationMs={block.durationMs}
+                  >
+                    <ToolSteps
+                      steps={block.steps}
+                      currentIndex={isLive ? block.steps.length - 1 : undefined}
+                      limit={isLive ? LIVE_TOOL_STEP_WINDOW : undefined}
+                    />
+                  </ToolActivityDisclosure>
+                );
+              }
+              if (block.kind === "text" || block.kind === "progress") {
+                return (
+                  <div
+                    key={i}
+                    data-quote-message-id={block.kind === "text" ? quoteMessageId : undefined}
+                  >
+                    <ChatMarkdown
+                      streaming={block.kind === "progress"}
+                      renderMention={renderMention}
+                      onOpenPage={openPage}
                     >
-                      <ToolSteps
-                        steps={block.steps}
-                        currentIndex={isLive ? block.steps.length - 1 : undefined}
-                        limit={isLive ? LIVE_TOOL_STEP_WINDOW : undefined}
-                      />
-                    </ToolActivityDisclosure>
-                  );
-                }
-                if (block.kind === "text" || block.kind === "progress") {
-                  return (
-                    <div
-                      key={i}
-                      data-quote-message-id={block.kind === "text" ? quoteMessageId : undefined}
-                    >
-                      <ChatMarkdown
-                        streaming={block.kind === "progress"}
-                        renderMention={renderMention}
-                        onOpenPage={openPage}
-                      >
-                        {block.text}
-                      </ChatMarkdown>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-              {!isLive && voiceReady && message.blocks.some((block) => block.kind === "text") ? (
-                <Button
-                  variant="text"
-                  size="xs"
-                  aria-label={speaking ? t`Stop speaking` : t`Speak this reply`}
-                  // Stopping the speech in progress stays available; a call blocks new reads.
-                  disabled={callHoldsSpeaker && !speaking}
-                  onClick={speak}
-                  className="font-normal"
-                >
-                  {speaking ? <Trans>Stop</Trans> : <Trans>Speak</Trans>}
-                </Button>
-              ) : null}
-            </div>
-          </div>
+                      {block.text}
+                    </ChatMarkdown>
+                  </div>
+                );
+              }
+              return null;
+            })}
+            {!isLive && voiceReady && message.blocks.some((block) => block.kind === "text") ? (
+              <Button
+                variant="text"
+                size="xs"
+                aria-label={speaking ? t`Stop speaking` : t`Speak this reply`}
+                // Stopping the speech in progress stays available; a call blocks new reads.
+                disabled={callHoldsSpeaker && !speaking}
+                onClick={speak}
+                className="font-normal"
+              >
+                {speaking ? <Trans>Stop</Trans> : <Trans>Speak</Trans>}
+              </Button>
+            ) : null}
+          </BotProse>
           {hoverActions}
         </div>
         {pageCards}
@@ -433,20 +441,11 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "progress") {
             return (
-              <div
-                key={i}
-                className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full"
-              >
-                <div
-                  data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-[18px] py-3 text-body-lg text-foreground"
-                  dir="auto"
-                >
-                  <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
-                    {block.text}
-                  </ChatMarkdown>
-                </div>
-              </div>
+              <BotProse key={i}>
+                <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
+                  {block.text}
+                </ChatMarkdown>
+              </BotProse>
             );
           }
           if (block.kind === "subagent") {
@@ -596,15 +595,8 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "text") {
             return (
-              <div
-                key={i}
-                className="relative flex w-fit max-w-full justify-start [@media(hover:none)]:w-full [@media(hover:none)]:flex-wrap"
-              >
-                <div
-                  data-testid="message-bot-bubble"
-                  className="max-w-full rounded-2xl bg-muted px-[18px] py-3 text-body-lg text-foreground"
-                  dir="auto"
-                >
+              <div key={i} className="relative w-full">
+                <BotProse>
                   <div data-quote-message-id={quoteMessageId}>
                     <ChatMarkdown renderMention={renderMention} onOpenPage={openPage}>
                       {block.text}
@@ -623,15 +615,15 @@ export const MessageView = memo(function MessageView({
                       {speaking ? <Trans>Stop</Trans> : <Trans>Speak</Trans>}
                     </Button>
                   ) : null}
-                </div>
+                </BotProse>
                 {i === hoverAnchorIndex ? hoverActions : null}
               </div>
             );
           }
           if (block.kind === "card") {
             return (
-              <div key={i} className="flex justify-start">
-                <div className="flex flex-col gap-2 rounded-2xl bg-muted px-5 py-4">
+              <div key={i} className="flex w-full justify-start">
+                <div className="flex w-full flex-col gap-2 rounded-2xl bg-muted px-5 py-4">
                   {block.lines.map((line) => (
                     <div key={line.k} className="flex items-baseline gap-2.5 text-body-lg">
                       <span className="text-success">✓</span>

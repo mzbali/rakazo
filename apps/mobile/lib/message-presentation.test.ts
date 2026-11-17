@@ -9,7 +9,6 @@ import {
   messageHasInlineControls,
   messagePresentationSegments,
   quotableMessageSegments,
-  threadCardWidth,
 } from "./message-presentation";
 
 describe("mobile message presentation", () => {
@@ -150,11 +149,6 @@ describe("mobile message presentation", () => {
     ).toBe(true);
     const blocks = [choice];
     expect(applyLocalChoiceDismissals(blocks, new Set())).toBe(blocks);
-  });
-
-  it("sizes thread cards to the bot row, capped on wide screens", () => {
-    expect(threadCardWidth(393)).toBe(317);
-    expect(threadCardWidth(1024)).toBe(340);
   });
 
   it("keeps the computer takeover card out of the text bubble", () => {

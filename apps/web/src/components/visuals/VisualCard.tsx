@@ -56,7 +56,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   return (
     <div
       data-testid="visual-card"
-      className="relative w-full max-w-[561px] overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
+      className="relative w-full overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
     >
       <div
         ref={box}

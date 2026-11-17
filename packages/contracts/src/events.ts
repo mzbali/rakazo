@@ -540,6 +540,23 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     /** Links in a bot-started chain; absent when a person started it. */
     hop: z.number().int().nonnegative().optional(),
   }),
+  z.object({
+    /**
+     * Pages this reply cited. The links stay in the text; this is the list a citation pill and
+     * the sources row open. Absent when the reply cited nothing.
+     */
+    kind: z.literal("sources"),
+    items: z
+      .array(
+        z.object({
+          url: z.string().min(1).max(2048),
+          title: z.string().max(300),
+          site: z.string().min(1).max(40),
+        }),
+      )
+      .min(1)
+      .max(12),
+  }),
 ]);
 export type MessageBlock = z.infer<typeof MessageBlock>;
 

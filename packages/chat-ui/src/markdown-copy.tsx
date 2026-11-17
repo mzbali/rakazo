@@ -29,6 +29,8 @@ export type MarkdownCopy = {
   columnCollision: (label: string) => string;
   sortBy: (column: string) => string;
   sortedBy: (column: string, direction: TableSortDirection) => string;
+  /** The quiet row under a research answer. */
+  sourcesCount: (count: number) => string;
 };
 
 export const defaultMarkdownCopy: MarkdownCopy = {
@@ -55,6 +57,7 @@ export const defaultMarkdownCopy: MarkdownCopy = {
   sortBy: (column) => `Sort by ${column}`,
   sortedBy: (column, direction) =>
     `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+  sourcesCount: (count) => `${count} ${count === 1 ? "source" : "sources"}`,
 };
 
 const MarkdownCopyContext = createContext<MarkdownCopy>(defaultMarkdownCopy);

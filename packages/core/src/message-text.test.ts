@@ -19,6 +19,22 @@ describe("copyableMessageText", () => {
     ).toBe("first\nworking\nquestion?");
   });
 
+  it("copies the prose and skips a sources list", () => {
+    expect(
+      copyableMessageText(
+        message([
+          { kind: "text", text: "A day is 24 hours." },
+          {
+            kind: "sources",
+            items: [
+              { url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" },
+            ],
+          },
+        ]),
+      ),
+    ).toBe("A day is 24 hours.");
+  });
+
   it("leaves out a block kind it does not know, as an older client does with a newer server's page", () => {
     // Clients read blocks without validating them, so a newer kind reaches this code as is.
     const page = { kind: "page", pageId: "page-1", version: 1, title: "Plan" };

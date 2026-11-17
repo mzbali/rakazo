@@ -20,6 +20,12 @@ import type { HastNode } from "./table-utils";
 import "./markdown.web.css";
 import "./markdown-table.css";
 import { droppedTableHtmlText } from "@rakazo/contracts";
+import type { CitationGroup, SourceItem } from "@rakazo/core/answer-sources";
+import {
+  citationGroupIndex,
+  preparedCitationMarkdown,
+  showSourcesRow,
+} from "@rakazo/core/answer-sources";
 import { cssVariableName, pageIconBars } from "@rakazo/ui-tokens";
 import {
   AlertDialog,
@@ -31,11 +37,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   CopyTextFallback,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   useCopyText,
 } from "@rakazo/ui-web";
 import { CheckIcon, CopyIcon, GlobeIcon, ImageIcon } from "./icons";
 import type { ChatMarkdownProps } from "./markdown";
 import {
+  CitationGroupsContext,
   closeUnterminatedFence,
   inlineMarkdownImageSrc,
   isProseFence,
@@ -582,13 +592,85 @@ function WebsiteLink({
   );
 }
 
+function SourceList({
+  items,
+  onOpen,
+}: {
+  items: readonly SourceItem[];
+  onOpen: (url: string) => void;
+}) {
+  return (
+    <ul className="rk-chat-cite-list">
+      {items.map((item) => (
+        <li key={item.url}>
+          <button type="button" className="rk-chat-cite-source" onClick={() => onOpen(item.url)}>
+            <LinkFavicon href={item.url} />
+            <span className="rk-chat-cite-source-text">
+              <span className="rk-chat-cite-source-title">{item.title}</span>
+              {item.title.toLowerCase() === item.site.toLowerCase() ? null : (
+                <span className="rk-chat-cite-source-site">{item.site}</span>
+              )}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CitationPill({ group, onOpen }: { group: CitationGroup; onOpen: (url: string) => void }) {
+  const first = group.items[0];
+  if (!first) return null;
+  const extra = group.items.length - 1;
+  const label = extra > 0 ? `${first.site} +${extra}` : first.site;
+  return (
+    <Popover>
+      <PopoverTrigger className="rk-chat-cite" aria-label={label}>
+        <LinkFavicon href={first.url} />
+        <span className="rk-chat-cite-label">{label}</span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto max-w-80 gap-0 p-1">
+        <SourceList items={group.items} onOpen={onOpen} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SourcesRow({
+  items,
+  onOpen,
+}: {
+  items: readonly SourceItem[];
+  onOpen: (url: string) => void;
+}) {
+  const copy = useMarkdownCopy();
+  const label = copy.sourcesCount(items.length);
+  return (
+    <Popover>
+      <PopoverTrigger className="rk-chat-sources" aria-label={label}>
+        {label}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto max-w-80 gap-0 p-1">
+        <SourceList items={items} onOpen={onOpen} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function MarkdownAnchor({
   node,
   ...props
 }: React.ComponentPropsWithoutRef<"a"> & { node?: MarkdownHast }) {
   const loadRemote = useContext(RemoteImagesContext);
   const { renderMention, onOpenPage: openPage } = useContext(InlineChipsContext);
+  const groups = useContext(CitationGroupsContext);
+  const openLink = useContext(ConfirmLinkContext);
   const href = typeof props.href === "string" ? props.href : "";
+  const cited = citationGroupIndex(href);
+  if (cited !== undefined) {
+    const group = groups[cited];
+    return group ? <CitationPill group={group} onOpen={openLink} /> : <span>{props.children}</span>;
+  }
   const pageId = markdownPageId(href);
   if (pageId) {
     return (
@@ -785,7 +867,10 @@ const rehypePlugins = [preserveSkippedTableText];
 
 // MarkdownImage decides what an image source may do, so it receives the source as written.
 function urlTransform(url: string, key: string) {
-  return key === "src" || markdownMentionId(url) || markdownPageId(url)
+  return key === "src" ||
+    markdownMentionId(url) ||
+    markdownPageId(url) ||
+    citationGroupIndex(url) !== undefined
     ? url
     : (sanitizeMarkdownUrl(url, true) ?? "");
 }
@@ -869,46 +954,58 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   streaming = false,
   renderMention,
   onOpenPage,
+  sources,
+  sourcesRow = false,
 }: ChatMarkdownProps) {
   const { request, dialog } = useExternalLinkConfirm();
+  const prepared = useMemo(
+    () => preparedCitationMarkdown(children, sources, streaming),
+    [children, sources, streaming],
+  );
+  const showRow = !streaming && sourcesRow && !!sources && showSourcesRow(sources.length);
   // A streamed reply stays split once it finishes, so its blocks are not drawn again.
   const [split, setSplit] = useState(streaming);
   if (streaming && !split) setSplit(true);
   const previousSplit = useRef<SplitSource | undefined>(undefined);
   const blocks = useMemo(() => {
     if (!split) return undefined;
-    previousSplit.current = splitSource(children, previousSplit.current);
+    previousSplit.current = splitSource(prepared.markdown, previousSplit.current);
     return previousSplit.current.blocks;
-  }, [children, split]);
+  }, [prepared.markdown, split]);
 
   const inlineChips = useMemo(() => ({ renderMention, onOpenPage }), [renderMention, onOpenPage]);
   return (
     <ConfirmLinkContext.Provider value={request}>
-      <InlineChipsContext.Provider value={inlineChips}>
-        <div
-          className={streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"}
-        >
-          <LinkFaviconsPausedContext.Provider value={streaming}>
-            <PlainTextOnFailure text={children}>
-              {blocks ? (
-                blocks.map((block, index) => (
-                  <Fragment key={block.key}>
-                    {/* The line break react-markdown puts between blocks, so the DOM matches. */}
-                    {index > 0 ? "\n" : null}
-                    <MarkdownBlock
-                      source={block.source}
-                      streaming={streaming && index === blocks.length - 1}
-                    />
-                  </Fragment>
-                ))
-              ) : (
-                <MarkdownBlock source={children} streaming={streaming} />
-              )}
-            </PlainTextOnFailure>
-          </LinkFaviconsPausedContext.Provider>
-          {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
-        </div>
-      </InlineChipsContext.Provider>
+      <CitationGroupsContext.Provider value={prepared.groups}>
+        <InlineChipsContext.Provider value={inlineChips}>
+          <div
+            className={
+              streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"
+            }
+          >
+            <LinkFaviconsPausedContext.Provider value={streaming}>
+              <PlainTextOnFailure text={children}>
+                {blocks ? (
+                  blocks.map((block, index) => (
+                    <Fragment key={block.key}>
+                      {/* The line break react-markdown puts between blocks, so the DOM matches. */}
+                      {index > 0 ? "\n" : null}
+                      <MarkdownBlock
+                        source={block.source}
+                        streaming={streaming && index === blocks.length - 1}
+                      />
+                    </Fragment>
+                  ))
+                ) : (
+                  <MarkdownBlock source={prepared.markdown} streaming={streaming} />
+                )}
+              </PlainTextOnFailure>
+            </LinkFaviconsPausedContext.Provider>
+            {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
+            {showRow && sources ? <SourcesRow items={sources} onOpen={request} /> : null}
+          </div>
+        </InlineChipsContext.Provider>
+      </CitationGroupsContext.Provider>
       {dialog}
     </ConfirmLinkContext.Provider>
   );

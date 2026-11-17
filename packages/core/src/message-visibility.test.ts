@@ -71,6 +71,16 @@ describe("user-visible messages", () => {
     expect(transcript.markerOf.size).toBe(0);
   });
 
+  it("keeps a sources-only peer reply visible, the same as a text reply", () => {
+    const cited = message("cited", "run-peer", [
+      {
+        kind: "sources",
+        items: [{ url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" }],
+      },
+    ]);
+    expect(userVisibleMessages([...peerExchange, cited]).map((item) => item.id)).toContain("cited");
+  });
+
   it("hides peer activity but keeps the bot's text reply when there is no marker to fold it under", () => {
     expect(userVisibleMessages(peerExchange).map((item) => item.id)).toEqual([
       "user",

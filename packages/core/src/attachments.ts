@@ -259,6 +259,7 @@ function blockHistoryText(block: MessageBlock): string {
   // The tools a reply used, and what the bot wrote before each, are kept out of its text;
   // without them a later turn cannot tell what it already did.
   if (block.kind === "steps") return toolStepsHistoryText(block.steps);
+  if (block.kind === "sources") return "";
   if (block.kind === "visual") return `[visual: ${block.title}] ${block.text}`;
   if (block.kind === "chart") return `[chart: ${block.name}]`;
   if (block.kind === "app") return `[app: ${block.server} showed ${block.tool}]`;

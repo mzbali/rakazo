@@ -1,3 +1,4 @@
+import { preparedCitationMarkdown, showSourcesRow } from "@rakazo/core/answer-sources";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
 import { darkTokens } from "@rakazo/ui-tokens";
 import type { ASTNode, RenderRules } from "@ronradtke/react-native-markdown-display";
@@ -9,8 +10,11 @@ import Markdown, {
 import { memo, useMemo } from "react";
 import { Text, View } from "react-native";
 import type { ChatMarkdownProps } from "./markdown";
-import { LinkFaviconsPausedContext, linkifyExplicitUrls } from "./markdown";
+import { CitationGroupsContext, LinkFaviconsPausedContext, linkifyExplicitUrls } from "./markdown";
+import { useMarkdownCopy } from "./markdown-copy";
+import { useMarkdownLinkCopy } from "./markdown-link-prompt";
 import { InlineChipsContext } from "./native/chips";
+import { SourcesCount } from "./native/citations";
 import { DiagramSurfaceContext } from "./native/code";
 import { OpenLinkContext, useNativeLinkConfirm } from "./native/links";
 import { markTaskListItems } from "./native/lists";
@@ -80,11 +84,20 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   streaming = false,
   renderMention,
   onOpenPage,
+  sources,
+  sourcesRow = false,
   palette = darkTokens,
   colorScheme = "dark",
 }: ChatMarkdownProps & { palette?: ColorTokens; colorScheme?: ResolvedAppearance }) {
   const openLink = useNativeLinkConfirm();
+  const copy = useMarkdownCopy();
+  const linkCopy = useMarkdownLinkCopy();
   const styles = useMemo(() => markdownStyles(palette), [palette]);
+  const prepared = useMemo(
+    () => preparedCitationMarkdown(children, sources, streaming),
+    [children, sources, streaming],
+  );
+  const showRow = !streaming && sourcesRow && !!sources && showSourcesRow(sources.length);
   const diagramSurface = useMemo(
     () => ({ streaming, palette, colorScheme }),
     [streaming, palette, colorScheme],
@@ -110,13 +123,24 @@ export const ChatMarkdown = memo(function ChatMarkdown({
         <View style={layout.wrap}>
           <LinkFaviconsPausedContext.Provider value={streaming}>
             <DiagramSurfaceContext.Provider value={diagramSurface}>
-              {streaming ? (
-                <MarkdownStream {...sharedProps} cursorColor={palette.mutedForeground} streaming>
-                  {children}
-                </MarkdownStream>
-              ) : (
-                <Markdown {...sharedProps}>{children}</Markdown>
-              )}
+              <CitationGroupsContext.Provider value={prepared.groups}>
+                {streaming ? (
+                  <MarkdownStream {...sharedProps} cursorColor={palette.mutedForeground} streaming>
+                    {prepared.markdown}
+                  </MarkdownStream>
+                ) : (
+                  <Markdown {...sharedProps}>{prepared.markdown}</Markdown>
+                )}
+              </CitationGroupsContext.Provider>
+              {showRow && sources ? (
+                <SourcesCount
+                  items={sources}
+                  label={copy.sourcesCount(sources.length)}
+                  open={openLink}
+                  cancel={linkCopy.cancel}
+                  style={styles.sources_row}
+                />
+              ) : null}
             </DiagramSurfaceContext.Provider>
           </LinkFaviconsPausedContext.Provider>
         </View>
@@ -137,6 +161,7 @@ export {
   withBlockMentions,
 } from "./markdown";
 export { allowedAppLink } from "./markdown.js";
+export { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";
 export { PageIcon } from "./native/chips";
 export type { MermaidDiagramProps } from "./native/code";

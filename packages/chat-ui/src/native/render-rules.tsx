@@ -1,3 +1,4 @@
+import { citationGroupIndex } from "@rakazo/core/answer-sources";
 import type {
   ASTNode,
   MarkdownStyleMap,
@@ -23,6 +24,7 @@ import {
 import { isMermaidFence } from "../mermaid";
 import { astText, cellPlainText, enclosingLink, soleRemoteImage } from "./ast";
 import { MarkdownMention, MarkdownPageChip } from "./chips";
+import { CitationPill } from "./citations";
 import { CodeFence, CodeScrollView, MermaidFence, ProseFence } from "./code";
 import { contraryDirection } from "./direction";
 import { FitImage, LinkedRemoteImage, RemoteMarkdownImage } from "./images";
@@ -197,6 +199,8 @@ function renderMarkdownLink(
   styleMap: MarkdownStyleMap,
   block: boolean,
 ) {
+  const cited = citationGroupIndex(node.attributes.href);
+  if (cited !== undefined) return <CitationPill key={node.key} index={cited} styleMap={styleMap} />;
   const pageId = markdownPageId(node.attributes.href);
   if (pageId) {
     return (

@@ -606,6 +606,22 @@ describe("isStaticPng", () => {
   });
 });
 
+describe("a sources list in the bot's history", () => {
+  it("adds nothing, because the links are already in the prose", () => {
+    expect(
+      blocksToAgentHistoryText([
+        { kind: "text", text: "A day is 24 hours." },
+        {
+          kind: "sources",
+          items: [
+            { url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" },
+          ],
+        },
+      ]),
+    ).toBe("A day is 24 hours.");
+  });
+});
+
 describe("a visual in the bot's history", () => {
   it("reads as its title and summary, never its code", () => {
     const visual: MessageBlock = {

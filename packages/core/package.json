@@ -79,6 +79,11 @@
       "development": "./src/egress.ts",
       "default": "./src/egress.ts"
     },
+    "./answer-sources": {
+      "types": "./src/answer-sources.ts",
+      "development": "./src/answer-sources.ts",
+      "default": "./src/answer-sources.ts"
+    },
     "./signup-attribution": {
       "types": "./src/browser-signup-attribution.ts",
       "development": "./src/browser-signup-attribution.ts",

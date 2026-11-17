@@ -228,6 +228,22 @@ describe("mobile thread event reduction", () => {
     );
   });
 
+  it("leaves a sources list out of the caption text", () => {
+    expect(
+      blockText(
+        mobileMessage("sources", [
+          { kind: "text", text: "A day is about 24 hours." },
+          {
+            kind: "sources",
+            items: [
+              { url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" },
+            ],
+          },
+        ]),
+      ),
+    ).toBe("A day is about 24 hours.");
+  });
+
   it("keeps embed references as written, since the message card renders this markdown", () => {
     const text = "Revenue climbed.\n\n![Quarter trend](visual:msg-1)\n\n![Quarter](image:art-1)";
     expect(blockText(mobileMessage("embeds", [{ kind: "text", text }]))).toBe(text);

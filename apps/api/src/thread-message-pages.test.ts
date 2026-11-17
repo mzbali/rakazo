@@ -83,6 +83,25 @@ describe("thread message pages", () => {
     ).toBe(true);
     expect(
       shouldForwardPeerThreadEvent({
+        type: "thread.message.created",
+        payload: {
+          blocks: [
+            {
+              kind: "sources",
+              items: [
+                {
+                  url: "https://science.nasa.gov/mars/facts/",
+                  title: "Mars Facts",
+                  site: "nasa",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ).toBe(true);
+    expect(
+      shouldForwardPeerThreadEvent({
         type: "thread.progress",
         payload: {},
       }),

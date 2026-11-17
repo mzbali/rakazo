@@ -12,6 +12,7 @@ import {
   resolveAskChoice,
   selectedAskActionLabel,
 } from "@rakazo/core";
+import { messageSources } from "@rakazo/core/answer-sources";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { ComponentProps } from "react";
 import { memo, useContext, useMemo, useState } from "react";
@@ -630,6 +631,12 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                 tokens={tokens}
                 colorScheme={colorScheme}
                 streaming={message.id.startsWith("progress:")}
+                {...(message.role === "bot"
+                  ? {
+                      sources: messageSources(message.blocks),
+                      sourcesRow: true,
+                    }
+                  : {})}
               />
             ) : null}
           </View>
@@ -858,6 +865,7 @@ function MessageTextCard({
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const contentText = blockText(message);
   const { t } = useLingui();
+  const sources = message.role === "bot" ? messageSources(message.blocks) : undefined;
   const userMentions = useContext(UserMentionsContext);
   if (!contentText) return null;
   // The surface is one accessibility element, so the bots a message names are offered as its
@@ -921,6 +929,8 @@ function MessageTextCard({
         tokens={tokens}
         colorScheme={colorScheme}
         streaming={message.id.startsWith("progress:")}
+        sources={sources}
+        sourcesRow={Boolean(sources?.length)}
       />
     </Surface>
   );

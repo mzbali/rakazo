@@ -292,6 +292,11 @@ msgstr ""
 msgid "{count, plural, one {# row} other {# rows}}"
 msgstr "{count, plural, one {# fila} other {# filas}}"
 
+#: apps/mobile/components/message-caption.tsx
+#: apps/web/src/components/markdown-copy.tsx
+msgid "{count, plural, one {# source} other {# sources}}"
+msgstr ""
+
 #: apps/mobile/components/job-work.tsx
 msgid "{count, plural, one {# subagent} other {# subagents}}"
 msgstr ""

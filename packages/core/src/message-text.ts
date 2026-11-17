@@ -14,6 +14,7 @@ export function selectableMessageText(message: { blocks: readonly MessageBlock[]
   return message.blocks
     .map((block) => {
       if (block.kind === "channel_message") return channelMessageLine(block);
+      if (block.kind === "sources") return "";
       if (block.kind === "text" || block.kind === "progress" || block.kind === "ask")
         return plainEmbedReferences(block.text);
       return "";

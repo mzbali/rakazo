@@ -35,6 +35,7 @@ export function MarkdownChrome({ children }: { children: ReactNode }) {
         direction === "asc"
           ? t`Sorted by ${column}, ascending`
           : t`Sorted by ${column}, descending`,
+      sourcesCount: (count) => t`${plural(count, { one: "# source", other: "# sources" })}`,
     }),
     [t],
   );

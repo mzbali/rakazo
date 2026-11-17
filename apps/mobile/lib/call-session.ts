@@ -17,6 +17,7 @@ import {
   MAX_TRANSCRIPTION_RESPONSE_BYTES,
   newClientId,
   pendingCallSecretAsk,
+  plainEmbedReferences,
   readJsonObjectWithin,
   recognitionLocaleTag,
   reduceThreadSnapshot,
@@ -1143,7 +1144,7 @@ function watchReplies(
               snapshot?.activeRuns?.find((active) => active.id === message.runId) ?? snapshot?.run;
             const fromAnotherRun = Boolean(message.runId && message.runId !== run?.id);
             if (!fromAnotherRun && run && ACTIVE_RUN_STATUSES.some((s) => s === run.status)) return;
-            const text = blockText(message).trim();
+            const text = plainEmbedReferences(blockText(message)).trim();
             if (!text) return;
             lastSeen = message.id;
             onNewReply(message.id, text, message.runId);

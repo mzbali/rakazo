@@ -11,7 +11,7 @@ import type {
   ThreadSnapshot,
 } from "@rakazo/contracts";
 import type { LiveThreadMessage, LiveThreadRun, ThreadHistory } from "@rakazo/core";
-import { channelMessageLine, plainEmbedReferences, prependThreadHistoryPage } from "@rakazo/core";
+import { channelMessageLine, prependThreadHistoryPage } from "@rakazo/core";
 
 export type MobileBot = Pick<
   Bot,
@@ -167,8 +167,8 @@ export function blockText(message: MobileMessage) {
           .map((step) => `${step.label}${step.count > 1 ? ` ×${step.count}` : ""}`)
           .join(", ");
       }
-      const raw = ("text" in block ? block.text : "state" in block ? block.state : "") ?? "";
-      return typeof raw === "string" ? plainEmbedReferences(raw) : "";
+      // Embed references stay as written: this is the markdown the message card renders.
+      return ("text" in block ? block.text : "state" in block ? block.state : "") ?? "";
     })
     .filter(Boolean)
     .join("\n");

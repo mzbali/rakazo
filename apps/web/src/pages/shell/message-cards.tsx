@@ -560,7 +560,7 @@ export function ArtifactImage({
             thumbnail
               ? "size-full overflow-hidden bg-muted"
               : fill
-                ? "block w-full overflow-hidden rounded-2xl"
+                ? "block w-fit max-w-full overflow-hidden rounded-2xl"
                 : "max-w-[240px] overflow-hidden rounded-2xl"
           }
         >
@@ -568,7 +568,11 @@ export function ArtifactImage({
             src={src}
             alt={name}
             className={
-              thumbnail ? "size-full object-cover" : "block h-auto max-h-96 w-full object-cover"
+              thumbnail
+                ? "size-full object-cover"
+                : fill
+                  ? "block h-auto max-h-96 max-w-full"
+                  : "max-h-48 w-full object-cover"
             }
           />
         </button>

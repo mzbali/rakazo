@@ -288,15 +288,16 @@ function namesRecordedSource(
 }
 
 /**
- * The text immediately before this node already ended a sentence ("…in 2031. [NASA, 16 November]").
- * A link the next words read through is not in that position.
+ * The text just before this node ended a sentence on the same line ("…in 2031. [NASA, 16 November]").
+ * A link that starts a new line reads as a headline, so it keeps its words.
  */
 function sentenceEndedBefore(children: readonly MdNode[], start: number): boolean {
   for (let index = start - 1; index >= 0; index -= 1) {
     const node = children[index];
-    if (!node || node.type === "break") continue;
-    if (node.type !== "text") return false;
+    if (node?.type !== "text") return false;
     const value = node.value ?? "";
+    const gap = value.slice(value.trimEnd().length);
+    if (gap.includes("\n")) return false;
     if (value.trim() === "") continue;
     return SENTENCE_ENDED.test(value.trimEnd());
   }

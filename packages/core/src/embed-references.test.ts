@@ -138,6 +138,22 @@ describe("placedEmbedMessages", () => {
     expect(placedEmbedMessages(messages).map((message) => message.id)).toEqual(["doc"]);
   });
 
+  it("keeps a message with several images until the reply places all of them", () => {
+    const messages = [
+      row("pair", [image("art1"), image("art2")], { runId: "run-1" }),
+      row("reply", [{ kind: "text", text: embedLine("image", "First", "art1") }], {
+        runId: "run-1",
+      }),
+    ];
+    expect(placedEmbedMessages(messages)).toEqual([]);
+    messages.push(
+      row("more", [{ kind: "text", text: embedLine("image", "Second", "art2") }], {
+        runId: "run-1",
+      }),
+    );
+    expect(placedEmbedMessages(messages).map((message) => message.id)).toEqual(["pair"]);
+  });
+
   it("does not place a message that also has prose, or one with no run", () => {
     const messages = [
       row("mixed", [visual("Flow"), { kind: "text", text: "beside it" }], { runId: "run-1" }),

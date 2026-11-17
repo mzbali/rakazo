@@ -143,30 +143,33 @@ export function isStandaloneEmbedMessage(message: EmbedFoldMessage): boolean {
   );
 }
 
-function referencesStandalone(message: EmbedFoldMessage, ref: EmbedReference): boolean {
-  if (ref.kind === "visual") return message.id === ref.id;
-  return message.blocks.some(
-    (block) => (block.kind === "image" || block.kind === "file") && block.artifactId === ref.id,
+/** Whether `refs` place every card in the message, so hiding it loses nothing. */
+function placesWholeMessage(message: EmbedFoldMessage, refs: readonly EmbedReference[]): boolean {
+  return message.blocks.every((block) =>
+    block.kind === "visual"
+      ? refs.some((ref) => ref.kind === "visual" && ref.id === message.id)
+      : (block.kind === "image" || block.kind === "file") &&
+        refs.some((ref) => ref.kind === "image" && ref.id === block.artifactId),
   );
 }
 
 /**
- * Standalone bot messages a later message of the same run places with an embed reference.
- * An unreferenced card, and a reference to another run, stay where they are.
+ * Standalone bot messages whose every card a later message of the same run places with an
+ * embed reference. A card left unplaced keeps its message where it is, and so does a
+ * reference from another run.
  */
 export function placedEmbedMessages<T extends EmbedFoldMessage>(messages: readonly T[]): T[] {
+  const refsAfter = new Map<string, EmbedReference[]>();
   const placed = new Set<string>();
-  for (let index = 0; index < messages.length; index++) {
+  // Walk backwards so each standalone sees only the references its run made after it.
+  for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!;
     if (!message.runId) continue;
-    const refs = textReferences(message.blocks);
-    if (refs.length === 0) continue;
-    for (let earlier = 0; earlier < index; earlier++) {
-      const candidate = messages[earlier]!;
-      if (placed.has(candidate.id) || candidate.runId !== message.runId) continue;
-      if (!isStandaloneEmbedMessage(candidate)) continue;
-      if (refs.some((ref) => referencesStandalone(candidate, ref))) placed.add(candidate.id);
-    }
+    const refs = refsAfter.get(message.runId) ?? [];
+    if (refs.length && isStandaloneEmbedMessage(message) && placesWholeMessage(message, refs))
+      placed.add(message.id);
+    const own = textReferences(message.blocks);
+    if (own.length) refsAfter.set(message.runId, [...refs, ...own]);
   }
   return messages.filter((message) => placed.has(message.id));
 }

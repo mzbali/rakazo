@@ -210,23 +210,29 @@ describe("provider focus command", () => {
     expect(result.stderr).toContain("does not exist");
   });
 
-  it("resolves a workspace-relative program when no window matches", async () => {
-    writeExecutable(
-      path.join(workspace, "tool"),
-      ["#!/bin/sh", 'pwd > "$FOCUS_RECORDED"', 'printf "%s\\n" "$*" >> "$FOCUS_RECORDED"', ""].join(
-        "\n",
-      ),
-    );
-    writeFileSync(windows, "");
-    const command = await focusCommand({
-      kind: "focus",
-      application: "./tool",
-      uri: "notes.txt",
-    });
-    const result = runFocus(command);
-    expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(recorded, "utf8").trim().split("\n")).toEqual([workspace, "notes.txt"]);
-  });
+  it.skipIf(process.platform !== "linux")(
+    "resolves a workspace-relative program when no window matches",
+    async () => {
+      writeExecutable(
+        path.join(workspace, "tool"),
+        [
+          "#!/bin/sh",
+          'pwd > "$FOCUS_RECORDED"',
+          'printf "%s\\n" "$*" >> "$FOCUS_RECORDED"',
+          "",
+        ].join("\n"),
+      );
+      writeFileSync(windows, "");
+      const command = await focusCommand({
+        kind: "focus",
+        application: "./tool",
+        uri: "notes.txt",
+      });
+      const result = runFocus(command);
+      expect(result.status, result.stderr).toBe(0);
+      expect(readFileSync(recorded, "utf8").trim().split("\n")).toEqual([workspace, "notes.txt"]);
+    },
+  );
 
   it.skipIf(process.platform !== "linux")(
     "raises the browser window for this screen's profile",
@@ -283,17 +289,20 @@ describe("provider focus command", () => {
     expect(readFileSync(activated, "utf8").trim()).toBe("0x0000000c");
   });
 
-  it("fails a focus URI when the launcher exits before the old window is raised", async () => {
-    const failapp = path.join(bin, "failapp");
-    writeExecutable(failapp, "#!/bin/sh\nexit 1\n");
-    writeFileSync(windows, "0x00000004  0 4 failapp.Failapp host app\n");
-    const command = await focusCommand({
-      kind: "focus",
-      application: failapp,
-      uri: "notes.txt",
-    });
-    const result = runFocus(command);
-    expect(result.status, result.stderr).not.toBe(0);
-    expect(() => readFileSync(activated, "utf8")).toThrow();
-  });
+  it.skipIf(process.platform !== "linux")(
+    "fails a focus URI when the launcher exits before the old window is raised",
+    async () => {
+      const failapp = path.join(bin, "failapp");
+      writeExecutable(failapp, "#!/bin/sh\nexit 1\n");
+      writeFileSync(windows, "0x00000004  0 4 failapp.Failapp host app\n");
+      const command = await focusCommand({
+        kind: "focus",
+        application: failapp,
+        uri: "notes.txt",
+      });
+      const result = runFocus(command);
+      expect(result.status, result.stderr).not.toBe(0);
+      expect(() => readFileSync(activated, "utf8")).toThrow();
+    },
+  );
 });

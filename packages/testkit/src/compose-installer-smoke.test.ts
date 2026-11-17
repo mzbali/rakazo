@@ -6,7 +6,8 @@ const describeFast = process.env.VERIFY_PROVIDERS ? describe.skip : describe;
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 
 describeFast("compose installer smoke scripts", () => {
-  it("passes every infra/compose/*.smoke.sh", () => {
+  // The installer smokes need dpkg, which only Linux has.
+  it.skipIf(process.platform !== "linux")("passes every infra/compose/*.smoke.sh", () => {
     const runner = path.resolve(repoRoot, "infra/compose/run-smokes.sh");
     const output = execFileSync("bash", [runner], {
       encoding: "utf8",

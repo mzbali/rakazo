@@ -75,3 +75,8 @@ export function mediaListClass(node: HastLike | undefined): string | undefined {
   }
   return "rk-chat-media-list";
 }
+
+/** Adds a class to the one react-markdown gave the element, such as a task list's. */
+export function withClass(base: string | undefined, extra: string | undefined): string | undefined {
+  return [base, extra].filter(Boolean).join(" ") || undefined;
+}

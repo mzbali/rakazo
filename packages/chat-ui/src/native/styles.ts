@@ -12,6 +12,7 @@ export const MARKER_COLUMN = 18;
 const TASK_BOX_SIZE = 14;
 const MARKER_GAP = 8;
 const LINK_TILE_SIZE = 18;
+const CITE_PILL_HEIGHT = 20;
 const minorHeading = {
   ...typeScale.secondary,
   fontWeight: fontWeight.semibold,
@@ -212,11 +213,13 @@ export function markdownStyles(palette: ColorTokens) {
       textDecorationColor: palette.input,
     },
     cite: {
-      color: palette.foreground,
       backgroundColor: palette.muted,
-      fontWeight: "500",
-      textDecorationLine: "none",
-      borderRadius: 999,
+    },
+    cite_label: {
+      ...typeScale.footnote,
+      color: palette.foreground,
+      fontWeight: fontWeight.medium,
+      flexShrink: 1,
     },
     sources_row: {
       color: palette.mutedForeground,
@@ -347,5 +350,22 @@ export const layout = StyleSheet.create({
   linkIcon: {
     width: "100%",
     height: "100%",
+  },
+  // A citation: a capsule a little shorter than the line, lowered onto the text like a favicon.
+  citePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: 160,
+    height: CITE_PILL_HEIGHT,
+    paddingLeft: 3,
+    paddingRight: 8,
+    borderRadius: CITE_PILL_HEIGHT / 2,
+    transform: [{ translateY: (CITE_PILL_HEIGHT - BODY_FONT_SIZE * 0.7) / 2 }],
+  },
+  citeTile: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
 });

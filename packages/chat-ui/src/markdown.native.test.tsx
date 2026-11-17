@@ -190,6 +190,7 @@ vi.mock("react-native", async () => {
     ),
     Pressable: mockComponent("rn-pressable", [
       "accessibilityRole",
+      "accessibilityLabel",
       "borderBottomWidth",
       "backgroundColor",
     ]),

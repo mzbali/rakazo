@@ -1,16 +1,18 @@
 import type { SourceItem } from "@rakazo/core/answer-sources";
 import type { MarkdownStyleMap } from "@ronradtke/react-native-markdown-display";
 import { useContext } from "react";
-import type { StyleProp, TextStyle } from "react-native";
+import type { StyleProp, TextStyle, ViewStyle } from "react-native";
 // Chosen when the iOS API is present. Android and a missing sheet use Alert in this same file.
 // biome-ignore lint/correctness/useReactNativePlatformComponents: runtime check, not an iOS-only module
-import { ActionSheetIOS, Alert, Platform, Text } from "react-native";
+import { ActionSheetIOS, Alert, Platform, Pressable, Text } from "react-native";
 import { CitationGroupsContext } from "../markdown";
 import { useMarkdownLinkCopy } from "../markdown-link-prompt";
-import { ISOLATE, LinkFavicon, OpenLinkContext, POP_ISOLATE, WORD_JOINER } from "./links";
+import { FaviconTile, ISOLATE, OpenLinkContext, POP_ISOLATE } from "./links";
+import { layout } from "./styles";
 
 type CitationStyles = MarkdownStyleMap & {
-  cite?: StyleProp<TextStyle>;
+  cite?: StyleProp<ViewStyle>;
+  cite_label?: StyleProp<TextStyle>;
 };
 
 /** The existing confirm-before-open path, after the reader picks a page from the list. */
@@ -48,20 +50,22 @@ export function CitationPill({ index, styleMap }: { index: number; styleMap: Mar
   if (!group || !first) return null;
   const extra = group.items.length - 1;
   const label = extra > 0 ? `${first.site} +${extra}` : first.site;
-  const cite = (styleMap as CitationStyles).cite;
+  const styles = styleMap as CitationStyles;
+  // Text can't round a background, so the pill is one inline view that sits on the line.
   return (
-    <Text
+    <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={cite}
+      style={[layout.citePill, styles.cite]}
       onPress={() => openSourceList(group.items, open, linkCopy.cancel)}
     >
-      <LinkFavicon href={first.url} plate={styleMap.link_favicon_plate} />
-      {WORD_JOINER}
-      {ISOLATE}
-      {label}
-      {POP_ISOLATE}
-    </Text>
+      <FaviconTile href={first.url} plate={styleMap.link_favicon_plate} style={layout.citeTile} />
+      <Text style={styles.cite_label} numberOfLines={1}>
+        {ISOLATE}
+        {label}
+        {POP_ISOLATE}
+      </Text>
+    </Pressable>
   );
 }
 

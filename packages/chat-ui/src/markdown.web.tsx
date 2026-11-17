@@ -1,6 +1,5 @@
 import type { CSSProperties, MouseEvent, ReactNode, RefObject } from "react";
 import {
-  Children,
   Component,
   createContext,
   Fragment,
@@ -66,8 +65,15 @@ import {
 import { CitationPill, LinkFavicon, SourcesRow } from "./markdown-citations.web";
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy, useMarkdownLinkTrust } from "./markdown-link-prompt";
+import type { HastLike } from "./markdown-media-row.web";
+import {
+  hastPieces,
+  MediaRow,
+  MediaRowHostContext,
+  mediaListClass,
+  restAfterOpeningImage,
+} from "./markdown-media-row.web";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
-import type { MediaPiece } from "./media-row";
 import { openingMediaImage } from "./media-row";
 import { isMermaidFence, mermaidSvgImage } from "./mermaid";
 import { useMermaidSvg } from "./mermaid.web";
@@ -689,76 +695,6 @@ export function PageIcon({ className }: { className?: string }) {
       ))}
     </svg>
   );
-}
-
-type HastLike = {
-  type?: string;
-  tagName?: string;
-  value?: string;
-  properties?: { src?: unknown; alt?: unknown };
-  children?: HastLike[];
-};
-
-/** Inlines of a block. A list item also walks its paragraphs, which wrap those inlines. */
-function hastPieces(node: HastLike | undefined, descendParagraphs: boolean): MediaPiece[] {
-  const pieces: MediaPiece[] = [];
-  for (const child of node?.children ?? []) {
-    if (child.type === "text") {
-      pieces.push({ type: "text", value: child.value ?? "" });
-      continue;
-    }
-    if (child.tagName === "img") {
-      pieces.push({
-        type: "image",
-        src: typeof child.properties?.src === "string" ? child.properties.src : "",
-        alt: typeof child.properties?.alt === "string" ? child.properties.alt : "",
-      });
-      continue;
-    }
-    if (descendParagraphs && child.tagName === "p") {
-      pieces.push(...hastPieces(child, false));
-      continue;
-    }
-    if (child.tagName || child.type === "element") pieces.push({ type: "other" });
-  }
-  return pieces;
-}
-
-/** Everything after the opening image, aligned with the elements react-markdown already made. */
-function restAfterOpeningImage(node: HastLike | undefined, children: ReactNode): ReactNode[] {
-  const list = Children.toArray(children);
-  let reactIndex = 0;
-  for (const child of node?.children ?? []) {
-    const whitespace = child.type === "text" && (child.value ?? "").trim() === "";
-    if (whitespace) {
-      const item = list[reactIndex];
-      if (typeof item === "string" && item.trim() === "") reactIndex += 1;
-      continue;
-    }
-    if (child.tagName === "img") return list.slice(reactIndex + 1);
-    reactIndex += 1;
-  }
-  return list;
-}
-
-// Set by a list item that is a media row, so its paragraphs keep their text and drop the thumb.
-const MediaRowHostContext = createContext(false);
-
-function MediaRow({ thumb, children }: { thumb: ReactNode; children: ReactNode }) {
-  return (
-    <div className="rk-chat-media-row">
-      <div className="rk-chat-media-thumb">{thumb}</div>
-      <div className="rk-chat-media-copy">{children}</div>
-    </div>
-  );
-}
-
-function mediaListClass(node: HastLike | undefined): string | undefined {
-  const items = (node?.children ?? []).filter((child) => child.tagName === "li");
-  if (items.length === 0 || !items.every((item) => openingMediaImage(hastPieces(item, true)))) {
-    return undefined;
-  }
-  return "rk-chat-media-list";
 }
 
 function MarkdownParagraph({ node, children }: { node?: unknown; children?: ReactNode }) {

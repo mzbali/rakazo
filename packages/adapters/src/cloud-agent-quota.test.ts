@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QUOTA_POLL_MARGIN_MS, quotaPauseDecision, quotaPausePollAt } from "./cloud-agent-poll.js";
+import { QUOTA_POLL_MARGIN_MS, quotaPauseDecision, quotaPausePollAt } from "./cloud-agent-quota.js";
 
 const reset = "2026-11-17T15:00:00.000Z";
 const resetMs = Date.parse(reset);

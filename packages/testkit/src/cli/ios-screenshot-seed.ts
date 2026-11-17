@@ -372,6 +372,13 @@ export async function seedIosScreenshotFixture(input: {
       userId: me.userId,
     });
     await ensureAnswerSources(db.prisma, group.threadId, writer.id);
+    await ensureMediaRows(input.apiUrl, populated.headers, db.prisma, {
+      threadId: group.threadId,
+      botId: writer.id,
+      groupId: group.id,
+      spaceId: me.spaceId,
+      userId: me.userId,
+    });
     await ensurePage(db.prisma, {
       threadId: researcher.threadId,
       botId: researcher.id,
@@ -1446,6 +1453,105 @@ async function ensureAnswerSources(
           { url: ANSWER_SOURCES_DAY, title: "Mars Facts", site: "nasa" },
           { url: ANSWER_SOURCES_YEAR, title: "Mars Express", site: "esa" },
         ],
+      },
+    ],
+  });
+}
+
+const MEDIA_ROW_REPLY = "The evening boat is running again after the lock repair.";
+
+/** The same news and product answer as the web gallery, with one image per row. */
+async function ensureMediaRows(
+  apiUrl: string,
+  headers: Record<string, string>,
+  prisma: ReturnType<typeof createDb>["prisma"],
+  input: { threadId: string; botId: string; groupId: string; spaceId: string; userId: string },
+) {
+  const messages = await prisma.message.findMany({
+    where: { threadId: input.threadId },
+    select: { blocks: true },
+  });
+  if (messages.some((message) => JSON.stringify(message.blocks).includes(MEDIA_ROW_REPLY))) return;
+  const pictures = [
+    ["harbor.png", "Harbor ferry", "ios-screenshot-media-harbor"],
+    ["market.png", "Market hall", "ios-screenshot-media-market"],
+    ["river.png", "River path", "ios-screenshot-media-river"],
+    ["coat.png", "Wool coat", "ios-screenshot-media-coat"],
+  ] as const;
+  const images: ArtifactRow[] = [];
+  for (const [name, , clientNonce] of pictures) {
+    images.push(
+      await rpc<ArtifactRow>(apiUrl, headers, "artifacts/create", {
+        groupId: input.groupId,
+        name,
+        mimeType: "image/png",
+        contentBase64: chartPng().toString("base64"),
+        clientNonce,
+      }),
+    );
+  }
+  const task = await prisma.task.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      prompt: "What's new, and is there a coat worth buying?",
+      status: "completed",
+    },
+  });
+  const run = await prisma.run.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      taskId: task.id,
+      status: "completed",
+      trigger: "user",
+      modelProvider: "scripted",
+      modelId: "scripted",
+      startedAt: new Date(Date.now() - 2_000),
+      completedAt: new Date(),
+    },
+  });
+  for (const [index, image] of images.entries()) {
+    await createThreadMessage(prisma, {
+      threadId: input.threadId,
+      role: "bot",
+      botId: input.botId,
+      runId: run.id,
+      blocks: [
+        { kind: "image", artifactId: image.id, mimeType: "image/png", name: pictures[index]![0] },
+      ],
+    });
+  }
+  const [harbor, market, river, coat] = images;
+  await createThreadMessage(prisma, {
+    threadId: input.threadId,
+    role: "bot",
+    botId: input.botId,
+    runId: run.id,
+    blocks: [
+      {
+        kind: "text",
+        text: [
+          `- ${embedLine("image", "Harbor ferry", harbor!.id)} **Harbor ferry**`,
+          "",
+          `  ${MEDIA_ROW_REPLY}`,
+          "",
+          `- ${embedLine("image", "Market hall", market!.id)} **Market hall**`,
+          "",
+          "  Saturday stalls open at eight, with the fish counter first.",
+          "",
+          `- ${embedLine("image", "River path", river!.id)} **River path**`,
+          "",
+          "  The towpath is open from the bridge to the old mill.",
+          "",
+          `- ${embedLine("image", "Wool coat", coat!.id)} **Wool coat**`,
+          "",
+          "  A heavy navy coat, lined, in the shop window. $128",
+        ].join("\n"),
       },
     ],
   });

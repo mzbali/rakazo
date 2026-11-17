@@ -51,6 +51,25 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
           )
           .toBeGreaterThan(0);
       }
+      if (label === "Media rows") {
+        await expect(
+          page.getByText("The evening boat is running again after the lock repair."),
+        ).toBeVisible();
+        await expect(
+          page.getByText("Saturday stalls open at eight, with the fish counter first."),
+        ).toBeVisible();
+        await expect(
+          page.getByText("The towpath is open from the bridge to the old mill."),
+        ).toBeVisible();
+        await expect(page.getByText("$128")).toBeVisible();
+        await expect
+          .poll(() =>
+            page
+              .locator('img[alt="harbor.png"]')
+              .evaluate((image: HTMLImageElement) => image.naturalWidth),
+          )
+          .toBeGreaterThan(0);
+      }
       if (label === "Rich content") {
         // Both load after mount and fall back quietly, so wait for the real content.
         await expect(page.locator("svg[class^='plot-']")).toBeVisible();

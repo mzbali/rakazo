@@ -510,10 +510,13 @@ export function ArtifactImage({
   target,
   artifactId,
   name,
+  thumbnail = false,
 }: {
   target: ArtifactTarget;
   artifactId: string;
   name: string;
+  /** A media row: a fixed square, cropped, that still opens the same viewer. */
+  thumbnail?: boolean;
 }) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
@@ -541,15 +544,27 @@ export function ArtifactImage({
   }, []);
 
   return (
-    <div ref={container}>
+    <div ref={container} className={thumbnail ? "size-full" : undefined}>
       {src ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="max-w-[240px] overflow-hidden rounded-2xl"
+          className={
+            thumbnail
+              ? "size-full overflow-hidden bg-muted"
+              : "max-w-[240px] overflow-hidden rounded-2xl"
+          }
         >
-          <img src={src} alt={name} className="max-h-48 w-full object-cover" />
+          <img
+            src={src}
+            alt={name}
+            className={thumbnail ? "size-full object-cover" : "max-h-48 w-full object-cover"}
+          />
         </button>
+      ) : thumbnail ? (
+        <div className="flex size-full items-center justify-center bg-muted px-2 text-center text-caption text-muted-foreground">
+          {name}
+        </div>
       ) : (
         <div className="rounded-2xl bg-muted px-4 py-3 text-body text-muted-foreground">{name}</div>
       )}

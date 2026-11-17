@@ -740,6 +740,47 @@ const research: Scenario = {
   ],
 };
 
+const mediaRows: Scenario = {
+  id: "media-rows",
+  label: "Media rows",
+  messages: [
+    user("What's new, and is there a coat worth buying?"),
+    ...(
+      [
+        ["image-harbor", "harbor.png"],
+        ["image-market", "market.png"],
+        ["image-river", "river.png"],
+        ["image-coat", "coat.png"],
+      ] as const
+    ).map(([artifactId, name]) =>
+      bot([{ kind: "image", artifactId, mimeType: "image/svg+xml", name }], {
+        id: artifactId,
+        runId: "run-media",
+      }),
+    ),
+    say(
+      [
+        "- ![Harbor ferry](image:image-harbor) **Harbor ferry**",
+        "",
+        "  The evening boat is running again after the lock repair.",
+        "",
+        "- ![Market hall](image:image-market) **Market hall**",
+        "",
+        "  Saturday stalls open at eight, with the fish counter first.",
+        "",
+        "- ![River path](image:image-river) **River path**",
+        "",
+        "  The towpath is open from the bridge to the old mill.",
+        "",
+        "- ![Wool coat](image:image-coat) **Wool coat**",
+        "",
+        "  A heavy navy coat, lined, in the shop window. $128",
+      ].join("\n"),
+      { runId: "run-media" },
+    ),
+  ],
+};
+
 const SCENARIOS: Scenario[] = [
   conversation,
   textStyles,
@@ -750,6 +791,7 @@ const SCENARIOS: Scenario[] = [
   team,
   rich,
   embeds,
+  mediaRows,
   calls,
   research,
 ];

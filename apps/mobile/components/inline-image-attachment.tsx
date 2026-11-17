@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { MEDIA_ROW_NATIVE_PT } from "@rakazo/chat-ui/native";
 import { useEffect, useState } from "react";
 import type { PressableProps } from "react-native";
 import {
@@ -31,6 +32,7 @@ export function InlineImageAttachment({
   onOpen,
   pressableProps,
   labelColor,
+  thumbnail = false,
 }: {
   threadTarget: MobileArtifactTarget;
   artifactId: string;
@@ -39,6 +41,8 @@ export function InlineImageAttachment({
   onOpen: () => void;
   pressableProps?: Omit<PressableProps, "onPress" | "children" | "style">;
   labelColor: string;
+  /** A media row: a fixed square, cropped to fill, that still opens the viewer. */
+  thumbnail?: boolean;
 }) {
   const { t } = useLingui();
   const tokens = mobileTokens();
@@ -66,6 +70,36 @@ export function InlineImageAttachment({
       cancelled = true;
     };
   }, [targetBotId, targetGroupId, artifactId, mimeType]);
+
+  if (thumbnail) {
+    return (
+      <Pressable
+        {...pressableProps}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={t`Open image ${name}`}
+        onPress={state.status === "loading" ? undefined : onOpen}
+        style={[styles.thumb, { backgroundColor: tokens.muted }]}
+      >
+        {state.status === "ready" ? (
+          <Image
+            source={{ uri: state.uri }}
+            style={styles.thumbImage}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : state.status === "loading" ? (
+          <ActivityIndicator
+            color={tokens.mutedForeground}
+            accessibilityLabel={t`Loading image…`}
+          />
+        ) : (
+          <Text style={[styles.thumbLabel, { color: labelColor }]} numberOfLines={3}>
+            {name}
+          </Text>
+        )}
+      </Pressable>
+    );
+  }
 
   if (state.status === "ready") {
     const size = fitImageSize(state.size, maxWidth, MAX_INLINE_HEIGHT);
@@ -103,6 +137,16 @@ export function InlineImageAttachment({
 
 const styles = StyleSheet.create({
   image: { borderRadius: 12, overflow: "hidden" },
+  thumb: {
+    width: MEDIA_ROW_NATIVE_PT,
+    height: MEDIA_ROW_NATIVE_PT,
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thumbImage: { width: MEDIA_ROW_NATIVE_PT, height: MEDIA_ROW_NATIVE_PT },
+  thumbLabel: { fontSize: 12, textAlign: "center", paddingHorizontal: 6 },
   placeholder: {
     minHeight: 44,
     justifyContent: "center",

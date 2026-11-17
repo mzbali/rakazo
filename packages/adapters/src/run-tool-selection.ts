@@ -135,6 +135,8 @@ export function selectBuiltinToolsForRun(options: {
   paymentWalletEnabled?: boolean;
   mediaImagesEnabled?: boolean;
   mediaVideoEnabled?: boolean;
+  /** Artifact storage is configured, so images from fetched pages can be saved. */
+  webImagesEnabled?: boolean;
   /** The deployment configured paid data services. */
   paidServicesEnabled?: boolean;
   messagingChannelRun: boolean;
@@ -196,6 +198,7 @@ export function selectBuiltinToolsForRun(options: {
       (options.paymentWalletEnabled || !PURCHASE_TOOL_NAMES.has(tool.name)) &&
       (options.mediaImagesEnabled || tool.name !== "generate_image") &&
       (options.mediaVideoEnabled || tool.name !== "generate_video") &&
+      (options.webImagesEnabled || tool.name !== "save_web_images") &&
       (options.paidServicesEnabled || !PAID_SERVICE_TOOL_NAMES.has(tool.name)) &&
       (options.ticketBoardEnabled ||
         (tool.name !== "board_tickets" && !tool.name.startsWith("ticket_"))) &&
@@ -207,6 +210,7 @@ export function selectBuiltinToolsForRun(options: {
           "message_agent",
           "generate_image",
           "generate_video",
+          "save_web_images",
         ].includes(tool.name)) &&
       (options.voiceCall || tool.name !== "end_call") &&
       (emailMailbox || !EMAIL_INBOX_TOOL_NAMES.has(tool.name)) &&

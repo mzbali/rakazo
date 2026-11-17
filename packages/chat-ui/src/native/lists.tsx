@@ -5,10 +5,12 @@ import type {
   RenderRules,
 } from "@ronradtke/react-native-markdown-display";
 import type { ReactNode } from "react";
+import { Children } from "react";
 import type { TextStyle } from "react-native";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { cellPlainText } from "./ast";
 import { contraryDirection } from "./direction";
+import { isMediaRowNode, isMediaThumb } from "./media-row";
 import { layout, MARKER_COLUMN } from "./styles";
 
 // Advances at the list-number size (15 pt): a tabular digit, and the "." or ")" after it.
@@ -107,6 +109,22 @@ export function listItemRule(
   styleMap: Parameters<RenderRule>[3],
 ): ReactNode {
   const body = StyleSheet.flatten(styleMap.body) as TextStyle | undefined;
+  const flat = Children.toArray(children);
+  const thumbIndex = flat.findIndex(isMediaThumb);
+  // A media row has no bullet. A hairline divides it from the media row above it.
+  if (thumbIndex >= 0) {
+    const list = parent.find(
+      (ancestor) => ancestor.type === "bullet_list" || ancestor.type === "ordered_list",
+    );
+    const previous = list && node.index > 0 ? list.children[node.index - 1] : undefined;
+    const divided = Boolean(previous && isMediaRowNode(previous));
+    return (
+      <View key={node.key} style={[styleMap.media_row, divided ? styleMap.media_divider : null]}>
+        {flat[thumbIndex]}
+        <View style={styleMap.media_copy}>{flat.filter((_, index) => index !== thumbIndex)}</View>
+      </View>
+    );
+  }
   // An item written against the app's direction puts its marker on the far side, read its way.
   const direction = contraryDirection(cellPlainText(node));
   const row = [styleMap._VIEW_SAFE_list_item, direction && layout.reversedRow];

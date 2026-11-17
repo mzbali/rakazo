@@ -1041,4 +1041,75 @@ describe("web markdown embeds", () => {
     expect(missing).not.toContain("visual:missing");
     expect(missing).not.toContain("rk-chat-embed");
   });
+
+  it("lays an image that opens a list item out as a thumbnail row", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) => <figure data-frame={embed.frame}>{embed.label}</figure>}
+      >
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "",
+            "  The evening boat is back.",
+            "",
+            "- ![Market hall](image:market) **Market hall**",
+            "",
+            "  The Saturday market filled the hall.",
+            "",
+            "- A note without an image.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).not.toContain("rk-chat-media-list");
+    expect(html.match(/rk-chat-media-item/g)).toHaveLength(2);
+    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(2);
+    const copy = html.slice(html.indexOf('class="rk-chat-media-copy"'));
+    expect(copy.indexOf("The evening boat is back.")).toBeGreaterThan(0);
+    expect(copy.indexOf("The evening boat is back.")).toBeLessThan(
+      copy.indexOf("rk-chat-media-thumb"),
+    );
+    expect(html).toContain("<strong>Harbor ferry</strong>");
+    expect(html).toContain("A note without an image.");
+
+    const rows = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Photo</figure>}>
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "- ![Wool coat](image:coat) **Wool coat** $128",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(rows).toContain('class="rk-chat-media-list"');
+    expect(rows).toContain("$128");
+    expect(rows.match(/rk-chat-media-item/g)).toHaveLength(2);
+  });
+
+  it("keeps an image alone, a visual, and an image mid-sentence as an ordinary embed", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Photo</figure>}>
+        <ChatMarkdown>
+          {[
+            "![Quarter](image:quarter)",
+            "",
+            "![Flow](visual:message_1) still a chart.",
+            "",
+            "See ![Harbor ferry](image:ferry) today.",
+            "",
+            "![River path](image:path) **River path** The path reopened.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).toContain('class="rk-chat-embed"');
+    expect(html.match(/rk-chat-media-row/g)).toHaveLength(1);
+    expect(html).not.toContain("rk-chat-media-item");
+    const row = html.slice(html.indexOf('class="rk-chat-media-row"'));
+    expect(row).toContain("The path reopened.");
+    expect(html).toContain("still a chart.");
+    expect(html).toContain("See ");
+  });
 });

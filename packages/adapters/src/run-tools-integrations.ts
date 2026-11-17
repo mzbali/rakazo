@@ -1,7 +1,7 @@
 import type { ConnectorApp } from "@rakazo/adapter-kit";
-import { isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
+import { isBackgroundRunTrigger, outboundSiteGate, redactSecrets } from "@rakazo/core";
 import { recordRunSource } from "@rakazo/core/answer-sources";
-import { normalizedHttpUrl } from "@rakazo/core/egress";
+import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
 import {
   executeCloudAgentTool,
@@ -21,8 +21,9 @@ import { publishMessage } from "./run-messages.js";
 import { modelCreditBillingEnabled } from "./run-model.js";
 import { flushProgress, publishMidTurnNarration, showNarrationStatus } from "./run-progress.js";
 import type { ToolCall, ToolHandlers } from "./run-tool-gate.js";
+import { postSavedWebImage, saveWebImages } from "./save-web-images.js";
 import { storeMcpAppHtml } from "./thread-artifacts.js";
-import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
+import { rememberFetchedPageImage, webFetchFromTool, webSearchFromTool } from "./web-tools.js";
 
 export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, context } = ctx;
@@ -224,7 +225,27 @@ export const integrationTools: ToolHandlers = {
         typeof found.title === "string" ? found.title : "",
       );
     }
+    if ("image" in found) rememberFetchedPageImage(ctx.trust.pageImageUrls, found.image);
     return call.finish(found);
+  },
+  async save_web_images(ctx, call) {
+    if (!ctx.deps.artifacts) return call.finish({ error: "Image storage is not configured." });
+    if (isBackgroundRunTrigger(ctx.run.trigger)) {
+      return call.finish({ error: "Images are not saved on a background run." });
+    }
+    const rules = await ctx.trust.loadApprovalRules();
+    const trusted = ctx.trust.pageImageUrls;
+    return call.finish(
+      await saveWebImages(call.args, {
+        trustedUrls: trusted,
+        siteAllowed: (url) => {
+          const site = urlSite(url);
+          if (!site) return false;
+          return outboundSiteGate({ site, trusted: trusted.has(url), rules }) === "allow";
+        },
+        save: (image) => postSavedWebImage(ctx, call, image),
+      }),
+    );
   },
   async service_search(ctx, call) {
     const provider = ctx.providers.paidServices;

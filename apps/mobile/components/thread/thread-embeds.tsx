@@ -45,6 +45,7 @@ export function ThreadEmbeds({
             artifactId={block.artifactId}
             name={block.name}
             mimeType={block.mimeType}
+            thumbnail={embed.frame === "thumbnail"}
             labelColor={tokens.foreground}
             onOpen={() =>
               onPreviewImage({

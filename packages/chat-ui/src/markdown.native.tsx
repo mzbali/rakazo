@@ -163,6 +163,7 @@ export {
 export { allowedAppLink } from "./markdown.js";
 export { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";
+export { MEDIA_ROW_NATIVE_PT } from "./media-row";
 export { PageIcon } from "./native/chips";
 export type { MermaidDiagramProps } from "./native/code";
 export { CodeCopyButtonContext, MermaidDiagramContext } from "./native/code";

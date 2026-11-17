@@ -1086,6 +1086,19 @@ describe("web markdown embeds", () => {
     expect(rows).toContain('class="rk-chat-media-list"');
     expect(rows).toContain("$128");
     expect(rows.match(/rk-chat-media-item/g)).toHaveLength(2);
+    // The tight list's image becomes the thumbnail only, not a second copy in the text.
+    expect(rows.match(/<figure>/g)).toHaveLength(2);
+  });
+
+  it("keeps an ordered list's start and a task list's classes", () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown>
+        {["5. Continue here", "6. Then this", "", "- [ ] Pack"].join("\n")}
+      </ChatMarkdown>,
+    );
+    expect(html).toContain('<ol start="5">');
+    expect(html).toContain('class="contains-task-list"');
+    expect(html).toContain('class="task-list-item"');
   });
 
   it("keeps an image alone, a visual, and an image mid-sentence as an ordinary embed", () => {

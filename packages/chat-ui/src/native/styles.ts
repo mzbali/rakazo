@@ -222,9 +222,11 @@ export function markdownStyles(palette: ColorTokens) {
       fontWeight: fontWeight.medium,
       flexShrink: 1,
     },
+    // The inline view's bottom sits on the baseline, which would lift the mark by the font's descent.
     cite_punct: {
       ...typeScale.body,
       color: palette.foreground,
+      transform: [{ translateY: Math.round(BODY_FONT_SIZE * 0.25) }],
     },
     sources_row: {
       color: palette.mutedForeground,

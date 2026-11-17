@@ -155,7 +155,6 @@ export default function PeerChat() {
                 style={[
                   styles.message,
                   item.blocks?.some((block) => block.kind === "page") && { width: "85%" },
-                  hasInlineImages && { width: "85%" },
                   sent ? styles.sent : styles.received,
                   hasInlineImages ? { gap: 8 } : bubbleStyle,
                 ]}

@@ -371,7 +371,13 @@ export async function seedIosScreenshotFixture(input: {
       spaceId: me.spaceId,
       userId: me.userId,
     });
-    await ensureAnswerSources(db.prisma, group.threadId, writer.id);
+    await ensureAnswerSources(input.apiUrl, populated.headers, db.prisma, {
+      threadId: group.threadId,
+      botId: writer.id,
+      groupId: group.id,
+      spaceId: me.spaceId,
+      userId: me.userId,
+    });
     await ensureMediaRows(input.apiUrl, populated.headers, db.prisma, {
       threadId: group.threadId,
       botId: writer.id,
@@ -1425,33 +1431,96 @@ async function ensureInlineEmbeds(
   });
 }
 
-const ANSWER_SOURCES_MARKER = "24 hours and 37 minutes";
+const ANSWER_SOURCES_MARKER = "The sample return was cut back";
 const ANSWER_SOURCES_DAY = "https://science.nasa.gov/mars/facts/";
 const ANSWER_SOURCES_YEAR = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+const ANSWER_SOURCES_RETURN = "https://www.space.com/mars-sample-return-plan";
 
-/** The same research answer as the web gallery: two citation pills and a sources row. */
+/**
+ * The same research answer as the web gallery, in a live answer's shapes: a "Site, date" run joined
+ * by "·", a dated source in parentheses, and a saved web image that keeps its page.
+ */
 async function ensureAnswerSources(
+  apiUrl: string,
+  headers: Record<string, string>,
   prisma: ReturnType<typeof createDb>["prisma"],
-  threadId: string,
-  botId: string,
+  input: { threadId: string; botId: string; groupId: string; spaceId: string; userId: string },
 ) {
-  const messages = await prisma.message.findMany({ where: { threadId }, select: { blocks: true } });
+  const messages = await prisma.message.findMany({
+    where: { threadId: input.threadId },
+    select: { blocks: true },
+  });
   if (messages.some((message) => JSON.stringify(message.blocks).includes(ANSWER_SOURCES_MARKER)))
     return;
+  const image = await rpc<ArtifactRow>(apiUrl, headers, "artifacts/create", {
+    groupId: input.groupId,
+    name: "Jezero crater",
+    mimeType: "image/png",
+    contentBase64: chartPng().toString("base64"),
+    clientNonce: "ios-screenshot-answer-sources",
+  });
+  const task = await prisma.task.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      prompt: "How long is a day on Mars?",
+      status: "completed",
+    },
+  });
+  const run = await prisma.run.create({
+    data: {
+      spaceId: input.spaceId,
+      userId: input.userId,
+      botId: input.botId,
+      threadId: input.threadId,
+      taskId: task.id,
+      status: "completed",
+      trigger: "user",
+      modelProvider: "scripted",
+      modelId: "scripted",
+      startedAt: new Date(Date.now() - 2_000),
+      completedAt: new Date(),
+    },
+  });
   await createThreadMessage(prisma, {
-    threadId,
+    threadId: input.threadId,
     role: "bot",
-    botId,
+    botId: input.botId,
+    runId: run.id,
+    blocks: [
+      {
+        kind: "image",
+        artifactId: image.id,
+        mimeType: "image/png",
+        name: "Jezero crater",
+        source: { url: ANSWER_SOURCES_DAY, site: "nasa" },
+      },
+    ],
+  });
+  await createThreadMessage(prisma, {
+    threadId: input.threadId,
+    role: "bot",
+    botId: input.botId,
+    runId: run.id,
     blocks: [
       {
         kind: "text",
-        text: `A day on Mars lasts about ${ANSWER_SOURCES_MARKER} [NASA](${ANSWER_SOURCES_DAY}). A year there is 687 Earth days [nasa.gov](${ANSWER_SOURCES_DAY}) [ESA](${ANSWER_SOURCES_YEAR}).`,
+        text: [
+          `A day on Mars lasts about 24 hours and 37 minutes [NASA](${ANSWER_SOURCES_DAY}). A year there is 687 Earth days. [NASA, 16 November](${ANSWER_SOURCES_DAY}) · [ESA](${ANSWER_SOURCES_YEAR})`,
+          "",
+          embedLine("image", "Jezero crater", image.id),
+          "",
+          `${ANSWER_SOURCES_MARKER} ([Space.com, 11 November 2026](${ANSWER_SOURCES_RETURN})).`,
+        ].join("\n"),
       },
       {
         kind: "sources",
         items: [
           { url: ANSWER_SOURCES_DAY, title: "Mars Facts", site: "nasa" },
           { url: ANSWER_SOURCES_YEAR, title: "Mars Express", site: "esa" },
+          { url: ANSWER_SOURCES_RETURN, title: "Mars sample return plan", site: "space" },
         ],
       },
     ],

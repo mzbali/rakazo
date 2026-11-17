@@ -511,6 +511,7 @@ export function ArtifactImage({
   artifactId,
   name,
   thumbnail = false,
+  fill = false,
   source,
 }: {
   target: ArtifactTarget;
@@ -518,6 +519,8 @@ export function ArtifactImage({
   name: string;
   /** A media row: a fixed square, cropped, that still opens the same viewer. */
   thumbnail?: boolean;
+  /** An image in an answer: as wide as the text. A photo someone sent keeps its small size. */
+  fill?: boolean;
   /** The page a saved web image came from. An upload has none, and shows no label. */
   source?: Extract<MessageBlock, { kind: "image" }>["source"];
 }) {
@@ -548,7 +551,7 @@ export function ArtifactImage({
   }, []);
 
   return (
-    <div ref={container} className={thumbnail ? "size-full" : "w-full"}>
+    <div ref={container} className={thumbnail ? "size-full" : fill ? "w-full" : undefined}>
       {src ? (
         <button
           type="button"
@@ -556,16 +559,16 @@ export function ArtifactImage({
           className={
             thumbnail
               ? "size-full overflow-hidden bg-muted"
-              : "block w-full overflow-hidden rounded-2xl"
+              : fill
+                ? "block w-full overflow-hidden rounded-2xl"
+                : "max-w-[240px] overflow-hidden rounded-2xl"
           }
         >
           <img
             src={src}
             alt={name}
             className={
-              thumbnail
-                ? "size-full object-cover"
-                : "h-auto max-h-96 w-full rounded-2xl object-contain"
+              thumbnail ? "size-full object-cover" : "block h-auto max-h-96 w-full object-cover"
             }
           />
         </button>

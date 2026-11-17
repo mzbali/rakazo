@@ -48,4 +48,20 @@ describe("cloudAgentBlock", () => {
   it("leaves an unknown checks result off the card", () => {
     expect(cloudAgentBlock({ ...finished, checksState: null }).checks).toBeUndefined();
   });
+
+  it("says when a running job resumes, and drops the progress line while it waits", () => {
+    const reset = new Date("2026-11-17T15:00:00.000Z");
+    const paused = cloudAgentBlock({
+      ...finished,
+      status: "running",
+      progressText: "Reading the router",
+      quotaResetsAt: reset,
+    } as unknown as CloudAgent);
+    expect(paused).toMatchObject({ status: "running", quotaResetsAt: reset.toISOString() });
+    expect(paused.progress).toBeUndefined();
+    expect(
+      cloudAgentBlock({ ...finished, status: "running", quotaResetsAt: null } as never)
+        .quotaResetsAt,
+    ).toBeUndefined();
+  });
 });

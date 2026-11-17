@@ -37,6 +37,8 @@ export interface Thread {
   /** The model and instance the thread runs on. */
   model: string;
   providerInstanceId: string;
+  /** Set when the latest run stopped on a usage limit. Absent means the server did not report one. */
+  usageLimit?: { resetAt: string; autoResume: boolean } | null;
   /** What `t3_thread_read` lists as the timeline, oldest first. */
   timeline: Array<{ type: string; runId: string; text: string }>;
 }

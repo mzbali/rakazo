@@ -1564,6 +1564,16 @@ export interface CloudAgentSnapshot {
   result?: string;
   /** While running: the agent's latest message, bounded. Untrusted job output. Absent when unchanged. */
   progress?: string;
+  /**
+   * Stopped on the provider's usage limit. The work continues after this ISO time.
+   * Absent when the provider did not report a limit.
+   */
+  quotaResetsAt?: string;
+  /**
+   * Whether the provider sends the continuation itself at `quotaResetsAt`.
+   * Present only together with that time. False means the caller sends it once the reset has passed.
+   */
+  quotaAutoResume?: boolean;
 }
 
 export interface CloudAgentWork {

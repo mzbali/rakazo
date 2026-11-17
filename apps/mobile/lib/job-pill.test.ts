@@ -38,6 +38,19 @@ it("shows nothing once every job is over, and ignores other chats", () => {
   expect(jobPill(null, { botId: "bot" })).toBeNull();
 });
 
+it("counts a paused job as working, and a question on another job still wins", () => {
+  const paused = job("paused", { quotaResetsAt: "2026-11-17T15:00:00.000Z" });
+  expect(jobPill([paused], { botId: "bot" })).toMatchObject({
+    kind: "working",
+    count: 1,
+    job: { agentId: "paused" },
+  });
+  expect(jobPill([paused, job("ask", { needsInput: true })], { botId: "bot" })).toMatchObject({
+    kind: "needsYou",
+    job: { agentId: "ask" },
+  });
+});
+
 it("counts a finished job still being checked as working", () => {
   const pill = jobPill([job("review", { status: "finished", review: "checking" })], {
     botId: "bot",

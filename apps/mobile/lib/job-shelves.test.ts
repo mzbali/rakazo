@@ -60,6 +60,12 @@ it("counts a finished job with an owner question on Needs you, and will not clea
   expect(jobIsClearable(job("over", { status: "cancelled" }))).toBe(true);
 });
 
+it("keeps a usage-limit pause on Working, not Needs you, and will not clear it", () => {
+  const paused = job("paused", { quotaResetsAt: "2026-11-17T16:30:00.000Z" });
+  expect(jobListItems([paused], NOW).map(label)).toEqual(["working", "paused"]);
+  expect(jobIsClearable(paused)).toBe(false);
+});
+
 it("keeps a finished job under review on Working, not clearable, until the review ends", () => {
   const checking = job("review", {
     status: "finished",

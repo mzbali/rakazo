@@ -8,6 +8,7 @@ import {
   cloudAgentPullRequestNumber,
   cloudAgentPullRequestParts,
   cloudAgentTicking,
+  formatCloudAgentResumeAt,
 } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { memo } from "react";
@@ -55,7 +56,11 @@ export const JobRow = memo(function JobRow({
   const tone = cloudAgentJobTone(job);
   const started = job.startedAt ? Date.parse(job.startedAt) : undefined;
   const now = useNow(cloudAgentTicking(job), started);
-  const time = cloudAgentElapsed(job, now);
+  const resumeAt =
+    phase === "resumes" && job.quotaResetsAt
+      ? formatCloudAgentResumeAt(job.quotaResetsAt, now)
+      : undefined;
+  const time = resumeAt ?? cloudAgentElapsed(job, now);
   const muted = { color: tokens.mutedForeground, ...typeScale.footnote };
   const prNumber = cloudAgentPullRequestNumber(job.prUrl);
   const prWords = {

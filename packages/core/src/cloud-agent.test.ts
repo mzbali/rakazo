@@ -12,6 +12,7 @@ import {
   cloudAgentState,
   cloudAgentTicking,
   cloudAgentWorkParts,
+  formatCloudAgentResumeAt,
 } from "./cloud-agent.js";
 import { projectMessages } from "./events.js";
 
@@ -80,6 +81,19 @@ describe("cloud agent state", () => {
     expect(cloudAgentState({ ...running, queued: true })).toBe("queued");
     expect(cloudAgentState(running)).toBe("running");
     expect(cloudAgentState({ status: "expired", needsInput: true })).toBe("expired");
+    const reset = "2026-11-17T15:00:00.000Z";
+    expect(cloudAgentState({ ...running, quotaResetsAt: reset })).toBe("paused");
+    expect(cloudAgentState({ ...running, quotaResetsAt: reset, needsInput: true })).toBe(
+      "needsInput",
+    );
+    expect(cloudAgentState({ ...running, quotaResetsAt: reset, ownerQuestion: "Which?" })).toBe(
+      "needsInput",
+    );
+    expect(cloudAgentState({ status: "failed", quotaResetsAt: reset })).toBe("failed");
+    expect(cloudAgentState({ status: "failed", launchFailed: true, quotaResetsAt: reset })).toBe(
+      "failed",
+    );
+    expect(cloudAgentState({ ...running, quotaResetsAt: "not-a-time" })).toBe("running");
   });
   it("colours attention, success and failure apart from everything else", () => {
     const running = { status: "running" as const, url: "https://x.test" };
@@ -107,6 +121,7 @@ describe("cloud agent state", () => {
 describe("cloud agent job summary", () => {
   it("shelves what waits on the owner first and everything over as done", () => {
     expect(cloudAgentShelf("needsInput")).toBe("needsYou");
+    expect(cloudAgentShelf("paused")).toBe("working");
     expect(
       (["running", "queued", "unreachable"] as const).map((state) => cloudAgentShelf(state)),
     ).toEqual(["working", "working", "working"]);
@@ -180,6 +195,11 @@ describe("cloud agent phase", () => {
     expect(cloudAgentPhase({ status: "failed" })).toBe("stopped");
     expect(cloudAgentPhase({ status: "cancelled" })).toBe("stopped");
     expect(cloudAgentPhase({ status: "expired" })).toBe("expired");
+    const paused = { ...running, quotaResetsAt: "2026-11-17T15:00:00.000Z" };
+    expect(cloudAgentPhase(paused)).toBe("resumes");
+    expect(cloudAgentJobTone(paused)).toBe("muted");
+    expect(cloudAgentPhase({ ...paused, needsInput: true })).toBe("needsYou");
+    expect(cloudAgentPhase({ ...paused, ownerQuestion: "Which branch?" })).toBe("needsYou");
   });
 });
 
@@ -199,6 +219,31 @@ describe("cloud agent clock", () => {
     expect(cloudAgentElapsed(done, at(9999))).toBe("45s");
     expect(cloudAgentElapsed({ status: "finished", startedAt: started }, at(9999))).toBeUndefined();
     expect(cloudAgentTicking({ status: "running" })).toBe(false);
+    const reset = "2026-11-17T15:00:00.000Z";
+    expect(cloudAgentTicking({ ...running, quotaResetsAt: reset })).toBe(false);
+    const now = Date.parse("2026-11-17T12:00:00.000Z");
+    const shown = (value: string | undefined) => value?.replace(/[\u202f\u00a0]/g, " ");
+    expect(shown(formatCloudAgentResumeAt(reset, now, { locale: "en-US", timeZone: "UTC" }))).toBe(
+      "3:00 PM",
+    );
+    expect(
+      shown(
+        formatCloudAgentResumeAt("2026-11-20T15:00:00.000Z", now, {
+          locale: "en-US",
+          timeZone: "UTC",
+        }),
+      ),
+    ).toBe("Nov 20, 3:00 PM");
+    expect(formatCloudAgentResumeAt("not-a-time", now)).toBeUndefined();
+    expect(cloudAgentBlockFromPayload({ agentId: "a", quotaResetsAt: reset }).quotaResetsAt).toBe(
+      reset,
+    );
+    expect(
+      cloudAgentBlockFromPayload({ agentId: "a", quotaResetsAt: new Date(reset) }).quotaResetsAt,
+    ).toBe(reset);
+    expect(cloudAgentBlockFromPayload({ agentId: "a", quotaResetsAt: "nope" })).not.toHaveProperty(
+      "quotaResetsAt",
+    );
   });
   it("reads the pull request number from its link", () => {
     expect(cloudAgentPullRequestNumber("https://github.com/acme/app/pull/12")).toBe(12);

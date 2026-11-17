@@ -11,6 +11,7 @@ import {
   cloudAgentPullRequestParts,
   cloudAgentTicking,
   cloudAgentWorkParts,
+  formatCloudAgentResumeAt,
 } from "@rakazo/core";
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
 import { buttonVariants } from "@rakazo/ui-web/components/ui/button";
@@ -45,6 +46,8 @@ function PhaseLabel({ phase }: { phase: CloudAgentPhase }) {
       return <Trans>Done</Trans>;
     case "needsYou":
       return <Trans>Needs you</Trans>;
+    case "resumes":
+      return <Trans>Resumes</Trans>;
     case "couldntStart":
       return <Trans>Couldn't start</Trans>;
     case "stopped":
@@ -97,7 +100,12 @@ export function CloudAgentCard({
     : "";
   const phase = cloudAgentPhase(block);
   const tone = cloudAgentJobTone(block);
-  const elapsed = cloudAgentElapsed(block, useNow(cloudAgentTicking(block), block.startedAt));
+  const now = useNow(cloudAgentTicking(block), block.startedAt);
+  const resumeAt =
+    phase === "resumes" && block.quotaResetsAt
+      ? formatCloudAgentResumeAt(block.quotaResetsAt, now)
+      : undefined;
+  const elapsed = resumeAt ? undefined : cloudAgentElapsed(block, now);
   const prHref = cloudAgentHttpsUrl(block.prUrl);
   const prNumber = cloudAgentPullRequestNumber(block.prUrl);
   const ownerQuestion = block.ownerQuestion;
@@ -125,7 +133,9 @@ export function CloudAgentCard({
             }
           >
             <PhaseLabel phase={phase} />
-            {elapsed ? <span className="tabular-nums">{elapsed}</span> : null}
+            {resumeAt || elapsed ? (
+              <span className="tabular-nums">{resumeAt ?? elapsed}</span>
+            ) : null}
           </Badge>
         </div>
         {block.unreachableSince && live ? (

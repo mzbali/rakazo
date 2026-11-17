@@ -8927,6 +8927,11 @@ msgstr "आपका वर्कस्पेस बहाल हो रहा �
 msgid "Resume notifications"
 msgstr "सूचनाएँ फिर शुरू करें"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Resumes when it's back · since {since}"
 msgstr ""

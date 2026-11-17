@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+
+import { formatCloudAgentResumeAt } from "@rakazo/core";
 import { act } from "react";
 import type { Root } from "react-dom/client";
 import { createRoot } from "react-dom/client";
@@ -94,6 +96,20 @@ describe("job row", () => {
     );
   });
 
+  it("shows when a paused job resumes and holds that time still", () => {
+    const reset = "2026-11-13T18:00:00.000Z";
+    render({ quotaResetsAt: reset, progress: "Reading the router" });
+    const when = formatCloudAgentResumeAt(reset, Date.now());
+    expect(container.textContent).toContain("Resumes");
+    expect(container.textContent).toContain(when);
+    expect(container.textContent).not.toContain("5s");
+    expect(container.textContent).not.toContain("Reading the router");
+    expect(container.textContent).not.toContain("Needs you");
+    act(() => vi.advanceTimersByTime(120_000));
+    expect(container.textContent).toContain(when);
+    expect(container.textContent).not.toContain("2m");
+  });
+
   it("shows the needs-you state once and the question without a prefix", () => {
     render({ ownerQuestion: "Which branch should ship?" });
     expect(container.textContent).toContain("Which branch should ship?");
@@ -118,6 +134,7 @@ describe("job row", () => {
       ["Checking", { review: "checking" }],
       ["Done", { status: "finished" }],
       ["Needs you", { needsInput: true }],
+      ["Resumes", { quotaResetsAt: "2026-11-13T18:00:00.000Z" }],
       ["Couldn't start", { status: "failed", launchFailed: true }],
       ["Stopped", { status: "cancelled" }],
       ["Expired", { status: "expired" }],

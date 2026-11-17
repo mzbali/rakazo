@@ -8927,6 +8927,11 @@ msgstr "משחזר את סביבת העבודה"
 msgid "Resume notifications"
 msgstr "חידוש ההתראות"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
 #: apps/web/src/components/CloudAgentCard.tsx
 msgid "Resumes when it's back · since {since}"
 msgstr ""

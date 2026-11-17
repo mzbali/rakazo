@@ -385,6 +385,83 @@ describe("T3 cloud agent provider (offline conformance)", () => {
     });
   });
 
+  it("keeps a usage-limited thread running until the reset, and a thread without one failed", async () => {
+    const reset = "2026-11-17T15:00:00.000Z";
+    const limited = server({
+      t3_thread_events: () =>
+        state({
+          idle: true,
+          latestRun: { runId: "run:2", status: "failed" },
+          limit: { resetAt: reset, autoResume: true },
+        }),
+    });
+    expect(await limited.provider.get("thread:1", context, undefined, 1)).toMatchObject({
+      status: "running",
+      latestRunId: "run:2",
+      quotaResetsAt: reset,
+      quotaAutoResume: true,
+    });
+
+    const manual = server({
+      t3_thread_events: () =>
+        state({
+          idle: true,
+          latestRun: { runId: "run:2", status: "failed" },
+          limit: { resetAt: "2026-11-20T15:00:00+00:00", autoResume: false },
+        }),
+    });
+    expect(await manual.provider.get("thread:1", context, undefined, 1)).toMatchObject({
+      status: "running",
+      quotaResetsAt: "2026-11-20T15:00:00.000Z",
+      quotaAutoResume: false,
+    });
+
+    for (const limit of [undefined, null, { resetAt: "not-a-time", autoResume: true }] as const) {
+      const older = server({
+        t3_thread_events: () =>
+          state({
+            idle: true,
+            latestRun: { runId: "run:2", status: "failed" },
+            ...(limit === undefined ? {} : { limit }),
+          }),
+      });
+      const snapshot = await older.provider.get("thread:1", context, undefined, 1);
+      expect(snapshot.status).toBe("failed");
+      expect(snapshot).not.toHaveProperty("quotaResetsAt");
+      expect(snapshot).not.toHaveProperty("quotaAutoResume");
+    }
+
+    const asking = server({
+      t3_thread_events: () =>
+        state({
+          idle: true,
+          latestRun: { runId: "run:2", status: "failed" },
+          pendingRequests: [{ threadId: "thread:1", requestId: "q1", kind: "approval" }],
+          limit: { resetAt: reset, autoResume: true },
+        }),
+    });
+    expect(await asking.provider.get("thread:1", context, undefined, 1)).toMatchObject({
+      status: "running",
+      quotaResetsAt: reset,
+      attention: [{ requestId: "q1", kind: "approval" }],
+    });
+  });
+
+  it("cancels a usage-limited thread instead of leaving it paused", async () => {
+    const paused = server({
+      t3_thread_interrupt: () => ({}),
+      t3_thread_events: () =>
+        state({
+          idle: true,
+          latestRun: { runId: "run:1", status: "failed" },
+          limit: { resetAt: "2026-11-17T15:00:00.000Z", autoResume: true },
+        }),
+    });
+    const snapshot = await paused.provider.cancel("thread:1", context);
+    expect(snapshot).toMatchObject({ status: "cancelled" });
+    expect(snapshot).not.toHaveProperty("quotaResetsAt");
+  });
+
   it("answers a subagent's question in its own thread, and accepts one already answered", async () => {
     const t3 = server({
       t3_pending_request: (args) =>

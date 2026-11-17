@@ -45,6 +45,8 @@ export function useJobPhaseLabel() {
         return t`Done`;
       case "needsYou":
         return t`Needs you`;
+      case "resumes":
+        return t`Resumes`;
       case "couldntStart":
         return t`Couldn't start`;
       case "stopped":

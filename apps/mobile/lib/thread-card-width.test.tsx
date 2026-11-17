@@ -252,7 +252,7 @@ describe("thread cards", () => {
   }
 
   it.each(["user", "bot"] as const)(
-    "keeps %s image attachments outside the caption and file bubbles",
+    "keeps %s images outside the caption, and drops the bubble only for a bot",
     (role) => {
       const onPreviewImage = vi.fn();
       renderBlocks(
@@ -282,16 +282,28 @@ describe("thread cards", () => {
           expect(style).not.toHaveProperty("paddingVertical");
         }
       }
-      expect(styleOf(outer.firstElementChild)).toMatchObject({
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-      });
-      expect(styleOf(outer.lastElementChild)).toMatchObject({
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-      });
+      const caption = styleOf(outer.firstElementChild);
+      const file = styleOf(outer.lastElementChild);
+      if (role === "bot") {
+        expect(caption).toMatchObject({ width: "100%", maxWidth: "100%", gap: 8 });
+        expect(caption).not.toHaveProperty("borderRadius");
+        expect(caption).not.toHaveProperty("backgroundColor");
+        expect(caption).not.toHaveProperty("paddingHorizontal");
+        expect(file).toMatchObject({ width: "100%", maxWidth: "100%", gap: 8 });
+        expect(file).not.toHaveProperty("borderRadius");
+        expect(file).not.toHaveProperty("backgroundColor");
+      } else {
+        expect(caption).toMatchObject({
+          borderRadius: 20,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        });
+        expect(file).toMatchObject({
+          borderRadius: 20,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+        });
+      }
       act(() =>
         container.querySelector<HTMLButtonElement>('button[aria-label="screenshot.png"]')!.click(),
       );
@@ -328,11 +340,11 @@ describe("thread cards", () => {
     expect(styleOf(container.firstElementChild)).toMatchObject({ gap: 8, width: "100%" });
   });
 
-  it.each([helper(), cloud])("preserves a lone $kind card's width and padding", (block) => {
+  it.each([helper(), cloud])("gives a lone $kind card the prose column", (block) => {
     renderBlocks([block]);
     expect(container.children).toHaveLength(1);
     expect(styleOf(container.firstElementChild)).toMatchObject({
-      width: block.kind === "cloud_agent" ? 353 : "90%",
+      width: "100%",
       borderRadius: block.kind === "cloud_agent" ? 14 : 18,
     });
     if (block.kind === "subagent") {

@@ -61,7 +61,7 @@ export function ChoiceCard({
 
   return (
     <div className="flex justify-start">
-      <BuiCard className="relative w-[420px] max-w-full px-[18px] py-[14px]">
+      <BuiCard className="relative w-full px-[18px] py-[14px]">
         {!block.answerId ? (
           <Button
             variant="ghost"
@@ -197,11 +197,7 @@ export function AppConnectCard({
     }
   }
   return (
-    <BuiCard
-      role="group"
-      aria-label={t`${block.name} connection`}
-      className="w-full max-w-[440px] px-4 py-3.5"
-    >
+    <BuiCard role="group" aria-label={t`${block.name} connection`} className="w-full px-4 py-3.5">
       <div className="flex items-center gap-3.5">
         {block.logo ? (
           <img
@@ -471,7 +467,7 @@ export function ChartBlockView({
   const expandedViewport = chartViewport(viewport.width, viewport.height);
   return (
     <>
-      <div className="group relative w-[552px] max-w-full rounded-2xl bg-muted p-4">
+      <div className="group relative w-full rounded-2xl bg-muted p-4">
         <ChartCanvas spec={spec} data={data} width={520} />
         <Button
           variant="outline"

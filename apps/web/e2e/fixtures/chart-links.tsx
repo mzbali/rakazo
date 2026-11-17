@@ -16,7 +16,7 @@ createRoot(document.getElementById("root")!).render(
         <div className="relative flex justify-start">
           <div
             data-testid="message-bubble-frame"
-            className={`relative w-fit min-w-0 ${bubbleFrameWidth("bot")}`}
+            className={`relative min-w-0 ${bubbleFrameWidth("bot")}`}
           >
             <div className="relative flex flex-col gap-2">
               <div className="flex justify-start">

@@ -20,7 +20,6 @@ import type { HastNode } from "./table-utils";
 import "./markdown.web.css";
 import "./markdown-table.css";
 import { droppedTableHtmlText } from "@rakazo/contracts";
-import type { CitationGroup, SourceItem } from "@rakazo/core/answer-sources";
 import {
   citationGroupIndex,
   preparedCitationMarkdown,
@@ -37,12 +36,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   CopyTextFallback,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   useCopyText,
 } from "@rakazo/ui-web";
-import { CheckIcon, CopyIcon, GlobeIcon, ImageIcon } from "./icons";
+import { CheckIcon, CopyIcon, ImageIcon } from "./icons";
 import type { ChatMarkdownProps } from "./markdown";
 import {
   CitationGroupsContext,
@@ -65,8 +61,8 @@ import {
   remoteImageRenders,
   remoteMarkdownImage,
   sanitizeMarkdownUrl,
-  useLinkFavicon,
 } from "./markdown";
+import { CitationPill, LinkFavicon, SourcesRow } from "./markdown-citations.web";
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy, useMarkdownLinkTrust } from "./markdown-link-prompt";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
@@ -546,32 +542,6 @@ function hastHasImage(node: MarkdownHast | undefined): boolean {
   return (node?.children ?? []).some((child) => child.tagName === "img" || hastHasImage(child));
 }
 
-function LinkFavicon({ href }: { href: string }) {
-  const { icon, unusable } = useLinkFavicon(href);
-  return (
-    <span
-      aria-hidden="true"
-      className={icon ? "rk-chat-link-tile rk-chat-link-tile-icon" : "rk-chat-link-tile"}
-    >
-      {icon ? (
-        <img
-          src={icon}
-          alt=""
-          draggable={false}
-          onLoad={(event) => {
-            // A 1×1 image is a tracking pixel, not an icon.
-            const image = event.currentTarget;
-            if (image.naturalWidth <= 1 || image.naturalHeight <= 1) unusable();
-          }}
-          onError={unusable}
-        />
-      ) : (
-        <GlobeIcon />
-      )}
-    </span>
-  );
-}
-
 /** A link to a website, drawn with its site icon before the label. */
 function WebsiteLink({
   href,
@@ -589,71 +559,6 @@ function WebsiteLink({
       {/* bdi: direction characters in a label cannot reorder the text around the link. */}
       <bdi className="rk-chat-link-label">{children}</bdi>
     </ConfirmableAnchor>
-  );
-}
-
-function SourceList({
-  items,
-  onOpen,
-}: {
-  items: readonly SourceItem[];
-  onOpen: (url: string) => void;
-}) {
-  return (
-    <ul className="rk-chat-cite-list">
-      {items.map((item) => (
-        <li key={item.url}>
-          <button type="button" className="rk-chat-cite-source" onClick={() => onOpen(item.url)}>
-            <LinkFavicon href={item.url} />
-            <span className="rk-chat-cite-source-text">
-              <span className="rk-chat-cite-source-title">{item.title}</span>
-              {item.title.toLowerCase() === item.site.toLowerCase() ? null : (
-                <span className="rk-chat-cite-source-site">{item.site}</span>
-              )}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function CitationPill({ group, onOpen }: { group: CitationGroup; onOpen: (url: string) => void }) {
-  const first = group.items[0];
-  if (!first) return null;
-  const extra = group.items.length - 1;
-  const label = extra > 0 ? `${first.site} +${extra}` : first.site;
-  return (
-    <Popover>
-      <PopoverTrigger className="rk-chat-cite" aria-label={label}>
-        <LinkFavicon href={first.url} />
-        <span className="rk-chat-cite-label">{label}</span>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto max-w-80 gap-0 p-1">
-        <SourceList items={group.items} onOpen={onOpen} />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function SourcesRow({
-  items,
-  onOpen,
-}: {
-  items: readonly SourceItem[];
-  onOpen: (url: string) => void;
-}) {
-  const copy = useMarkdownCopy();
-  const label = copy.sourcesCount(items.length);
-  return (
-    <Popover>
-      <PopoverTrigger className="rk-chat-sources" aria-label={label}>
-        {label}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto max-w-80 gap-0 p-1">
-        <SourceList items={items} onOpen={onOpen} />
-      </PopoverContent>
-    </Popover>
   );
 }
 

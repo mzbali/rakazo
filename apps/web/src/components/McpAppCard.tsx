@@ -161,7 +161,7 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
   if (html.isError || failed) return null;
   const bordered = block.prefersBorder !== false;
   return (
-    <div ref={box} className="w-[552px] max-w-full" data-testid="mcp-app">
+    <div ref={box} className="w-full" data-testid="mcp-app">
       <div className="mb-1.5 px-1 text-label text-muted-foreground" dir="auto">
         {block.server}
       </div>

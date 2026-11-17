@@ -116,7 +116,7 @@ export function PageCard({
     <div
       data-testid="page-card"
       data-deleted={onOpen === undefined || undefined}
-      className="relative w-full max-w-[561px] overflow-hidden pointer-coarse:min-[900px]:max-w-[639px] rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring data-deleted:bg-transparent data-deleted:opacity-70"
+      className="relative w-full overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring data-deleted:bg-transparent data-deleted:opacity-70"
     >
       {onOpen ? <PagePreview document={document} title={title} failed={failed} /> : null}
       <div className="flex h-[73px] items-center gap-[14px] border-t border-foreground/[0.04] px-5">

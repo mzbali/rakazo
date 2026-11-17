@@ -15,6 +15,12 @@ test("user bubbles stay close to the avatar color with white text in both themes
   await page.getByRole("button", { name: "Send", exact: true }).click();
   const bubble = page.getByTestId("message-user-bubble").filter({ hasText: message });
   await expect(bubble).toBeVisible();
+  await page.getByRole("button", { name: /Day-to-day work/ }).click();
+  const botBubble = page
+    .getByTestId("message-bot-bubble")
+    .filter({ hasText: /Got it\./ })
+    .first();
+  await expect(botBubble).toBeVisible({ timeout: 20_000 });
 
   for (const theme of ["dark", "light"]) {
     await page.evaluate((theme) => localStorage.setItem("rakazo.uiAppearance", theme), theme);
@@ -22,6 +28,14 @@ test("user bubbles stay close to the avatar color with white text in both themes
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await expect(bubble).toHaveCSS("color", "rgb(255, 255, 255)");
     await expect(bubble).toHaveCSS("background-color", "rgb(241, 107, 0)");
+    await expect(botBubble).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(botBubble).toHaveCSS("border-radius", "0px");
+    await expect(botBubble).toHaveCSS("padding-left", "0px");
+    const botFrame = page
+      .locator("[data-message-id]")
+      .filter({ has: botBubble })
+      .getByTestId("message-bubble-frame");
+    await expect(botFrame).toHaveClass(/max-w-3xl/);
     // The send button stays quiet on an empty draft...
     const send = page.getByRole("button", { name: "Send", exact: true });
     await expect(send).toBeDisabled();

@@ -27,6 +27,16 @@ async function revealHoverRail(row: Locator): Promise<Locator> {
   return rail;
 }
 
+/** A bot answer is prose: no fill, radius, or padding. */
+async function expectBotProse(bubble: Locator) {
+  await expect(bubble).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(bubble).toHaveCSS("border-radius", "0px");
+  await expect(bubble).toHaveCSS("padding-left", "0px");
+  await expect(bubble).toHaveCSS("padding-right", "0px");
+  await expect(bubble).toHaveCSS("padding-top", "0px");
+  await expect(bubble).toHaveCSS("padding-bottom", "0px");
+}
+
 /** Touch drops the side gutter, so the bubble cap stays wider than the row minus 8rem. */
 async function expectNoTouchSideGutter(frame: Locator) {
   const widths = await frame.evaluate((element) => {
@@ -162,6 +172,8 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
   await expect(botToolbar.getByRole("button", { name: "More" })).toBeVisible();
   // Measure a unique visible bubble, so an oversized wrapper cannot hide a gap.
   const botBubble = botRow.getByTestId("message-bot-bubble").first();
+  await expectBotProse(botBubble);
+  await expect(botRow.getByTestId("message-bubble-frame")).toHaveClass(/max-w-3xl/);
   await expect
     .poll(async () => {
       const railBox = await botRail.boundingBox();
@@ -205,6 +217,7 @@ test("message hover shows beside-bubble actions; reply links to parent", async (
     .toBe(true);
 
   const frame = parentRow.getByTestId("message-bubble-frame");
+  await expect(frame).toHaveClass(/39rem/);
   await expect
     .poll(async () => {
       const railBox = await rail.boundingBox();
@@ -430,6 +443,8 @@ test.describe("touch message actions", () => {
     await expect(rail).toHaveCSS("opacity", "1");
     await expect(rail.getByRole("button", { name: "Reply", exact: true })).toBeVisible();
     const botBubble = row.getByTestId("message-bot-bubble").first();
+    await expectBotProse(botBubble);
+    await expect(row.getByTestId("message-bubble-frame")).toHaveClass(/max-w-3xl/);
     const bubbleBox = await botBubble.boundingBox();
     const railBox = await rail.boundingBox();
     expect(bubbleBox).not.toBeNull();

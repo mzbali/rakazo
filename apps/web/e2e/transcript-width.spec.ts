@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { captureScreenshot } from "./helpers";
 
@@ -43,4 +43,55 @@ test("card actions sit beside the card without scrolling the chat sideways", asy
       }
     }
   }
+});
+
+async function expectReadingColumn(page: Page, theme: "light" | "dark") {
+  await page.goto(`/e2e/fixtures/gallery.html?embed&scenario=conversation&theme=${theme}`);
+  const bot = page.getByTestId("message-bot-bubble").filter({ hasText: "Got it, one paragraph." });
+  await expect(bot).toBeVisible();
+  await expect(bot).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(bot).toHaveCSS("border-radius", "0px");
+  await expect(bot).toHaveCSS("padding-top", "0px");
+  await expect(bot).toHaveCSS("padding-left", "0px");
+  const frame = page
+    .locator("[data-message-id]")
+    .filter({ has: bot })
+    .getByTestId("message-bubble-frame");
+  await expect(frame).toHaveClass(/max-w-3xl/);
+  const measured = await frame.evaluate((element) => {
+    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const row = element.parentElement!.getBoundingClientRect().width;
+    return {
+      width: element.getBoundingClientRect().width,
+      expected: Math.min(48 * rem, row - 6 * rem),
+    };
+  });
+  // The answer stops at the reading measure and leaves room beside it for the action rail.
+  expect(measured.width).toBeCloseTo(measured.expected, 0);
+  const table = page.getByTestId("message-bot-bubble").filter({ has: page.locator("table") });
+  await expect(table).toBeVisible();
+  await expect(
+    page.locator("[data-message-id]").filter({ has: table }).getByTestId("message-bubble-frame"),
+  ).toHaveClass(/max-w-3xl/);
+  const user = page
+    .getByTestId("message-user-bubble")
+    .filter({ hasText: "Keep the summary short." });
+  await expect(user).not.toHaveCSS("border-radius", "0px");
+  await expect(user).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+}
+
+test("bot answers read as one column and user messages stay bubbles", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  for (const theme of ["light", "dark"] as const) {
+    await expectReadingColumn(page, theme);
+    await captureScreenshot(page, testInfo, `bot-prose-column-${theme}`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectReadingColumn(page, "light");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await captureScreenshot(page, testInfo, "bot-prose-column-phone");
 });

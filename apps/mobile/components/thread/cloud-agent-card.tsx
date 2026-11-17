@@ -5,7 +5,7 @@ import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Linking, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -95,7 +95,6 @@ export function CloudAgentCards({
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useLingui();
   const router = useRouter();
-  const windowWidth = useWindowDimensions().width;
   const phaseLabel = useJobPhaseLabel();
   const [open, setOpen] = useState(false);
   const grouped = jobs.length > 1;
@@ -119,7 +118,7 @@ export function CloudAgentCards({
       {...actionProps}
       testID="cloud-agent-card"
       style={{
-        width: Math.min(windowWidth - 40, 560),
+        width: "100%",
         borderRadius: 14,
         borderWidth: 1,
         borderColor: tokens.border,

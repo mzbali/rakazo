@@ -86,7 +86,7 @@ function HelperMessageCard({
       ref={helperCard}
       collapsable={false}
       style={{
-        width: "90%",
+        width: "100%",
         borderRadius: 18,
         backgroundColor: tokens.card,
       }}

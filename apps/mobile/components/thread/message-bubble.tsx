@@ -600,14 +600,17 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     const speakerColor =
       message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
     const hasInlineImages = attachments.some(isInlineImageBlock);
-    const bubbleStyle = {
-      maxWidth: "100%",
-      borderRadius: 20,
-      backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      gap: 8,
-    } as const;
+    const prose = message.role === "bot";
+    const bubbleStyle = prose
+      ? ({ width: "100%", maxWidth: "100%", gap: 8 } as const)
+      : ({
+          maxWidth: "100%",
+          borderRadius: 20,
+          backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          gap: 8,
+        } as const);
     return (
       <View style={hasInlineImages ? { maxWidth: "100%", gap: 8 } : bubbleStyle}>
         {((showBotSenderName || authorName) && speaker) || caption ? (
@@ -886,15 +889,19 @@ function MessageTextCard({
         else actionProps.onAccessibilityAction?.(event);
       }}
       onLongPress={doubleTapSurface ? undefined : actionProps.onLongPress}
-      style={{
-        flexShrink: 1,
-        minWidth: 0,
-        maxWidth: "100%",
-        backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
-        paddingHorizontal: 14,
-        paddingVertical: 9,
-        borderRadius: 20,
-      }}
+      style={
+        message.role === "bot"
+          ? { width: "100%", flexShrink: 1, minWidth: 0 }
+          : {
+              flexShrink: 1,
+              minWidth: 0,
+              maxWidth: "100%",
+              backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              borderRadius: 20,
+            }
+      }
     >
       {speaker ? (
         <Text

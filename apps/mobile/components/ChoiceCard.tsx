@@ -3,13 +3,9 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useRef, useState } from "react";
 import type { ViewProps } from "react-native";
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { rpc } from "../lib/api";
-import {
-  choiceCardOptions,
-  DISMISSED_CHOICE_ANSWER_ID,
-  threadCardWidth,
-} from "../lib/message-presentation";
+import { choiceCardOptions, DISMISSED_CHOICE_ANSWER_ID } from "../lib/message-presentation";
 import { native, useMobileTokens } from "../lib/native";
 import { useThreadReadOnly } from "../lib/thread-read-only";
 import { errorText } from "../lib/user-error";
@@ -64,7 +60,6 @@ export function ChoiceCard({
   const { t } = useLingui();
   const readOnly = useThreadReadOnly();
   const tokens = useMobileTokens();
-  const { width: windowWidth } = useWindowDimensions();
   const [busy, setBusy] = useState(false);
   // Set in the handler, so a second tap cannot pass before the buttons re-render disabled.
   const pending = useRef(false);
@@ -100,7 +95,7 @@ export function ChoiceCard({
       style={[
         styles.card,
         {
-          width: threadCardWidth(windowWidth),
+          width: "100%",
           backgroundColor: native.fill,
         },
       ]}

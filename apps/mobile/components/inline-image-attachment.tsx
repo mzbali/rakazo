@@ -17,6 +17,7 @@ import { mobileTokens } from "../lib/appearance";
 import type { MobileArtifactTarget } from "../lib/artifact-open";
 import { imageArtifactPreview } from "../lib/artifact-open";
 import type { ImageSize } from "../lib/inline-image";
+import { fitImageSize } from "../lib/inline-image";
 
 const MAX_INLINE_HEIGHT = 360;
 
@@ -70,6 +71,7 @@ export function InlineImageAttachment({
   pressableProps,
   labelColor,
   thumbnail = false,
+  fill = false,
   source,
 }: {
   threadTarget: MobileArtifactTarget;
@@ -81,6 +83,8 @@ export function InlineImageAttachment({
   labelColor: string;
   /** A media row: a fixed square, cropped to fill, that still opens the viewer. */
   thumbnail?: boolean;
+  /** An image in an answer: as wide as the text. A photo someone sent keeps its small size. */
+  fill?: boolean;
   /** The page a saved web image came from. An upload has none, and shows no label. */
   source?: ImageSource;
 }) {
@@ -93,6 +97,7 @@ export function InlineImageAttachment({
     if (next > 0 && next !== columnWidth) setColumnWidth(next);
   };
   const column = columnWidth > 0 ? columnWidth : Math.max(1, Math.round(windowWidth - 32));
+  const maxWidth = Math.min(Math.round(windowWidth * 0.68), 400);
   const [state, setState] = useState<
     { status: "loading" } | { status: "ready"; uri: string; size: ImageSize } | { status: "error" }
   >({ status: "loading" });
@@ -158,7 +163,9 @@ export function InlineImageAttachment({
           source={{ uri: state.uri }}
           style={[
             styles.image,
-            placedImageSize(state.size, column, MAX_INLINE_HEIGHT),
+            fill
+              ? placedImageSize(state.size, column, MAX_INLINE_HEIGHT)
+              : fitImageSize(state.size, maxWidth, MAX_INLINE_HEIGHT),
             { backgroundColor: tokens.muted },
           ]}
           accessibilityIgnoresInvertColors
@@ -180,7 +187,7 @@ export function InlineImageAttachment({
       </Pressable>
     );
   return (
-    <View style={styles.column} onLayout={onColumnLayout}>
+    <View style={fill ? styles.column : undefined} onLayout={fill ? onColumnLayout : undefined}>
       {picture}
       {source && !thumbnail ? <ImageSourceLabel source={source} /> : null}
     </View>

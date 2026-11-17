@@ -612,8 +612,9 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
           paddingVertical: 12,
           gap: 8,
         } as const);
+    const imageWidth = outgoing ? undefined : "100%";
     return (
-      <View style={hasInlineImages ? { width: "100%", maxWidth: "100%", gap: 8 } : bubbleStyle}>
+      <View style={hasInlineImages ? { width: imageWidth, maxWidth: "100%", gap: 8 } : bubbleStyle}>
         {((showBotSenderName || authorName) && speaker) || caption ? (
           <View style={hasInlineImages ? bubbleStyle : undefined}>
             {(showBotSenderName || authorName) && speaker ? (
@@ -644,13 +645,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
         {attachments.map((attachment, index) => (
           <View
             key={`${attachment.artifactId ?? attachment.name ?? attachment.kind}-${index}`}
-            style={
-              hasInlineImages && !isInlineImageBlock(attachment)
-                ? bubbleStyle
-                : attachment.kind === "image" && isInlineImageBlock(attachment)
-                  ? { width: "100%" }
-                  : undefined
-            }
+            style={hasInlineImages && !isInlineImageBlock(attachment) ? bubbleStyle : undefined}
           >
             {attachment.kind === "image" ? (
               isInlineImageBlock(attachment) ? (
@@ -659,6 +654,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                   artifactId={attachment.artifactId}
                   name={attachment.name ?? t`Image`}
                   mimeType={attachment.mimeType ?? "image/png"}
+                  fill={!outgoing}
                   source={attachment.source}
                   labelColor={outgoing ? tokens.chatUserForeground : tokens.foreground}
                   pressableProps={actionProps}

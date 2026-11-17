@@ -83,7 +83,6 @@ export function CitationPill({
   );
 }
 
-/** The quiet row under an answer. One source is already a pill, so the caller hides this then. */
 const SOURCE_MARKS = 3;
 
 /** The quiet pill under an answer. One source is already a pill, so the caller hides this then. */
@@ -121,7 +120,6 @@ export function SourcesCount({
         {items.slice(0, SOURCE_MARKS).map((item, index) => (
           <View
             key={item.url}
-            accessibilityLabel="source-favicon"
             accessibilityElementsHidden
             style={[mark, index > 0 ? layout.sourcesMarkOverlap : null]}
           >

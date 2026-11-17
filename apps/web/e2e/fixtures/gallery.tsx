@@ -719,24 +719,49 @@ const embeds: Scenario = {
 
 const MARS_DAY = "https://science.nasa.gov/mars/facts/";
 const MARS_YEAR = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+const MARS_RETURN = "https://www.space.com/mars-sample-return-plan";
+// The shapes of a live research answer: a "Site, date" run joined by "·" after the sentence, a
+// dated source in parentheses, and a saved web image that keeps the page it came from.
 const research: Scenario = {
   id: "research",
   label: "Research answer",
   messages: [
-    user("How long is a day on Mars?"),
-    bot([
-      {
-        kind: "text",
-        text: `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days [nasa.gov](${MARS_DAY}) [ESA](${MARS_YEAR}).`,
-      },
-      {
-        kind: "sources",
-        items: [
-          { url: MARS_DAY, title: "Mars Facts", site: "nasa" },
-          { url: MARS_YEAR, title: "Mars Express", site: "esa" },
-        ],
-      },
-    ]),
+    user("How long is a day on Mars, and when do the samples come back?"),
+    bot(
+      [
+        {
+          kind: "image",
+          artifactId: "image-mars",
+          mimeType: "image/svg+xml",
+          name: "Jezero crater",
+          source: { url: MARS_DAY, site: "nasa" },
+        },
+      ],
+      { id: "image-mars", runId: "run-research" },
+    ),
+    bot(
+      [
+        {
+          kind: "text",
+          text: [
+            `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days. [NASA, 16 November](${MARS_DAY}) · [ESA](${MARS_YEAR})`,
+            "",
+            "![Jezero crater](image:image-mars)",
+            "",
+            `The sample return was cut back ([Space.com, 11 November 2026](${MARS_RETURN})).`,
+          ].join("\n"),
+        },
+        {
+          kind: "sources",
+          items: [
+            { url: MARS_DAY, title: "Mars Facts", site: "nasa" },
+            { url: MARS_YEAR, title: "Mars Express", site: "esa" },
+            { url: MARS_RETURN, title: "Mars sample return plan", site: "space" },
+          ],
+        },
+      ],
+      { runId: "run-research" },
+    ),
   ],
 };
 

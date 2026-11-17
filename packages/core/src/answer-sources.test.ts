@@ -236,6 +236,8 @@ describe("citationMarkdown", () => {
     expect(citationMarkdown(answer, dated).markdown).toBe(answer);
     const carried = `It returns samples in 2031. [NASA, 16 November](${NASA}) and then more.`;
     expect(citationMarkdown(carried, dated).markdown).toBe(carried);
+    const sentence = `Budget news. [The agency will cancel the lander](${NASA}). More next week.`;
+    expect(citationMarkdown(sentence, dated).markdown).toBe(sentence);
   });
 
   it("pulls a space in so punctuation sits against the pill", () => {

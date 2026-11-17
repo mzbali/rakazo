@@ -303,6 +303,15 @@ function sentenceEndedBefore(children: readonly MdNode[], start: number): boolea
   return false;
 }
 
+/**
+ * Nothing but the line's end follows. One link after a sentence that ends in its own full stop is a
+ * sentence of its own ("Budget news. [The agency cancels it](…)."), so it keeps its words.
+ */
+function endsLine(following: MdNode | undefined): boolean {
+  if (!following || following.type === "break") return true;
+  return following.type === "text" && /^[ \t]*(?:\n|$)/u.test(following.value ?? "");
+}
+
 /** The run is the whole content of one parenthesis, as in "was cut ([Space.com, 11 November])." */
 function parenWraps(children: readonly MdNode[], start: number, next: number): boolean {
   const before = children[start - 1];
@@ -390,7 +399,9 @@ function isCitationRun(
   if (run.every((entry) => namesRecordedSource(entry.node, entry.url, byUrl)) && endsClaim(after)) {
     return true;
   }
-  if (sentenceEndedBefore(children, start) && endsClaim(after)) return true;
+  // Several links joined by "·" or commas can't be one claim, so they may end in a full stop too.
+  const ended = endsLine(after) || (run.length > 1 && endsClaim(after));
+  if (sentenceEndedBefore(children, start) && ended) return true;
   return parenWraps(children, start, next) && claimEndedAfterParen(after);
 }
 

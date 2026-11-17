@@ -72,6 +72,7 @@ import {
   MediaRowHostContext,
   mediaListClass,
   restAfterOpeningImage,
+  withClass,
 } from "./markdown-media-row.web";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
 import { openingMediaImage } from "./media-row";
@@ -728,26 +729,37 @@ const components: Components = {
     return <MarkdownParagraph node={props.node}>{props.children}</MarkdownParagraph>;
   },
   // Consecutive media rows drop their bullets. Later paragraphs of the item stay beside the thumb.
-  li({ node, children }) {
-    const opening = openingMediaImage(hastPieces(node as HastLike | undefined, true));
-    if (!opening) return <li>{children}</li>;
+  // A tight list puts the image straight in the item; a loose one wraps it in a paragraph.
+  li({ node, children, ...props }) {
+    const element = node as HastLike | undefined;
+    const opening = openingMediaImage(hastPieces(element, true));
+    if (!opening) return <li {...props}>{children}</li>;
+    const tight = element?.children?.some((child) => child.tagName === "img");
     return (
-      <li className="rk-chat-media-item">
+      <li {...props} className={withClass(props.className, "rk-chat-media-item")}>
         <MediaRowHostContext.Provider value={true}>
           <MediaRow thumb={<MarkdownImage src={opening.src} alt={opening.alt} frame="thumbnail" />}>
-            {children}
+            {tight ? restAfterOpeningImage(element, children) : children}
           </MediaRow>
         </MediaRowHostContext.Provider>
       </li>
     );
   },
-  ul({ node, children }) {
-    const className = mediaListClass(node as HastLike | undefined);
-    return className ? <ul className={className}>{children}</ul> : <ul>{children}</ul>;
+  ul({ node, children, ...props }) {
+    const media = mediaListClass(node as HastLike | undefined);
+    return (
+      <ul {...props} className={withClass(props.className, media)}>
+        {children}
+      </ul>
+    );
   },
-  ol({ node, children }) {
-    const className = mediaListClass(node as HastLike | undefined);
-    return className ? <ol className={className}>{children}</ol> : <ol>{children}</ol>;
+  ol({ node, children, ...props }) {
+    const media = mediaListClass(node as HastLike | undefined);
+    return (
+      <ol {...props} className={withClass(props.className, media)}>
+        {children}
+      </ol>
+    );
   },
   img({ node: _node, src, alt, title }) {
     return (

@@ -1,5 +1,6 @@
 import type { CSSProperties, MouseEvent, ReactNode, RefObject } from "react";
 import {
+  Children,
   Component,
   createContext,
   Fragment,
@@ -66,6 +67,8 @@ import { CitationPill, LinkFavicon, SourcesRow } from "./markdown-citations.web"
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy, useMarkdownLinkTrust } from "./markdown-link-prompt";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
+import type { MediaPiece } from "./media-row";
+import { openingMediaImage } from "./media-row";
 import { isMermaidFence, mermaidSvgImage } from "./mermaid";
 import { useMermaidSvg } from "./mermaid.web";
 import { PAGE_ICON } from "./page-icon";
@@ -453,7 +456,17 @@ function RemoteImageButton({
   );
 }
 
-function MarkdownImage({ src = "", alt, title }: { src?: string; alt?: string; title?: string }) {
+function MarkdownImage({
+  src = "",
+  alt,
+  title,
+  frame,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+  frame?: "thumbnail";
+}) {
   const enclosingLink = useContext(InsideLinkContext);
   const loadRemote = useContext(RemoteImagesContext);
   const resolveEmbed = useContext(MarkdownEmbedContext);
@@ -462,7 +475,7 @@ function MarkdownImage({ src = "", alt, title }: { src?: string; alt?: string; t
   // Bumping this redraws after a tap. Whether the image shows is read from the current URL.
   const [, setRevision] = useState(0);
   if (embed) {
-    const resolved = resolveEmbed?.(embed);
+    const resolved = resolveEmbed?.(frame && embed.kind === "image" ? { ...embed, frame } : embed);
     if (resolved) return resolved;
     return alt || "";
   }
@@ -678,24 +691,127 @@ export function PageIcon({ className }: { className?: string }) {
   );
 }
 
-type EmbedParagraphNode = {
-  children?: { type?: string; tagName?: string; value?: string; properties?: { src?: unknown } }[];
+type HastLike = {
+  type?: string;
+  tagName?: string;
+  value?: string;
+  properties?: { src?: unknown; alt?: unknown };
+  children?: HastLike[];
 };
+
+/** Inlines of a block. A list item also walks its paragraphs, which wrap those inlines. */
+function hastPieces(node: HastLike | undefined, descendParagraphs: boolean): MediaPiece[] {
+  const pieces: MediaPiece[] = [];
+  for (const child of node?.children ?? []) {
+    if (child.type === "text") {
+      pieces.push({ type: "text", value: child.value ?? "" });
+      continue;
+    }
+    if (child.tagName === "img") {
+      pieces.push({
+        type: "image",
+        src: typeof child.properties?.src === "string" ? child.properties.src : "",
+        alt: typeof child.properties?.alt === "string" ? child.properties.alt : "",
+      });
+      continue;
+    }
+    if (descendParagraphs && child.tagName === "p") {
+      pieces.push(...hastPieces(child, false));
+      continue;
+    }
+    if (child.tagName || child.type === "element") pieces.push({ type: "other" });
+  }
+  return pieces;
+}
+
+/** Everything after the opening image, aligned with the elements react-markdown already made. */
+function restAfterOpeningImage(node: HastLike | undefined, children: ReactNode): ReactNode[] {
+  const list = Children.toArray(children);
+  let reactIndex = 0;
+  for (const child of node?.children ?? []) {
+    const whitespace = child.type === "text" && (child.value ?? "").trim() === "";
+    if (whitespace) {
+      const item = list[reactIndex];
+      if (typeof item === "string" && item.trim() === "") reactIndex += 1;
+      continue;
+    }
+    if (child.tagName === "img") return list.slice(reactIndex + 1);
+    reactIndex += 1;
+  }
+  return list;
+}
+
+// Set by a list item that is a media row, so its paragraphs keep their text and drop the thumb.
+const MediaRowHostContext = createContext(false);
+
+function MediaRow({ thumb, children }: { thumb: ReactNode; children: ReactNode }) {
+  return (
+    <div className="rk-chat-media-row">
+      <div className="rk-chat-media-thumb">{thumb}</div>
+      <div className="rk-chat-media-copy">{children}</div>
+    </div>
+  );
+}
+
+function mediaListClass(node: HastLike | undefined): string | undefined {
+  const items = (node?.children ?? []).filter((child) => child.tagName === "li");
+  if (items.length === 0 || !items.every((item) => openingMediaImage(hastPieces(item, true)))) {
+    return undefined;
+  }
+  return "rk-chat-media-list";
+}
+
+function MarkdownParagraph({ node, children }: { node?: unknown; children?: ReactNode }) {
+  const element = node as HastLike | undefined;
+  const inMediaItem = useContext(MediaRowHostContext);
+  const opening = openingMediaImage(hastPieces(element, false));
+  if (opening && inMediaItem) return <p>{restAfterOpeningImage(element, children)}</p>;
+  if (opening) {
+    return (
+      <MediaRow thumb={<MarkdownImage src={opening.src} alt={opening.alt} frame="thumbnail" />}>
+        {restAfterOpeningImage(element, children)}
+      </MediaRow>
+    );
+  }
+  const content = (element?.children ?? []).filter(
+    (child) => child.type !== "text" || (child.value ?? "").trim() !== "",
+  );
+  const only = content.length === 1 ? content[0] : undefined;
+  const src = typeof only?.properties?.src === "string" ? only.properties.src : undefined;
+  if (only?.tagName === "img" && markdownEmbed(src)) {
+    return <div className="rk-chat-embed">{children}</div>;
+  }
+  return <p>{children}</p>;
+}
 
 const components: Components = {
   a: MarkdownAnchor,
   // A paragraph that is only an embed becomes a div, so the card is not nested in a p.
-  p({ node, children }) {
-    const element = node as EmbedParagraphNode | undefined;
-    const content = (element?.children ?? []).filter(
-      (child) => child.type !== "text" || (child.value ?? "").trim() !== "",
+  // One that opens with an image and continues becomes a media row.
+  p(props) {
+    return <MarkdownParagraph node={props.node}>{props.children}</MarkdownParagraph>;
+  },
+  // Consecutive media rows drop their bullets. Later paragraphs of the item stay beside the thumb.
+  li({ node, children }) {
+    const opening = openingMediaImage(hastPieces(node as HastLike | undefined, true));
+    if (!opening) return <li>{children}</li>;
+    return (
+      <li className="rk-chat-media-item">
+        <MediaRowHostContext.Provider value={true}>
+          <MediaRow thumb={<MarkdownImage src={opening.src} alt={opening.alt} frame="thumbnail" />}>
+            {children}
+          </MediaRow>
+        </MediaRowHostContext.Provider>
+      </li>
     );
-    const only = content.length === 1 ? content[0] : undefined;
-    const src = typeof only?.properties?.src === "string" ? only.properties.src : undefined;
-    if (only?.tagName === "img" && markdownEmbed(src)) {
-      return <div className="rk-chat-embed">{children}</div>;
-    }
-    return <p>{children}</p>;
+  },
+  ul({ node, children }) {
+    const className = mediaListClass(node as HastLike | undefined);
+    return className ? <ul className={className}>{children}</ul> : <ul>{children}</ul>;
+  },
+  ol({ node, children }) {
+    const className = mediaListClass(node as HastLike | undefined);
+    return className ? <ol className={className}>{children}</ol> : <ol>{children}</ol>;
   },
   img({ node: _node, src, alt, title }) {
     return (

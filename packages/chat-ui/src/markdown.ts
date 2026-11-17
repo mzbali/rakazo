@@ -43,6 +43,8 @@ export type MarkdownEmbed = {
   kind: "visual" | "image";
   id: string;
   label: string;
+  /** A media row crops this image to a fixed thumbnail. Anywhere else it stays full size. */
+  frame?: "thumbnail";
 };
 
 /** The embed an image href names, if it is one. The label is the image's alt text. */

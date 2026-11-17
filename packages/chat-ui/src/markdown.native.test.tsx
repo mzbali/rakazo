@@ -159,6 +159,9 @@ vi.mock("react-native", async () => {
       "backgroundColor",
       "borderWidth",
       "borderBottomWidth",
+      "borderTopWidth",
+      "borderTopColor",
+      "paddingTop",
       "height",
       "gap",
       "marginTop",
@@ -2354,6 +2357,82 @@ describe("native markdown embeds", () => {
     expect(missing).toContain("Quarter trend");
     expect(missing).not.toContain("visual:missing");
     expect(missing).not.toContain("<embed-card");
+  });
+
+  it("lays an image that opens a list item out as a thumbnail row", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) =>
+          createElement("embed-card", { "data-frame": embed.frame ?? "" }, embed.label)
+        }
+      >
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "",
+            "  The evening boat is back.",
+            "",
+            "- ![Market hall](image:market) **Market hall**",
+            "",
+            "  The Saturday market filled the hall.",
+            "",
+            "- A note without an image.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html.match(/data-width="88"/g)).toHaveLength(2);
+    expect(html.match(/data-height="88"/g)).toHaveLength(2);
+    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(2);
+    expect(html.match(/data-border-top-width="1"/g)).toHaveLength(1);
+    expect(html.match(/data-width="5"/g)).toHaveLength(1);
+    expect(html).toContain("The evening boat is back.");
+    expect(html).toContain("A note without an image.");
+    expect(html).not.toContain('data-gap="0"');
+
+    const rows = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) => createElement("embed-card", null, embed.label)}
+      >
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "- ![Wool coat](image:coat) **Wool coat** $128",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(rows).toContain('data-gap="0"');
+    expect(rows.match(/data-width="5"/g) ?? []).toHaveLength(0);
+    expect(rows).toContain("$128");
+  });
+
+  it("keeps an image alone, a visual, and an image mid-sentence off the row", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) =>
+          createElement("embed-card", { "data-frame": embed.frame ?? "" }, embed.label)
+        }
+      >
+        <ChatMarkdown>
+          {[
+            "![Quarter](image:quarter)",
+            "",
+            "![Flow](visual:message_1) still a chart.",
+            "",
+            "See ![Harbor ferry](image:ferry) today.",
+            "",
+            "![River path](image:path) **River path** The path reopened.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html.match(/data-width="88"/g)).toHaveLength(1);
+    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(1);
+    expect(html).toContain("still a chart.");
+    expect(html).toContain("The path reopened.");
+    expect(html).toContain("See ");
+    expect(html.match(/data-width="5"/g) ?? []).toHaveLength(0);
   });
 });
 

@@ -1409,6 +1409,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             semanticMemoryForgets: Boolean(semanticMemory?.forget),
             semanticMemoryReflects: Boolean(semanticMemory?.reflect),
             mediaImagesEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.images),
+            webImagesEnabled: Boolean(deps.artifacts),
             mediaVideoEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.video),
             paidServicesEnabled: Boolean(paidServices),
             // cloudAgentForActor already checked the space; a provider reached through a bot's own
@@ -1475,6 +1476,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
         const searchResultUrls = new Set<string>();
         const sources = new Map<string, { url: string; title: string }>();
+        const pageImageUrls = new Set<string>();
         const initiallyTainted =
           !ownerStartedRun ||
           Boolean(turnCheckpoint) ||
@@ -1651,7 +1653,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             connectedPlugins,
             approvedReplays: approvedEffectReplays,
           },
-          trust: { ...trustLoaders, searchResultUrls, sources },
+          trust: { ...trustLoaders, searchResultUrls, sources, pageImageUrls },
           memory: {
             semantic: semanticMemory,
             scope: memoryScope,
@@ -1991,6 +1993,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
                     : disabledBuiltinTools,
                 offeredFleetTools: offeredFleetTools(strategicBuiltins),
                 followUpsOffered: followUpsOffered(strategicBuiltins, ownerStartedRun),
+                webImagesOffered: tools.some((tool) => tool.name === "save_web_images"),
                 backgroundHelpersAllowed: backgroundHelpersAllowed({
                   threadBotId: thread.botId,
                   botId: bot.id,

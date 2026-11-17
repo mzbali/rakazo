@@ -1,6 +1,7 @@
 import type { ColorTokens } from "@rakazo/ui-tokens";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import { Platform, StyleSheet } from "react-native";
+import { MEDIA_ROW_NATIVE_PT } from "../media-row";
 
 const BLOCK_GAP = 8;
 const BODY_FONT_SIZE = typeScale.body.fontSize;
@@ -241,6 +242,31 @@ export function markdownStyles(palette: ColorTokens) {
       maxWidth: "100%",
       alignItems: "flex-start",
       gap: 4,
+    },
+    // A news or product row. The thumbnail crops; the copy takes the rest of the line.
+    media_row: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      width: "100%",
+    },
+    media_thumb: {
+      width: MEDIA_ROW_NATIVE_PT,
+      height: MEDIA_ROW_NATIVE_PT,
+      borderRadius: 12,
+      overflow: "hidden",
+      backgroundColor: palette.muted,
+    },
+    media_copy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4,
+    },
+    media_divider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: palette.border,
+      marginTop: 12,
+      paddingTop: 12,
     },
   });
 }

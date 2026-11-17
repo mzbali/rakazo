@@ -1,5 +1,13 @@
 import type { AdapterContext, WebFetchProvider, WebSearchProvider } from "@rakazo/adapter-kit";
+import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { clampMaxChars, clampMaxResults, clampOffset } from "./web-limits.js";
+
+/** Remember an https image a fetched page named. Text in the run cannot add one. */
+export function rememberFetchedPageImage(urls: Set<string>, image: unknown) {
+  if (typeof image !== "string") return;
+  const url = normalizedHttpUrl(image);
+  if (url?.startsWith("https://")) urls.add(url);
+}
 
 export async function webSearchFromTool(
   search: WebSearchProvider,

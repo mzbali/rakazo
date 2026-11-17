@@ -827,7 +827,7 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "web_fetch",
     description:
-      "Fetch a public http(s) page and return readable text (title + content). Read-only; no JavaScript. Use after web_search when you need the page itself.",
+      "Fetch a public http(s) page and return readable text (title + content). When the page names a main image, the result includes that image URL. Read-only; no JavaScript. Use after web_search when you need the page itself.",
     inputSchema: {
       type: "object",
       properties: {
@@ -846,6 +846,33 @@ export const builtinAgentTools: ConnectorTool[] = [
       required: ["url"],
     },
     readOnly: true,
+  },
+  {
+    name: "save_web_images",
+    description:
+      "Save up to 6 images from pages you fetched with web_fetch. Pass each image URL that page returned and a short caption. Returns an embed line for each saved image, in order. Place those lines in your reply.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        images: {
+          type: "array",
+          maxItems: 6,
+          description: "Images the fetched pages returned, at most 6.",
+          items: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                description: "The image URL a web_fetch result returned.",
+              },
+              caption: { type: "string", description: "Short caption for the image." },
+            },
+            required: ["url", "caption"],
+          },
+        },
+      },
+      required: ["images"],
+    },
   },
   {
     name: "service_search",

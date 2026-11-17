@@ -1,5 +1,6 @@
 import type { ConnectorApp } from "@rakazo/adapter-kit";
 import { isBackgroundRunTrigger, redactSecrets } from "@rakazo/core";
+import { recordRunSource } from "@rakazo/core/answer-sources";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
 import {
@@ -191,6 +192,12 @@ export async function callPaidService(ctx: RunContext, call: ToolCall) {
   );
 }
 
+function isFetchedPage(value: unknown): value is { url: string; title: string; text: string } {
+  if (!value || typeof value !== "object") return false;
+  const page = value as { url?: unknown; title?: unknown; text?: unknown; error?: unknown };
+  return typeof page.url === "string" && typeof page.text === "string" && page.error === undefined;
+}
+
 /** Web, cloud agents, MCP servers, app connections and connector tools. */
 export const integrationTools: ToolHandlers = {
   async web_search(ctx, call) {
@@ -201,13 +208,23 @@ export const integrationTools: ToolHandlers = {
     for (const hit of ("results" in found && found.results) || []) {
       const url = normalizedHttpUrl(hit.url);
       if (url) ctx.trust.searchResultUrls.add(url);
+      if (ctx.trust.sources) recordRunSource(ctx.trust.sources, hit.url, hit.title);
     }
     return call.finish(found);
   },
   async web_fetch(ctx, call) {
     const { context } = ctx;
     const { args } = call;
-    return call.finish(await webFetchFromTool(ctx.providers.web, context, args));
+    const found = await webFetchFromTool(ctx.providers.web, context, args);
+    // A fetched page is a source. It is not a search result, so fetching another page still asks.
+    if (isFetchedPage(found) && ctx.trust.sources) {
+      recordRunSource(
+        ctx.trust.sources,
+        found.url,
+        typeof found.title === "string" ? found.title : "",
+      );
+    }
+    return call.finish(found);
   },
   async service_search(ctx, call) {
     const provider = ctx.providers.paidServices;

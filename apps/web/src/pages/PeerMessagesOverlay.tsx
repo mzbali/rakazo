@@ -7,6 +7,7 @@ import {
   pageCardSuperseded,
   peerConversations,
 } from "@rakazo/core";
+import { messageSources } from "@rakazo/core/answer-sources";
 import {
   BotAvatar,
   Button,
@@ -201,7 +202,9 @@ export function PeerMessagesOverlay({
                       {sent ? botName : peerBotName}
                     </div>
                     <div className="text-body-lg leading-[1.5] text-foreground/90" dir="auto">
-                      <ChatMarkdown>{peerMessage.text}</ChatMarkdown>
+                      <ChatMarkdown sources={messageSources(peerMessage.blocks)} sourcesRow>
+                        {peerMessage.text}
+                      </ChatMarkdown>
                       {peerMessage.blocks?.map((block, index) =>
                         block.kind === "image" ? (
                           <ArtifactImage

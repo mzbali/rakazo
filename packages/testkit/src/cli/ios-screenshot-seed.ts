@@ -371,6 +371,7 @@ export async function seedIosScreenshotFixture(input: {
       spaceId: me.spaceId,
       userId: me.userId,
     });
+    await ensureAnswerSources(db.prisma, group.threadId, writer.id);
     await ensurePage(db.prisma, {
       threadId: researcher.threadId,
       botId: researcher.id,
@@ -1395,6 +1396,39 @@ async function ensureInlineEmbeds(
           "",
           "The picture is the same rise.",
         ].join("\n"),
+      },
+    ],
+  });
+}
+
+const ANSWER_SOURCES_MARKER = "24 hours and 37 minutes";
+const ANSWER_SOURCES_DAY = "https://science.nasa.gov/mars/facts/";
+const ANSWER_SOURCES_YEAR = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+
+/** The same research answer as the web gallery: two citation pills and a sources row. */
+async function ensureAnswerSources(
+  prisma: ReturnType<typeof createDb>["prisma"],
+  threadId: string,
+  botId: string,
+) {
+  const messages = await prisma.message.findMany({ where: { threadId }, select: { blocks: true } });
+  if (messages.some((message) => JSON.stringify(message.blocks).includes(ANSWER_SOURCES_MARKER)))
+    return;
+  await createThreadMessage(prisma, {
+    threadId,
+    role: "bot",
+    botId,
+    blocks: [
+      {
+        kind: "text",
+        text: `A day on Mars lasts about ${ANSWER_SOURCES_MARKER} [NASA](${ANSWER_SOURCES_DAY}). A year there is 687 Earth days [NASA year](${ANSWER_SOURCES_DAY}) [ESA](${ANSWER_SOURCES_YEAR}).`,
+      },
+      {
+        kind: "sources",
+        items: [
+          { url: ANSWER_SOURCES_DAY, title: "Mars Facts", site: "nasa" },
+          { url: ANSWER_SOURCES_YEAR, title: "Mars Express", site: "esa" },
+        ],
       },
     ],
   });

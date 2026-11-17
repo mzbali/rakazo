@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 const alert = vi.hoisted(() => vi.fn());
+const actionSheet = vi.hoisted(() => vi.fn());
 
 const linking = vi.hoisted(() => ({
   canOpenURL: vi.fn(async () => true),
@@ -217,6 +218,7 @@ vi.mock("react-native", async () => {
     },
     Linking: linking,
     Alert: { alert },
+    ActionSheetIOS: { showActionSheetWithOptions: actionSheet },
     I18nManager: i18n,
     useColorScheme: () => "dark",
     useWindowDimensions: () => windowSize,
@@ -2492,5 +2494,71 @@ describe("native markdown quote menus", () => {
     const html = renderToStaticMarkup(<ChatMarkdown>{"> Quoted."}</ChatMarkdown>);
     expect(html).not.toContain("quote-menu-probe");
     expect(html).toMatch(/data-border-left-width="3"/);
+  });
+});
+
+const NASA = "https://science.nasa.gov/mars/facts/";
+const ESA = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+const citedSources = [
+  { url: NASA, title: "Mars Facts", site: "nasa" },
+  { url: ESA, title: "Mars Express", site: "esa" },
+];
+const citedAnswer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [NASA year](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
+
+describe("native citation pills", () => {
+  it("draws one pill, a +1 pill and the sources row, and leaves another link as a link", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    actionSheet.mockClear();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <ChatMarkdown sources={citedSources} sourcesRow>
+          {citedAnswer}
+        </ChatMarkdown>,
+      );
+    });
+    const buttons = [
+      ...container.querySelectorAll<HTMLElement>("[data-accessibility-role='button']"),
+    ];
+    expect(buttons.map((button) => button.getAttribute("data-accessibility-label"))).toEqual([
+      "nasa",
+      "nasa +1",
+      "2 sources",
+    ]);
+    const links = [...container.querySelectorAll<HTMLElement>("[data-accessibility-role='link']")];
+    expect(links.map((link) => link.getAttribute("data-accessibility-label"))).toEqual(["notes"]);
+    await act(async () => {
+      buttons[1]?.click();
+    });
+    expect(actionSheet).toHaveBeenCalledWith(
+      { options: ["Mars Facts", "Mars Express", "Cancel"], cancelButtonIndex: 2 },
+      expect.any(Function),
+    );
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("keeps links as written while streaming and hides the row when there is one source", () => {
+    const streaming = renderToStaticMarkup(
+      <ChatMarkdown sources={citedSources} sourcesRow streaming>
+        {citedAnswer}
+      </ChatMarkdown>,
+    );
+    expect(streaming).toContain('data-accessibility-label="NASA"');
+    expect(streaming).toContain('data-accessibility-label="ESA"');
+    expect(streaming).not.toContain('data-accessibility-label="nasa"');
+    expect(streaming).not.toContain("2 sources");
+
+    const one = renderToStaticMarkup(
+      <ChatMarkdown sources={[citedSources[0]!]} sourcesRow>
+        {`A day lasts 24 hours [NASA](${NASA}).`}
+      </ChatMarkdown>,
+    );
+    expect(one).toContain('data-accessibility-label="nasa"');
+    expect(one).not.toContain("1 source");
   });
 });

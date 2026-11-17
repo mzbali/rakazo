@@ -64,6 +64,16 @@ export function redactBlocks(blocks: MessageBlock[], secrets: string[]): Message
         text: redactSecrets(block.text, secrets),
       };
     }
+    if (block.kind === "sources") {
+      return {
+        ...block,
+        items: block.items.map((item) => ({
+          url: redactSecrets(item.url, secrets).slice(0, 2048),
+          title: redactSecrets(item.title, secrets).slice(0, 300),
+          site: redactSecrets(item.site, secrets).slice(0, 40),
+        })),
+      };
+    }
     if (block.kind === "steps") {
       return {
         ...block,

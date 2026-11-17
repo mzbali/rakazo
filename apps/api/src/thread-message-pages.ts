@@ -161,7 +161,8 @@ async function withoutPeerRunMessages<
         block.kind === "file" ||
         block.kind === "image" ||
         block.kind === "page" ||
-        block.kind === "visual",
+        block.kind === "visual" ||
+        block.kind === "sources",
     );
   });
 }
@@ -232,7 +233,8 @@ export function shouldForwardPeerThreadEvent(event: {
           block.kind === "file" ||
           block.kind === "image" ||
           block.kind === "page" ||
-          block.kind === "visual"),
+          block.kind === "visual" ||
+          block.kind === "sources"),
     )
   );
 }

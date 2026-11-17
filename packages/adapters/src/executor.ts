@@ -1474,6 +1474,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
         // Outbound destinations this run may reach without asking. See outboundSiteGate and
         // connectorReadRequiresApproval; approvals from earlier attempts are read back from effects.
         const searchResultUrls = new Set<string>();
+        const sources = new Map<string, { url: string; title: string }>();
         const initiallyTainted =
           !ownerStartedRun ||
           Boolean(turnCheckpoint) ||
@@ -1650,7 +1651,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
             connectedPlugins,
             approvedReplays: approvedEffectReplays,
           },
-          trust: { ...trustLoaders, searchResultUrls },
+          trust: { ...trustLoaders, searchResultUrls, sources },
           memory: {
             semantic: semanticMemory,
             scope: memoryScope,

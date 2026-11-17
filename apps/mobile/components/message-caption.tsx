@@ -1,7 +1,15 @@
-import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/native";
+import { plural } from "@lingui/core/macro";
+import { useLingui } from "@lingui/react/macro";
+import {
+  ChatMarkdown,
+  defaultMarkdownCopy,
+  LinkifiedText,
+  MarkdownCopyProvider,
+} from "@rakazo/chat-ui/native";
 import { splitMentionText } from "@rakazo/core";
+import type { SourceItem } from "@rakazo/core/answer-sources";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
-import { useContext } from "react";
+import { useContext, useMemo } from "react";
 import {
   MessageMentionsContext,
   OpenPageContext,
@@ -17,6 +25,8 @@ export function MessageCaption({
   tokens,
   colorScheme,
   streaming,
+  sources,
+  sourcesRow = false,
 }: {
   role: MobileMessage["role"];
   /** Another person's message sits on the received surface. */
@@ -25,7 +35,17 @@ export function MessageCaption({
   tokens: ColorTokens;
   colorScheme: ResolvedAppearance;
   streaming: boolean;
+  sources?: readonly SourceItem[];
+  sourcesRow?: boolean;
 }) {
+  const { t } = useLingui();
+  const markdownCopy = useMemo(
+    () => ({
+      ...defaultMarkdownCopy,
+      sourcesCount: (count: number) => t`${plural(count, { one: "# source", other: "# sources" })}`,
+    }),
+    [t],
+  );
   const renderMention = useContext(MessageMentionsContext);
   const userMentions = useContext(UserMentionsContext);
   const openPage = useContext(OpenPageContext);
@@ -59,14 +79,18 @@ export function MessageCaption({
       {text}
     </LinkifiedText>
   ) : (
-    <ChatMarkdown
-      palette={tokens}
-      colorScheme={colorScheme}
-      streaming={streaming}
-      renderMention={renderMention}
-      onOpenPage={openPage}
-    >
-      {text}
-    </ChatMarkdown>
+    <MarkdownCopyProvider copy={markdownCopy}>
+      <ChatMarkdown
+        palette={tokens}
+        colorScheme={colorScheme}
+        streaming={streaming}
+        renderMention={renderMention}
+        onOpenPage={openPage}
+        sources={sources}
+        sourcesRow={sourcesRow}
+      >
+        {text}
+      </ChatMarkdown>
+    </MarkdownCopyProvider>
   );
 }

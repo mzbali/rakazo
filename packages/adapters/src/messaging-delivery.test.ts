@@ -771,6 +771,33 @@ describe("deliverRun to a 1:1 chat", () => {
     expect(bodies(t)).toEqual(["I made a Test dashboard for you."]);
   });
 
+  it("sends the reply text and leaves the sources list out", async () => {
+    const t = setup();
+    addRun(t.world, {
+      replies: [
+        {
+          id: "m-1",
+          blocks: [
+            { kind: "text", text: "A day is about 24 hours." },
+            {
+              kind: "sources",
+              items: [
+                {
+                  url: "https://science.nasa.gov/mars/facts/",
+                  title: "Mars Facts",
+                  site: "nasa",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    await t.delivery.deliverRun("run-1");
+
+    expect(bodies(t)).toEqual(["A day is about 24 hours."]);
+  });
+
   it("sends a visual as its title and summary, never its code", async () => {
     const t = setup();
     addRun(t.world, {

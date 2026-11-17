@@ -176,14 +176,17 @@ export function dockerComputerToolInstruction(
   return parts.join(" ");
 }
 
+const WEB_CITE_CLAUSE =
+  " When an answer uses web results, lead with the answer and cite each claim with a markdown link to its source, placed right after the claim.";
+
 function webLookupClause(disabled?: ReadonlySet<string>): string | undefined {
   const search = builtinOffered(disabled, "web_search");
   const fetch = builtinOffered(disabled, "web_fetch");
   if (search && fetch) {
-    return "Use web_search and web_fetch to look something up or read a page without a computer.";
+    return `Use web_search and web_fetch to look something up or read a page without a computer.${WEB_CITE_CLAUSE}`;
   }
-  if (search) return "Use web_search to look something up without a computer.";
-  if (fetch) return "Use web_fetch to read a page without a computer.";
+  if (search) return `Use web_search to look something up without a computer.${WEB_CITE_CLAUSE}`;
+  if (fetch) return `Use web_fetch to read a page without a computer.${WEB_CITE_CLAUSE}`;
   return undefined;
 }
 

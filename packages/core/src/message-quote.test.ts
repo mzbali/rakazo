@@ -344,6 +344,18 @@ describe("a retired import checklist", () => {
   });
 });
 
+it("quotes the prose and skips a sources list", () => {
+  const blocks: MessageBlock[] = [
+    { kind: "text", text: "A day is 24 hours [NASA](https://science.nasa.gov/mars/facts/)." },
+    {
+      kind: "sources",
+      items: [{ url: "https://science.nasa.gov/mars/facts/", title: "Mars Facts", site: "nasa" }],
+    },
+  ];
+  expect(messageReplyExcerpt(blocks, "bot")).toContain("A day is 24 hours");
+  expect(messageReplyExcerpt(blocks, "bot")).not.toContain("Mars Facts");
+});
+
 it("names a visual by its title in a reply preview", () => {
   const visual: MessageBlock = { kind: "visual", title: "Flow", text: "A to B.", code: "x" };
   expect(messageReplyPreview([visual], "bot").text).toBe("Flow");

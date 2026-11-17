@@ -26,6 +26,7 @@ import {
   userRunError,
   withoutLastToolStepNotes,
 } from "@rakazo/core";
+import { withCitedSourceBlock } from "@rakazo/core/answer-sources";
 import {
   isDatabaseUnavailable,
   RunHistoryWriteError,
@@ -662,7 +663,12 @@ async function stopStuckToolLoop(ctx: RunContext, toolName: string, refusal?: To
   reply.messageSegments = withReplyToolOutcomes(reply, "stopped");
   if (!(await renewRunLease(deps, runId, workerId, fence))) return;
   if (reply.messageSegments.length > 0) {
-    await publishMessage(deps, run, "bot", redactBlocks(reply.messageSegments, ctx.secrets));
+    await publishMessage(
+      deps,
+      run,
+      "bot",
+      redactBlocks(withCitedSourceBlock(reply.messageSegments, ctx.trust?.sources), ctx.secrets),
+    );
   }
   await ctx.computer.checkpoint.flush();
   ctx.state.terminalCheckpointComplete = true;
@@ -958,7 +964,7 @@ export async function completeRun(ctx: RunContext) {
   const blocks = ctx.state.handedOff
     ? []
     : finalBlocksAfterMidTurnProgress(
-        redactBlocks(completionBlocks, ctx.secrets),
+        redactBlocks(withCitedSourceBlock(completionBlocks, ctx.trust?.sources), ctx.secrets),
         reply.publishedMidTurnUserMessage || runAllowsSilentEmpty(run.trigger),
       );
   const text = ctx.state.handedOff

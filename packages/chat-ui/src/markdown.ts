@@ -1,6 +1,7 @@
 /// <reference path="./linkify-it.d.ts" />
 
 import type { MessageBlock } from "@rakazo/contracts";
+import type { CitationGroup, SourceItem } from "@rakazo/core/answer-sources";
 import type { AppLink } from "@rakazo/core/app-links";
 import { findAppLink, matchesAppLink } from "@rakazo/core/app-links";
 import { urlSite } from "@rakazo/core/egress";
@@ -19,7 +20,14 @@ export type ChatMarkdownProps = {
   renderMention?: (id: string, name: string) => ReactNode;
   /** Opens a page linked as `[title](page:<pageId>)`; without it the title stays plain text. */
   onOpenPage?: (pageId: string) => void;
+  /** Pages this message cited. A matching link draws as a pill instead of underlined text. */
+  sources?: readonly SourceItem[];
+  /** The quiet sources row under this markdown. One source stays a pill only. */
+  sourcesRow?: boolean;
 };
+
+/** Citation clusters for the markdown currently drawn. Empty while a reply is still streaming. */
+export const CitationGroupsContext = createContext<readonly CitationGroup[]>([]);
 
 const PAGE_URL_PATTERN = /^page:([A-Za-z0-9_-]{1,64})$/;
 

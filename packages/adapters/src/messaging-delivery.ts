@@ -1406,6 +1406,8 @@ function extractText(
           typeof block.text === "string"
         )
           return [`${block.title}: ${block.text}`];
+        // A sources list repeats links already in the text.
+        if (block?.kind === "sources") return [];
         return [];
       },
     )

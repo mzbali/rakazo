@@ -266,6 +266,7 @@ function ChatContentProviders({
         cancel: t`Cancel`,
         open: t`Open`,
         alwaysOpen: (site) => t`Always open ${site}`,
+        openIn: (app) => t`Open in ${app}`,
       }}
       trustedSites={trustedSites}
       trustSite={trustLinkSite}

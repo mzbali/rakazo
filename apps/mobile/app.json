@@ -118,7 +118,7 @@
         },
         "UIBackgroundModes": ["voip", "audio", "remote-notification"],
         "NSUserActivityTypes": ["INSendMessageIntent"],
-        "LSApplicationQueriesSchemes": ["t3code"]
+        "LSApplicationQueriesSchemes": ["t3code", "googlegmail"]
       },
       "entitlements": {
         "com.apple.developer.usernotifications.time-sensitive": true,

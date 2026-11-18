@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findAppLink, matchesAppLink } from "./app-links.js";
+import { appLinkCatalog, findAppLink, matchesAppLink } from "./app-links.js";
 
 const links = [{ scheme: "coder", host: "threads" }];
 
@@ -40,5 +40,40 @@ describe("findAppLink", () => {
     );
     expect(findAppLink("coder://threads/env-1/thread-1", places)).toEqual(links[0]);
     expect(findAppLink("coder://chats/env-1/chat-1?prompt=run", places)).toBeUndefined();
+  });
+});
+
+describe("appLinkCatalog", () => {
+  // The link a mail bot sent that showed as text split over two lines (fake ids).
+  const gmail = "googlegmail:///cv=18f3a0c2b4d5e6f7/accountId=0";
+  const thread = "t3code://threads/env-1/thread-1";
+
+  it("opens a Gmail message, with or without the account it is in", () => {
+    expect(findAppLink(gmail, appLinkCatalog)?.name).toBe("Gmail");
+    expect(findAppLink("googlegmail://?accountId=0", appLinkCatalog)?.name).toBe("Gmail");
+    expect(findAppLink("googlegmail://", appLinkCatalog)?.name).toBe("Gmail");
+  });
+
+  it("opens a T3 thread", () => {
+    expect(findAppLink(thread, appLinkCatalog)).toMatchObject({
+      name: "T3",
+      icon: "https://app.t3.codes",
+    });
+  });
+
+  it("refuses query keys an app does not list, and every other way to carry instructions", () => {
+    for (const url of [
+      "googlegmail://co?to=someone@example.test&body=hi",
+      "googlegmail://?accountId=0&body=hi",
+      "googlegmail://?accountId=0&accountId=1",
+      "googlegmail://?",
+      "googlegmail://?accountId=0#inbox",
+      "googlegmail://user@/?accountId=0",
+      "googlegmail:?accountId=0",
+      `${thread}?accountId=0`,
+      `${thread}#prompt`,
+    ]) {
+      expect(findAppLink(url, appLinkCatalog), url).toBeUndefined();
+    }
   });
 });

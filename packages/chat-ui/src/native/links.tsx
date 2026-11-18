@@ -1,11 +1,14 @@
+import type { ColorTokens } from "@rakazo/ui-tokens";
 import type { ASTNode, MarkdownStyleMap } from "@ronradtke/react-native-markdown-display";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext } from "react";
 import type { StyleProp, TextStyle, ViewStyle } from "react-native";
 import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import {
+  bareAppLinkName,
   LinkFaviconsContext,
   linkFaviconOrigin,
+  linkLabel,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
   sanitizeMarkdownUrl,
@@ -158,6 +161,81 @@ export function FaviconTile({
         globe
       )}
     </View>
+  );
+}
+
+/**
+ * The words a link with a site icon shows: the author's label, a bare address shortened, or for
+ * a bare app link "Open in {app}", so its address never shows, or wraps, as text.
+ */
+export function useLinkLabel() {
+  const { openIn } = useMarkdownLinkCopy();
+  return useCallback(
+    (text: string, href: string) => {
+      const app = bareAppLinkName(text, href);
+      return app ? openIn(app) : linkLabel(text, href);
+    },
+    [openIn],
+  );
+}
+
+/** A link drawn with its site icon before its label; `text` is the label as written. */
+export function IconLink({
+  href,
+  text,
+  children,
+  style,
+  labelStyle,
+  plate,
+}: {
+  href: string;
+  text: string | undefined;
+  children?: ReactNode;
+  style: StyleProp<TextStyle>;
+  labelStyle: StyleProp<TextStyle>;
+  plate: StyleProp<ViewStyle>;
+}) {
+  const label = useLinkLabel();
+  const shown = text === undefined ? undefined : label(text, href);
+  return (
+    <NativeLink href={href} accessibilityLabel={shown} style={style}>
+      <LinkFavicon href={href} plate={plate} />
+      {WORD_JOINER}
+      {ISOLATE}
+      {shown === undefined ? children : <Text style={labelStyle}>{shown}</Text>}
+      {POP_ISOLATE}
+    </NativeLink>
+  );
+}
+
+/**
+ * "Open in {app}" with the app's icon, for a card's link to a place in an app. It opens the way
+ * a chat link does. Nothing shows for a link the host does not allow.
+ */
+export function AppLinkPill({
+  href,
+  tokens,
+}: {
+  href: string;
+  tokens: Pick<ColorTokens, "foreground" | "input" | "faviconPlate">;
+}) {
+  const open = useNativeLinkConfirm();
+  if (!bareAppLinkName(href, href)) return null;
+  return (
+    <OpenLinkContext.Provider value={open}>
+      <IconLink
+        href={href}
+        text={href}
+        style={{ color: tokens.foreground, fontWeight: "500" }}
+        labelStyle={{
+          color: tokens.foreground,
+          fontWeight: "500",
+          textDecorationLine: "underline",
+          textDecorationColor: tokens.input,
+        }}
+        plate={{ backgroundColor: tokens.faviconPlate, padding: 2 }}
+      />
+    </OpenLinkContext.Provider>
   );
 }
 

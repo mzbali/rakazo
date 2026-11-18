@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { AppLinkPill, allowedAppLink } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentJobTone, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
@@ -218,7 +219,9 @@ export function CloudAgentCards({
                   links={
                     links.t3 || links.pr ? (
                       <>
-                        {links.t3 ? (
+                        {links.t3 && allowedAppLink(links.t3) ? (
+                          <AppLinkPill href={links.t3} tokens={tokens} />
+                        ) : links.t3 ? (
                           <NativeActionButton
                             label={t`Open in T3`}
                             prominence="secondary"

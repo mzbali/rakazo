@@ -207,9 +207,11 @@ export function withBlockMentions(
   });
 }
 
+type LinkifySchema = { validate(text: string, pos: number): number };
+
 type LinkifyRules = {
   set(options: { fuzzyLink: boolean }): unknown;
-  add(schema: string, definition: null): unknown;
+  add(schema: string, definition: LinkifySchema | null): unknown;
 };
 
 type LinkifyParser = {
@@ -227,17 +229,30 @@ type ExplicitLinkify = LinkifyRules & {
   match(text: string): ExplicitLinkMatch[] | null;
 };
 
+// After the scheme: `//`, then everything up to a space, quote or bracket, less the sentence's
+// closing punctuation. Whether the whole link opens is sanitizeMarkdownUrl's call.
+const APP_LINK_TAIL = /^\/\/[^\s<>"'`]*/;
+
+const appLinkSchema: LinkifySchema = {
+  validate: (text, pos) =>
+    APP_LINK_TAIL.exec(text.slice(pos))?.[0].replace(/[.,;:!?]+$/, "").length ?? 0,
+};
+
+const linkifiers: LinkifyRules[] = [];
+
 function applyExplicitLinkRules(linkify: LinkifyRules) {
   linkify.set({ fuzzyLink: false });
   linkify.add("ftp:", null);
   linkify.add("//", null);
+  for (const link of appLinks) linkify.add(`${link.scheme.toLowerCase()}:`, appLinkSchema);
+  linkifiers.push(linkify);
 }
 
 /**
- * Turn bare http(s) URLs and email addresses into links, as the web renderer's GFM autolinks
- * do. Bare domains stay text: fuzzy matching would also link file names like setup.py or
- * notes.md. ftp: and protocol-relative URLs stay text because sanitizeMarkdownUrl would not
- * open them.
+ * Turn bare http(s) URLs, email addresses and allowed app links into links, as the web
+ * renderer's GFM autolinks do for the first two. Bare domains stay text: fuzzy matching would
+ * also link file names like setup.py or notes.md. ftp: and protocol-relative URLs stay text
+ * because sanitizeMarkdownUrl would not open them.
  */
 export function linkifyExplicitUrls<T extends LinkifyParser>(parser: T): T {
   parser.set({ linkify: true });
@@ -245,19 +260,41 @@ export function linkifyExplicitUrls<T extends LinkifyParser>(parser: T): T {
   return parser;
 }
 
-const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
-applyExplicitLinkRules(plainTextLinkify);
-
 const protocolPattern = /^([a-z][a-z\d+.-]*):/i;
 const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
 const appLinks: AppLink[] = [];
 
+const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
+applyExplicitLinkRules(plainTextLinkify);
+
 /**
- * Lets links open places in apps the host trusts. Any other custom link stays text,
- * since it could launch whatever installed app claims its scheme.
+ * Lets links open places in apps the host trusts, and finds them written bare in a message.
+ * Any other custom link stays text, since it could launch whatever installed app claims its
+ * scheme.
  */
 export function allowAppLinks(links: readonly AppLink[]) {
   appLinks.push(...links);
+  for (const linkify of linkifiers) {
+    for (const link of links) linkify.add(`${link.scheme.toLowerCase()}:`, appLinkSchema);
+  }
+}
+
+/** Where a bare allowed app link sits in text, for renderers whose autolinks know only the web. */
+export function appLinkMatches(text: string): { index: number; lastIndex: number; url: string }[] {
+  if (appLinks.length === 0) return [];
+  return (plainTextLinkify.match(text) ?? []).filter((match) =>
+    matchesAppLink(match.url, appLinks),
+  );
+}
+
+/**
+ * The app a link opens, when its label is just its address: it then reads "Open in {name}"
+ * instead, so a long app address never shows, or wraps, as text. An author's label stays.
+ */
+export function bareAppLinkName(text: string | undefined, href: string): string | undefined {
+  const address = (value: string) => decodedUrl(value.trim());
+  if (text !== undefined && address(text) !== address(href)) return undefined;
+  return findAppLink(href, appLinks)?.name;
 }
 
 export type PlainTextPart =

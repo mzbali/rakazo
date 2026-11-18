@@ -11,6 +11,7 @@ import type {
   DesktopSetup,
   RakazoDesktopDevice,
 } from "@rakazo/contracts";
+import { computerAppLinks } from "@rakazo/core/app-links";
 import { bestEffort } from "@rakazo/logging";
 import type { BrowserWindow, Session } from "electron";
 import {
@@ -131,8 +132,7 @@ import { isMcpOAuthServerId, mcpOAuthPartition } from "./windows/window-open.js"
 
 process.setSourceMapsEnabled(true);
 installDesktopEarlyErrorReporting();
-// Coding agents link back to their threads in the T3 Code desktop app.
-allowExternalAppLinks([{ scheme: "t3code", host: "threads" }]);
+allowExternalAppLinks(computerAppLinks);
 const PERFORMANCE_USER_DATA = process.env.RAKAZO_PERFORMANCE_USER_DATA;
 /** Test hook: where the app-managed stack answers. Mode `new` still requires loopback. */
 const LOCAL_WEB_URL = process.env.RAKAZO_LOCAL_WEB_URL?.trim() || DEFAULT_LOCAL_WEB_URL;

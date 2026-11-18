@@ -7969,6 +7969,11 @@ msgstr "打开外部链接？"
 msgid "Open image {name}"
 msgstr "打开图片 {name}"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/web/src/components/messages/markdown-link-prompt.tsx
+msgid "Open in {app}"
+msgstr ""
+
 #: apps/mobile/app/page-share.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"

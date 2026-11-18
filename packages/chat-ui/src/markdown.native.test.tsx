@@ -229,6 +229,7 @@ vi.mock("react-native", async () => {
   };
 });
 
+import { appLinkCatalog } from "@rakazo/core/app-links";
 import { darkTokens, lightTokens, MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import { themes } from "prism-react-renderer";
 import { act, createElement } from "react";
@@ -1071,6 +1072,35 @@ describe("app links", () => {
     expect(load).toHaveBeenCalledWith("https://coder-native.example.test");
     await act(async () => {
       link?.click();
+    });
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith(url);
+    });
+    await view.cleanup();
+  });
+
+  it.each([
+    ["Gmail", "googlegmail:///cv=18f3a0c2b4d5e6f7/accountId=0", "https://mail.google.com"],
+    ["T3", "t3code://threads/env-1/thread-1", "https://app.t3.codes"],
+  ])("draws a bare %s link as one Open in pill instead of its address", async (name, url, site) => {
+    linking.openURL.mockClear();
+    alert.mockClear();
+    allowAppLinks(appLinkCatalog);
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const view = await renderNativeLinks(
+      () => <ChatMarkdown>{`Here it is: ${url}`}</ChatMarkdown>,
+      { load },
+    );
+    const links = view.links();
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute("data-accessibility-label")).toBe(`Open in ${name}`);
+    expect(links[0]?.textContent).toBe(joined(`Open in ${name}`));
+    expect(links[0]?.querySelector("rn-image")).not.toBeNull();
+    expect(view.container.textContent).not.toContain(url.slice(url.indexOf(":")));
+    expect(load).toHaveBeenCalledWith(site);
+    await act(async () => {
+      links[0]?.click();
     });
     expect(alert).not.toHaveBeenCalled();
     await vi.waitFor(() => {

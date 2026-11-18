@@ -14,6 +14,7 @@ export function MarkdownLinkPrompt({ children }: { children: ReactNode }) {
       cancel: t`Cancel`,
       open: t`Open`,
       alwaysOpen: (site: string) => t`Always open ${site}`,
+      openIn: (app: string) => t`Open in ${app}`,
     }),
     [t],
   );

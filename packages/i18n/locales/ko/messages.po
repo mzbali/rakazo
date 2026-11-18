@@ -7969,6 +7969,11 @@ msgstr "외부 링크를 열까요?"
 msgid "Open image {name}"
 msgstr "이미지 {name} 열기"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/web/src/components/messages/markdown-link-prompt.tsx
+msgid "Open in {app}"
+msgstr ""
+
 #: apps/mobile/app/page-share.tsx
 msgid "Open in browser"
 msgstr "브라우저에서 열기"

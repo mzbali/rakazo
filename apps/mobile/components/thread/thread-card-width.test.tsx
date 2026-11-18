@@ -103,6 +103,7 @@ vi.mock("../../lib/native/native", () => ({
 
 vi.mock("@rakazo/chat-ui/native", () => ({
   allowedAppLink: (url: string) => (url.startsWith("t3code://threads/") ? url : undefined),
+  AppLinkPill: ({ href }: { href: string }) => <a href={href}>app link pill</a>,
   MarkdownLongPressContext: createContext(undefined),
   ChatMarkdown: ({ children }: { children: string }) => <p>{children}</p>,
   withBlockMentions: <T,>(blocks: T) => blocks,
@@ -456,6 +457,13 @@ describe("thread cards", () => {
     expect(Linking.openURL).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
     expect(container.textContent).toContain("PR #12");
     expect(container.textContent).not.toContain("Checks unknown");
+  });
+
+  it("links a job's T3 thread with the shared app link pill", () => {
+    const thread = "t3code://threads/env-1/thread-1";
+    renderBlocks([{ ...cloud, url: thread } as MessageBlock]);
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(thread);
+    expect(container.textContent).not.toContain("Open in T3");
   });
 
   it("groups jobs from one message behind a header that counts them by state", () => {

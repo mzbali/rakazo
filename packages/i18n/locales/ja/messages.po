@@ -7969,6 +7969,11 @@ msgstr "外部リンクを開きますか？"
 msgid "Open image {name}"
 msgstr "画像{name}を開く"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/web/src/components/messages/markdown-link-prompt.tsx
+msgid "Open in {app}"
+msgstr ""
+
 #: apps/mobile/app/page-share.tsx
 msgid "Open in browser"
 msgstr "ブラウザで開く"

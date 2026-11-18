@@ -21,6 +21,18 @@ class MarkdownPreviewTest {
   }
 
   @Test
+  fun `folds ui fences to their summary, closed or not`() {
+    assertEquals(
+      "Look [visual: Flow of data] after",
+      markdownToPreview("Look\n```ui\n<Visual summary=\"Flow of data\">\n<Formula tex=\"x\" />\n</Visual>\n```\nafter"),
+    )
+    assertEquals("Look [visual: a < b]", markdownToPreview("Look\n```ui\n<Visual summary=\"a &lt; b\">\n<Callout"))
+    assertEquals("[visual]", markdownToPreview("```ui\n<Visual summary=\"Half"))
+    assertEquals("[visual]", markdownToPreview("~~~ui\n<Visual>\n</Visual>\n~~~"))
+    assertEquals("const a = 1;", markdownToPreview("```ts\nconst a = 1;\n```"))
+  }
+
+  @Test
   fun `removes complete and unfinished HTML comments`() {
     for (source in listOf(
       "a <!-- x > hidden --> b",

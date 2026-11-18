@@ -1,5 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
 import { codeSkipEnds } from "./page-links.js";
+import { foldVisualFences } from "./visual-summary.js";
 
 export type EmbedKind = "visual" | "image";
 
@@ -112,8 +113,12 @@ export function embedReferencesIn(text: string): EmbedReference[] {
   return refs;
 }
 
-/** `![Title](visual:<id>)` as `[visual: Title]`, and the same for images. Code stays as written. */
-export function plainEmbedReferences(text: string): string {
+/**
+ * `![Title](visual:<id>)` as `[visual: Title]`, the same for images, and a ```ui fence as
+ * `[visual: summary]`. Other code stays as written.
+ */
+export function plainEmbedReferences(source: string): string {
+  const text = foldVisualFences(source);
   if (!text.includes("![")) return text;
   let out = "";
   let copied = 0;

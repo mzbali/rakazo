@@ -1,7 +1,7 @@
 import type { CloudAgentDetail } from "@rakazo/contracts";
 import { useCallback, useState } from "react";
-import { rpc } from "./api";
-import { useForegroundPoll } from "./foreground-poll";
+import { rpc } from "./api/api";
+import { useForegroundPoll } from "./query/foreground-poll";
 
 /** Detail is independent of the capped recent-jobs list. */
 export function useCloudJob(agentId: string) {

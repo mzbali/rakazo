@@ -8,8 +8,9 @@ import type {
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential, runAsTenant } from "@rakazo/db";
-import { combineSignals } from "./connector-safety.js";
-import { resolveStoredModelAuth } from "./model-credential-refresh.js";
+import { bestEffort } from "@rakazo/logging";
+import { combineSignals } from "./integrations/connector-safety.js";
+import { resolveStoredModelAuth } from "./models/model-credential-refresh.js";
 
 const CONNECTOR_ID = "xai-x-search";
 const TOOL_NAME = "x_search";
@@ -60,9 +61,20 @@ const TOOL: ConnectorTool = {
 export type XaiXSearchDeps = {
   prisma: Pick<
     PrismaClient,
-    "$transaction" | "secret" | "userModelCredential" | "userModelPreference"
+    | "$transaction"
+    | "$queryRaw"
+    | "secret"
+    | "userModelCredential"
+    | "userModelPreference"
+    | "botSecret"
+    | "vaultCredential"
+    | "integrationProviderConfig"
+    | "messagingInstallation"
+    | "deploymentSettings"
+    | "purchase"
+    | "paymentWallet"
   >;
-  secrets: Pick<SecretStore, "load" | "put" | "delete">;
+  secrets: Pick<SecretStore, "load" | "put" | "delete" | "isRemote">;
   fetch?: typeof fetch;
 };
 
@@ -97,7 +109,10 @@ export class XaiXSearchConnector implements ConnectorProvider {
       return;
     }
     // The run's own account and Space, whatever context the caller set.
-    const apiKey = await runAsTenant(context, () => this.apiKey(context)).catch(() => undefined);
+    const apiKey = await bestEffort(
+      "load x search credential",
+      runAsTenant(context, () => this.apiKey(context)),
+    );
     if (!apiKey) {
       yield {
         type: "error",

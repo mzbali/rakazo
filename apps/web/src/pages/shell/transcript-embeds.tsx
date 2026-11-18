@@ -4,10 +4,10 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { embedTarget } from "@rakazo/core";
 import type { ReactNode } from "react";
 import { useCallback } from "react";
-import { ArtifactFileCard } from "../../components/ArtifactFileCard";
+import { ArtifactFileCard } from "../../components/messages/ArtifactFileCard";
 import { VisualCard } from "../../components/visuals/VisualCard";
-import type { ArtifactTarget } from "../../lib/artifact-open";
-import { ArtifactImage } from "./message-cards";
+import type { ArtifactTarget } from "../../lib/pages/artifact-open";
+import { ArtifactImage } from "./chat/message-cards";
 
 /** Resolves embed images from messages this transcript already holds. */
 export function TranscriptEmbeds({

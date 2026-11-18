@@ -5,14 +5,14 @@ import { typeScale } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { rpc } from "../../lib/api";
-import { mobileTokens } from "../../lib/appearance";
+import { errorText } from "../../lib/api/user-error";
+import { mobileTokens } from "../../lib/appearance/appearance";
 import { refreshCloudJobs } from "../../lib/cloud-jobs-store";
-import { hapticSuccess } from "../../lib/haptics";
-import { showIOSActionSheet } from "../../lib/ios-action-sheet";
-import { errorText } from "../../lib/user-error";
-import { NativeActionButton } from "../native-action-button";
-import { NativeSymbol } from "../native-symbol";
+import { hapticSuccess } from "../../lib/native/haptics";
+import { showIOSActionSheet } from "../../lib/native/ios-action-sheet";
+import { useSave } from "../../lib/query/query";
+import { NativeActionButton } from "../native/native-action-button";
+import { NativeSymbol } from "../native/native-symbol";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
 
@@ -24,33 +24,48 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
   const { t } = useLingui();
   const tokens = mobileTokens();
   const phase = cloudAgentPhase(job);
-  const [busy, setBusy] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState("");
   const question = phase === "needsYou" ? job.question : undefined;
   const running = job.status === "running" && !job.launchFailed;
   const note = { color: tokens.mutedForeground, ...typeScale.footnote };
-
-  async function answer(choice: string) {
-    if (!question || busy) return;
-    setBusy(true);
-    try {
-      await rpc("cloudAgents/answer", {
+  const answerSave = useSave({
+    save: async (choice: string, send) => {
+      if (!question) return;
+      await send("cloudAgents/answer", {
         agentId: job.agentId,
         requestId: question.requestId,
         answer: choice,
       });
+    },
+    onSaved() {
       hapticSuccess();
       // Home and the chat's pill read the same list, so an answered job leaves Needs you at once.
       void refreshCloudJobs();
       setReplying(false);
       setText("");
-    } catch (error) {
+    },
+    onFailed(error) {
       Alert.alert(t`Could not send your answer`, errorText(error));
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const stopSave = useSave({
+    save: async (_unused: null, send) => {
+      await send("cloudAgents/stop", { agentId: job.agentId });
+    },
+    onSaved() {
+      void refreshCloudJobs();
+    },
+    onFailed(error) {
+      setStopping(false);
+      Alert.alert(t`Could not stop the job`, errorText(error));
+    },
+  });
+
+  function answer(choice: string) {
+    if (!question || answerSave.pending || !choice.trim()) return;
+    answerSave.run(choice);
   }
 
   function confirmStop() {
@@ -61,12 +76,7 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
         style: "destructive",
         onPress: () => {
           setStopping(true);
-          rpc("cloudAgents/stop", { agentId: job.agentId })
-            .then(() => refreshCloudJobs())
-            .catch((error: unknown) => {
-              setStopping(false);
-              Alert.alert(t`Could not stop the job`, errorText(error));
-            });
+          stopSave.run(null);
         },
       },
     ]);
@@ -100,7 +110,7 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
                 prominence={choice.recommended ? "primary" : "secondary"}
                 fill={false}
                 size="compact"
-                busy={busy}
+                busy={answerSave.pending}
                 onPress={() => void answer(choice.label)}
               />
             );
@@ -144,7 +154,7 @@ export function JobOwnerActions({ job, links }: { job: Job; links?: ReactNode })
                 prominence="primary"
                 fill={false}
                 size="compact"
-                busy={busy}
+                busy={answerSave.pending}
                 disabled={!text.trim()}
                 onPress={() => void answer(text.trim())}
               />

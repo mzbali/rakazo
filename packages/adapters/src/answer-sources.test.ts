@@ -1,7 +1,7 @@
 import { MessageBlock } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
-import { redactBlocks } from "./run-messages.js";
-import { integrationTools } from "./run-tools-integrations.js";
+import { redactBlocks } from "./runs/assembly/run-messages.js";
+import { integrationTools } from "./runs/tools/run-tools-integrations.js";
 
 const NASA = "https://science.nasa.gov/mars/facts/";
 const ESA = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";

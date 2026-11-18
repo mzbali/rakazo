@@ -7,9 +7,9 @@ import {
 } from "@rakazo/contracts";
 import { containsSecret, embedLine } from "@rakazo/core";
 import { checkPageSource, VISUAL_GUIDE } from "@rakazo/page-kit/validate";
-import type { RunContext } from "./run-context.js";
-import { publishMessage } from "./run-messages.js";
-import type { ToolCall, ToolHandlers } from "./run-tool-gate.js";
+import type { RunContext } from "./runs/assembly/run-context.js";
+import { publishMessage } from "./runs/assembly/run-messages.js";
+import type { ToolCall, ToolHandlers } from "./runs/tools/run-tool-gate.js";
 
 /** The summary is one paragraph of plain text: every run of whitespace folds into a space. */
 function summaryText(value: unknown): string | null {

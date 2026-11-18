@@ -1,0 +1,532 @@
+import type { MessageBlock } from "@rakazo/contracts";
+
+export function cloudAgentHttpsUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Provider links are displayed only after each client applies its app-link allowlist. */
+export function cloudAgentUrl(value: string | null | undefined): string | undefined {
+  if (cloudAgentHttpsUrl(value)) return value!;
+  if (!value || /[?#]/.test(value)) return undefined;
+  try {
+    const url = new URL(value);
+    return /^[a-z][a-z0-9+.-]*:$/.test(url.protocol) &&
+      url.protocol !== "javascript:" &&
+      url.protocol !== "vbscript:" &&
+      url.protocol !== "data:" &&
+      url.protocol !== "file:" &&
+      url.protocol !== "http:" &&
+      url.protocol !== "https:" &&
+      url.hostname &&
+      !url.username &&
+      !url.password &&
+      !url.port
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+type CloudAgentBlock = Extract<MessageBlock, { kind: "cloud_agent" }>;
+
+/**
+ * What a cloud-agent job is doing, in the order an owner cares: `needsInput` first, because it
+ * is the one state that waits on them. A usage-limit pause comes next: the work is waiting on
+ * the provider, not on the owner. `tone` is the colour family every client uses.
+ */
+export type CloudAgentState =
+  | "needsInput"
+  | "paused"
+  | "unreachable"
+  | "queued"
+  | "running"
+  | "finished"
+  | "failed"
+  | "cancelled"
+  | "expired";
+
+export type CloudAgentTone = "attention" | "active" | "success" | "danger" | "muted";
+
+type CloudAgentStateJob = Pick<
+  CloudAgentBlock,
+  | "status"
+  | "queued"
+  | "needsInput"
+  | "unreachableSince"
+  | "ownerQuestion"
+  | "launchFailed"
+  | "quotaResetsAt"
+>;
+
+export function cloudAgentState(job: CloudAgentStateJob): CloudAgentState {
+  // A launch that never started has nothing to answer, whatever the bot asked the owner after it.
+  if (job.launchFailed) return "failed";
+  if (job.ownerQuestion) return "needsInput";
+  if (job.status !== "running") return job.status;
+  if (job.needsInput) return "needsInput";
+  if (quotaResetMs(job.quotaResetsAt) !== undefined) return "paused";
+  if (job.unreachableSince) return "unreachable";
+  return job.queued ? "queued" : "running";
+}
+
+/**
+ * The plain word a job shows on every surface: the card, the jobs row, the sheet and web. Raw
+ * provider statuses never reach the owner; each phase has one translated label.
+ */
+export type CloudAgentPhase =
+  | "starting"
+  | "working"
+  | "checking"
+  | "done"
+  | "needsYou"
+  | "resumes"
+  | "couldntStart"
+  | "stopped"
+  | "expired";
+
+type PhaseJob = CloudAgentStateJob & Partial<Pick<CloudAgentBlock, "review" | "url">>;
+
+export function cloudAgentPhase(job: PhaseJob): CloudAgentPhase {
+  const state = cloudAgentState(job);
+  switch (state) {
+    case "needsInput":
+      return "needsYou";
+    case "paused":
+      return "resumes";
+    case "queued":
+      return "starting";
+    case "running":
+    case "unreachable":
+      return job.review === "checking" ? "checking" : job.url === "" ? "starting" : "working";
+    case "finished":
+      return job.review === "checking" ? "checking" : "done";
+    case "expired":
+      return "expired";
+    case "cancelled":
+      return "stopped";
+    default:
+      return job.launchFailed ? "couldntStart" : "stopped";
+  }
+}
+
+/** The colour family of a job: a stopped job that failed is red, one the owner stopped is quiet. */
+export function cloudAgentJobTone(job: PhaseJob): CloudAgentTone {
+  const phase = cloudAgentPhase(job);
+  switch (phase) {
+    case "needsYou":
+      return "attention";
+    case "resumes":
+      return "muted";
+    case "starting":
+    case "working":
+    case "checking":
+      return "active";
+    case "done":
+      return "success";
+    case "couldntStart":
+      return "danger";
+    case "stopped":
+      return job.status === "failed" ? "danger" : "muted";
+    default:
+      return "muted";
+  }
+}
+
+/** "45s", "12m", "1h 5m": how long a job has been going. */
+export function formatCloudAgentElapsed(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 ? `${hours}h ${minutes % 60}m` : `${hours}h`;
+}
+
+/**
+ * How long the job has run: ticking against `nowMs` while it works, fixed at the end once it has
+ * stopped, and nothing for a finished job whose end was never recorded.
+ */
+export function cloudAgentElapsed(
+  job: Pick<CloudAgentBlock, "status" | "startedAt" | "endedAt">,
+  nowMs: number,
+): string | undefined {
+  const started = job.startedAt ? Date.parse(job.startedAt) : Number.NaN;
+  if (Number.isNaN(started)) return undefined;
+  if (job.status === "running") return formatCloudAgentElapsed(nowMs - started);
+  const ended = job.endedAt ? Date.parse(job.endedAt) : Number.NaN;
+  return Number.isNaN(ended) ? undefined : formatCloudAgentElapsed(ended - started);
+}
+
+/** Whether the elapsed clock should tick: the work has not ended and is not waiting out a limit. */
+export function cloudAgentTicking(
+  job: Pick<CloudAgentBlock, "status" | "startedAt" | "quotaResetsAt">,
+): boolean {
+  return job.status === "running" && Boolean(job.startedAt) && !job.quotaResetsAt;
+}
+
+/**
+ * Local time a paused job resumes. The date joins it when that time is not today.
+ * `locale` and `timeZone` pin a test; the card leaves them out so the owner sees their own.
+ */
+export function formatCloudAgentResumeAt(
+  iso: string,
+  nowMs: number,
+  options?: { locale?: string; timeZone?: string },
+): string | undefined {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return undefined;
+  const zone = options?.timeZone ? { timeZone: options.timeZone } : {};
+  const dayKey = (ms: number) =>
+    new Intl.DateTimeFormat("en-US", {
+      ...zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(ms);
+  const sameDay = dayKey(at) === dayKey(nowMs);
+  return new Intl.DateTimeFormat(options?.locale, {
+    ...zone,
+    hour: "numeric",
+    minute: "2-digit",
+    ...(sameDay ? {} : { month: "short", day: "numeric" }),
+  }).format(at);
+}
+
+function quotaResetMs(iso: string | undefined): number | undefined {
+  if (!iso) return undefined;
+  const at = Date.parse(iso);
+  return Number.isNaN(at) ? undefined : at;
+}
+
+/** The pull request's number from its link ("https://host/org/app/pull/12" gives 12). */
+export function cloudAgentPullRequestNumber(prUrl: string | undefined): number | undefined {
+  const link = cloudAgentHttpsUrl(prUrl);
+  const match = link ? new URL(link).pathname.match(/\/pull\/(\d+)\/?$/) : null;
+  return match ? Number(match[1]) : undefined;
+}
+
+export type CloudAgentPullRequestPart =
+  | "merged"
+  | "closed"
+  | "checksRunning"
+  | "checksPassing"
+  | "checksFailing";
+
+/**
+ * What a job says beside its "PR #12": that it landed or was closed, or else how its checks
+ * stand. Each surface gives the part its own translated words. Watching is the activity line's.
+ */
+export function cloudAgentPullRequestParts(
+  job: Pick<CloudAgentBlock, "prState" | "checks">,
+): CloudAgentPullRequestPart[] {
+  if (job.prState) return [job.prState];
+  const checks: Record<string, CloudAgentPullRequestPart> = {
+    passing: "checksPassing",
+    failing: "checksFailing",
+    running: "checksRunning",
+  };
+  return job.checks ? [checks[job.checks]!] : [];
+}
+
+export type CloudAgentWorkPart = {
+  kind: "subagent" | "command" | "monitor" | "background_task" | "watchedPr";
+  count: number;
+};
+
+const WORK_ORDER = ["subagent", "command", "monitor", "background_task"] as const;
+
+/**
+ * What the card's second line counts: the thread's background work by kind, then the pull
+ * requests it watches (one at least, when the job says it watches but the list is not known).
+ */
+export function cloudAgentWorkParts(
+  job: Pick<CloudAgentBlock, "work" | "pullRequests" | "watching">,
+): CloudAgentWorkPart[] {
+  const parts: CloudAgentWorkPart[] = WORK_ORDER.map((kind) => ({
+    kind,
+    count: (job.work ?? []).filter((item) => item.kind === kind).length,
+  }));
+  const watched = (job.pullRequests ?? []).filter((pr) => pr.watching && pr.state === "open");
+  parts.push({ kind: "watchedPr", count: Math.max(watched.length, job.watching ? 1 : 0) });
+  return parts.filter((part) => part.count > 0);
+}
+
+/** The thread's work and pull requests from the row, as far as they are well formed. */
+function cloudAgentThreadWork(payload: Record<string, unknown>) {
+  const kinds = new Set<string>(WORK_ORDER);
+  const work = (Array.isArray(payload.work) ? payload.work : []).flatMap(
+    (item: { kind?: unknown; label?: unknown; url?: unknown }) => {
+      if (typeof item?.kind !== "string" || !kinds.has(item.kind)) return [];
+      const url = typeof item.url === "string" ? cloudAgentUrl(item.url) : undefined;
+      return [
+        {
+          kind: item.kind as (typeof WORK_ORDER)[number],
+          label: typeof item.label === "string" ? item.label.slice(0, 120) : "",
+          ...(url ? { url } : {}),
+        },
+      ];
+    },
+  );
+  const states = ["open", "merged", "closed"] as const;
+  const pullRequests = (Array.isArray(payload.pullRequests) ? payload.pullRequests : []).flatMap(
+    (pr: { url?: unknown; number?: unknown; state?: unknown; watching?: unknown }) => {
+      const state = states.find((candidate) => candidate === pr?.state);
+      return typeof pr?.url === "string" &&
+        cloudAgentHttpsUrl(pr.url) &&
+        typeof pr.number === "number" &&
+        Number.isInteger(pr.number) &&
+        state
+        ? [{ url: pr.url, number: pr.number, state, watching: pr.watching === true }]
+        : [];
+    },
+  );
+  return {
+    ...(work.length ? { work: work.slice(0, 20) } : {}),
+    ...(pullRequests.length ? { pullRequests: pullRequests.slice(0, 10) } : {}),
+  };
+}
+
+/** The shelf a job sits on in the jobs list: what waits on the owner, what runs, what is over. */
+export type CloudAgentShelf = "needsYou" | "working" | "done";
+
+export function cloudAgentShelf(state: CloudAgentState): CloudAgentShelf {
+  switch (state) {
+    case "needsInput":
+      return "needsYou";
+    case "paused":
+      return "working";
+    case "finished":
+    case "failed":
+    case "cancelled":
+    case "expired":
+      return "done";
+    default:
+      return "working";
+  }
+}
+
+/**
+ * The repository's name from its link ("https://host/org/app.git" gives "app"), kept on the job
+ * when it launches because the launch request is cleared once sent.
+ */
+export function cloudAgentProjectName(repository: string | null | undefined): string | undefined {
+  const link = cloudAgentHttpsUrl(repository);
+  if (!link) return undefined;
+  const last = new URL(link).pathname.split("/").filter(Boolean).pop();
+  return last?.replace(/\.git$/, "") || undefined;
+}
+
+/** The model as the card shows it, read from the stored row; only its three short strings stay. */
+function cloudAgentModelDisplay(value: unknown): CloudAgentBlock["model"] {
+  const model = value as Record<string, unknown> | null;
+  const text = (field: unknown, max: number) =>
+    typeof field === "string" && field.trim() ? field.trim().slice(0, max) : undefined;
+  const name = text(model?.name, 60);
+  if (!name) return undefined;
+  const effort = text(model?.effort, 30);
+  const mark = text(model?.mark, 30);
+  return { name, ...(effort ? { effort } : {}), ...(mark ? { mark } : {}) };
+}
+
+const CLOUD_AGENT_NOTE_MAX = 400;
+
+export function cloudAgentBlockFromPayload(payload: Record<string, unknown>): CloudAgentBlock {
+  const status = payload.status;
+  const note = typeof payload.note === "string" ? payload.note.trim() : "";
+  const model = cloudAgentModelDisplay(payload.model);
+  const started = payload.startedAt;
+  const startedAt =
+    started instanceof Date
+      ? started.toISOString()
+      : typeof started === "string" && !Number.isNaN(Date.parse(started))
+        ? started
+        : undefined;
+  const progress = clipped(payload.progress, CLOUD_AGENT_PROGRESS_MAX);
+  const ended = payload.endedAt;
+  const endedAt =
+    ended instanceof Date
+      ? ended.toISOString()
+      : typeof ended === "string" && !Number.isNaN(Date.parse(ended))
+        ? ended
+        : undefined;
+  const quota = payload.quotaResetsAt;
+  const quotaResetsAt =
+    quota instanceof Date
+      ? quota.toISOString()
+      : typeof quota === "string" && !Number.isNaN(Date.parse(quota))
+        ? new Date(quota).toISOString()
+        : undefined;
+  const since = payload.unreachableSince;
+  const unreachableSince =
+    since instanceof Date
+      ? since.toISOString()
+      : typeof since === "string" && !Number.isNaN(Date.parse(since))
+        ? since
+        : undefined;
+  return {
+    kind: "cloud_agent",
+    agentId: String(payload.agentId ?? ""),
+    title: String(payload.title ?? "Cloud agent"),
+    status:
+      status === "finished" || status === "failed" || status === "cancelled" || status === "expired"
+        ? status
+        : "running",
+    url: cloudAgentUrl(String(payload.url ?? "")) ?? "",
+    ...(payload.branch ? { branch: String(payload.branch) } : {}),
+    ...(cloudAgentHttpsUrl(String(payload.prUrl ?? "")) ? { prUrl: String(payload.prUrl) } : {}),
+    ...(payload.latestRunId ? { latestRunId: String(payload.latestRunId) } : {}),
+    ...(payload.queued === true ? { queued: true } : {}),
+    ...(payload.needsInput === true ? { needsInput: true } : {}),
+    ...(unreachableSince ? { unreachableSince } : {}),
+    ...(note ? { note: note.slice(0, CLOUD_AGENT_NOTE_MAX) } : {}),
+    ...(model ? { model } : {}),
+    ...(startedAt ? { startedAt } : {}),
+    ...(endedAt ? { endedAt } : {}),
+    ...(quotaResetsAt ? { quotaResetsAt } : {}),
+    ...(progress ? { progress } : {}),
+    ...(typeof payload.ownerQuestion === "string" && payload.ownerQuestion.trim()
+      ? { ownerQuestion: payload.ownerQuestion.trim().slice(0, 500) }
+      : {}),
+    ...cloudAgentQuestionFields(payload),
+    ...(typeof payload.projectName === "string" && payload.projectName
+      ? { projectName: payload.projectName.slice(0, 100) }
+      : {}),
+    ...(payload.launchFailed === true ? { launchFailed: true } : {}),
+    ...(typeof payload.failureReason === "string" && payload.failureReason.trim()
+      ? { failureReason: payload.failureReason.trim().slice(0, CLOUD_AGENT_REASON_MAX) }
+      : {}),
+    ...(payload.review === "checking" ||
+    payload.review === "accepted" ||
+    payload.review === "rejected" ||
+    payload.review === "needs_owner"
+      ? { review: payload.review }
+      : {}),
+    ...(payload.checks === "passing" || payload.checks === "failing" || payload.checks === "running"
+      ? { checks: payload.checks }
+      : {}),
+    ...(payload.prState === "merged" || payload.prState === "closed"
+      ? { prState: payload.prState }
+      : {}),
+    ...(payload.watching === true ? { watching: true } : {}),
+    ...cloudAgentThreadWork(payload),
+    ...cloudAgentProofImages(payload.proofImages),
+    ...(Array.isArray(payload.attempts) && payload.attempts.length
+      ? { attempts: payload.attempts.flatMap(cloudAgentAttempt).slice(-CLOUD_AGENT_ATTEMPTS_MAX) }
+      : {}),
+  };
+}
+
+/** The open question's buttons, what the owner answered and when they last steered, from the row. */
+function cloudAgentQuestionFields(payload: Record<string, unknown>) {
+  let question: CloudAgentBlock["question"];
+  if (typeof payload.questionPrompt === "string") {
+    try {
+      const parsed = JSON.parse(payload.questionPrompt) as {
+        requestId?: unknown;
+        text?: unknown;
+        options?: unknown;
+        allowCustomAnswer?: unknown;
+      };
+      const options = Array.isArray(parsed.options)
+        ? parsed.options.flatMap((option: { label?: unknown; recommended?: unknown }) =>
+            typeof option?.label === "string" && option.label
+              ? [
+                  {
+                    label: option.label.slice(0, 100),
+                    ...(option.recommended === true ? { recommended: true } : {}),
+                  },
+                ]
+              : [],
+          )
+        : [];
+      if (typeof parsed.requestId === "string")
+        question = {
+          requestId: parsed.requestId,
+          ...(typeof parsed.text === "string" && parsed.text
+            ? { text: parsed.text.slice(0, 500) }
+            : {}),
+          options,
+          ...(parsed.allowCustomAnswer === false ? { allowCustomAnswer: false } : {}),
+        };
+    } catch {}
+  }
+  const steered = payload.steeredAt;
+  const steeredAt =
+    steered instanceof Date
+      ? steered.toISOString()
+      : typeof steered === "string" && !Number.isNaN(Date.parse(steered))
+        ? steered
+        : undefined;
+  return {
+    ...(question ? { question } : {}),
+    ...(typeof payload.ownerAnswer === "string" && payload.ownerAnswer
+      ? { answered: payload.ownerAnswer.slice(0, 100) }
+      : {}),
+    ...(steeredAt ? { steeredAt } : {}),
+  };
+}
+
+const CLOUD_AGENT_PROGRESS_MAX = 240;
+
+/** Plain text on one line (markdown marks removed), cut at `max` with an ellipsis; nothing when there is none. */
+export function clipCloudAgentText(value: string, max: number): string {
+  const text = value
+    // Markdown reads as plain words on a card: links keep their text, marks and bullets go.
+    .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_]{1,3}(?=\S)|(?<=\S)[`*_]{1,3}/g, "")
+    .replace(/^[ \t]*(?:#{1,6}|[-*+])[ \t]+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+function clipped(value: unknown, max: number): string {
+  return typeof value === "string" ? clipCloudAgentText(value, max) : "";
+}
+
+const CLOUD_AGENT_REASON_MAX = 300;
+const CLOUD_AGENT_ATTEMPTS_MAX = 5;
+const ATTEMPT_STATUSES = ["running", "finished", "failed", "cancelled", "expired"] as const;
+
+function cloudAgentAttempt(value: unknown): NonNullable<CloudAgentBlock["attempts"]>[number][] {
+  const attempt = value as Record<string, unknown> | null;
+  if (typeof attempt?.agentId !== "string") return [];
+  const status = ATTEMPT_STATUSES.find((known) => known === attempt.status);
+  if (!status) return [];
+  return [
+    {
+      agentId: attempt.agentId,
+      status,
+      ...(typeof attempt.failureReason === "string" && attempt.failureReason
+        ? { failureReason: attempt.failureReason.slice(0, CLOUD_AGENT_REASON_MAX) }
+        : {}),
+      ...(typeof attempt.startedAt === "string" ? { startedAt: attempt.startedAt } : {}),
+    },
+  ];
+}
+
+const CLOUD_AGENT_PROOF_MAX = 3;
+
+/** The card's screenshots from the row's stored list, keeping only what the card can show. */
+function cloudAgentProofImages(value: unknown): Pick<CloudAgentBlock, "proofImages"> {
+  const images = (Array.isArray(value) ? value : []).flatMap((item: unknown) => {
+    const image = item as Record<string, unknown> | null;
+    return typeof image?.artifactId === "string" && typeof image.mimeType === "string"
+      ? [
+          {
+            artifactId: image.artifactId,
+            name: typeof image.name === "string" ? image.name.slice(0, 100) : "",
+            mimeType: image.mimeType,
+          },
+        ]
+      : [];
+  });
+  return images.length ? { proofImages: images.slice(0, CLOUD_AGENT_PROOF_MAX) } : {};
+}

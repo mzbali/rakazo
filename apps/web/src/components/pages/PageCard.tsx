@@ -1,7 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveNearView } from "../../lib/live-previews";
-import { formatRelativeTime } from "../../lib/relative-time";
+import { formatRelativeTime } from "../../lib/locale/relative-time";
 import { PageFrame } from "./PageFrame";
 import { PageTileIcon } from "./page-icon";
 

@@ -1,22 +1,30 @@
 import { ORPCError } from "@orpc/server";
-import { MEMORY_REVISION_CONFLICT_ERROR } from "@rakazo/adapter-kit";
+import { MEMORY_REVISION_CONFLICT_ERROR, MemoryRevisionConflictError } from "@rakazo/adapter-kit";
 import {
   buildAgentMemoryPrompt,
   isScratchpadStatus,
   listScratchpadItems,
   mapScratchpadItem,
+  memoryProviderDescriptors,
   readAgentMemory,
 } from "@rakazo/adapters";
 import { isDeletableMemoryDocument } from "@rakazo/contracts";
+import { ClientError } from "@rakazo/core";
 import { findSpaceMemoryConfig, IsolationError } from "@rakazo/db";
 import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,
   serializeSpaceMemoryConfig,
+  updateMemoryProviderConfig,
   updateMemoryProviderDefaultScope,
-} from "../memory-provider-config.js";
+} from "../integrations/memory-provider-config.js";
 import type { RouterContext } from "./context.js";
+
+/** A memory document's scope is a string column. Anything other than `user` is the bot's own. */
+function memoryScope(scope: string): "bot" | "user" {
+  return scope === "user" ? "user" : "bot";
+}
 
 export function memoryRoutes(ctx: RouterContext) {
   const { deps, repos, taughtSkills, agentSkills, authed } = ctx;
@@ -32,7 +40,7 @@ export function memoryRoutes(ctx: RouterContext) {
         });
         return docs.map((doc) => ({
           id: doc.id,
-          scope: doc.scope as "bot" | "user",
+          scope: memoryScope(doc.scope),
           botId: doc.botId,
           path: doc.path,
           content: doc.content,
@@ -68,7 +76,7 @@ export function memoryRoutes(ctx: RouterContext) {
         const updated = await deps.memory
           .commit(
             {
-              scope: doc.scope as "bot" | "user",
+              scope: memoryScope(doc.scope),
               botId: doc.botId ?? undefined,
               path: doc.path,
               content: input.content,
@@ -83,14 +91,14 @@ export function memoryRoutes(ctx: RouterContext) {
             },
           )
           .catch((error: unknown) => {
-            if (error instanceof Error && error.message === MEMORY_REVISION_CONFLICT_ERROR) {
-              throw new ORPCError("CONFLICT", { message: error.message });
+            if (error instanceof MemoryRevisionConflictError) {
+              throw new ClientError("CONFLICT", error.message);
             }
             throw error;
           });
         return {
           id: updated.id,
-          scope: doc.scope as "bot" | "user",
+          scope: memoryScope(doc.scope),
           botId: doc.botId,
           path: updated.path,
           content: updated.content,
@@ -114,7 +122,7 @@ export function memoryRoutes(ctx: RouterContext) {
         await deps.memory.remove(
           {
             id: doc.id,
-            scope: doc.scope as "bot" | "user",
+            scope: memoryScope(doc.scope),
             botId: doc.botId ?? undefined,
             path: doc.path,
           },
@@ -141,8 +149,12 @@ export function memoryRoutes(ctx: RouterContext) {
         const config = await findSpaceMemoryConfig(deps.prisma, context.actor.spaceId);
         return config ? serializeSpaceMemoryConfig(config) : null;
       }),
+      providers: authed.memory.providers.handler(() => memoryProviderDescriptors()),
       connectProvider: authed.memory.connectProvider.handler(async ({ context, input }) =>
         persistMemoryProviderConfig(deps, context.actor, input),
+      ),
+      updateProvider: authed.memory.updateProvider.handler(async ({ context, input }) =>
+        updateMemoryProviderConfig(deps, context.actor, input),
       ),
       setDefaultScope: authed.memory.setDefaultScope.handler(async ({ context, input }) =>
         updateMemoryProviderDefaultScope(deps, context.actor, input.defaultMemoryScope),

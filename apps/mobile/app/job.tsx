@@ -8,16 +8,16 @@ import { JobProofImages } from "../components/job-proof";
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
 import { JobWorkList } from "../components/job-work";
-import { LoadFailure } from "../components/load-failure";
-import { NativeActionButton } from "../components/native-action-button";
-import { mobileTokens } from "../lib/appearance";
+import { NativeActionButton } from "../components/native/native-action-button";
+import { LoadFailure } from "../components/ui/load-failure";
+import { errorText } from "../lib/api/user-error";
+import { mobileTokens } from "../lib/appearance/appearance";
 import { useCloudJob } from "../lib/cloud-job";
 import { clearCloudJob } from "../lib/cloud-jobs-store";
 import { jobChatTarget } from "../lib/job-chat-target";
 import { jobLinks } from "../lib/job-links";
 import { jobIsClearable } from "../lib/job-shelves";
-import { native, useResolvedAppearance } from "../lib/native";
-import { errorText } from "../lib/user-error";
+import { native, useResolvedAppearance } from "../lib/native/native";
 
 /** One job opened from its card: what it was asked, what it reported, and where to go next. */
 export default function JobSheet() {

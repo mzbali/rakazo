@@ -1,8 +1,8 @@
 import type { AdapterContext, CloudAgentProvider } from "@rakazo/adapter-kit";
 import type { ScopedGoalScope } from "@rakazo/contracts";
 import { z } from "zod";
-import type { SafeWebFetchOptions } from "./web-ssrf.js";
-import { fetchSafeHttpRequest } from "./web-ssrf.js";
+import type { SafeWebFetchOptions } from "./web/web-ssrf.js";
+import { fetchSafeHttpRequest } from "./web/web-ssrf.js";
 
 type Requirement = ScopedGoalScope["requirements"][number];
 export type ObservedResult = Record<string, unknown>;

@@ -1,12 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
 import { ScopedGoalScope } from "@rakazo/contracts";
+import { deferred } from "@rakazo/core/test-async";
 import { createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { pollCloudAgent } from "./cloud-agent-poll.js";
-import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
-import { reconcileCloudWork } from "./run-runtime.js";
+import type { CloudAgentConnection } from "./cloud-agents/cloud-agent-factory.js";
+import { pollCloudAgent } from "./cloud-agents/cloud-agent-poll.js";
+import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agents/cloud-agent-service.js";
+import {
+  T3ThreadEventsEmulator,
+  t3EmulatedProvider,
+} from "./cloud-agents/t3/t3-cloud-agent.test-support.js";
+import { reconcileCloudWork } from "./runs/assembly/run-runtime.js";
 import { observe } from "./scoped-goal-observers.js";
 import {
   advanceScopedGoal,
@@ -15,7 +20,6 @@ import {
   scopedGoalTool,
   settleScopedGoalStarts,
 } from "./scoped-goal-service.js";
-import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
 const PR = "https://github.com/example/demo/pull/1";
 const SHA = "a".repeat(40);
@@ -124,6 +128,7 @@ suite("scoped goal gates advance in code", () => {
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
       enqueueIn: vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined),
+      enqueueManyIn: vi.fn(async () => undefined),
       cancelIn: vi.fn(async (_tx: unknown, _key: string) => undefined),
       cancel: async () => undefined,
       close: async () => undefined,
@@ -445,8 +450,8 @@ suite("scoped goal gates advance in code", () => {
         t.emulator.openPullRequest(t.threadId, PR);
         t.emulator.landPullRequest(t.threadId);
       }
-      let release!: () => void;
-      slow.world.hold = new Promise<void>((resolve) => (release = resolve));
+      const hold = deferred<void>();
+      slow.world.hold = hold.promise;
       const now = new Date(Date.now() + 2 * MINUTE);
       const goalIds = [await slow.goal(), await quick.goal()].map((g) => g.id);
       const enqueued = (t: typeof slow) =>
@@ -469,7 +474,7 @@ suite("scoped goal gates advance in code", () => {
       expect(await quick.goal()).toMatchObject({ gate: "deploy", status: "active" });
       expect(await slow.goal()).toMatchObject({ gate: "merge" });
 
-      release();
+      hold.resolve();
       await hung;
       expect(await slow.goal()).toMatchObject({ gate: "deploy", status: "active" });
     }));

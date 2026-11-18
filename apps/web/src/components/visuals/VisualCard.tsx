@@ -6,7 +6,7 @@ import { Button } from "@rakazo/ui-web";
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLiveNearView } from "../../lib/live-previews";
-import { usePageDocument } from "../../lib/pages";
+import { usePageDocument } from "../../lib/pages/pages";
 import { PageFrame } from "../pages/PageFrame";
 
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;

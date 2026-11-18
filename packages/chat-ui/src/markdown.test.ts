@@ -574,3 +574,26 @@ describe("withMentions", () => {
     ]);
   });
 });
+
+describe("bare app links", () => {
+  allowAppLinks([{ scheme: "reader", host: "books", name: "Reader" }]);
+  const links = (text: string) =>
+    plainTextLinkParts(text).flatMap((part) => (part.type === "link" ? [part.href] : []));
+
+  it("leaves a sentence's closing punctuation and an unopened parenthesis outside the link", () => {
+    expect(links("See the book (reader://books/42).")).toEqual(["reader://books/42"]);
+    expect(links("Open reader://books/42!?")).toEqual(["reader://books/42"]);
+    expect(links("Open reader://books/a(b)")).toEqual(["reader://books/a(b)"]);
+  });
+
+  it("still finds a web address that follows an app link the host refuses", () => {
+    expect(links("reader://shelves/1,https://example.test/")).toEqual(["https://example.test/"]);
+  });
+
+  it("finds a link after a long run of punctuation in linear time", () => {
+    const text = `reader://books/1${".".repeat(200_000)}x`;
+    expectLinearTime(() =>
+      expect(links(text)).toEqual([`reader://books/1${".".repeat(200_000)}x`]),
+    );
+  });
+});

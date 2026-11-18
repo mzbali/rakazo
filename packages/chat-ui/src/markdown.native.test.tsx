@@ -1109,6 +1109,24 @@ describe("app links", () => {
     await view.cleanup();
   });
 
+  it("asks and opens an app link by its lower-case scheme, as Android compares it", async () => {
+    linking.openURL.mockClear();
+    linking.canOpenURL.mockClear();
+    allowAppLinks(appLinkCatalog);
+    const view = await renderNativeLinks(
+      () => <ChatMarkdown>{"[thread](T3CODE://threads/env-1/thread-1)"}</ChatMarkdown>,
+      { load: async () => ({ icon: null }) },
+    );
+    await act(async () => {
+      view.links()[0]?.click();
+    });
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith("t3code://threads/env-1/thread-1");
+    });
+    expect(linking.canOpenURL).toHaveBeenCalledWith("t3code://threads/env-1/thread-1");
+    await view.cleanup();
+  });
+
   it("opens an allowed app link without asking", async () => {
     linking.openURL.mockClear();
     alert.mockClear();

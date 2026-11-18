@@ -69,7 +69,7 @@ export default defineConfig({
         "react-native-svg",
         "@react-native-vector-icons/material-design-icons",
       ].map((dep) => ({
-        find: new RegExp(`^${dep.replace(/[/]/g, "\\/")}$`),
+        find: new RegExp(`^${dep.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&")}$`),
         replacement: fileURLToPath(
           new URL("./packages/chat-ui/src/native-test-stubs.tsx", import.meta.url),
         ),

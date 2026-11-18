@@ -30,6 +30,20 @@ const DIAGRAM_REPLY = [
   "    I --> J[You test it]",
   "```",
 ].join("\n");
+// A visual the bot wrote as a ui fence in its reply, drawn with native views.
+const FENCE_REPLY = [
+  "Noise-contrastive estimation turns density estimation into classification.",
+  "",
+  "```ui",
+  '<Visual summary="NCE turns density estimation into real-vs-noise classification.">',
+  '  <Diagram direction="horizontal" nodes={[{id: "real", label: "Real samples"}, {id: "noise", label: "Noise samples"}, {id: "clf", label: "Binary classifier"}, {id: "out", label: "Learn θ and estimate Z"}]} edges={[{from: "real", to: "clf"}, {from: "noise", to: "clf"}, {from: "clf", to: "out"}]} />',
+  '  <Callout tone="info" lead="Why it works">The classifier only has to tell data from noise.</Callout>',
+  '  <Steps steps={[{title: "Sample noise"}, {title: "Train the classifier"}]} />',
+  "</Visual>",
+  "```",
+  "",
+  "That is the whole idea.",
+].join("\n");
 // A visual the bot drew in the chat with show_visual.
 const VISUAL_SUMMARY = "The launch moves from beta to general availability after the review.";
 const VISUAL_SOURCE = [
@@ -363,6 +377,7 @@ export async function seedIosScreenshotFixture(input: {
     });
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
     await ensureText(db.prisma, group.threadId, "bot", writer.id, DIAGRAM_REPLY);
+    await ensureText(db.prisma, group.threadId, "bot", writer.id, FENCE_REPLY);
     await ensureVisual(db.prisma, group.threadId, writer.id);
     await ensureInlineEmbeds(input.apiUrl, populated.headers, db.prisma, {
       threadId: group.threadId,

@@ -993,6 +993,11 @@ msgstr "Yaklaşık {kb} KB hafıza artık bota ulaşmıyor."
 msgid "About {label}"
 msgstr "{label} hakkında"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Accept"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputerProviderSettings.tsx
 msgid "Access key ID"
 msgstr "Erişim anahtarı kimliği"
@@ -4258,8 +4263,10 @@ msgstr ""
 msgid "Could not submit answer"
 msgstr "Yanıt gönderilemedi"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Could not submit this answer"
 msgstr "Bu yanıt gönderilemedi"
 
@@ -4646,11 +4653,18 @@ msgstr "gün"
 
 #: apps/mobile/app/(settings)/messaging.tsx
 #: apps/mobile/components/calls/IncomingCall.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/lib/calls/incoming-calls.ts
 #: apps/web/src/components/call/IncomingCall.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/pages/settings/MessagingSettingsPanel.tsx
 msgid "Decline"
 msgstr "Reddet"
+
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Declined"
+msgstr ""
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bots/bot-look-picker.tsx
@@ -5444,8 +5458,10 @@ msgstr "{name} genişlet"
 msgid "Expand table"
 msgstr "Tabloyu genişlet"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
 msgstr ""
 
@@ -7633,9 +7649,11 @@ msgstr "Web sitesi ve parola sütunları bulunamadı."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/settings/spending-limit-row.tsx
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/billing/SpendingLimitSettings.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "None"
 msgstr "Yok"
@@ -9756,9 +9774,11 @@ msgstr "Gönderiliyor…"
 msgid "Sends to the job"
 msgstr ""
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Sent"
 msgstr "Gönderildi"
 

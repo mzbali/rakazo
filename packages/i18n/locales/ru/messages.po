@@ -993,6 +993,11 @@ msgstr "Около {kb} КБ памяти больше не доходит до 
 msgid "About {label}"
 msgstr "О настройке «{label}»"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Accept"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputerProviderSettings.tsx
 msgid "Access key ID"
 msgstr "ID ключа доступа"
@@ -4258,8 +4263,10 @@ msgstr ""
 msgid "Could not submit answer"
 msgstr "Не удалось отправить ответ"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Could not submit this answer"
 msgstr "Не удалось отправить этот ответ"
 
@@ -4646,11 +4653,18 @@ msgstr "дни"
 
 #: apps/mobile/app/(settings)/messaging.tsx
 #: apps/mobile/components/calls/IncomingCall.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/lib/calls/incoming-calls.ts
 #: apps/web/src/components/call/IncomingCall.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/pages/settings/MessagingSettingsPanel.tsx
 msgid "Decline"
 msgstr "Отклонить"
+
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Declined"
+msgstr ""
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bots/bot-look-picker.tsx
@@ -5444,8 +5458,10 @@ msgstr "Развернуть {name}"
 msgid "Expand table"
 msgstr "Развернуть таблицу"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
 msgstr ""
 
@@ -7633,9 +7649,11 @@ msgstr "Не найдены столбцы с сайтом и паролем."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/settings/spending-limit-row.tsx
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/billing/SpendingLimitSettings.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "None"
 msgstr "Нет"
@@ -9756,9 +9774,11 @@ msgstr "Отправка…"
 msgid "Sends to the job"
 msgstr ""
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Sent"
 msgstr "Отправлено"
 

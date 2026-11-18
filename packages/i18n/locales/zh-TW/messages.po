@@ -994,6 +994,11 @@ msgstr "約 {kb} KB 的記憶不再提供給機器人。"
 msgid "About {label}"
 msgstr "關於 {label}"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Accept"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputerProviderSettings.tsx
 msgid "Access key ID"
 msgstr "存取金鑰 ID"
@@ -4259,8 +4264,10 @@ msgstr ""
 msgid "Could not submit answer"
 msgstr "無法提交回答"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Could not submit this answer"
 msgstr "無法提交此回答"
 
@@ -4647,11 +4654,18 @@ msgstr "天"
 
 #: apps/mobile/app/(settings)/messaging.tsx
 #: apps/mobile/components/calls/IncomingCall.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/lib/calls/incoming-calls.ts
 #: apps/web/src/components/call/IncomingCall.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/pages/settings/MessagingSettingsPanel.tsx
 msgid "Decline"
 msgstr "拒絕"
+
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Declined"
+msgstr ""
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bots/bot-look-picker.tsx
@@ -5445,8 +5459,10 @@ msgstr "展開 {name}"
 msgid "Expand table"
 msgstr "展開表格"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
 msgstr ""
 
@@ -7634,9 +7650,11 @@ msgstr "找不到網站欄和密碼欄。"
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/settings/spending-limit-row.tsx
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/billing/SpendingLimitSettings.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "None"
 msgstr "無"
@@ -9757,9 +9775,11 @@ msgstr "正在傳送…"
 msgid "Sends to the job"
 msgstr ""
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Sent"
 msgstr "已傳送"
 

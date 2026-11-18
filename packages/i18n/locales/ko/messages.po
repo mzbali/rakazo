@@ -993,6 +993,11 @@ msgstr "약 {kb}KB의 기억이 더 이상 봇에 전달되지 않습니다."
 msgid "About {label}"
 msgstr "{label} 정보"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Accept"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputerProviderSettings.tsx
 msgid "Access key ID"
 msgstr "액세스 키 ID"
@@ -4258,8 +4263,10 @@ msgstr ""
 msgid "Could not submit answer"
 msgstr "답변을 제출하지 못했습니다"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Could not submit this answer"
 msgstr "답변을 보내지 못했습니다."
 
@@ -4646,11 +4653,18 @@ msgstr "일"
 
 #: apps/mobile/app/(settings)/messaging.tsx
 #: apps/mobile/components/calls/IncomingCall.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/lib/calls/incoming-calls.ts
 #: apps/web/src/components/call/IncomingCall.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/pages/settings/MessagingSettingsPanel.tsx
 msgid "Decline"
 msgstr "거절"
+
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Declined"
+msgstr ""
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bots/bot-look-picker.tsx
@@ -5444,8 +5458,10 @@ msgstr "{name} 펼치기"
 msgid "Expand table"
 msgstr "표 확장"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
 msgstr ""
 
@@ -7633,9 +7649,11 @@ msgstr "웹사이트와 비밀번호 열을 찾을 수 없습니다."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/settings/spending-limit-row.tsx
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/billing/SpendingLimitSettings.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "None"
 msgstr "없음"
@@ -9756,9 +9774,11 @@ msgstr "보내는 중…"
 msgid "Sends to the job"
 msgstr ""
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Sent"
 msgstr "보냄"
 

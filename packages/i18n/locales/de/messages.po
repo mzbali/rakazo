@@ -993,6 +993,11 @@ msgstr "Etwa {kb} KB an Erinnerungen erreichen den Bot nicht mehr."
 msgid "About {label}"
 msgstr "Über {label}"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Accept"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputerProviderSettings.tsx
 msgid "Access key ID"
 msgstr "Zugriffsschlüssel-ID"
@@ -4258,8 +4263,10 @@ msgstr ""
 msgid "Could not submit answer"
 msgstr "Antwort konnte nicht gesendet werden"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Could not submit this answer"
 msgstr "Antwort konnte nicht gesendet werden"
 
@@ -4646,11 +4653,18 @@ msgstr "Tage"
 
 #: apps/mobile/app/(settings)/messaging.tsx
 #: apps/mobile/components/calls/IncomingCall.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/lib/calls/incoming-calls.ts
 #: apps/web/src/components/call/IncomingCall.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/pages/settings/MessagingSettingsPanel.tsx
 msgid "Decline"
 msgstr "Ablehnen"
+
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
+msgid "Declined"
+msgstr ""
 
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/bots/bot-look-picker.tsx
@@ -5444,8 +5458,10 @@ msgstr "{name} ausklappen"
 msgid "Expand table"
 msgstr "Tabelle erweitern"
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
 msgstr ""
 
@@ -7633,9 +7649,11 @@ msgstr "Keine Spalten für Website und Passwort gefunden."
 
 #: apps/mobile/app/(settings)/billing.tsx
 #: apps/mobile/app/(settings)/spending-limit.tsx
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/settings/spending-limit-row.tsx
 #: apps/mobile/components/vault/vault-item-editor.tsx
 #: apps/web/src/components/billing/SpendingLimitSettings.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "None"
 msgstr "Keine"
@@ -9756,9 +9774,11 @@ msgstr "Wird gesendet…"
 msgid "Sends to the job"
 msgstr ""
 
+#: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/web/src/components/messages/AskCard.tsx
 #: apps/web/src/components/messages/SecretAskCard.tsx
+#: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Sent"
 msgstr "Gesendet"
 

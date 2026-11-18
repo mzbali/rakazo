@@ -30,7 +30,11 @@ import {
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { resolveBotWorkspacePath } from "../computers/screens/computer-support.js";
+import {
+  normalizeWorkspacePath,
+  resolveBotWorkspacePath,
+  WorkspacePathError,
+} from "../computers/screens/computer-support.js";
 
 export type MaterializedThreadFile = {
   name: string;
@@ -38,6 +42,33 @@ export type MaterializedThreadFile = {
   size: number;
   path: string;
 };
+
+const producedPaths = new WeakMap<object, Set<string>>();
+
+function producedPathKey(filePath: string): string | undefined {
+  try {
+    return normalizeWorkspacePath(filePath);
+  } catch (error) {
+    if (error instanceof WorkspacePathError) return undefined;
+    throw error;
+  }
+}
+
+/** Remember a file this run wrote, so attaching it later counts as made even if the call omits that. */
+export function noteRunProducedFile(run: object, filePath: string): void {
+  const key = producedPathKey(filePath);
+  if (!key) return;
+  const paths = producedPaths.get(run) ?? new Set();
+  paths.add(key);
+  producedPaths.set(run, paths);
+}
+
+/** True when this run wrote the path, or the attach call says the bot made the file. */
+export function fileWasProduced(run: object, filePath: string, made: unknown): boolean {
+  if (made === true) return true;
+  const key = producedPathKey(filePath);
+  return key !== undefined && (producedPaths.get(run)?.has(key) ?? false);
+}
 
 export async function attachWorkspaceFileToThread(
   deps: {
@@ -56,6 +87,8 @@ export async function attachWorkspaceFileToThread(
     operationId: string;
     name?: string;
     description?: string;
+    /** True when the bot wrote or generated these bytes. False when it only collected them. */
+    produced: boolean;
     /** Checkpoint a caller's durable state atomically with attachment creation. */
     onAttached?: (tx: Prisma.TransactionClient, artifact: Artifact) => Promise<void>;
   },
@@ -111,6 +144,7 @@ export async function attachWorkspaceFileToThread(
             storageKey: stored.id,
             rootArtifactId,
             version,
+            produced: input.produced,
           },
         });
         await input.onAttached?.(tx, artifact);

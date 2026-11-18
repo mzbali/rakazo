@@ -15,7 +15,7 @@ import {
 import { publishMessage } from "../runs/assembly/run-messages.js";
 import type { ExecutorDeps } from "../runs/executor/executor-deps.js";
 import { TOOL_RESULT_TEXT_LIMIT } from "../runtime/pi/pi-runtime-limits.js";
-import { attachWorkspaceFileToThread } from "../storage/thread-artifacts.js";
+import { attachWorkspaceFileToThread, noteRunProducedFile } from "../storage/thread-artifacts.js";
 import { READ_FILE_MAX_BYTES, READ_FILE_MAX_KB } from "./builtin-computer.tool-definition.js";
 import type { PlotSpec } from "./plot-tool.js";
 import {
@@ -291,6 +291,7 @@ export async function renderPlotFromTool(
       },
       context,
     );
+    noteRunProducedFile(run, outPath);
     let attached = false;
     let embed: string | undefined;
     const chartName = outPath.split("/").pop() ?? "chart";
@@ -327,6 +328,7 @@ export async function renderPlotFromTool(
           filePath: outPath,
           bytes: png,
           operationId: executionId,
+          produced: true,
         },
       );
       await publishMessage(deps, run, "bot", [result.block]);

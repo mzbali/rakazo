@@ -86,6 +86,7 @@ postgres("attach_file (PostgreSQL)", () => {
     filePath: string,
     lease: { owner: string; fence: number },
     client: typeof prisma = prisma,
+    made = true,
   ) => {
     const deps = withRunLease(
       {
@@ -122,7 +123,7 @@ postgres("attach_file (PostgreSQL)", () => {
     } as unknown as RunContext;
     const call = {
       name: "attach_file",
-      args: { path: filePath },
+      args: { path: filePath, made },
       executionId: `call-${randomUUID()}`,
       finish: async (result: unknown) => result,
     } as unknown as ToolCall;
@@ -133,7 +134,7 @@ postgres("attach_file (PostgreSQL)", () => {
       artifacts: await prisma.artifact.findMany({
         where: { runId: run.id },
         orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, hash: true },
+        select: { id: true, name: true, hash: true, produced: true },
       }),
       messages: await prisma.message.findMany({
         where: { runId: run.id },
@@ -153,7 +154,9 @@ postgres("attach_file (PostgreSQL)", () => {
       artifactId: string;
     };
     const after = await state();
-    expect(after.artifacts).toHaveLength(1);
+    expect(after.artifacts).toEqual([
+      expect.objectContaining({ name: "first.png", produced: true }),
+    ]);
     expect(after.stored).toHaveLength(1);
     expect(after.messages.map((message) => message.blocks)).toEqual([
       [expect.objectContaining({ kind: "image", artifactId: posted.artifactId })],
@@ -257,4 +260,21 @@ postgres("attach_file (PostgreSQL)", () => {
       [expect.objectContaining({ kind: "image", artifactId: posted.artifactId })],
     ]);
   }, 30_000);
+
+  it("keeps a downloaded file out of what the bot made", async () => {
+    bytes = new TextEncoder().encode("a photo from the web");
+    const posted = (await attach(
+      "shots/found.png",
+      { owner: "worker-1", fence: 1 },
+      prisma,
+      false,
+    )) as { artifactId: string };
+    const row = await fixture(() =>
+      prisma.artifact.findUniqueOrThrow({
+        where: { id: posted.artifactId },
+        select: { produced: true, runId: true },
+      }),
+    );
+    expect(row).toEqual({ produced: false, runId: run.id });
+  });
 });

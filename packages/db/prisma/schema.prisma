@@ -2071,6 +2071,10 @@ model Artifact {
   group      ChatGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
   userId     String
   runId      String?
+  /// True when a bot wrote or generated this file. False when it only collected the bytes,
+  /// such as a saved web image or a file it found and attached unchanged. Null when the row
+  /// was not classified: an upload, or a file from before this was recorded.
+  produced   Boolean?
   name       String
   description String?
   mimeType   String

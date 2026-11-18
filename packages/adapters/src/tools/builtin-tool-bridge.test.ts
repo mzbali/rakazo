@@ -60,8 +60,8 @@ describe("built-in tool bridge", () => {
     // search_history lists earlier tool work by kind without a keyword; message_bot is the
     // most used deferred tool, and a lookup before each message cost a step; schedule_create says
     // whether a routine runs in its chat, and takes the events (webhook, Git, chat, email) a
-    // routine can start on.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_482);
+    // routine can start on. attach_file says whether the bot wrote the file or only found it.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(35_635);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         "render_plot",

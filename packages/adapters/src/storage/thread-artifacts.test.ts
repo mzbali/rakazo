@@ -11,14 +11,29 @@ import { describe, expect, it, vi } from "vitest";
 import {
   attachWorkspaceFileToThread,
   createEarlierFileQueue,
+  fileWasProduced,
   materializeCurrentTurnFiles,
   materializeEarlierFiles,
   materializeRecentThreadFiles,
+  noteRunProducedFile,
 } from "./thread-artifacts.js";
 import {
   currentTurnFilesInstruction,
   recentThreadFilesInstruction,
 } from "./thread-artifacts.prompt.js";
+
+describe("whether an attached file was produced", () => {
+  it("counts a file this run wrote, and a call that says the bot made it", () => {
+    const run = {};
+    expect(fileWasProduced(run, "notes/result.txt", undefined)).toBe(false);
+    expect(fileWasProduced(run, "shots/found.png", false)).toBe(false);
+    noteRunProducedFile(run, "notes\\result.txt");
+    expect(fileWasProduced(run, "notes/result.txt", undefined)).toBe(true);
+    expect(fileWasProduced(run, "shots/found.png", false)).toBe(false);
+    expect(fileWasProduced(run, "shots/found.png", true)).toBe(true);
+    expect(fileWasProduced({}, "notes/result.txt", undefined)).toBe(false);
+  });
+});
 
 describe("current-turn thread files", () => {
   it.each([
@@ -53,6 +68,7 @@ describe("current-turn thread files", () => {
         name,
         bytes: new Uint8Array([1, 2, 3]),
         operationId: "op",
+        produced: true,
       },
     );
     expect(put).toHaveBeenCalledWith(
@@ -65,7 +81,9 @@ describe("current-turn thread files", () => {
       }),
     );
     expect(artifact.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ name: expectedName }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ name: expectedName, produced: true }),
+      }),
     );
     expect(result.block).toMatchObject({ name: expectedName, mimeType: "application/pdf" });
   });
@@ -86,6 +104,7 @@ describe("current-turn thread files", () => {
           filePath: "generated.mp4",
           bytes: new Uint8Array(4),
           operationId: "op",
+          produced: true,
         },
       ),
     ).rejects.toThrow("attachment limit");
@@ -208,6 +227,7 @@ describe("current-turn thread files", () => {
           filePath: "generated.mp4",
           bytes: new Uint8Array([1, 2, 3, 4]),
           operationId: "op",
+          produced: true,
           onAttached,
         },
       );
@@ -253,6 +273,7 @@ describe("current-turn thread files", () => {
           filePath: "report.pdf",
           bytes: new Uint8Array([1, 2, 3]),
           operationId: "attach-1",
+          produced: false,
         },
       ),
     ).rejects.toBe(failure);

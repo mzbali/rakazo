@@ -364,6 +364,7 @@ describe("postSavedWebImage", () => {
         bytes: PNG,
         operationId: "exec-1",
         runId: "run-1",
+        produced: false,
       }),
     );
     expect(persist).toHaveBeenCalledWith(

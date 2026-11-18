@@ -69,6 +69,7 @@ describe.skipIf(!hasDb)("artifacts.listSpace made by bots", () => {
           userId: owner.userId,
           botId: bot.id,
           runId: `run-${name}-${family?.version ?? 1}`,
+          produced: true,
           name,
           mimeType: "text/markdown",
           size: 6,
@@ -88,6 +89,37 @@ describe.skipIf(!hasDb)("artifacts.listSpace made by bots", () => {
     // An upload a bot then writes a new version of.
     const draft = await upload("draft.md");
     await madeByBot("draft.md", new Date(), { rootArtifactId: draft.id, version: 2 });
+    // A file the bot downloaded during a run. It has a run, and it is not something the bot made.
+    await prisma.artifact.create({
+      data: {
+        spaceId: owner.spaceId,
+        userId: owner.userId,
+        botId: bot.id,
+        runId: "run-downloaded",
+        produced: false,
+        name: "downloaded.png",
+        mimeType: "image/png",
+        size: 8,
+        hash: "downloaded.png",
+        storageKey: "blob-downloaded.png",
+        createdAt: new Date("2026-01-04T00:00:00.000Z"),
+      },
+    });
+    // An older row a run attached before produced was recorded.
+    await prisma.artifact.create({
+      data: {
+        spaceId: owner.spaceId,
+        userId: owner.userId,
+        botId: bot.id,
+        runId: "run-unclassified",
+        name: "unclassified.md",
+        mimeType: "text/markdown",
+        size: 4,
+        hash: "unclassified.md",
+        storageKey: "blob-unclassified.md",
+        createdAt: new Date("2025-12-31T00:00:00.000Z"),
+      },
+    });
 
     const list = (input: Record<string, unknown>) =>
       rpc<Listing>(app, cookie, "artifacts/listSpace", input);
@@ -99,8 +131,10 @@ describe.skipIf(!hasDb)("artifacts.listSpace made by bots", () => {
       ["draft.md", 2, 2],
       ["plan.md", 2, 2],
       ["my-upload.txt", 1, 1],
+      ["downloaded.png", 1, 1],
       ["newer-report.md", 1, 1],
       ["older-report.md", 1, 1],
+      ["unclassified.md", 1, 1],
     ]);
     expect(shown(await list({ madeByBots: true }))).toEqual([
       ["draft.md", 2, 2],

@@ -93,6 +93,7 @@ describe("listSpaceArtifacts", () => {
       expect(text).toContain("DISTINCT ON");
       expect(text).toContain("LIMIT");
       expect(text).not.toMatch(/\b500\b/);
+      expect(text).not.toContain('latest."produced" IS TRUE');
       expect(scopedClause(sql)).toContain('"createdAt" <=');
       expect(sql.values).toContain(3);
       expect(sql.values).toContainEqual(new Date("2026-09-20T12:00:00.000Z"));
@@ -221,6 +222,24 @@ describe("listSpaceArtifacts", () => {
       ),
     ).rejects.toBeInstanceOf(ArtifactListCursorError);
     expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("lists files a bot produced and leaves collected files on the full list", async () => {
+    const queryRaw = vi.fn().mockResolvedValue([]);
+    await listSpaceArtifacts(
+      {
+        prisma: { artifact: { findFirst: vi.fn() }, $queryRaw: queryRaw } as unknown as Pick<
+          PrismaClient,
+          "artifact" | "$queryRaw"
+        >,
+      },
+      actor,
+      { madeByBots: true },
+    );
+    const text = statement(queryRaw.mock.calls[0]?.[0] as { strings: string[] });
+    expect(text).toContain("produced, name");
+    expect(text).toContain('latest."produced" IS TRUE');
+    expect(text).not.toContain('latest."runId" IS NOT NULL');
   });
 
   it("reads a cursor issued before the made-by-bots filter as the full list", async () => {

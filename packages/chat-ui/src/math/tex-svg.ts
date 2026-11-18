@@ -1,3 +1,4 @@
+import type { LiteElement } from "mathjax-full/js/adaptors/lite/Element.js";
 import { liteAdaptor } from "mathjax-full/js/adaptors/liteAdaptor.js";
 import { RegisterHTMLHandler } from "mathjax-full/js/handlers/html.js";
 import { TeX } from "mathjax-full/js/input/tex.js";
@@ -32,7 +33,7 @@ function exLength(value: string | null | undefined): number {
 /** The formula as SVG, sized in `ex` (the height of an x in the text around it). Throws on bad TeX. */
 export function texToSvg(tex: string, display: boolean): MathSvg {
   const container = document.convert(tex, { display });
-  const svg = adaptor.firstChild(container);
+  const svg = adaptor.firstChild(container) as LiteElement | null;
   if (!svg) throw new Error("MathJax drew nothing");
   const xml = adaptor.outerHTML(svg);
   const verticalAlign = /vertical-align:\s*(-?[\d.]+)ex/.exec(

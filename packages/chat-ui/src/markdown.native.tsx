@@ -13,6 +13,7 @@ import type { ChatMarkdownProps } from "./markdown";
 import { CitationGroupsContext, LinkFaviconsPausedContext, linkifyExplicitUrls } from "./markdown";
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy } from "./markdown-link-prompt";
+import { markMath } from "./math/markdown-it-math";
 import { InlineChipsContext } from "./native/chips";
 import { SourcesCount } from "./native/citations";
 import { DiagramSurfaceContext } from "./native/code";
@@ -31,6 +32,7 @@ const markdownParser = createMarkdownIt();
 markdownParser.validateLink = keepMarkdownLinkToken;
 linkifyExplicitUrls(markdownParser);
 markTaskListItems(markdownParser);
+markMath(markdownParser);
 markQuoteSources(markdownParser);
 
 /** A node's place in the tree, which stays the same when the same Markdown is parsed again. */

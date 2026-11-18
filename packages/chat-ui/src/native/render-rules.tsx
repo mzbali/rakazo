@@ -20,6 +20,7 @@ import {
   remoteMarkdownImage,
   sanitizeMarkdownUrl,
 } from "../markdown";
+import { isDisplayMathOnly, mathRenderRules } from "../math/math.native";
 import { isMermaidFence } from "../mermaid";
 import { astText, cellPlainText, enclosingLink, soleRemoteImage } from "./ast";
 import { MarkdownMention, MarkdownPageChip } from "./chips";
@@ -57,6 +58,7 @@ function listRule(
 }
 
 export const renderRules: RenderRules = {
+  ...mathRenderRules,
   list_item: listItemRule,
   bullet_list: (node, children, _parent, styleMap) =>
     listRule(node, children, styleMap, "bullet_list"),
@@ -105,6 +107,8 @@ export const renderRules: RenderRules = {
     );
   },
   textgroup: (node, children, parents, styleMap) => {
+    // A display formula on its own is a block, not part of a line of text.
+    if (isDisplayMathOnly(node)) return <Fragment key={node.key}>{children}</Fragment>;
     // The space between a row's image and its title would indent the title past the text below.
     // The image sits either in this group or just before it in a list item.
     const thumbed = Children.toArray(children).some(isMediaThumb);

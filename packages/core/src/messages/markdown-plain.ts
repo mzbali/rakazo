@@ -1,4 +1,5 @@
 import { plainEmbedReferences } from "./embed-references.js";
+import { createMathScanner } from "./math-delimiters.js";
 
 const PAYLOAD_MARK = "\uE000";
 /**
@@ -41,6 +42,7 @@ export function plainTextFromMarkdown(
   let text = plainEmbedReferences(source.text).replaceAll(PAYLOAD_MARK, markToken);
   text = takeFencedCode(text, stash, source.truncated);
   text = takeInlineCode(text, stash);
+  text = takeMath(text, stash);
   text = takeEscapes(text, stash);
   // Autolinks may contain stashed escapes; flatten only those literal payloads.
   text = takeLinks(text)
@@ -284,6 +286,26 @@ function stripHtmlTags(text: string): string {
     i += 1;
   }
   return out;
+}
+
+/** Formulas keep their TeX as written: `\(x\)` and `\{` must not lose the backslash. */
+function takeMath(text: string, stash: (payload: string) => string): string {
+  const scan = createMathScanner(text);
+  let out = "";
+  let from = 0;
+  for (let index = 0; index < text.length; ) {
+    const code = text[index];
+    const match = code === "$" || code === "\\" ? scan(index) : undefined;
+    if (match) {
+      out += text.slice(from, index) + stash(text.slice(index, match.end));
+      index = match.end;
+      from = index;
+    } else {
+      // A backslash keeps the next character out of a delimiter, as in the scanner.
+      index += code === "\\" ? 2 : 1;
+    }
+  }
+  return out + text.slice(from);
 }
 
 function takeEscapes(text: string, stash: (payload: string) => string): string {

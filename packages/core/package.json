@@ -89,6 +89,11 @@
       "development": "./src/primitives/egress.ts",
       "default": "./src/primitives/egress.ts"
     },
+    "./math-delimiters": {
+      "types": "./src/messages/math-delimiters.ts",
+      "development": "./src/messages/math-delimiters.ts",
+      "default": "./src/messages/math-delimiters.ts"
+    },
     "./answer-sources": {
       "types": "./src/messages/answer-sources.ts",
       "development": "./src/messages/answer-sources.ts",

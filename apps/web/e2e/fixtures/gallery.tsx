@@ -1,9 +1,7 @@
 import { I18nProvider } from "@lingui/react";
-import { allowAppLinks } from "@rakazo/chat-ui/web";
 import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { instructionUpdateDiff } from "@rakazo/core";
-import { computerAppLinks } from "@rakazo/core/app-links";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -952,7 +950,6 @@ function Gallery() {
   );
 }
 
-allowAppLinks(computerAppLinks);
 await bootstrapI18n("en");
 createRoot(document.getElementById("root")!).render(
   <I18nProvider i18n={i18n}>

@@ -788,6 +788,11 @@ export interface CloudAgentProvider {
   cancel(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
   /** Marks accepted work as done in the provider's own list, for providers that keep one. */
   settle?(id: string, context: AdapterContext): Promise<void>;
+  /**
+   * Whether the owner has closed the work in the provider's own list (settled or archived it)
+   * with nothing there still open for them, for providers that keep one.
+   */
+  ownerClosed?(id: string, context: AdapterContext): Promise<boolean>;
   /** The pull requests the agent's work opened, for providers that track them. */
   pullRequests?(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]>;
 }

@@ -34,6 +34,7 @@ import {
   cloudAgentJobThreadsEnabled,
   MAX_LAUNCH_BRIEF,
 } from "./jobs/cloud-agent-job-thread.js";
+import { ownerClosedPollAt } from "./jobs/cloud-agent-owner-closed.js";
 import type { CloudAgentProofDeps } from "./jobs/cloud-agent-proof.js";
 import { failedStartRecovery } from "./jobs/cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./jobs/cloud-agent-replacement.js";
@@ -908,6 +909,8 @@ export async function reportCloudAgent(
     return {
       error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
     };
+  // The owner may deal with a question in the provider instead; the poll then lets it go.
+  const watchAt = report.ownerQuestion ? ownerClosedPollAt(agent.endedAt) : null;
   // One verdict per piece of work, so the asking bot never holds a different one than the record.
   // A follow-up accepted meanwhile starts new work, which this verdict is not about.
   const recorded = await deps.prisma.cloudAgent.updateMany({
@@ -921,6 +924,7 @@ export async function reportCloudAgent(
       verdict: report.verdict,
       verdictSummary: report.summary,
       ownerQuestion: report.ownerQuestion ?? null,
+      nextPollAt: watchAt,
     },
   });
   if (!recorded.count) {
@@ -932,6 +936,7 @@ export async function reportCloudAgent(
   }
   // The question belongs on the job's card too, whatever the helper's own result says.
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
+  if (recorded.count && watchAt) await enqueueCloudAgent(deps, agent.id, watchAt);
   // Only the call that recorded the verdict settles, so a replay never does it twice.
   if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
     const owner =

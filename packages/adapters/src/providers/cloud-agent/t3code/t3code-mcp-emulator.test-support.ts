@@ -29,6 +29,9 @@ export interface Thread {
     watching?: boolean;
   }>;
   pendingRequestCount: number;
+  /** Settled or archived by the owner in T3's own list. */
+  settled?: boolean;
+  archived?: boolean;
   /** Background work the agent left running, as `t3_thread_read` lists it. */
   work?: Array<{ taskId: string; kind: string; description?: string; childThreadId?: string }>;
   /** Launched into a worktree, which exists once its setup finished. */
@@ -681,7 +684,8 @@ export class T3McpEmulator {
             pendingBackgroundTasks: this.backgroundTasks(thread),
             branch: thread.branch,
             worktreePath: null,
-            settled: false,
+            settled: thread.settled === true,
+            archived: thread.archived === true,
           },
           recentRuns: thread.runs
             .toReversed()

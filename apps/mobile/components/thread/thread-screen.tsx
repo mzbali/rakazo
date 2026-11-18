@@ -550,7 +550,9 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
     .flatMap((message) => message.blocks)
     .flatMap((block) =>
       block.kind === "cloud_agent"
-        ? [`${block.agentId}:${block.status}:${block.review ?? ""}:${block.needsInput ?? ""}`]
+        ? [
+            `${block.agentId}:${block.status}:${block.review ?? ""}:${block.needsInput ?? ""}:${Boolean(block.ownerQuestion)}`,
+          ]
         : [],
     )
     .join();

@@ -60,7 +60,10 @@ export class T3ThreadEventsEmulator extends T3McpEmulator {
       const thread = this.threads.get(String(args.threadId));
       if (!thread) return { failure: "thread_not_found" };
       if (tool === "t3_thread_update") thread.title = String(args.title);
-      else if (args.action === "settle") this.settled.push(thread.threadId);
+      else if (args.action === "settle") {
+        this.settled.push(thread.threadId);
+        thread.settled = true;
+      }
       return { result: {} };
     }
     if (tool !== "t3_thread_events") return super.handle(tool, args);

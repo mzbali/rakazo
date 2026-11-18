@@ -75,6 +75,27 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     emulator.complete(first.id, "failed");
   });
 
+  it("says the owner closed a thread only once it is settled or archived with nothing open", async () => {
+    const { emulator, provider } = setup();
+    const agent = await provider.launch(
+      { scratch: true, idempotencyKey: "closed1234567890", prompt: "Fix it", title: "Fix it" },
+      context,
+    );
+    emulator.complete(agent.id, "failed");
+    const thread = emulator.threads.get(agent.id)!;
+    expect(await provider.ownerClosed(agent.id, context)).toBe(false);
+    await provider.settle(agent.id, context);
+    expect(await provider.ownerClosed(agent.id, context)).toBe(true);
+    thread.pendingRequestCount = 1;
+    expect(await provider.ownerClosed(agent.id, context)).toBe(false);
+    thread.pendingRequestCount = 0;
+    thread.settled = false;
+    thread.archived = true;
+    expect(await provider.ownerClosed(agent.id, context)).toBe(true);
+    // A thread T3 no longer has says nothing about the owner.
+    expect(await provider.ownerClosed("gone", context)).toBe(false);
+  });
+
   it("keeps a job running while its thread only watches a pull request", async () => {
     const { emulator, provider } = setup();
     const agent = await provider.launch(

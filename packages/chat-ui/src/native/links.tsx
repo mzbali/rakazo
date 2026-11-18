@@ -32,7 +32,14 @@ export const POP_ISOLATE = "\u2069";
 async function openSafeLink(url: string) {
   const safeUrl = sanitizeMarkdownUrl(url);
   if (!safeUrl) return;
-  if (await Linking.canOpenURL(safeUrl)) await Linking.openURL(safeUrl);
+  // Android compares schemes case-sensitively when asked whether one can open; apps register
+  // theirs in lower case.
+  const target = safeUrl.replace(/^[^:]+/, (scheme) => scheme.toLowerCase());
+  try {
+    if (await Linking.canOpenURL(target)) await Linking.openURL(target);
+  } catch {
+    // The app went away between the check and the launch; the tap simply does nothing.
+  }
 }
 
 export const OpenLinkContext = createContext<(url: string) => void>(() => undefined);

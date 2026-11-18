@@ -229,14 +229,51 @@ type ExplicitLinkify = LinkifyRules & {
   match(text: string): ExplicitLinkMatch[] | null;
 };
 
-// After the scheme: `//`, then everything up to a space, quote or bracket, less the sentence's
-// closing punctuation. Whether the whole link opens is sanitizeMarkdownUrl's call.
-const APP_LINK_TAIL = /^\/\/[^\s<>"'`]*/;
+// After the scheme: `//`, then everything up to a space, quote or angle bracket.
+const APP_LINK_TAIL = /\/\/[^\s<>"'`]*/y;
+const CLOSING_PUNCTUATION = ".,;:!?";
 
-const appLinkSchema: LinkifySchema = {
-  validate: (text, pos) =>
-    APP_LINK_TAIL.exec(text.slice(pos))?.[0].replace(/[.,;:!?]+$/, "").length ?? 0,
-};
+/**
+ * How much of an app link's tail belongs to the link: the sentence's closing punctuation and
+ * a closing parenthesis with no opening one in the link stay outside, as in `(see app://x).`.
+ * One backward pass, so a long run of punctuation costs no more than its length.
+ */
+function appLinkTailLength(tail: string): number {
+  let unmatched = 0;
+  for (const character of tail) {
+    if (character === "(") unmatched--;
+    else if (character === ")") unmatched++;
+  }
+  let end = tail.length;
+  while (end > 2) {
+    const character = tail[end - 1]!;
+    if (CLOSING_PUNCTUATION.includes(character)) end--;
+    else if (character === ")" && unmatched > 0) {
+      unmatched--;
+      end--;
+    } else break;
+  }
+  return end;
+}
+
+/** Finds `scheme://…` only where the host allows the whole link, so a rejected one hides no other. */
+function appLinkSchema(scheme: string): LinkifySchema {
+  return {
+    validate: (text, pos) => {
+      APP_LINK_TAIL.lastIndex = pos;
+      const tail = APP_LINK_TAIL.exec(text)?.[0];
+      if (!tail) return 0;
+      const length = appLinkTailLength(tail);
+      return matchesAppLink(`${scheme}:${tail.slice(0, length)}`, appLinks) ? length : 0;
+    },
+  };
+}
+
+function addAppLinkSchemes(linkify: LinkifyRules, links: readonly AppLink[]) {
+  for (const { scheme } of links) {
+    linkify.add(`${scheme.toLowerCase()}:`, appLinkSchema(scheme.toLowerCase()));
+  }
+}
 
 const linkifiers: LinkifyRules[] = [];
 
@@ -244,7 +281,7 @@ function applyExplicitLinkRules(linkify: LinkifyRules) {
   linkify.set({ fuzzyLink: false });
   linkify.add("ftp:", null);
   linkify.add("//", null);
-  for (const link of appLinks) linkify.add(`${link.scheme.toLowerCase()}:`, appLinkSchema);
+  addAppLinkSchemes(linkify, appLinks);
   linkifiers.push(linkify);
 }
 
@@ -274,9 +311,7 @@ applyExplicitLinkRules(plainTextLinkify);
  */
 export function allowAppLinks(links: readonly AppLink[]) {
   appLinks.push(...links);
-  for (const linkify of linkifiers) {
-    for (const link of links) linkify.add(`${link.scheme.toLowerCase()}:`, appLinkSchema);
-  }
+  for (const linkify of linkifiers) addAppLinkSchemes(linkify, links);
 }
 
 /** Where a bare allowed app link sits in text, for renderers whose autolinks know only the web. */

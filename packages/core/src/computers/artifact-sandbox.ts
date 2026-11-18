@@ -116,9 +116,10 @@ export function pageCopyResult(id: string, ok: boolean) {
 }
 
 /**
- * How a visual sits in the chat. One that fits works there: its controls take taps, and it opens
- * whole only from its Expand button. A taller one (a report, a dashboard) shows its top as a
- * preview that opens whole on a tap. `drawing` holds until it first reports its height.
+ * How a visual sits in the chat. One that fits works there at its own height, and its controls
+ * take taps; it has no full-screen control. A taller one (a report, a dashboard) shows its top
+ * as a preview that opens whole from a full-screen button. `drawing` holds until it first
+ * reports its height.
  */
 export type VisualFit = "drawing" | "inline" | "preview";
 

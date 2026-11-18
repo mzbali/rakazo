@@ -17,9 +17,9 @@ const MAX_INLINE_HEIGHT = 640;
 const PLACEHOLDER_HEIGHT = 160;
 
 /**
- * A visual the bot drew in the chat. One that fits works in place, under the same rules as an
- * opened page, and opens whole only from its Expand button. A taller one draws its top inert and
- * opens whole on a click, where its controls work.
+ * A visual the bot drew in the chat. One that fits works in place at its own height, under the
+ * same rules as an opened page, with no full-screen control. A taller one draws its top inert
+ * and opens whole from its full-screen button, where its controls work.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
@@ -120,7 +120,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
       <span id={summaryId} hidden>
         {block.text}
       </span>
-      {inline ? (
+      {fit === "preview" && !open ? (
         <Button
           variant="secondary"
           size="icon-sm"
@@ -131,15 +131,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         >
           <Maximize2 />
         </Button>
-      ) : (
-        <button
-          type="button"
-          aria-label={t`Open ${block.title}`}
-          aria-describedby={summaryId}
-          onClick={() => setOpen(true)}
-          className="absolute inset-0 rounded-[24px] outline-none"
-        />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -99,32 +99,36 @@ name: Thread
     timeout: 3000
 - takeScreenshot: 07-quote-actions
 - tapOn: "Copy as Markdown"
-# A visual that fits works in the chat; its Expand button grows it in place.
+# The seeded visuals fit the chat, so they work in place and show no full-screen button.
+# The message-flow reply is taller than the screen (its diagram is part of the same element),
+# so a partial match is enough; the fitting visual is the next card down.
 - openLink: "rakazo:///group-thread?groupId=${RAKAZO_SCREENSHOT_GROUP_ID}&name=Launch%20team"
 - extendedWaitUntil:
-    visible: ".*The picture is the same rise.*"
+    visible: "Message Launch team"
     timeout: 20000
 - scrollUntilVisible:
-    element: "Expand Launch path"
+    element: ".*Here is how a message flows.*"
     direction: UP
+    timeout: 30000
+    visibilityPercentage: 20
+- scrollUntilVisible:
+    element:
+      id: "visual-card"
+    direction: DOWN
     timeout: 20000
+    visibilityPercentage: 60
+    centerElement: true
 - waitForAnimationToEnd:
     timeout: 3000
+- assertNotVisible: "Expand Launch path"
+- assertNotVisible: "Expand Quarter trend"
 - takeScreenshot: 08-visual
-# A tap on its copy button acts in place and opens no sheet.
-- tapOn: "Copy steps"
+# A tap on the card acts in place and opens no sheet. The copy control lives in the page,
+# so the catalog does not depend on reading it.
+- tapOn:
+    id: "visual-card"
 - waitForAnimationToEnd:
     timeout: 3000
 - assertNotVisible: "Close"
-- tapOn: "Expand Launch path"
-- extendedWaitUntil:
-    visible: "Close"
-    timeout: 10000
-# The same document remains visible after expansion.
-- extendedWaitUntil:
-    notVisible: ".*general availability after the review.*"
-    timeout: 15000
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: 09-visual-open
-- tapOn: "Close"
+- assertNotVisible: "Expand Launch path"
+- takeScreenshot: 09-visual

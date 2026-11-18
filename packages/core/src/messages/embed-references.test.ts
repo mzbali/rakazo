@@ -48,6 +48,17 @@ describe("plainEmbedReferences", () => {
     expect(plainEmbedReferences("![Quarter](image:art1)")).toBe("[image: Quarter]");
   });
 
+  it("folds a ui fence to its summary, even in a reply with an image reference", () => {
+    const fence = '```ui\n<Visual summary="Flow of data">\n<Formula tex="x" />\n</Visual>\n```';
+    expect(plainEmbedReferences(`Look:\n${fence}\nthen ![A](image:a1)`)).toBe(
+      "Look:\n[visual: Flow of data]\nthen [image: A]",
+    );
+    expect(plainEmbedReferences('```ui\n<Visual summary="Half')).toBe("[visual]");
+    expect(copyableMessageText({ blocks: [{ kind: "text", text: fence }] })).toBe(
+      "[visual: Flow of data]",
+    );
+  });
+
   it("leaves a reference inside a fence or code span as written", () => {
     const fenced = "```\n![Flow](visual:m1)\n```";
     expect(plainEmbedReferences(fenced)).toBe(fenced);

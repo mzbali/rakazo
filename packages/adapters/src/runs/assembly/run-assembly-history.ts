@@ -21,7 +21,11 @@ import {
 import { loadAgentScratchpadContext } from "../../runtime/context/scratchpad-context.js";
 import { loadAgentTicketContext } from "../../tasks/ticket-context.js";
 import type { RunHold } from "../lifecycle/run-attempt.js";
-import { messageToAgentHistorySegments, messageToAgentHistoryText } from "./reply-context.js";
+import {
+  latestOwnReplyId,
+  messageToAgentHistorySegments,
+  messageToAgentHistoryText,
+} from "./reply-context.js";
 import type { ConnectedRun, RunRecords } from "./run-assembly-records.js";
 import { threadContextForRun } from "./run-instructions.prompt.js";
 import { DELEGATED_EMPTY_NOTICE, runAllowsSilentEmpty } from "./run-replies.prompt.js";
@@ -45,20 +49,24 @@ export async function readThreadHistory(hold: RunHold, parts: { records: RunReco
     messages,
     people,
   );
+  // The latest reply of this bot's own keeps its visual fence as written, even when people have
+  // written since, so a request to change the visual has its source. Older ones read as a summary.
+  const latestOwnReply = latestOwnReplyId(messages, (m) => Boolean(historySpeaker(speakers, m)));
   const threadContext = threadContextForRun(
     run.trigger,
     {
       messages: [...messages].reverse().map((m) => {
         const speaker = historySpeaker(speakers, m);
+        const fold = { foldVisuals: m.id !== latestOwnReply };
         // In a group, turns from several speakers are joined, so no line may pose as a label.
         const neutral = (value: string) => (speakers ? neutralizeSpeakerLabels(value) : value);
-        const text = neutral(messageToAgentHistoryText(m));
+        const text = neutral(messageToAgentHistoryText(m, fold));
         const partial = isPartialReplyClientNonce(m.clientNonce);
         // Runs for someone other than the owner replay replies as everyone saw them.
         const segments =
           m.role === "user" || m.role === "system" || speaker || !replaysToolHistory
             ? undefined
-            : messageToAgentHistorySegments(m)?.map((segment) =>
+            : messageToAgentHistorySegments(m, fold)?.map((segment) =>
                 "text" in segment
                   ? { text: neutral(segment.text) }
                   : {

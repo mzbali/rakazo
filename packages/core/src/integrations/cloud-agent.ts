@@ -18,6 +18,7 @@ export function cloudAgentUrl(value: string | null | undefined): string | undefi
     const url = new URL(value);
     return /^[a-z][a-z0-9+.-]*:$/.test(url.protocol) &&
       url.protocol !== "javascript:" &&
+      url.protocol !== "vbscript:" &&
       url.protocol !== "data:" &&
       url.protocol !== "file:" &&
       url.protocol !== "http:" &&

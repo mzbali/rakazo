@@ -62,5 +62,7 @@ export function createMathScanner(
 function closed(source: string, start: number, close: number, kind: Kind): MathMatch | undefined {
   const tex = source.slice(start + 2, close).trim();
   if (tex === "") return undefined;
+  // `\[x\]` and `\[ \]` are how a task-list box is written to stay literal text.
+  if (kind === "bracket" && (tex === "x" || tex === "X")) return undefined;
   return { end: close + 2, tex, display: kind !== "paren" };
 }

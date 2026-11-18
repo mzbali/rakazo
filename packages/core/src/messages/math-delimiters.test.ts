@@ -42,6 +42,11 @@ describe("createMathScanner", () => {
     expect(all("\\$$5 and $$10")).toEqual([]);
   });
 
+  it("keeps an escaped task-list box literal", () => {
+    expect(all("- \\[x\\] done\n- \\[ \\] open\n- \\[X\\] too")).toEqual([]);
+    expect(all("\\[xy\\]")).toEqual([{ at: 0, tex: "xy", display: true }]);
+  });
+
   it("skips empty formulas", () => {
     expect(all("\\(\\) $$ $$ $$$$")).toEqual([]);
   });

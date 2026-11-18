@@ -63,6 +63,11 @@ describe("markMath", () => {
     expect(formulas("see\n$$\na = b\n$$\nthere")).toEqual([{ type: "math_display", tex: "a = b" }]);
   });
 
+  it("keeps an escaped task-list box literal", () => {
+    expect(formulas("- \\[x\\] done\n- \\[ \\] open")).toEqual([]);
+    expect(formulas("\\[xy\\]")).toEqual([{ type: "math_display", tex: "xy" }]);
+  });
+
   it("never treats a single $ as maths", () => {
     expect(formulas("It costs $5 to $10, or $20.")).toEqual([]);
   });

@@ -52,6 +52,8 @@ function tokenizer(first: number): Tokenizer {
     let kind: Kind;
     let from = 0;
     let hasText = false;
+    let nonBlank = 0;
+    let lastNonBlank: Code = null;
 
     // A line ending is a token of its own, so the text stays a run of tokens that end at it.
     function eat(code: Code) {
@@ -105,8 +107,15 @@ function tokenizer(first: number): Tokenizer {
       return content(code);
     }
 
+    function note(code: Code) {
+      if (BLANK_CODES.has(code)) return;
+      hasText = true;
+      nonBlank++;
+      lastNonBlank = code;
+    }
+
     function content(code: Code): State | undefined {
-      if (!BLANK_CODES.has(code)) hasText = true;
+      note(code);
       eat(code);
       return body;
     }
@@ -130,13 +139,18 @@ function tokenizer(first: number): Tokenizer {
       ) {
         return close(code);
       }
-      hasText = true;
+      note(BACKSLASH);
+      note(code);
       eat(code);
       return body;
     }
 
     function close(code: Code): State | undefined {
       if (!hasText) return nok(code);
+      // `\[x\]` stays literal, as in the scanner.
+      if (kind === "bracket" && nonBlank === 1 && (lastNonBlank === 120 || lastNonBlank === 88)) {
+        return nok(code);
+      }
       eat(code);
       effects.exit(DATA);
       effects.exit(TOKEN);

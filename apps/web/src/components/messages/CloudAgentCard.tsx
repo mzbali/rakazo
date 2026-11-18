@@ -1,4 +1,5 @@
 import { Plural, Trans } from "@lingui/react/macro";
+import { useNow as useTickingNow } from "@rakazo/chat-ui/hooks";
 import { allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { CloudAgentPhase, CloudAgentPullRequestPart, CloudAgentWorkPart } from "@rakazo/core";
@@ -16,22 +17,11 @@ import {
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
 import { buttonVariants } from "@rakazo/ui-web/components/ui/button";
 import { Card, CardContent } from "@rakazo/ui-web/components/ui/card";
-import { useEffect, useState } from "react";
 
 /** The clock for a running job: each second in its first minute, then every 15. */
 function useNow(live: boolean, startedAt: string | undefined) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!live) return;
-    setNow(Date.now());
-    const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-    const timer = setInterval(
-      () => setNow(Date.now()),
-      Date.now() - started < 60_000 ? 1000 : 15_000,
-    );
-    return () => clearInterval(timer);
-  }, [live, startedAt]);
-  return now;
+  const started = startedAt ? Date.parse(startedAt) : Number.NaN;
+  return useTickingNow(live ? (Date.now() - started < 60_000 ? 1000 : 15_000) : null);
 }
 
 function PhaseLabel({ phase }: { phase: CloudAgentPhase }) {

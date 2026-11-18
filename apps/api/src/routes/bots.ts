@@ -47,13 +47,7 @@ import {
   vaultImportLogin,
   vaultImportOrigin,
 } from "@rakazo/contracts";
-import {
-  ACTIVE_RUN_STATUSES,
-  ClientError,
-  CorrectedClaimError,
-  computerUsingRuns,
-  displayName,
-} from "@rakazo/core";
+import { ACTIVE_RUN_STATUSES, ClientError, computerUsingRuns, displayName } from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
 import {
   botProfileLabelsChanged,
@@ -517,8 +511,6 @@ export function botsRoutes(ctx: RouterContext) {
               "CONFLICT",
               "Settings changed; review the current settings first.",
             );
-          if (error instanceof CorrectedClaimError)
-            throw new ClientError("BAD_REQUEST", error.message);
           throw error;
         });
         for (const setting of changedBotSettings(existing, input)) {

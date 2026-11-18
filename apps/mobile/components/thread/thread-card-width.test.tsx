@@ -89,7 +89,7 @@ vi.mock("react-native-reanimated", async () => {
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("expo-router", () => ({ useRouter: () => router }));
-vi.mock("./haptics", () => ({ hapticSelection: vi.fn() }));
+vi.mock("../../lib/native/haptics", () => ({ hapticSelection: vi.fn() }));
 vi.mock("expo-secure-store", () => ({}));
 vi.mock("../../lib/notifications/live-notifications", () => ({ resumeLiveNotifications: vi.fn() }));
 vi.mock("../../lib/api/network-cache", () => ({ clearNetworkCache: vi.fn() }));

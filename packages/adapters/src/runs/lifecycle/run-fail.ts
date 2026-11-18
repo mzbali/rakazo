@@ -16,7 +16,7 @@ import {
   userRunError,
 } from "@rakazo/core";
 import { isDatabaseUnavailable, retryWhileDatabaseUnavailable } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
 import { expediteCloudAgentReporterCheck } from "../../cloud-agents/cloud-agent-poll.js";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
@@ -72,7 +72,7 @@ function requestDetails(error: unknown): { "error.details"?: string } {
 export async function requeueRunAfterDatabaseOutage(ctx: RunContext): Promise<void> {
   const { deps, runId, workerId, fence } = ctx;
   if (!ctx.state.terminalCheckpointComplete) {
-    await ctx.computer.checkpoint.flush().catch(() => undefined);
+    await bestEffort("flush computer checkpoint", ctx.computer.checkpoint.flush());
   }
   const wakeAt = new Date(Date.now() + computerRetryDelay(fence));
   try {
@@ -112,7 +112,7 @@ export async function failRun(
     error = computerError;
   }
   if (!ctx.state.terminalCheckpointComplete) {
-    await ctx.computer.checkpoint.flush().catch(() => undefined);
+    await bestEffort("flush computer checkpoint", ctx.computer.checkpoint.flush());
   }
   const message = redactSecrets(userRunError(error), ctx.secrets);
   // Reply text the user watched stream in since the last saved message stays in the
@@ -147,7 +147,10 @@ export async function failRun(
     ...(partialReply.length > 0 ? { partialReply } : {}),
   });
   if (!failed) return;
-  await expediteCloudAgentReporterCheck(deps, runId).catch(() => undefined);
+  await bestEffort(
+    "expedite cloud agent reporter check",
+    expediteCloudAgentReporterCheck(deps, runId),
+  );
   if (
     error instanceof TransientModelError ||
     error instanceof ModelAccountError ||

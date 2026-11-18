@@ -17,6 +17,7 @@ it("stands in for a server whose tools could not be listed, with the reason", ()
       toolName: "__rakazo_unavailable",
       catalogGroup: "mail",
     },
+    unavailable: true,
   });
 });
 

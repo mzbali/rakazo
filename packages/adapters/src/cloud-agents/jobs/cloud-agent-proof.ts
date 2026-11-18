@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import type { AdapterContext, ArtifactStore, CloudAgentSnapshot } from "@rakazo/adapter-kit";
 import { ARTIFACT_NAME_MAX_LENGTH } from "@rakazo/contracts";
 import type { CloudAgent, Prisma, PrismaClient } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { readJsonColumn } from "@rakazo/db";
+import { bestEffort, getLogger } from "@rakazo/logging";
+import { z } from "zod";
 import type { ObserverEgress } from "../../scoped-goal-observers.js";
 import { fetchSafeHttpRequest } from "../../web/web-ssrf.js";
 import { USER_CLOUD_AGENT_KEY_PREFIX } from "../cloud-agent-factory.js";
@@ -104,8 +106,22 @@ export function sniffImageType(bytes: Uint8Array): string | undefined {
   return undefined;
 }
 
-export function storedProofImages(agent: Pick<CloudAgent, "proofImages">): ProofImage[] {
-  return Array.isArray(agent.proofImages) ? (agent.proofImages as ProofImage[]) : [];
+const ProofImageRow = z.object({
+  source: z.string(),
+  artifactId: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+});
+
+export function storedProofImages(
+  agent: Pick<CloudAgent, "proofImages"> & { id?: string },
+): ProofImage[] {
+  return readJsonColumn(
+    z.array(ProofImageRow),
+    agent.proofImages ?? [],
+    { table: "cloud_agents", column: "proofImages", id: agent.id ?? "unknown" },
+    { fallback: [] },
+  );
 }
 
 /** A private repository's blob link, read as raw bytes through the contents API. */
@@ -298,7 +314,10 @@ async function copyImages(
         },
       })
       .catch(async (error: unknown) => {
-        await deps.artifacts?.remove(stored.id, context).catch(() => undefined);
+        await bestEffort(
+          "remove unstored cloud agent proof",
+          deps.artifacts?.remove(stored.id, context),
+        );
         throw error;
       });
     added.push({ source, artifactId: row.id, name, mimeType });

@@ -83,6 +83,12 @@ export async function readVoiceJson(
   }
 }
 
+function objectMessage(value: unknown): string | undefined {
+  if (!value || typeof value !== "object" || !("message" in value)) return undefined;
+  const message = value.message;
+  return typeof message === "string" && message.trim() ? message.trim() : undefined;
+}
+
 export function voiceErrorDetail(body: unknown): string {
   if (!body || typeof body !== "object") return "";
   const record = body as Record<string, unknown>;
@@ -96,22 +102,12 @@ export function voiceErrorDetail(body: unknown): string {
       .join("; ");
     if (joined) return joined;
   }
-  if (
-    record.detail &&
-    typeof record.detail === "object" &&
-    typeof (record.detail as { message?: unknown }).message === "string"
-  ) {
-    return String((record.detail as { message: string }).message).trim();
-  }
+  const detailMessage = objectMessage(record.detail);
+  if (detailMessage) return detailMessage;
   if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
   if (typeof record.error === "string" && record.error.trim()) return record.error.trim();
-  if (
-    record.error &&
-    typeof record.error === "object" &&
-    typeof (record.error as { message?: unknown }).message === "string"
-  ) {
-    return String((record.error as { message: string }).message).trim();
-  }
+  const errorMessage = objectMessage(record.error);
+  if (errorMessage) return errorMessage;
   return "";
 }
 

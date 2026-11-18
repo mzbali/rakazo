@@ -1173,7 +1173,6 @@ function watchReplies(
             const fromAnotherRun = Boolean(message.runId && message.runId !== run?.id);
             if (!fromAnotherRun && run && ACTIVE_RUN_STATUSES.some((s) => s === run.status)) return;
             const text = speechFromBlocks(message.blocks).trim();
-            if (!text) return;
             lastSeen = message.id;
             onNewReply(message.id, text, message.runId);
           },

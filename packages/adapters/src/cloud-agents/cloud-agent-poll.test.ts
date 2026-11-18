@@ -54,7 +54,7 @@ async function pollWithCard(blocks: unknown) {
   await pollCloudAgent(
     {
       prisma,
-      jobs: { enqueue: vi.fn() },
+      jobs: { enqueue: vi.fn(async () => undefined) },
       events: { notify: vi.fn(async () => undefined) },
       cloudAgent: { key: "deployment", spaceId: "space-1", provider: {} },
     } as unknown as CloudAgentDeps,

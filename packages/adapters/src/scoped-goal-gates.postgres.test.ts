@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
 import { ScopedGoalScope } from "@rakazo/contracts";
+import { deferred } from "@rakazo/core/test-async";
 import { createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agents/cloud-agent-factory.js";
@@ -449,8 +450,8 @@ suite("scoped goal gates advance in code", () => {
         t.emulator.openPullRequest(t.threadId, PR);
         t.emulator.landPullRequest(t.threadId);
       }
-      let release!: () => void;
-      slow.world.hold = new Promise<void>((resolve) => (release = resolve));
+      const hold = deferred<void>();
+      slow.world.hold = hold.promise;
       const now = new Date(Date.now() + 2 * MINUTE);
       const goalIds = [await slow.goal(), await quick.goal()].map((g) => g.id);
       const enqueued = (t: typeof slow) =>
@@ -473,7 +474,7 @@ suite("scoped goal gates advance in code", () => {
       expect(await quick.goal()).toMatchObject({ gate: "deploy", status: "active" });
       expect(await slow.goal()).toMatchObject({ gate: "merge" });
 
-      release();
+      hold.resolve();
       await hung;
       expect(await slow.goal()).toMatchObject({ gate: "deploy", status: "active" });
     }));

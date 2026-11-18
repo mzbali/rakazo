@@ -23,7 +23,7 @@ it("mounts a page and reports its height where the browser has no ResizeObserver
   });
   // The height is posted after the page is committed, on a timer when there is no ResizeObserver.
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush();
   });
   // jsdom runs no inline scripts, so the page's own code shows its error panel; what matters is
   // that mounting got that far instead of throwing before anything drew.

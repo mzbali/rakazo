@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { plainEmbedReferences } from "../embed-references.js";
+import { plainEmbedReferences } from "../messages/embed-references.js";
 import { isToolActivityBlock } from "../runs/tool-activity.js";
 
 /** A fenced block becomes a mention of itself, with its language if known. */

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const wake = vi.hoisted(() => vi.fn(async () => ["wake-run"]));
-vi.mock("./cloud-agent-poll.js", () => ({
+vi.mock("../cloud-agent-poll.js", () => ({
   createCloudAgentWake: wake,
   repaintCloudAgentCard: vi.fn(async () => undefined),
 }));
@@ -110,12 +110,12 @@ describe("answering a job's question from its card", () => {
   it("refuses an answer to a question that closed or was answered elsewhere", async () => {
     const closed = fake({ attention: null });
     await expect(answerCloudAgentQuestion(closed.deps, owner, answer)).rejects.toMatchObject({
-      code: "stale",
+      reason: "stale",
       message: expect.stringContaining("already been answered"),
     });
     const other = fake({ attention: [{ requestId: "q2", kind: "question" }] });
     await expect(answerCloudAgentQuestion(other.deps, owner, answer)).rejects.toMatchObject({
-      code: "stale",
+      reason: "stale",
     });
     expect(closed.row.followup).toBeNull();
     expect(wake).not.toHaveBeenCalled();
@@ -127,13 +127,13 @@ describe("answering a job's question from its card", () => {
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(CloudAgentOwnerActionError);
-    expect(error).toMatchObject({ code: "not_found" });
+    expect(error).toMatchObject({ reason: "not_found" });
     const space = await answerCloudAgentQuestion(
       deps,
       { ...owner, spaceId: "elsewhere" },
       answer,
     ).catch((caught: unknown) => caught);
-    expect(space).toMatchObject({ code: "not_found" });
+    expect(space).toMatchObject({ reason: "not_found" });
     expect(row.followup).toBeNull();
   });
 });
@@ -152,18 +152,18 @@ describe("steering a running job", () => {
     const sending = fake({ attention: null, followup: { prompt: "x", steerKey: "first-key" } });
     await expect(
       steerCloudAgent(sending.deps, owner, { agentId: "job", text: "More", key: "second-key" }),
-    ).rejects.toMatchObject({ code: "busy" });
+    ).rejects.toMatchObject({ reason: "busy" });
     const asking = fake();
     await expect(
       steerCloudAgent(asking.deps, owner, { agentId: "job", text: "More", key: "second-key" }),
-    ).rejects.toMatchObject({ code: "busy" });
+    ).rejects.toMatchObject({ reason: "busy" });
   });
 
   it("refuses a finished job and someone else's", async () => {
     const done = fake({ status: "finished", attention: null });
     await expect(
       steerCloudAgent(done.deps, owner, { agentId: "job", text: "More", key: "some-key-1" }),
-    ).rejects.toMatchObject({ code: "ended" });
+    ).rejects.toMatchObject({ reason: "ended" });
     await expect(
       steerCloudAgent(
         done.deps,
@@ -174,7 +174,7 @@ describe("steering a running job", () => {
           key: "some-key-1",
         },
       ),
-    ).rejects.toMatchObject({ code: "not_found" });
+    ).rejects.toMatchObject({ reason: "not_found" });
   });
 });
 
@@ -194,7 +194,7 @@ describe("stopping a job", () => {
     const { row, deps } = fake();
     await expect(
       stopCloudAgent(deps, { ...owner, userId: "other" }, { agentId: "job" }),
-    ).rejects.toMatchObject({ code: "not_found" });
+    ).rejects.toMatchObject({ reason: "not_found" });
     expect(row.cancelRequested).toBe(false);
   });
 });

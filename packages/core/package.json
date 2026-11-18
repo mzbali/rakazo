@@ -75,9 +75,9 @@
       "default": "./src/node/screen-capability.ts"
     },
     "./app-links": {
-      "types": "./src/app-links.ts",
-      "development": "./src/app-links.ts",
-      "default": "./src/app-links.ts"
+      "types": "./src/app-links/app-links.ts",
+      "development": "./src/app-links/app-links.ts",
+      "default": "./src/app-links/app-links.ts"
     },
     "./egress": {
       "types": "./src/primitives/egress.ts",
@@ -85,9 +85,9 @@
       "default": "./src/primitives/egress.ts"
     },
     "./answer-sources": {
-      "types": "./src/answer-sources.ts",
-      "development": "./src/answer-sources.ts",
-      "default": "./src/answer-sources.ts"
+      "types": "./src/messages/answer-sources.ts",
+      "development": "./src/messages/answer-sources.ts",
+      "default": "./src/messages/answer-sources.ts"
     },
     "./signup-attribution": {
       "types": "./src/account/browser-signup-attribution.ts",

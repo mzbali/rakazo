@@ -449,7 +449,7 @@ export async function postRelayPointer(
           select: { blocks: true },
         });
         const context = botMessageContext(
-          Array.isArray(source?.blocks) ? (source.blocks as MessageBlock[]) : [],
+          source ? storedMessageBlocks({ id: input.sourceMessageId, blocks: source.blocks }) : [],
         );
         if (!context?.returnToMessageId) return undefined;
         if (context.intent && context.intent !== "request" && context.intent !== "question")

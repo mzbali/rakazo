@@ -21,6 +21,11 @@ import {
 } from "../integrations/memory-provider-config.js";
 import type { RouterContext } from "./context.js";
 
+/** A memory document's scope is a string column. Anything other than `user` is the bot's own. */
+function memoryScope(scope: string): "bot" | "user" {
+  return scope === "user" ? "user" : "bot";
+}
+
 export function memoryRoutes(ctx: RouterContext) {
   const { deps, repos, taughtSkills, agentSkills, authed } = ctx;
   return {
@@ -35,7 +40,7 @@ export function memoryRoutes(ctx: RouterContext) {
         });
         return docs.map((doc) => ({
           id: doc.id,
-          scope: doc.scope as "bot" | "user",
+          scope: memoryScope(doc.scope),
           botId: doc.botId,
           path: doc.path,
           content: doc.content,
@@ -71,7 +76,7 @@ export function memoryRoutes(ctx: RouterContext) {
         const updated = await deps.memory
           .commit(
             {
-              scope: doc.scope as "bot" | "user",
+              scope: memoryScope(doc.scope),
               botId: doc.botId ?? undefined,
               path: doc.path,
               content: input.content,
@@ -93,7 +98,7 @@ export function memoryRoutes(ctx: RouterContext) {
           });
         return {
           id: updated.id,
-          scope: doc.scope as "bot" | "user",
+          scope: memoryScope(doc.scope),
           botId: doc.botId,
           path: updated.path,
           content: updated.content,
@@ -117,7 +122,7 @@ export function memoryRoutes(ctx: RouterContext) {
         await deps.memory.remove(
           {
             id: doc.id,
-            scope: doc.scope as "bot" | "user",
+            scope: memoryScope(doc.scope),
             botId: doc.botId ?? undefined,
             path: doc.path,
           },

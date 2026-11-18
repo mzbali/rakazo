@@ -1,3 +1,5 @@
+import { ClientError } from "../primitives/client-error.js";
+
 /** Versioned semantic contract. Documents are untrusted data, never judge instructions. */
 export const CORRECTED_CLAIMS_RUBRIC_VERSION = "1";
 export const CORRECTED_CLAIMS = [
@@ -83,9 +85,9 @@ export async function assessCorrectedClaims(
     clearTimeout(timer);
   }
 }
-export class CorrectedClaimError extends Error {
+export class CorrectedClaimError extends ClientError {
   constructor(message: string) {
-    super(message);
+    super("BAD_REQUEST", message);
     this.name = "CorrectedClaimError";
   }
 }

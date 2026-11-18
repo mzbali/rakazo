@@ -1,6 +1,7 @@
 import { escapePromptData } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
 import { helperPrompt } from "../../tasks/background-helpers.prompt.js";
+import { attentionRecords } from "../cloud-agent-followup.js";
 import { storedProofImages } from "./cloud-agent-proof.js";
 
 type Tx = Prisma.TransactionClient;
@@ -62,11 +63,9 @@ export async function jobHelperTaskPrompt(tx: Tx, agent: CloudAgent, wakes: stri
       transitions: { orderBy: { createdAt: "desc" }, take: GOAL_TRANSITIONS_SHOWN },
     },
   });
-  const attention = Array.isArray(agent.attention)
-    ? (agent.attention as Array<{ requestId?: unknown; kind?: unknown }>)
-        .map((item) => `${String(item?.kind ?? "request")} ${String(item?.requestId ?? "")}`.trim())
-        .join(", ")
-    : "";
+  const attention = attentionRecords(agent)
+    .map((item) => `${String(item?.kind ?? "request")} ${String(item?.requestId ?? "")}`.trim())
+    .join(", ");
   const record = [
     `id: ${agent.id}`,
     `status: ${agent.status}`,

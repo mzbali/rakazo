@@ -114,7 +114,10 @@ export async function failRunBeforeTurn(
     error: message,
   });
   if (!failed) return false;
-  await expediteCloudAgentReporterCheck(deps, run.id).catch(() => undefined);
+  await bestEffort(
+    "expedite cloud agent reporter check",
+    expediteCloudAgentReporterCheck(deps, run.id),
+  );
   await enqueueSteeringContinuation(deps, failed.continuationRunId);
   if (run.trigger === "bot_message") {
     await returnBotMessageOutcome(
@@ -597,9 +600,10 @@ export async function finishRunAttempt(
       const releaseContext = computerUse.screenRelease.keepWarm
         ? { ...computerUse.screenRelease.context, keepScreenWarm: true }
         : computerUse.screenRelease.context;
-      await deps.sandbox
-        .releaseScreen?.(computerUse.screenRelease.computer, releaseContext)
-        .catch(() => undefined);
+      await bestEffort(
+        "release computer screen",
+        deps.sandbox.releaseScreen?.(computerUse.screenRelease.computer, releaseContext),
+      );
     }
     await bestEffort(
       "release computer execution lease",
@@ -626,12 +630,13 @@ export async function finishRunAttempt(
       getLogger().error("shutdown run requeue", error),
     );
   }
-  await deps.prisma.attempt
-    .updateMany({
+  await bestEffort(
+    "mark attempt interrupted",
+    deps.prisma.attempt.updateMany({
       where: { id: attempt.id, status: "running" },
       data: { status: "interrupted", finishedAt: new Date() },
-    })
-    .catch(() => undefined);
+    }),
+  );
   await settleHelpers();
 }
 

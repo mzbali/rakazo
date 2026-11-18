@@ -1,5 +1,6 @@
 import type { AdapterContext, CloudAgentProvider } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { retry } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 
 const ATTEMPTS = 3;
@@ -21,26 +22,36 @@ export async function settleAcceptedCloudAgent(
 ): Promise<void> {
   const { provider } = connection;
   if (!remoteId || !provider.settle) return;
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await provider.settle(remoteId, context);
-      return;
-    } catch (error) {
-      if (error instanceof CloudAgentRetryLater && attempt < ATTEMPTS) {
-        await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
-        continue;
-      }
-      // Refused outright: the connection lacks the permission, or the thread is gone.
-      if (error instanceof CloudAgentRequestRejected && error.reason === "not_found") return;
-      if (error instanceof CloudAgentRequestRejected) {
-        if (!refusedConnections.has(connection.key)) {
-          refusedConnections.add(connection.key);
-          getLogger().warn("cloud agent thread could not be settled; check the connection's scope");
+  const settle = provider.settle.bind(provider);
+  try {
+    await retry(
+      async () => {
+        try {
+          await settle(remoteId, context);
+        } catch (error) {
+          // Refused outright: the connection lacks the permission, or the thread is gone.
+          if (error instanceof CloudAgentRequestRejected && error.reason === "not_found") return;
+          if (error instanceof CloudAgentRequestRejected) {
+            if (!refusedConnections.has(connection.key)) {
+              refusedConnections.add(connection.key);
+              getLogger().warn(
+                "cloud agent thread could not be settled; check the connection's scope",
+              );
+            }
+            return;
+          }
+          if (error instanceof CloudAgentRetryLater) throw error;
+          getLogger().warn("cloud agent thread was not settled");
         }
-        return;
-      }
+      },
+      {
+        attempts: ATTEMPTS,
+        delayMs: (attempt) => backoffMs * (attempt + 1),
+        retryable: (error) => error instanceof CloudAgentRetryLater,
+      },
+    );
+  } catch (error) {
+    if (error instanceof CloudAgentRetryLater)
       getLogger().warn("cloud agent thread was not settled");
-      return;
-    }
   }
 }

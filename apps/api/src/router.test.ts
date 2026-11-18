@@ -1024,7 +1024,12 @@ describe("adapter refusals answered by type", () => {
         {
           prisma: {
             memoryDocument: {
-              findFirst: vi.fn().mockResolvedValue({ id: "doc-1", scope: "user", path: "a.md" }),
+              findFirst: vi.fn().mockResolvedValue({
+                id: "doc-1",
+                scope: "user",
+                path: "a.md",
+                revision: 1,
+              }),
             },
           },
           memory: { commit: vi.fn().mockRejectedValue(failure) },

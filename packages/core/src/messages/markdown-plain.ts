@@ -1,4 +1,4 @@
-import { plainEmbedReferences } from "../embed-references.js";
+import { plainEmbedReferences } from "./embed-references.js";
 
 const PAYLOAD_MARK = "\uE000";
 /**

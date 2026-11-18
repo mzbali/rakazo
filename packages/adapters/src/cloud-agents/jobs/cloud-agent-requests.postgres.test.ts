@@ -11,6 +11,7 @@ import type {
   NotificationProvider,
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { deferred } from "@rakazo/core/test-async";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -564,14 +565,8 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     await t.poll(id);
     const [wake] = await t.wakes();
     const agent = await t.state(id);
-    let found!: () => void;
-    let proceed!: () => void;
-    const readQueued = new Promise<void>((resolve) => {
-      found = resolve;
-    });
-    const claimed = new Promise<void>((resolve) => {
-      proceed = resolve;
-    });
+    const readQueuedGate = deferred<void>();
+    const claimedGate = deferred<void>();
     const append = runAsSystem("append racing wake", () =>
       prisma.$transaction(async (tx) => {
         const wrapped = new Proxy(tx, {
@@ -583,8 +578,8 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
                 return async (args: Parameters<typeof runs.findFirst>[0]) => {
                   const result = await runs.findFirst(args);
                   if (args?.where?.status === "queued") {
-                    found();
-                    await claimed;
+                    readQueuedGate.resolve();
+                    await claimedGate.promise;
                   }
                   return result;
                 };
@@ -600,14 +595,14 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
         );
       }),
     );
-    await readQueued;
+    await readQueuedGate.promise;
     try {
       await asSystem(prisma).run.update({
         where: { id: wake!.id },
         data: { status: "leased", leaseOwner: "winning-worker" },
       });
     } finally {
-      proceed();
+      claimedGate.resolve();
     }
     await append;
     expect(await t.wakes()).toHaveLength(2);
@@ -714,15 +709,13 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     const id = row!.id;
     // The poll reads the first run finished; the next message lands before it commits.
     remote.status = "finished";
-    let release!: () => void;
-    t.provider.stall = new Promise((resolve) => {
-      release = resolve;
-    });
+    const stall = deferred<void>();
+    t.provider.stall = stall.promise;
     const stale = t.poll(id);
     await vi.waitFor(() => expect(remote.cursor).toBe(1));
     remote.status = "running";
     await send();
-    release();
+    stall.resolve();
     await stale;
     t.provider.stall = undefined;
     expect(await t.state(id)).toMatchObject({ status: "running", generation: 0 });
@@ -772,17 +765,15 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
         { id, prompt: "Add tests" },
       ),
     );
-    let release!: () => void;
-    t.provider.refuseReply = new Promise((resolve) => {
-      release = resolve;
-    });
+    const refuse = deferred<void>();
+    t.provider.refuseReply = refuse.promise;
     const refused = t.poll(id);
     await vi.waitFor(() => expect(t.provider.replies).toBe(1));
     // The bot's own message starts a run while the provider is refusing the follow-up.
     remote.status = "running";
     remote.latestRunId = "run:direct";
     await send();
-    release();
+    refuse.resolve();
     await refused;
     await t.poll(id);
     expect(t.provider.replies).toBe(2);

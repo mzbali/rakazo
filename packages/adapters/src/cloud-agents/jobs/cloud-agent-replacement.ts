@@ -1,7 +1,6 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
-import type { MessageBlock } from "@rakazo/contracts";
 import type { CloudAgent, Prisma } from "@rakazo/db";
-import { appendEventInTransaction } from "@rakazo/db";
+import { appendEventInTransaction, storedMessageBlocks } from "@rakazo/db";
 import { runLeaseFor } from "../../runs/assembly/run-messages.js";
 import type { CloudAgentDeps, PostedCard } from "../cloud-agent-service.js";
 import { cloudAgentBlock, previousAttempts } from "./cloud-agent-card.js";
@@ -86,7 +85,7 @@ export async function takeOverCloudAgentCard(
     : null;
   if (!card) return undefined;
   const next = cloudAgentBlock(created, await previousAttempts(tx, created));
-  const blocks = (card.blocks as MessageBlock[]).map((block) =>
+  const blocks = storedMessageBlocks(card).map((block) =>
     block.kind === "cloud_agent" && block.agentId === replaced.id ? next : block,
   );
   await tx.message.update({ where: { id: card.id }, data: { blocks } });

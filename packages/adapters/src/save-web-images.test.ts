@@ -10,11 +10,11 @@ import { rememberFetchedPageImage } from "./web/web-tools.js";
 const attach = vi.hoisted(() => vi.fn());
 const persist = vi.hoisted(() => vi.fn());
 
-vi.mock("./thread-artifacts.js", () => ({
+vi.mock("./storage/thread-artifacts.js", () => ({
   attachWorkspaceFileToThread: attach,
 }));
 
-vi.mock("./run-messages.js", () => ({
+vi.mock("./runs/assembly/run-messages.js", () => ({
   persistMessageInTransaction: persist,
   runLeaseFor: () => ({ attempt: 1 }),
 }));

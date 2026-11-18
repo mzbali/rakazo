@@ -1,13 +1,12 @@
-import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentBlockFromPayload } from "@rakazo/core";
 import type { CloudAgent, Prisma } from "@rakazo/db";
-import { appendEventInTransaction } from "@rakazo/db";
+import { appendEventInTransaction, storedMessageBlocks } from "@rakazo/db";
 import { cloudAgentModelDisplay } from "./cloud-agent-model.js";
 
 type CardDb = Pick<Prisma.TransactionClient, "cloudAgent" | "message">;
 
-/** How far back a card follows replacements; older attempts stay in the table only. */
-const MAX_ATTEMPTS = 5;
+/** How far back a card follows replacements; older ones stay in the table only. */
+const MAX_REPLACEMENTS = 5;
 
 const VERDICTS = ["accepted", "rejected", "needs_owner"] as const;
 
@@ -62,7 +61,7 @@ export async function previousAttempts(
   agent: Pick<CloudAgent, "replacesId">,
 ) {
   const chain: CloudAgent[] = [];
-  for (let next = agent.replacesId; next && chain.length < MAX_ATTEMPTS; ) {
+  for (let next = agent.replacesId; next && chain.length < MAX_REPLACEMENTS; ) {
     const prior = await db.cloudAgent.findUnique({ where: { id: next } });
     if (!prior) break;
     chain.unshift(prior);
@@ -94,10 +93,11 @@ export async function paintCloudAgentCard(tx: Prisma.TransactionClient, agentId:
   });
   if (!message) return undefined;
   const next = await cloudAgentCardBlock(tx, agent);
-  const blocks = (message.blocks as MessageBlock[]).map((block) =>
+  const current = storedMessageBlocks(message);
+  const blocks = current.map((block) =>
     block.kind === "cloud_agent" && block.agentId === agent.id ? next : block,
   );
-  if (JSON.stringify(blocks) === JSON.stringify(message.blocks)) return undefined;
+  if (JSON.stringify(blocks) === JSON.stringify(current)) return undefined;
   await tx.message.update({ where: { id: message.id }, data: { blocks } });
   const event = await appendEventInTransaction(tx, {
     spaceId: agent.spaceId,

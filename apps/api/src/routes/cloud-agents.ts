@@ -1,7 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import {
   answerCloudAgentQuestion,
-  CloudAgentOwnerActionError,
   cloudAgentBlock,
   previousAttempts,
   steerCloudAgent,
@@ -16,18 +15,6 @@ type JobRecord = Parameters<typeof cloudAgentBlock>[0] & {
   threadId: string;
   messageId: string | null;
 };
-
-/** A refused owner action reads as a plain message; a job that is not theirs is simply not found. */
-async function ownerAction<T>(run: () => Promise<T>) {
-  try {
-    return await run();
-  } catch (error) {
-    if (!(error instanceof CloudAgentOwnerActionError)) throw error;
-    throw new ORPCError(error.code === "not_found" ? "NOT_FOUND" : "CONFLICT", {
-      message: error.message,
-    });
-  }
-}
 
 export function cloudAgentsRoutes(ctx: RouterContext) {
   const { deps, authed } = ctx;
@@ -122,13 +109,13 @@ export function cloudAgentsRoutes(ctx: RouterContext) {
         throw new ORPCError("CONFLICT", { message: "This job has not finished yet." });
       }),
       answer: authed.cloudAgents.answer.handler(({ context, input }) =>
-        ownerAction(() => answerCloudAgentQuestion(deps, context.actor, input)),
+        answerCloudAgentQuestion(deps, context.actor, input),
       ),
       steer: authed.cloudAgents.steer.handler(({ context, input }) =>
-        ownerAction(() => steerCloudAgent(deps, context.actor, input)),
+        steerCloudAgent(deps, context.actor, input),
       ),
       stop: authed.cloudAgents.stop.handler(({ context, input }) =>
-        ownerAction(() => stopCloudAgent(deps, context.actor, input)),
+        stopCloudAgent(deps, context.actor, input),
       ),
     },
   };

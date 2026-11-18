@@ -1,6 +1,8 @@
-import { runContinueJob } from "@rakazo/adapter-kit";
+import { ClientError } from "@rakazo/core";
 import type { CloudAgent } from "@rakazo/db";
 import { THREAD_LOCK_TRANSACTION_OPTIONS } from "@rakazo/db";
+import { wakeRun } from "../../runs/wakeups/wake-run.js";
+import { readCloudAgentFollowup } from "../cloud-agent-followup.js";
 import { createCloudAgentWake, repaintCloudAgentCard } from "../cloud-agent-poll.js";
 import type { CloudAgentDeps } from "../cloud-agent-service.js";
 import {
@@ -13,12 +15,13 @@ type OwnerActionDeps = Pick<CloudAgentDeps, "prisma" | "jobs" | "events">;
 type Owner = { spaceId: string; userId: string };
 
 /** Why an owner's tap on a job card was refused; the message is for the owner to read. */
-export class CloudAgentOwnerActionError extends Error {
-  constructor(
-    readonly code: "not_found" | "stale" | "busy" | "ended",
-    message: string,
-  ) {
-    super(message);
+export class CloudAgentOwnerActionError extends ClientError {
+  readonly reason: "not_found" | "stale" | "busy" | "ended";
+
+  constructor(reason: "not_found" | "stale" | "busy" | "ended", message: string) {
+    super(reason === "not_found" ? "NOT_FOUND" : "CONFLICT", message);
+    this.name = "CloudAgentOwnerActionError";
+    this.reason = reason;
   }
 }
 
@@ -36,8 +39,8 @@ async function ownedAgent(deps: OwnerActionDeps, owner: Owner, agentId: string) 
   return agent;
 }
 
-function queuedFollowup(agent: Pick<CloudAgent, "followup">) {
-  return agent.followup as { prompt?: string; steerKey?: string } | null;
+function queuedFollowup(agent: Pick<CloudAgent, "id" | "followup">) {
+  return readCloudAgentFollowup(agent);
 }
 
 async function afterQueued(deps: OwnerActionDeps, agentId: string) {
@@ -108,8 +111,7 @@ export async function answerCloudAgentQuestion(
       ),
     THREAD_LOCK_TRANSACTION_OPTIONS,
   );
-  for (const runId of new Set(runIds))
-    await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+  for (const runId of new Set(runIds)) await wakeRun(deps.jobs, runId);
   return { duplicate: false };
 }
 

@@ -11,7 +11,7 @@ const SURFACES = [
   "apps/mobile/components/thread/cloud-agent-card.tsx",
   "apps/mobile/app/job.tsx",
   "apps/mobile/app/jobs.tsx",
-  "apps/web/src/components/CloudAgentCard.tsx",
+  "apps/web/src/components/messages/CloudAgentCard.tsx",
 ];
 
 const PHASE_WORDS = [

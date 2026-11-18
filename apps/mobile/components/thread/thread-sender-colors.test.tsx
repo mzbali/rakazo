@@ -8,7 +8,8 @@ import type { MobileBot, MobileSnapshot } from "../../lib/api/mobile-types";
 
 vi.mock("react-native-svg", () => ({ default: () => null, Path: () => null }));
 vi.mock("expo-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("./haptics", () => ({ hapticSelection: vi.fn() }));
+vi.mock("../../lib/native/haptics", () => ({ hapticSelection: vi.fn() }));
+vi.mock("./cloud-agent-card", () => ({ CloudAgentCards: () => null }));
 vi.mock("react-native", () => ({
   Alert: { alert: vi.fn() },
   Appearance: { getColorScheme: () => "dark", addChangeListener: () => ({ remove() {} }) },

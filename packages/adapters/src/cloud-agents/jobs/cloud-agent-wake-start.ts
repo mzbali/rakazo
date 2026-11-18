@@ -5,6 +5,7 @@ import {
   cancelRunsInTransaction,
   createPendingSteeringRun,
 } from "@rakazo/db";
+import { bestEffort } from "@rakazo/logging";
 import type { ExecutorDeps } from "../../runs/executor/executor-deps.js";
 import { wakeRun } from "../../runs/wakeups/wake-run.js";
 import { returnHelperOutcome } from "../../tasks/background-helpers.js";
@@ -126,10 +127,16 @@ export async function cancelStaleCloudAgentWake(
     return { stopped: true, seq: event.seq, continuationId };
   });
   if (result.seq !== undefined)
-    await deps.events.notify(run.threadId, result.seq).catch(() => undefined);
+    await bestEffort(
+      "notify cancelled cloud agent wake",
+      deps.events.notify(run.threadId, result.seq),
+    );
   if (result.continuationId) await wakeRun(deps.jobs, result.continuationId);
   if (job && result.stopped && result.seq !== undefined) {
-    await returnHelperOutcome(deps, run, { status: "stopped", text: "" }).catch(() => undefined);
+    await bestEffort(
+      "report stopped cloud agent helper",
+      returnHelperOutcome(deps, run, { status: "stopped", text: "" }),
+    );
   }
   return result.stopped;
 }

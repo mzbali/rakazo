@@ -1,16 +1,17 @@
 import type { AdapterContext, JobPublisher, NotificationProvider } from "@rakazo/adapter-kit";
-import { cloudAgentPollJob, runContinueJob } from "@rakazo/adapter-kit";
-import { BACKGROUND_HELPER_TRIGGER, cloudAgentProjectName } from "@rakazo/core";
+import { cloudAgentPollJob } from "@rakazo/adapter-kit";
+import { BACKGROUND_HELPER_TRIGGER, cloudAgentProjectName, retry } from "@rakazo/core";
 import type { CloudAgent, Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   THREAD_LOCK_TRANSACTION_OPTIONS,
 } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { messageBot } from "../messaging/bot-messages.js";
 import { runLeaseFor } from "../runs/assembly/run-messages.js";
 import type { ExecutorDeps } from "../runs/executor/executor-deps.js";
+import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { goalDrivesAgent, missingGoalEvidence, SCOPED_GOAL_NONCE } from "../scoped-goal-service.js";
 import type {
   CloudAgentActor,
@@ -18,19 +19,15 @@ import type {
   UserCloudAgents,
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
-import {
-  attentionIds,
-  cloudAgentWakeNonceWhere,
-  createCloudAgentWake,
-  lockCloudAgentWakeThread,
-  repaintCloudAgentCard,
-} from "./cloud-agent-poll.js";
+import { attentionRecords } from "./cloud-agent-followup.js";
+import { attentionIds, createCloudAgentWake, repaintCloudAgentCard } from "./cloud-agent-poll.js";
 import {
   CLOUD_AGENT_REPORT_USAGE,
   cloudAgentLaunchSchema,
   cloudAgentReplySchema,
   cloudAgentReportSchema,
 } from "./cloud-agent-tools.js";
+import { cloudAgentWakeNonceWhere, lockCloudAgentWakeThread } from "./cloud-agent-wake-lock.js";
 import { cloudAgentBlock } from "./jobs/cloud-agent-card.js";
 import {
   CLOUD_AGENT_WAKE_ATTEMPTS,
@@ -239,9 +236,10 @@ export async function executeCloudAgentTool(
     if ("rejected" in result) return { error: result.rejected };
     agent = result.agent;
     if (result.seq !== undefined)
-      await deps.events
-        .notify(run.threadId, result.seq, result.firstResponseRunId)
-        .catch(() => undefined);
+      await bestEffort(
+        "notify cloud agent thread",
+        deps.events.notify(run.threadId, result.seq, result.firstResponseRunId),
+      );
   } else {
     const owned = await deps.prisma.cloudAgent.findFirst({
       where: {
@@ -398,84 +396,94 @@ export async function trackDirectCloudAgent(
     if (replayed) return { agent: replayed };
     // The poller fences on version and may commit between this read and the write, so a lost
     // fence reads the row again rather than leaving the work untracked.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const existing = await tx.cloudAgent.findFirst({ where });
-      if (!existing) {
-        const created = await tx.cloudAgent.create({
-          data: {
-            ...where,
-            operationKey: context.operationId,
-            threadId: run.threadId,
-            title: direct.title.slice(0, 80),
-            launchRequest: {},
-            launchDispatched: true,
-            followupBrief: followupBriefOf(direct.brief),
-          },
-        });
-        return postCloudAgentCard(tx, deps, context, run, created);
-      }
-      const card = existing.messageId
-        ? await tx.message.findFirst({
-            where: { id: existing.messageId, threadId: existing.threadId },
-            select: { threadId: true },
-          })
-        : null;
-      const running = existing.status === "running";
-      if (running && card) {
-        // Running work keeps waking the chat that already follows it. The version still moves,
-        // so a poll that read the thread before this message cannot commit it as finished.
-        // A result the bot received earlier says nothing about this message's, which is now
-        // what the work's result is judged against.
-        const brief = followupBriefOf(direct.brief);
-        const fenced = await tx.cloudAgent.updateMany({
-          where: { id: existing.id, version: existing.version },
-          data: {
-            version: { increment: 1 },
-            nextPollAt: new Date(),
-            waitingRunId: null,
-            ...(brief ? { followupBrief: brief } : {}),
-          },
-        });
-        if (!fenced.count) continue;
-        return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
-      }
-      const moved = card?.threadId !== run.threadId;
-      const brief = followupBriefOf(direct.brief);
-      const updated = await tx.cloudAgent.updateMany({
-        where: { id: existing.id, version: existing.version },
-        data: {
-          ...(running
-            ? {}
-            : {
-                generation: { increment: 1 },
-                wakeAttempts: 0,
-                verdict: null,
-                ownerQuestion: null,
-              }),
-          // Whatever was sent last is what the result is judged against, running or not. Sending
-          // is not waiting: only a run that then waits on or reads the thread reports the result
-          // itself (`markCloudAgentWaiting`).
-          ...(brief || !running ? { followupBrief: brief } : {}),
-          waitingRunId: null,
-          status: "running",
-          threadId: run.threadId,
-          ...(moved ? { messageId: null } : {}),
-          cancelRequested: false,
-          version: { increment: 1 },
-          nextPollAt: new Date(),
-          errorCount: 0,
+    const lostFence = new Error("lost fence");
+    try {
+      return await retry(
+        async () => {
+          const existing = await tx.cloudAgent.findFirst({ where });
+          if (!existing) {
+            const created = await tx.cloudAgent.create({
+              data: {
+                ...where,
+                operationKey: context.operationId,
+                threadId: run.threadId,
+                title: direct.title.slice(0, 80),
+                launchRequest: {},
+                launchDispatched: true,
+                followupBrief: followupBriefOf(direct.brief),
+              },
+            });
+            return postCloudAgentCard(tx, deps, context, run, created);
+          }
+          const card = existing.messageId
+            ? await tx.message.findFirst({
+                where: { id: existing.messageId, threadId: existing.threadId },
+                select: { threadId: true },
+              })
+            : null;
+          const running = existing.status === "running";
+          if (running && card) {
+            // Running work keeps waking the chat that already follows it. The version still moves,
+            // so a poll that read the thread before this message cannot commit it as finished.
+            // A result the bot received earlier says nothing about this message's, which is now
+            // what the work's result is judged against.
+            const brief = followupBriefOf(direct.brief);
+            const fenced = await tx.cloudAgent.updateMany({
+              where: { id: existing.id, version: existing.version },
+              data: {
+                version: { increment: 1 },
+                nextPollAt: new Date(),
+                waitingRunId: null,
+                ...(brief ? { followupBrief: brief } : {}),
+              },
+            });
+            if (!fenced.count) throw lostFence;
+            return { agent: await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } }) };
+          }
+          const moved = card?.threadId !== run.threadId;
+          const brief = followupBriefOf(direct.brief);
+          const updated = await tx.cloudAgent.updateMany({
+            where: { id: existing.id, version: existing.version },
+            data: {
+              ...(running
+                ? {}
+                : {
+                    generation: { increment: 1 },
+                    wakeAttempts: 0,
+                    verdict: null,
+                    ownerQuestion: null,
+                  }),
+              // Whatever was sent last is what the result is judged against, running or not. Sending
+              // is not waiting: only a run that then waits on or reads the thread reports the result
+              // itself (`markCloudAgentWaiting`).
+              ...(brief || !running ? { followupBrief: brief } : {}),
+              waitingRunId: null,
+              status: "running",
+              threadId: run.threadId,
+              ...(moved ? { messageId: null } : {}),
+              cancelRequested: false,
+              version: { increment: 1 },
+              nextPollAt: new Date(),
+              errorCount: 0,
+            },
+          });
+          if (!updated.count) throw lostFence;
+          const revived = await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } });
+          return moved ? postCloudAgentCard(tx, deps, context, run, revived) : { agent: revived };
         },
-      });
-      if (!updated.count) continue;
-      const revived = await tx.cloudAgent.findUniqueOrThrow({ where: { id: existing.id } });
-      return moved ? postCloudAgentCard(tx, deps, context, run, revived) : { agent: revived };
+        { attempts: 3, delayMs: 0, retryable: (error) => error === lostFence },
+      );
+    } catch (error) {
+      if (error === lostFence)
+        throw new Error("Cloud agent kept changing while it was being tracked.");
+      throw error;
     }
-    throw new Error("Cloud agent kept changing while it was being tracked.");
   }, THREAD_LOCK_TRANSACTION_OPTIONS);
   if (result.seq !== undefined)
-    await deps.events
-      .notify(run.threadId, result.seq, result.firstResponseRunId)
-      .catch(() => undefined);
+    await bestEffort(
+      "notify cloud agent thread",
+      deps.events.notify(run.threadId, result.seq, result.firstResponseRunId),
+    );
   await enqueueCloudAgent(deps, result.agent.id);
 }
 
@@ -698,7 +706,7 @@ async function retryFailedCloudAgentWakes(deps: Reconciled) {
       return created;
     });
     if (seqs.length) await notifyJobCards(deps, agent, seqs);
-    if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+    if (runId) await wakeRun(deps.jobs, runId);
   }
   await retryFailedAttentionWakes(deps);
 }
@@ -745,17 +753,18 @@ async function retryFailedAttentionWakes(deps: Reconciled) {
       continue;
     if (!(await canWake(deps, agent))) continue;
     const seqs: number[] = [];
-    const runId = await deps.prisma
-      .$transaction((tx) =>
-        createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce, {
-          jobThread: true,
-          seqs,
-        }),
-      )
-      // A concurrent reconciler made the same retry; the nonce is unique per space.
-      .catch(() => []);
+    const runId =
+      (await bestEffort(
+        "retry cloud agent attention wake",
+        deps.prisma.$transaction((tx) =>
+          createCloudAgentWake(tx, agent, attentionWakePrompt(agent.id, requestId), nonce, {
+            jobThread: true,
+            seqs,
+          }),
+        ),
+      )) ?? [];
     if (seqs.length && runId.length) await notifyJobCards(deps, agent, seqs);
-    for (const id of runId) await deps.jobs.enqueue(runContinueJob(id)).catch(() => undefined);
+    for (const id of runId) await wakeRun(deps.jobs, id);
   }
 }
 
@@ -786,7 +795,10 @@ async function notifyJobCards(
   agent: CloudAgent,
   seqs: number[],
 ) {
-  await deps.events?.notify(agent.threadId, Math.max(...seqs)).catch(() => undefined);
+  await bestEffort(
+    "notify cloud agent thread",
+    deps.events?.notify(agent.threadId, Math.max(...seqs)),
+  );
 }
 
 /** A cleared chat, archived bot or departed owner gets no wake, as a first wake would not. */
@@ -810,11 +822,9 @@ export async function canWake(deps: Pick<CloudAgentDeps, "prisma">, agent: Cloud
 
 /** The first open question, which a reply answers. Approvals stay with the owner on the provider. */
 export function openQuestion(
-  agent: Pick<CloudAgent, "attention">,
+  agent: Pick<CloudAgent, "id" | "attention">,
 ): { requestId: string; threadId?: string } | undefined {
-  const attention = Array.isArray(agent.attention)
-    ? (agent.attention as Array<{ requestId?: unknown; kind?: unknown; threadId?: unknown }>)
-    : [];
+  const attention = attentionRecords(agent);
   const question = attention.find((item) => item.kind === "question");
   if (typeof question?.requestId !== "string") return undefined;
   return {
@@ -924,7 +934,8 @@ export async function reportCloudAgent(
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
   // Only the call that recorded the verdict settles, so a replay never does it twice.
   if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
-    const owner = await cloudAgentFor(deps, agent).catch(() => null);
+    const owner =
+      (await bestEffort("load cloud agent connection", cloudAgentFor(deps, agent))) ?? null;
     if (owner)
       await settleAcceptedCloudAgent(owner, agent.remoteId, {
         operationId: agent.id,

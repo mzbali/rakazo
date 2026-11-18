@@ -1,6 +1,6 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { plainEmbedReferences } from "../embed-references.js";
 import { messagingProviderLabel } from "../messaging/messaging-providers.js";
+import { plainEmbedReferences } from "./embed-references.js";
 
 /** A relayed chat-app message with who sent it and over what. */
 export function channelMessageLine(

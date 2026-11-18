@@ -8,6 +8,7 @@ import type {
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential, runAsTenant } from "@rakazo/db";
+import { bestEffort } from "@rakazo/logging";
 import { combineSignals } from "./integrations/connector-safety.js";
 import { resolveStoredModelAuth } from "./models/model-credential-refresh.js";
 
@@ -108,7 +109,10 @@ export class XaiXSearchConnector implements ConnectorProvider {
       return;
     }
     // The run's own account and Space, whatever context the caller set.
-    const apiKey = await runAsTenant(context, () => this.apiKey(context)).catch(() => undefined);
+    const apiKey = await bestEffort(
+      "load x search credential",
+      runAsTenant(context, () => this.apiKey(context)),
+    );
     if (!apiKey) {
       yield {
         type: "error",

@@ -28,7 +28,7 @@ import {
   THREAD_LOCK_TRANSACTION_OPTIONS,
   withLease,
 } from "@rakazo/db";
-import { getLogger } from "@rakazo/logging";
+import { bestEffort, getLogger } from "@rakazo/logging";
 import { postRelayPointer } from "../messaging/bot-messages.js";
 import { notifyCloudAgentUnreachable } from "../runs/lifecycle/run-notifications.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
@@ -37,6 +37,7 @@ import {
   recordScopedGoalBackup,
   startScopedGoal,
 } from "../scoped-goal-service.js";
+import { readCloudAgentFollowup } from "./cloud-agent-followup.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
 import {
   canWake,
@@ -46,6 +47,7 @@ import {
   promoteQueuedCloudAgent,
 } from "./cloud-agent-service.js";
 import { cloudAgentPromptSchema, storedCloudAgentLaunchSchema } from "./cloud-agent-tools.js";
+import { cloudAgentWakeNonceWhere, lockCloudAgentWakeThread } from "./cloud-agent-wake-lock.js";
 import { cloudAgentCardBlock, paintCloudAgentCard } from "./jobs/cloud-agent-card.js";
 import {
   cloudAgentJobThreadsEnabled,
@@ -182,7 +184,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
     if (abandoned || agent.cancelRequested) {
       // An unsent follow-up to finished work can just be dropped; an unsent answer or steer
       // belongs to work still running remotely, which the cancel below must stop.
-      const steering = (agent.followup as { steerKey?: string } | null)?.steerKey !== undefined;
+      const steering = readCloudAgentFollowup(agent)?.steerKey !== undefined;
       if (agent.followup && !dispatchedAt && !openQuestion(agent) && !steering) {
         await finishPoll(
           deps,
@@ -247,11 +249,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
         // A goal's follow-up is dropped if the owner stops the goal first: a continuation's also
         // if that continuation was superseded (`goalRunId`), the reconciler's own (`goalGate`)
         // once its goal no longer drives the agent.
-        const { goalRunId, goalGate, steerKey, ...followup } = agent.followup as {
-          goalRunId?: string;
-          goalGate?: string;
-          steerKey?: string;
-        };
+        const { goalRunId, goalGate, steerKey, ...followup } = readCloudAgentFollowup(agent) ?? {};
         const goal =
           goalRunId || goalGate
             ? await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })
@@ -303,9 +301,6 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
           });
         } catch (error) {
           if (error instanceof CloudAgentRetryLater) {
-            // A refused request was never accepted, so the next poll resends it. That stays true
-            // when a message sent meanwhile moved the version, so only our lease guards it: a
-            // marker left behind would let that message's run pass for this one's.
             // The lease, not the row version: a message sent meanwhile may have moved the
             // version, and a marker left behind would let that message's run pass for this one.
             await deps.prisma.$transaction(async (tx) => {
@@ -559,7 +554,10 @@ export async function checkCloudAgentReporter(
     data: { wakeAttempts: 1 },
   });
   if (seqs.length)
-    await deps.events.notify(agent.threadId, Math.max(...seqs)).catch(() => undefined);
+    await bestEffort(
+      "notify cloud agent thread",
+      deps.events.notify(agent.threadId, Math.max(...seqs)),
+    );
   for (const wakeRunId of new Set(wakeRunIds)) await wakeRun(deps.jobs, wakeRunId);
 }
 
@@ -604,7 +602,7 @@ export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: strin
     select: { threadId: true },
   });
   if (seq !== undefined && agent)
-    await deps.events.notify(agent.threadId, seq).catch(() => undefined);
+    await bestEffort("notify cloud agent thread", deps.events.notify(agent.threadId, seq));
 }
 
 async function finishPoll(
@@ -775,7 +773,10 @@ async function finishPoll(
   if (!committed) return;
   if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
   if (committed.seq !== undefined)
-    await deps.events.notify(agent.threadId, committed.seq).catch(() => undefined);
+    await bestEffort(
+      "notify cloud agent thread",
+      deps.events.notify(agent.threadId, committed.seq),
+    );
   for (const wakeRunId of new Set(committed.wakeRunIds)) await wakeRun(deps.jobs, wakeRunId);
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
   // Only this agent's goal is looked at, from here; its backup job and the reconciler cover a crash.
@@ -954,7 +955,7 @@ export async function postCloudAgentRelayPointers(
     try {
       await postRelayPointer(deps, { sourceMessageId: agent.originMessageId!, bot });
     } catch (error) {
-      await deps.jobs.enqueue(job).catch(() => undefined);
+      await bestEffort("queue cloud agent relay pointer", deps.jobs.enqueue(job));
       throw error;
     }
     await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, job.replaceKey!));
@@ -990,19 +991,4 @@ export async function runRelayPointerBackup(
     select: { id: true, name: true },
   });
   if (bot) await postRelayPointer(deps, { sourceMessageId: agent.originMessageId, bot });
-}
-
-/** Primary nonces also cover runs written by the previous release. */
-export function cloudAgentWakeNonceWhere(clientNonce: string): Prisma.RunWhereInput {
-  return { OR: [{ clientNonce }, { cloudAgentWakeNonces: { has: clientNonce } }] };
-}
-
-export async function lockCloudAgentWakeThread(
-  tx: Tx,
-  agent: Pick<CloudAgent, "spaceId" | "threadId">,
-) {
-  await tx.thread.updateMany({
-    where: { id: agent.threadId, spaceId: agent.spaceId },
-    data: { nextEventSeq: { increment: 0 } },
-  });
 }

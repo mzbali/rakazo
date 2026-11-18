@@ -11,6 +11,8 @@ import type {
   ConnectorProvider,
 } from "@rakazo/adapter-kit";
 import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { abortableDelay } from "@rakazo/core";
+import { bestEffort } from "@rakazo/logging";
 import { z } from "zod";
 import {
   candidateNames,
@@ -380,7 +382,8 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   ): Promise<CloudAgentSnapshot> {
     // Once a poll sees the thread, the tag has done its job: T3 shows the card's title instead.
     const snapshot = await this.read(id, context, cursor, true);
-    if (cursor === 0) await this.dropTitleTag(id, context).catch(() => undefined);
+    if (cursor === 0)
+      await bestEffort("drop cloud agent title tag", this.dropTitleTag(id, context));
     return snapshot;
   }
 
@@ -446,7 +449,7 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
     if (drained && state.idle && state.latestRun) {
       // T3 can end a run and queue its continuation (a restart, a delegated result) in separate
       // writes; only a second idle read of the same run says the thread really stopped.
-      await new Promise((resolve) => setTimeout(resolve, IDLE_CONFIRM_MS));
+      await abortableDelay(IDLE_CONFIRM_MS, context.signal);
       const confirm = eventsSchema.parse(
         await this.call(
           "t3_thread_events",
@@ -862,10 +865,12 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   ): Promise<unknown> {
     const name = `mcp__${this.options.server}__${tool}`;
     const { connector } = this.options;
-    const resolved = await connector
-      .resolveCall?.({ tool: name, args, executionId: context.operationId }, context)
-      .then((call) => call ?? null)
-      .catch(() => undefined);
+    const resolved = await bestEffort(
+      "resolve cloud agent tool call",
+      connector
+        .resolveCall?.({ tool: name, args, executionId: context.operationId }, context)
+        .then((call) => call ?? null),
+    );
     // An optional tool the bot's assignment leaves out is refused, not an outage to wait out.
     if (resolved === null && options?.optional)
       throw new CloudAgentRequestRejected("invalid", `${tool} is not assigned`);

@@ -6,8 +6,8 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { isQuestionAskBlock } from "../asks/ask-kind.js";
-import { plainEmbedReferences } from "../embed-references.js";
 import { blocksToAgentHistoryText } from "./attachments.js";
+import { plainEmbedReferences } from "./embed-references.js";
 import {
   compactReplyExcerpt,
   MAX_QUOTABLE_SOURCE_LENGTH,

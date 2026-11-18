@@ -1,16 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type { JobPublisher } from "@rakazo/adapter-kit";
-import { runContinueJob, scopedGoalAdvanceJob } from "@rakazo/adapter-kit";
+import { scopedGoalAdvanceJob } from "@rakazo/adapter-kit";
 import { ScopedGoalControl, ScopedGoalReport, ScopedGoalScope } from "@rakazo/contracts";
 import type { Prisma, PrismaClient, Run, ScopedGoal } from "@rakazo/db";
 import {
   appendEventInTransaction,
   createThreadMessageInTransaction,
   Prisma as DbPrisma,
+  JsonObject,
+  readJsonColumn,
   runAsSystem,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
+import { z } from "zod";
 import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agents/cloud-agent-factory.js";
 import { createCloudAgentWake } from "./cloud-agents/cloud-agent-poll.js";
 import {
@@ -18,6 +21,7 @@ import {
   enqueueCloudAgent,
   queueCloudAgentFollowupInTransaction,
 } from "./cloud-agents/cloud-agent-service.js";
+import { wakeRun } from "./runs/wakeups/wake-run.js";
 import type { ObservedResult, ObserverEgress } from "./scoped-goal-observers.js";
 import { isCodeObserver, observe } from "./scoped-goal-observers.js";
 
@@ -88,8 +92,30 @@ export function observationMatches(
   });
 }
 
-const evidenceOf = (goal: ScopedGoal) =>
-  Array.isArray(goal.evidence) ? (goal.evidence as Evidence[]) : [];
+const EvidenceList = z.array(
+  z.object({
+    requirementId: z.string(),
+    effectId: z.string().optional(),
+    source: z.literal("code").optional(),
+    observedAt: z.string().optional(),
+    result: z.unknown().optional(),
+  }),
+);
+
+function isObservedResult(value: unknown): value is ObservedResult {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+const evidenceOf = (goal: ScopedGoal): Evidence[] =>
+  readJsonColumn(
+    EvidenceList,
+    goal.evidence,
+    { table: "scoped_goals", column: "evidence", id: goal.id },
+    { fallback: [] },
+  ).map((entry) => ({
+    ...entry,
+    result: isObservedResult(entry.result) ? entry.result : undefined,
+  }));
 
 /** Each recorded requirement's result: kept with a code observation, the effect's when reported. */
 async function evidenceResults(db: Pick<Tx, "externalEffect">, evidence: readonly Evidence[]) {
@@ -690,7 +716,7 @@ export async function advanceScopedGoal(
       failed = true;
       return undefined;
     });
-  if (runId) await deps.jobs.enqueue(runContinueJob(runId)).catch(() => undefined);
+  if (runId) await wakeRun(deps.jobs, runId);
   return !failed;
 }
 
@@ -771,7 +797,12 @@ async function historySinceApproval(prisma: PrismaClient, goalId: string) {
   });
   const out: Array<{ createdAt: Date; detail: Record<string, unknown> }> = [];
   for (const row of rows) {
-    const detail = (row.detail ?? {}) as Record<string, unknown>;
+    const detail = readJsonColumn(
+      JsonObject,
+      row.detail ?? {},
+      { table: "scoped_goal_transitions", column: "detail", id: row.id },
+      { fallback: {} },
+    );
     out.push({ createdAt: row.createdAt, detail });
     if (detail.action === "authorized" || detail.action === "scope_reauthorized") break;
   }
@@ -946,7 +977,12 @@ async function advanceInCode(deps: Deps, candidate: ScopedGoal, now: Date) {
         const uncertain = await uncertainEffect(tx, goal);
         if (uncertain) {
           const reason = `Effect ${uncertain.id} is not reconciled; the follow-up waits for it.`;
-          const blocked = (goal.blocker ?? {}) as { reason?: string };
+          const blocked = readJsonColumn(
+            z.object({ reason: z.string().optional() }),
+            goal.blocker ?? {},
+            { table: "scoped_goals", column: "blocker", id: goal.id },
+            { fallback: {} },
+          );
           if (blocked.reason !== reason)
             await transition(
               tx,

@@ -23,6 +23,12 @@ const EXISTING = new Set([
   "ModelCreditEntry.reconciliationAttempts",
   // The primitive's own table.
   "Lease.fence",
+  // How many wake runs one cloud-agent generation has created, and when a scoped goal
+  // itself may try again. Durable product state, not a process lease: the queue delivers
+  // each try, and the poll that creates it already holds a lease.
+  "CloudAgent.wakeAttempts",
+  "ScopedGoal.attempt",
+  "ScopedGoal.nextAttemptAt",
   // Not long work in one process, so not for `withLease`: a person's page holds computer control
   // across requests, heartbeats renew it on any instance, and a lapsed one still counts until the
   // computer stops taking that person's input.

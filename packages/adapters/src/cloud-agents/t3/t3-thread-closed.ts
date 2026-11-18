@@ -9,8 +9,13 @@ const closedSchema = z.object({
   }),
 });
 
-/** A thread read says the owner closed it: settled or archived, with no request still open. */
+/**
+ * A thread read says the owner closed it: settled or archived, with no request still open. A read
+ * of any other shape says nothing about the owner.
+ */
 export function t3ThreadClosed(read: unknown): boolean {
-  const { thread } = closedSchema.parse(read);
+  const parsed = closedSchema.safeParse(read);
+  if (!parsed.success) return false;
+  const { thread } = parsed.data;
   return (thread.settled || thread.archived) && thread.pendingRequestCount === 0;
 }

@@ -11,10 +11,35 @@ export const OWNER_CLOSED_POLL_MS = 5 * 60_000;
 /** How long after the work ended that check goes on; the question then stays until answered. */
 const OWNER_CLOSED_WATCH_MS = 7 * 24 * 60 * 60_000;
 
-/** When ended work with an owner question is next checked: never later than the watch's end. */
+/**
+ * When ended work with an owner question is next checked: never later than the watch's end. An
+ * end not stamped yet counts from now.
+ */
 export function ownerClosedPollAt(endedAt: Date | null, now = Date.now()): Date | null {
-  const end = endedAt ? endedAt.getTime() + OWNER_CLOSED_WATCH_MS : Number.POSITIVE_INFINITY;
+  const end = (endedAt?.getTime() ?? now) + OWNER_CLOSED_WATCH_MS;
   return now >= end ? null : new Date(Math.min(now + OWNER_CLOSED_POLL_MS, end));
+}
+
+/**
+ * Starts checking ended work that a verdict just left with an owner question. A poll already due
+ * (a stop on its way, say) is left as it is, and work that started again is not touched.
+ */
+export async function watchOwnerQuestion(
+  deps: CloudAgentDeps,
+  agent: Pick<CloudAgent, "id" | "generation" | "endedAt">,
+) {
+  const nextPollAt = ownerClosedPollAt(agent.endedAt);
+  if (!nextPollAt) return;
+  const watching = await deps.prisma.cloudAgent.updateMany({
+    where: {
+      id: agent.id,
+      generation: agent.generation,
+      status: { not: "running" },
+      nextPollAt: null,
+    },
+    data: { nextPollAt },
+  });
+  if (watching.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
 }
 
 /**

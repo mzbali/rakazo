@@ -34,7 +34,7 @@ import {
   cloudAgentJobThreadsEnabled,
   MAX_LAUNCH_BRIEF,
 } from "./jobs/cloud-agent-job-thread.js";
-import { ownerClosedPollAt } from "./jobs/cloud-agent-owner-closed.js";
+import { watchOwnerQuestion } from "./jobs/cloud-agent-owner-closed.js";
 import type { CloudAgentProofDeps } from "./jobs/cloud-agent-proof.js";
 import { failedStartRecovery } from "./jobs/cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./jobs/cloud-agent-replacement.js";
@@ -933,15 +933,7 @@ export async function reportCloudAgent(
   }
   // The question belongs on the job's card too, whatever the helper's own result says.
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
-  // A question closed by the owner in the provider goes; a poll already due is left as it is.
-  const watchAt = report.ownerQuestion ? ownerClosedPollAt(agent.endedAt) : null;
-  if (recorded.count && watchAt) {
-    const watching = await deps.prisma.cloudAgent.updateMany({
-      where: { id: agent.id, generation: agent.generation, nextPollAt: null },
-      data: { nextPollAt: watchAt },
-    });
-    if (watching.count) await enqueueCloudAgent(deps, agent.id, watchAt);
-  }
+  if (recorded.count && report.ownerQuestion) await watchOwnerQuestion(deps, agent);
   // Settled once, by the recording call; work still asking the owner stays in their list.
   if (
     recorded.count &&

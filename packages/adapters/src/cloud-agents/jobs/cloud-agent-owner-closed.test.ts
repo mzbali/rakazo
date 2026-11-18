@@ -9,5 +9,7 @@ it("checks every few minutes, last at the end of the week after the work ended",
   // A question asked just before the week ends still gets its check, at the end.
   expect(ownerClosedPollAt(ended, 7 * DAY - 60_000)?.getTime()).toBe(7 * DAY);
   expect(ownerClosedPollAt(ended, 7 * DAY)).toBeNull();
+  // An end not stamped yet counts from now, so the watch still ends.
   expect(ownerClosedPollAt(null, DAY)?.getTime()).toBe(DAY + OWNER_CLOSED_POLL_MS);
+  expect(ownerClosedPollAt(null, 8 * DAY)?.getTime()).toBe(8 * DAY + OWNER_CLOSED_POLL_MS);
 });

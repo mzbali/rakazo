@@ -97,6 +97,7 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     const archived = { thread: { archived: true } };
     expect(t3ThreadClosed(archived)).toBe(false);
     expect(t3ThreadClosed({ thread: { ...archived.thread, pendingRequestCount: 0 } })).toBe(true);
+    expect(t3ThreadClosed({ threads: [] })).toBe(false);
     // A thread T3 no longer has says nothing about the owner.
     expect(await provider.ownerClosed("gone", context)).toBe(false);
   });

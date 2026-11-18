@@ -1,11 +1,16 @@
+import { allowAppLinks } from "@rakazo/chat-ui/web";
 import type { ProductEvent, ThreadMessage, ThreadSnapshot } from "@rakazo/contracts";
 import { foldPeerReplies, reduceThreadSnapshot } from "@rakazo/core";
+import { computerAppLinks } from "@rakazo/core/app-links";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { DEFAULT_BOT_AVATAR_COLOR } from "@rakazo/ui-web";
 import type { ReactNode } from "react";
 import { useMemo, useRef } from "react";
 import { rpc } from "../../src/lib/query/rpc";
 import { Transcript } from "../../src/pages/shell/chat/transcript";
+
+// As the app does at startup, so app links in a fixture transcript draw as they do in chat.
+allowAppLinks(computerAppLinks);
 
 export const BOT = { botId: "bot-1", name: "Chief", color: DEFAULT_BOT_AVATAR_COLOR };
 const NO_IDS = new Set<string>();

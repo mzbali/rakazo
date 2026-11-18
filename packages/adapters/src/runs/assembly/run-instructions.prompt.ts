@@ -5,6 +5,7 @@ import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import type { UserComputerState } from "../tools/run-tools-user-computer.js";
 import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "../turn/takeover-resume.prompt.js";
 import { replyGuidanceForOfferedTools } from "./run-replies.prompt.js";
+import { VISUAL_FENCE_INSTRUCTION } from "./visual-fence.prompt.js";
 
 /** Added to the turn prompt when the user spoke this message on a live voice call. */
 const VOICE_CALL_BASE_INSTRUCTION =
@@ -436,6 +437,8 @@ export function userTurnInstructions(parts: {
   backgroundHelpersAllowed?: boolean;
   /** This run was offered save_web_images. Absent means the guidance stays, so the fingerprint includes it. */
   webImagesOffered?: boolean;
+  /** The reply shows in the app, so it may carry a ui fence. */
+  visualFences?: boolean;
   userComputer?: UserComputerState;
 }): (string | undefined)[] {
   return [
@@ -498,8 +501,9 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "show_visual",
-      'When a diagram, chart, comparison or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.',
+      `When a chart or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.${parts.visualFences ? " Use it only for what a ui fence cannot draw." : ""}`,
     ),
+    parts.visualFences ? VISUAL_FENCE_INSTRUCTION : undefined,
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "add_mcp_server",

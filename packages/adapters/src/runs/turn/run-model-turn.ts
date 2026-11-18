@@ -100,7 +100,7 @@ function modelTurnRequest(
   const { deps, run, runId, workerId, fence, secrets: runSecrets } = hold;
   const { takeoverResume } = hold.takeover;
   const { checkpointModelResolver } = turn.saved;
-  const { agentEnvironmentInstruction, bot, thread } = turn.records;
+  const { agentEnvironmentInstruction, bot, conversationRun, thread } = turn.records;
   const { context } = turn.connected;
   const { people, speakers } = turn.thread;
   const {
@@ -208,6 +208,8 @@ function modelTurnRequest(
       // A background helper is not offered the history tools, so it gets no guidance on them.
       historyRetrievalEnabled:
         contextStrategy !== "current" && tools.some((tool) => tool.name === "search_history"),
+      // A reply to a chat app shows a visual only as its summary, so it is not asked for there.
+      visualFences: conversationRun.trigger !== "messaging",
       computerInstruction,
       pageBrowserAllowed,
       taskCatalogInstruction,

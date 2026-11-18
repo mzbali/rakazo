@@ -22,6 +22,14 @@ import type { MessageActionProps } from "./message-bubble";
 
 const OPEN_BOT_ACTION = "open-bot:";
 
+/** Text the Space's own bot wrote, with nothing relayed from a chat app or another bot mixed in. */
+function ownBotText(message: MobileMessage): boolean {
+  return (
+    message.role === "bot" &&
+    message.blocks.every((block) => block.kind === "text" || block.kind === "progress")
+  );
+}
+
 export function MessageTextCard({
   message,
   outgoing,
@@ -109,6 +117,7 @@ export function MessageTextCard({
         streaming={message.id.startsWith("progress:")}
         sources={sources}
         sourcesRow={Boolean(sources?.length)}
+        visuals={ownBotText(message)}
       />
     </Surface>
   );

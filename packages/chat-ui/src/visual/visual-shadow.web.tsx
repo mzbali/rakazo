@@ -67,7 +67,7 @@ export function VisualShadow({
   const [narrow, setNarrow] = useState(false);
   const attach = useCallback((node: HTMLDivElement | null) => {
     setRoot(node ? (node.shadowRoot ?? node.attachShadow({ mode: "open" })) : null);
-    if (!node) return;
+    if (!node || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(([entry]) =>
       setNarrow((entry?.contentRect.width ?? NARROW_WIDTH) < NARROW_WIDTH),
     );

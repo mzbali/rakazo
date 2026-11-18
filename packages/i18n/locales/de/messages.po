@@ -4369,6 +4369,11 @@ msgstr "Computer-Einrichtung konnte nicht geprüft werden ({failureMessage}). Be
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "Kopieren nicht möglich. Markiere den Link und kopiere ihn."
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "Freigaben konnten nicht geladen werden"

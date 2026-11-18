@@ -21,6 +21,8 @@ import {
   sanitizeMarkdownUrl,
 } from "../markdown";
 import { isMermaidFence } from "../mermaid";
+import { VISUAL_FENCE_LANGUAGE } from "../visual/visual-draw";
+import { VisualFence } from "../visual/visual-fence.native";
 import { astText, cellPlainText, enclosingLink, soleRemoteImage } from "./ast";
 import { MarkdownMention, MarkdownPageChip } from "./chips";
 import { CitationPill } from "./citations";
@@ -78,6 +80,9 @@ export const renderRules: RenderRules = {
         styleMap={styleMap}
       />
     );
+    if (language === VISUAL_FENCE_LANGUAGE) {
+      return <VisualFence key={node.key} source={source} fallback={codeBlock} />;
+    }
     if (!isMermaidFence(info)) return codeBlock;
     return <MermaidFence key={node.key} source={source} fallback={codeBlock} />;
   },

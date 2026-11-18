@@ -6,6 +6,7 @@
   "exports": {
     "./compile": "./src/compile.ts",
     "./kit-host": "./src/kit-host.ts",
+    "./native": "./src/native.ts",
     "./runtime": "./src/runtime.tsx",
     "./runtime-build": "./src/runtime-build.ts",
     "./validate": "./src/validate.ts"

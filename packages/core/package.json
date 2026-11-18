@@ -123,6 +123,11 @@
       "types": "./src/node/sandbox-command.ts",
       "development": "./src/node/sandbox-command.ts",
       "default": "./src/node/sandbox-command.ts"
+    },
+    "./visual-fence": {
+      "types": "./src/visual-fence/index.ts",
+      "development": "./src/visual-fence/index.ts",
+      "default": "./src/visual-fence/index.ts"
     }
   },
   "scripts": {

@@ -189,6 +189,7 @@ export async function postSavedWebImage(
       bytes: image.bytes,
       operationId: call.executionId,
       name: image.caption,
+      produced: false,
       onAttached: async (tx, artifact) => {
         const block = messageBlockForArtifact(artifact);
         committed = await persistMessageInTransaction(

@@ -768,7 +768,10 @@ code-b
     return [
       { assistant: "writing that into my home and attaching it to the thread." },
       { toolCalls: [{ name: "write_file", args: { path: filePath, content } }] },
-      { toolCalls: [{ name: "attach_file", args: { path: filePath } }], complete: true },
+      {
+        toolCalls: [{ name: "attach_file", args: { path: filePath, made: true } }],
+        complete: true,
+      },
     ];
   }
   if (

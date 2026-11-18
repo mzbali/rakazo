@@ -93,7 +93,11 @@ async function prepareSentFiles(
   const files: AttachmentBlock[] = [];
   for (const file of read) {
     try {
-      files.push((await saveWorkspaceFile(ctx, call, file.path, file.bytes, owner)).block);
+      // This tool does not say whether the file was written or found, so the copy stays listed as made.
+      files.push(
+        (await saveWorkspaceFile(ctx, call, file.path, file.bytes, owner, { produced: true }))
+          .block,
+      );
     } catch (error) {
       const reason = error instanceof Error ? error.message : "could not save the file";
       return { error: `${file.path}: ${reason}. Nothing was sent.` };

@@ -5,7 +5,10 @@ const publishMessage = vi.hoisted(() => vi.fn());
 const attachWorkspaceFileToThread = vi.hoisted(() => vi.fn());
 
 vi.mock("./runs/assembly/run-messages.js", () => ({ publishMessage }));
-vi.mock("./storage/thread-artifacts.js", () => ({ attachWorkspaceFileToThread }));
+vi.mock("./storage/thread-artifacts.js", () => ({
+  attachWorkspaceFileToThread,
+  noteRunProducedFile: vi.fn(),
+}));
 vi.mock("./tools/plot-tool.js", () => ({
   assertPlotDataWithinLimits: () => undefined,
   parsePlotData: () => [],
@@ -90,6 +93,10 @@ describe("render_plot embed", () => {
       attached: true,
       embed: "![plot.png](image:art1)",
     });
+    expect(attachWorkspaceFileToThread).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ produced: true }),
+    );
     expect(publishMessage).toHaveBeenCalledWith(deps, run, "bot", [
       expect.objectContaining({ kind: "image", artifactId: "art1" }),
     ]);

@@ -16,7 +16,11 @@ import {
   desktopProtectionGuardMessage,
 } from "../../providers/computer/desktop/desktop-command-guard.js";
 import { protectedActivateScriptWriteRefusal } from "../../providers/computer/desktop/desktop-guard-words.js";
-import { attachWorkspaceFileToThread } from "../../storage/thread-artifacts.js";
+import {
+  attachWorkspaceFileToThread,
+  fileWasProduced,
+  noteRunProducedFile,
+} from "../../storage/thread-artifacts.js";
 import type { RunWorkspace } from "../../tools/workspace-file-tools.js";
 import {
   listFilesFromTool,
@@ -134,6 +138,7 @@ export const fileTools: ToolHandlers = {
       });
       throw error;
     }
+    noteRunProducedFile(ctx.run, filePath);
     await recordComputerAction(ctx, call, "write_file", filePath, { bytes: content.byteLength });
     return call.finish({ ok: true, path: filePath });
   },
@@ -169,6 +174,7 @@ export const fileTools: ToolHandlers = {
           name: typeof call.args.name === "string" ? call.args.name : undefined,
           description:
             typeof call.args.description === "string" ? call.args.description : undefined,
+          produced: fileWasProduced(ctx.run, filePath, call.args.made),
         },
         // The message commits with the artifact row, so a post that fails leaves no artifact
         // the user was never shown.
@@ -242,7 +248,7 @@ export async function saveWorkspaceFile(
   filePath: string,
   bytes: Uint8Array,
   owner: { botId: string; groupId?: string },
-  meta: { name?: string; description?: string } = {},
+  meta: { name?: string; description?: string; produced: boolean },
   onAttached?: (tx: Prisma.TransactionClient, artifact: Artifact) => Promise<void>,
 ): Promise<{ artifactId: string; block: AttachmentBlock }> {
   const { deps, run } = ctx;
@@ -260,6 +266,7 @@ export async function saveWorkspaceFile(
       operationId: call.executionId,
       name: meta.name,
       description: meta.description,
+      produced: meta.produced,
       onAttached,
     },
   );

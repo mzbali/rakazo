@@ -92,6 +92,7 @@ export function mediaDelivery(
           filePath: fileName,
           bytes: output.bytes,
           operationId: options.operationId,
+          produced: true,
           onAttached: async (tx, artifact) => {
             const checkpointed = await tx.externalEffect.updateMany({
               where: {

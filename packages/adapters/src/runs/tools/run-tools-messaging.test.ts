@@ -143,6 +143,7 @@ describe("sending files to another bot", () => {
       "site.zip",
       expect.any(Uint8Array),
       { botId: "bot-servo" },
+      { produced: true },
     );
     expect(mocks.messageBot).toHaveBeenCalledWith(
       expect.anything(),
@@ -204,6 +205,7 @@ describe("sending files to another bot", () => {
       "site.zip",
       expect.any(Uint8Array),
       { botId: "bot-coder", groupId: "group-2" },
+      { produced: true },
     );
   });
 

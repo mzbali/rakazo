@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { appLinkCatalog } from "@rakazo/core/app-links";
 import type { Deferred } from "@rakazo/core/test-async";
 import { deferred } from "@rakazo/core/test-async";
 import type { ReactNode } from "react";
@@ -238,6 +239,25 @@ describe("web markdown website links", () => {
     expect(load).toHaveBeenCalledWith("https://coder-web.example.test");
     await view.cleanup();
   });
+
+  it.each([
+    ["Gmail", "googlegmail:///cv=18f3a0c2b4d5e6f7/accountId=0", "https://mail.google.com"],
+    ["T3", "t3code://threads/env-1/thread-1", "https://app.t3.codes"],
+  ])(
+    "draws a bare %s link as one Open in pill instead of its address",
+    async (name, href, site) => {
+      allowAppLinks(appLinkCatalog);
+      const load = vi.fn(async () => ({ icon: ICON }));
+      const view = await renderLinks(`Here it is: ${href}.`, { load });
+      const links = view.container.querySelectorAll("a");
+      expect(links).toHaveLength(1);
+      expect(links[0]?.getAttribute("href")).toBe(href);
+      expect(links[0]?.textContent).toBe(`Open in ${name}`);
+      expect(view.container.textContent).toBe(`Here it is: Open in ${name}.`);
+      expect(load).toHaveBeenCalledWith(site);
+      await view.cleanup();
+    },
+  );
 
   it("shortens a bare URL to host and path", async () => {
     const view = await renderLinks(

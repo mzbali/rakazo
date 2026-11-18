@@ -1,7 +1,9 @@
 import { I18nProvider } from "@lingui/react";
+import { allowAppLinks } from "@rakazo/chat-ui/web";
 import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { instructionUpdateDiff } from "@rakazo/core";
+import { computerAppLinks } from "@rakazo/core/app-links";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -431,13 +433,14 @@ const working: Scenario = {
         progress: "Checking the calendar export against the existing tests.",
       },
     ]),
+    say("The export landed. Its thread: t3code://threads/env-1/cloud-2"),
     bot([
       {
         kind: "cloud_agent",
         agentId: "cloud-2",
         title: "Add CSV export",
         status: "finished",
-        url: "https://example.test/agents/cloud-2",
+        url: "t3code://threads/env-1/cloud-2",
         prUrl: "https://example.test/pull/42",
       },
     ]),
@@ -949,6 +952,7 @@ function Gallery() {
   );
 }
 
+allowAppLinks(computerAppLinks);
 await bootstrapI18n("en");
 createRoot(document.getElementById("root")!).render(
   <I18nProvider i18n={i18n}>

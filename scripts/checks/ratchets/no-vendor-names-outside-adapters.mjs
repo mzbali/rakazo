@@ -15,8 +15,9 @@ export const exclude = [
   "packages/testkit/**",
   "scripts/checks/ratchets/**",
   // Names a user picks by name are product data: model providers and protocols, messaging apps,
-  // the integrations catalog, and the settings another agent's import reads.
-  "packages/core/src/{models/model-providers,messaging/messaging-providers,integrations/featured-connectors,integrations/plugin-catalog}.ts",
+  // the integrations catalog, the apps chat links open, and the settings another agent's import
+  // reads.
+  "packages/core/src/{models/model-providers,messaging/messaging-providers,integrations/featured-connectors,integrations/plugin-catalog,app-links/app-link-catalog}.ts",
   "packages/core/src/agent-import/**",
   // Composition roots wire vendors up and read their configuration, which AGENTS.md allows.
   "apps/api/src/{app,env,index}.ts",

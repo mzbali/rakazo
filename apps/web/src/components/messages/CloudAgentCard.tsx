@@ -1,6 +1,6 @@
 import { Plural, Trans } from "@lingui/react/macro";
 import { useNow as useTickingNow } from "@rakazo/chat-ui/hooks";
-import { allowedAppLink } from "@rakazo/chat-ui/web";
+import { AppLinkPill, allowedAppLink } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { CloudAgentPhase, CloudAgentPullRequestPart, CloudAgentWorkPart } from "@rakazo/core";
 import {
@@ -169,7 +169,9 @@ export function CloudAgentCard({
                 ))}
               </Badge>
             ) : null}
-            {href ? (
+            {href && allowedAppLink(href) ? (
+              <AppLinkPill href={href} />
+            ) : href ? (
               <a
                 className={buttonVariants({ variant: "outline", size: "sm" })}
                 href={href}

@@ -13,7 +13,6 @@ import type { MarkdownEmbed } from "../markdown";
 import {
   inlineMarkdownImageSrc,
   isProseFence,
-  linkLabel,
   MarkdownEmbedContext,
   markdownEmbed,
   markdownMentionId,
@@ -28,15 +27,7 @@ import { CitationPill } from "./citations";
 import { CodeFence, CodeScrollView, MermaidFence, ProseFence } from "./code";
 import { contraryDirection } from "./direction";
 import { FitImage, LinkedRemoteImage, RemoteMarkdownImage } from "./images";
-import {
-  ISOLATE,
-  isWebsiteLink,
-  LinkFavicon,
-  NativeLink,
-  POP_ISOLATE,
-  textStyleForParents,
-  WORD_JOINER,
-} from "./links";
+import { IconLink, isWebsiteLink, NativeLink, textStyleForParents } from "./links";
 import { listItemRule } from "./lists";
 import { isMediaRowNode, isMediaThumb, MediaThumb, openingImageNode } from "./media-row";
 import { blockquoteRule } from "./quotes";
@@ -349,24 +340,17 @@ function renderMarkdownLink(
     );
   }
   if (!block && isWebsiteLink(node)) {
-    const text = astText(node);
     return (
-      <NativeLink
-        href={href}
-        accessibilityLabel={text === undefined ? undefined : linkLabel(text, href)}
+      <IconLink
         key={node.key}
+        href={href}
+        text={astText(node)}
         style={styleMap.website_link}
+        labelStyle={styleMap.website_link_label}
+        plate={styleMap.link_favicon_plate}
       >
-        <LinkFavicon href={href} plate={styleMap.link_favicon_plate} />
-        {WORD_JOINER}
-        {ISOLATE}
-        {text === undefined ? (
-          children
-        ) : (
-          <Text style={styleMap.website_link_label}>{linkLabel(text, href)}</Text>
-        )}
-        {POP_ISOLATE}
-      </NativeLink>
+        {children}
+      </IconLink>
     );
   }
   if (!block) {

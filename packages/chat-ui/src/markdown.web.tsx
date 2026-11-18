@@ -41,6 +41,8 @@ import {
 import { CheckIcon, CopyIcon, ImageIcon } from "./icons";
 import type { ChatMarkdownProps } from "./markdown";
 import {
+  appLinkMatches,
+  bareAppLinkName,
   CitationGroupsContext,
   closeUnterminatedFence,
   inlineMarkdownImageSrc,
@@ -582,6 +584,31 @@ function WebsiteLink({
   );
 }
 
+/**
+ * The words a link with a site icon shows: the author's label, a bare address shortened, or for
+ * a bare app link "Open in {app}", so its address never shows, or wraps, as text.
+ */
+function useLinkLabel() {
+  const { openIn } = useMarkdownLinkCopy();
+  return useCallback(
+    (text: string, href: string) => {
+      const app = bareAppLinkName(text, href);
+      return app ? openIn(app) : linkLabel(text, href);
+    },
+    [openIn],
+  );
+}
+
+/**
+ * "Open in {app}" with the app's icon, for a card's link to a place in an app. Nothing shows
+ * for a link the host does not allow.
+ */
+export function AppLinkPill({ href }: { href: string }) {
+  const label = useLinkLabel();
+  if (!bareAppLinkName(href, href)) return null;
+  return <WebsiteLink href={href}>{label(href, href)}</WebsiteLink>;
+}
+
 function MarkdownAnchor({
   node,
   ...props
@@ -590,6 +617,7 @@ function MarkdownAnchor({
   const { renderMention, onOpenPage: openPage } = useContext(InlineChipsContext);
   const groups = useContext(CitationGroupsContext);
   const openLink = useContext(ConfirmLinkContext);
+  const label = useLinkLabel();
   const href = typeof props.href === "string" ? props.href : "";
   const cited = citationGroupIndex(href);
   if (cited !== undefined) {
@@ -619,7 +647,7 @@ function MarkdownAnchor({
   const link =
     opens && linkFaviconOrigin(href) && !hastHasImage(node) ? (
       <WebsiteLink {...props} href={href}>
-        {text === undefined ? props.children : linkLabel(text, href)}
+        {text === undefined ? props.children : label(text, href)}
       </WebsiteLink>
     ) : opens ? (
       <ConfirmableAnchor {...props} />
@@ -807,6 +835,7 @@ export function LinkifiedText({
   onOpenPage?: (pageId: string) => void;
 }) {
   const { request, dialog } = useExternalLinkConfirm();
+  const label = useLinkLabel();
   return (
     <ConfirmLinkContext.Provider value={request}>
       {plainTextLinkParts(children).map((part, index) =>
@@ -818,7 +847,7 @@ export function LinkifiedText({
           </PageChip>
         ) : linkFaviconOrigin(part.href) ? (
           <WebsiteLink key={index} href={part.href} className="rk-chat-link-in-bubble">
-            {linkLabel(part.value, part.href)}
+            {label(part.value, part.href)}
           </WebsiteLink>
         ) : (
           <ConfirmableAnchor key={index} href={part.href} className="underline">
@@ -831,7 +860,38 @@ export function LinkifiedText({
   );
 }
 
-const remarkPlugins = [remarkGfm];
+type MdastNode = { type: string; value?: string; url?: string; children?: MdastNode[] };
+
+/** GFM autolinks find only web and mail addresses; this finds bare links to allowed apps. */
+function remarkAppLinks() {
+  return (tree: MdastNode) => {
+    const walk = (node: MdastNode) => {
+      if (!node.children || node.type === "link" || node.type === "linkReference") return;
+      node.children = node.children.flatMap((child) => {
+        if (child.type !== "text" || !child.value) {
+          walk(child);
+          return [child];
+        }
+        const text = child.value;
+        const parts: MdastNode[] = [];
+        let cursor = 0;
+        for (const match of appLinkMatches(text)) {
+          if (match.index > cursor)
+            parts.push({ type: "text", value: text.slice(cursor, match.index) });
+          const value = text.slice(match.index, match.lastIndex);
+          parts.push({ type: "link", url: match.url, children: [{ type: "text", value }] });
+          cursor = match.lastIndex;
+        }
+        if (cursor === 0) return [child];
+        if (cursor < text.length) parts.push({ type: "text", value: text.slice(cursor) });
+        return parts;
+      });
+    };
+    walk(tree);
+  };
+}
+
+const remarkPlugins = [remarkGfm, remarkAppLinks];
 const rehypePlugins = [preserveSkippedTableText];
 
 // MarkdownImage decides what an image source may do, so it receives the source as written.

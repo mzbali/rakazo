@@ -172,6 +172,6 @@ export type { MermaidDiagramProps } from "./native/code";
 export { CodeCopyButtonContext, MermaidDiagramContext } from "./native/code";
 export { RemoteMarkdownImage } from "./native/images";
 export { LinkifiedText } from "./native/linkified-text";
-export { FaviconTile, useNativeLinkConfirm } from "./native/links";
+export { AppLinkPill, FaviconTile, useNativeLinkConfirm } from "./native/links";
 export { QuoteMenuContext } from "./native/quotes";
 export { MarkdownLongPressContext } from "./native/sideways-scroll";

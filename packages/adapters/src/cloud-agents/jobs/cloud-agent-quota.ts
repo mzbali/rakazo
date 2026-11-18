@@ -57,7 +57,6 @@ export function quotaPauseDecision(
 export async function quotaPoll(
   deps: CloudAgentDeps,
   agent: CloudAgent & { lease: HeldLease },
-  fenced: Prisma.CloudAgentWhereInput,
   error: CloudAgentRetryLater,
 ) {
   const nextPollAt = new Date(Date.now() + (error.retryAfterMs ?? 15 * 60_000));
@@ -69,14 +68,7 @@ export async function quotaPoll(
       data: { launchDispatched: false, launchNote: error.note ?? null },
     });
   });
-  const saved = await deps.prisma.cloudAgent.updateMany({
-    where: fenced,
-    data: {
-      nextPollAt,
-      errorCount: 0,
-      retryingSince: null,
-    },
-  });
+  const saved = await leaseFenced(deps, agent, { nextPollAt, errorCount: 0, retryingSince: null });
   if (saved.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
 }
 
@@ -88,14 +80,12 @@ export function storedQuotaReset(snapshot: CloudAgentSnapshot): Date | null {
 
 /**
  * When a usage limit has reset and the provider will not continue the thread, send the
- * continuation as the same piece of work. Returns nothing when another poll owns the row;
- * `fenced` is the poll's version and lease fence.
+ * continuation as the same piece of work. Returns nothing when another poll owns the row.
  */
 export async function continueAfterQuota(
   deps: CloudAgentDeps,
   provider: CloudAgentProvider,
-  agent: CloudAgent,
-  fenced: Prisma.CloudAgentWhereInput,
+  agent: CloudAgent & { lease: HeldLease },
   context: AdapterContext,
   snapshot: CloudAgentSnapshot,
 ): Promise<CloudAgentSnapshot | null> {
@@ -115,10 +105,7 @@ export async function continueAfterQuota(
     },
     context,
   );
-  const marked = await deps.prisma.cloudAgent.updateMany({
-    where: fenced,
-    data: { quotaContinuedFor: resetAt },
-  });
+  const marked = await leaseFenced(deps, agent, { quotaContinuedFor: resetAt });
   if (!marked.count) return null;
   return {
     ...snapshot,
@@ -128,4 +115,16 @@ export async function continueAfterQuota(
     quotaAutoResume: undefined,
     watchIdle: false,
   };
+}
+
+/** Writes at the poll's row version, only while this worker still holds the agent's lease. */
+function leaseFenced(
+  deps: CloudAgentDeps,
+  agent: CloudAgent & { lease: HeldLease },
+  data: Prisma.CloudAgentUpdateManyMutationInput,
+) {
+  return deps.prisma.$transaction(async (tx) => {
+    await assertLeaseHeld(tx, agent.lease);
+    return tx.cloudAgent.updateMany({ where: { id: agent.id, version: agent.version }, data });
+  });
 }

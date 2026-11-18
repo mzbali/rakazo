@@ -271,10 +271,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
           });
           return;
         }
-        const marked = await deps.prisma.cloudAgent.updateMany({
-          where: fence(agent),
-          data: { followupDispatchedAt: new Date() },
-        });
+        const marked = await fenced(deps, agent, { followupDispatchedAt: new Date() });
         if (!marked.count) return;
         const question = openQuestion(agent);
         try {
@@ -333,14 +330,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
     );
     // Before the card repaints, so it shows the checks and screenshots this poll found.
     await refreshCloudAgentProof(deps, agent, snapshot, context);
-    const observed = await continueAfterQuota(
-      deps,
-      provider,
-      agent,
-      fence(agent),
-      context,
-      snapshot,
-    );
+    const observed = await continueAfterQuota(deps, provider, agent, context, snapshot);
     if (!observed) return;
     const data = snapshotData(observed, agent);
     // A watch is how a job waits on its pull request, not a reason to wait for ever: after a day
@@ -368,7 +358,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
       return;
     }
     if (error instanceof CloudAgentRetryLater && error.reason === "quota") {
-      await quotaPoll(deps, agent, fence(agent), error);
+      await quotaPoll(deps, agent, error);
       return;
     }
     // Provider response bodies and secrets never enter logs, cards, or model context.
@@ -656,6 +646,8 @@ async function finishPoll(
         // A queued request cancelled before it started ends here, off the queue.
         ...(terminal ? { queuedAt: null } : {}),
         errorCount: 0,
+        retryingSince: null,
+        unreachableSince: null,
         version: { increment: 1 },
       },
     });

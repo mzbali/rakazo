@@ -208,7 +208,7 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "attach_file",
     description:
-      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. The file stays in place; users can open it from the message and from the Artifacts tab. made is true only for a file you wrote or generated, including a screenshot, and false for one you downloaded or found. For a self-contained HTML page, document, or anything else meant to be viewed on its own — give it name and description: a title and a one-line summary. Skip them for an ordinary attachment like a log file or export. To UPDATE something you already made, call this again with the exact same name — it becomes a new version of that same artifact instead of a separate one; a different name always starts a new artifact.",
+      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. It stays in place and opens from the message and the Artifacts tab. Set made true for a file you wrote or generated (screenshots too), false for one you downloaded or found. For a page or document meant to be viewed on its own, give name and description: a title and a one-line summary; skip them for a log or export. To UPDATE an artifact, attach again with the exact same name: it becomes a new version; a different name starts a new artifact.",
     inputSchema: {
       type: "object",
       properties: {

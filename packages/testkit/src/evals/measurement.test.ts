@@ -137,13 +137,13 @@ it("prices another model's reported call at its own charge when the pricing cove
     ).costUsd,
   ).toBeNull();
 });
-it("generates reproducible 10k originals and rejects obsolete decisions and writes", () => {
-  const fixture = historyFixture(10000, "changed");
-  expect(fixture).toEqual(historyFixture(10000, "changed"));
+it("generates reproducible 10k originals and rejects a missing label and writes", () => {
+  const fixture = historyFixture(10000, "exact");
+  expect(fixture).toEqual(historyFixture(10000, "exact"));
   expect(fixture.messages).toHaveLength(10000);
-  expect(gradeHistory(fixture, "Tuesday graphite", 0).every((c) => c.pass)).toBe(true);
-  expect(gradeHistory(fixture, "Friday cobalt", 0).every((c) => c.pass)).toBe(false);
-  expect(gradeHistory(fixture, "Tuesday graphite", 1).every((c) => c.pass)).toBe(false);
+  expect(gradeHistory(fixture, "ORBIT-731", 0).every((c) => c.pass)).toBe(true);
+  expect(gradeHistory(fixture, "COMET-219", 0).every((c) => c.pass)).toBe(false);
+  expect(gradeHistory(fixture, "ORBIT-731", 1).every((c) => c.pass)).toBe(false);
 });
 
 it("uses provider-reported charge when cache buckets are unavailable", () => {
@@ -316,4 +316,23 @@ it("retains spend and blocks further calls when observed one-hour writes lack th
   unknown.settleUsage(unknownId, { cacheWrite1hTokens: 100 });
   expect(unknown.usedUsd).toBe(unknownReserved);
   expect(() => unknown.reserve(100, 10)).toThrow("no configured pricing");
+});
+
+it("requires zero output pricing when a protocol has no output bound", () => {
+  const freeOutput = new SpendBudget(1, {
+    ...pricing,
+    input: 1,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  });
+  expect(freeOutput.reserve(100, null)).toBe("1");
+  const paidOutput = new SpendBudget(1, {
+    ...pricing,
+    input: 1,
+    output: 1,
+    cacheRead: 0,
+    cacheWrite: 0,
+  });
+  expect(() => paidOutput.reserve(100, null)).toThrow("zero output price");
 });

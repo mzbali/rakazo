@@ -8,8 +8,8 @@ import type {
 } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { findModelCredential, runAsTenant } from "@rakazo/db";
-import { combineSignals } from "./connector-safety.js";
-import { resolveStoredModelAuth } from "./model-credential-refresh.js";
+import { combineSignals } from "./integrations/connector-safety.js";
+import { resolveStoredModelAuth } from "./models/model-credential-refresh.js";
 
 const CONNECTOR_ID = "xai-x-search";
 const TOOL_NAME = "x_search";
@@ -60,9 +60,20 @@ const TOOL: ConnectorTool = {
 export type XaiXSearchDeps = {
   prisma: Pick<
     PrismaClient,
-    "$transaction" | "secret" | "userModelCredential" | "userModelPreference"
+    | "$transaction"
+    | "$queryRaw"
+    | "secret"
+    | "userModelCredential"
+    | "userModelPreference"
+    | "botSecret"
+    | "vaultCredential"
+    | "integrationProviderConfig"
+    | "messagingInstallation"
+    | "deploymentSettings"
+    | "purchase"
+    | "paymentWallet"
   >;
-  secrets: Pick<SecretStore, "load" | "put" | "delete">;
+  secrets: Pick<SecretStore, "load" | "put" | "delete" | "isRemote">;
   fetch?: typeof fetch;
 };
 

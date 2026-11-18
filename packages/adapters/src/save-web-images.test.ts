@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { partitionTools } from "./builtin-tool-bridge.js";
-import type { RunContext } from "./run-context.js";
-import type { ToolCall } from "./run-tool-gate.js";
-import { selectBuiltinToolsForRun } from "./run-tool-selection.js";
-import { integrationTools } from "./run-tools-integrations.js";
+import type { RunContext } from "./runs/assembly/run-context.js";
+import type { ToolCall } from "./runs/tools/run-tool-gate.js";
+import { selectBuiltinToolsForRun } from "./runs/tools/run-tool-selection.js";
+import { integrationTools } from "./runs/tools/run-tools-integrations.js";
 import { postSavedWebImage, saveWebImages } from "./save-web-images.js";
-import { rememberFetchedPageImage } from "./web-tools.js";
+import { partitionTools } from "./tools/builtin-tool-bridge.js";
+import { rememberFetchedPageImage } from "./web/web-tools.js";
 
 const attach = vi.hoisted(() => vi.fn());
 const persist = vi.hoisted(() => vi.fn());

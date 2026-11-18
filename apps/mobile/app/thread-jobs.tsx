@@ -3,12 +3,12 @@ import { typeScale } from "@rakazo/ui-tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { JobRow } from "../components/job-row";
-import { SheetCloseButton } from "../components/sheet-close-button";
-import { mobileTokens } from "../lib/appearance";
+import { SheetCloseButton } from "../components/native/sheet-close-button";
+import { mobileTokens } from "../lib/appearance/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
-import { hapticSelection } from "../lib/haptics";
 import { activeChatJobs } from "../lib/job-pill";
-import { native } from "../lib/native";
+import { hapticSelection } from "../lib/native/haptics";
+import { native } from "../lib/native/native";
 
 /** The chat's jobs that are going or need the owner, opened from the pill above the composer. */
 export default function ThreadJobsSheet() {

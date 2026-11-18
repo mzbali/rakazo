@@ -14,19 +14,19 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { mobileTokens } from "../../lib/appearance";
-import type { MobileArtifactTarget } from "../../lib/artifact-open";
-import { hapticSelection } from "../../lib/haptics";
+import { mobileTokens } from "../../lib/appearance/appearance";
+import type { MobileArtifactTarget } from "../../lib/artifacts/artifact-open";
 import { phaseCounts } from "../../lib/job-format";
 import { jobLinks } from "../../lib/job-links";
-import type { UserBubble } from "../../lib/user-bubble";
-import { withUserBubble } from "../../lib/user-bubble";
+import type { UserBubble } from "../../lib/messages/user-bubble";
+import { withUserBubble } from "../../lib/messages/user-bubble";
+import { hapticSelection } from "../../lib/native/haptics";
 import { JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
 import { JobWorkLine } from "../job-work";
-import { NativeActionButton } from "../native-action-button";
-import { NativeSymbol } from "../native-symbol";
+import { NativeActionButton } from "../native/native-action-button";
+import { NativeSymbol } from "../native/native-symbol";
 import { JobOwnerActions } from "./job-owner-actions";
 import type { MessageActionProps } from "./message-bubble";
 

@@ -2,7 +2,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import { hostSite, normalizedHttpUrl } from "./egress.js";
+import { hostSite, normalizedHttpUrl } from "./primitives/egress.js";
 
 /**
  * A separate entry so the markdown parser and the public suffix list stay off the main core

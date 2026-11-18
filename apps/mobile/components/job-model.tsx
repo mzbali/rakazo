@@ -2,9 +2,9 @@ import type { CloudAgentJob } from "@rakazo/contracts";
 import { typeScale } from "@rakazo/ui-tokens";
 import { Text, View } from "react-native";
 import { Path, Svg } from "react-native-svg";
-import { mobileTokens } from "../lib/appearance";
-import { useResolvedAppearance } from "../lib/native";
-import { NativeSymbol } from "./native-symbol";
+import { mobileTokens } from "../lib/appearance/appearance";
+import { useResolvedAppearance } from "../lib/native/native";
+import { NativeSymbol } from "./native/native-symbol";
 
 // The makers' marks as T3's mobile app draws them (MIT, github.com/pingdotgg/t3code).
 const CLAUDE_PATH =

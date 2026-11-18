@@ -3,7 +3,7 @@ import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import JobSheet from "../app/job";
-import { rpc } from "./api";
+import { rpc } from "./api/api";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("expo-router", () => ({

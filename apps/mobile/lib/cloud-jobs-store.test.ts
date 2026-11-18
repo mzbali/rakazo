@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { rpc } from "./api";
+import { rpc } from "./api/api";
 import { cloudJobsSnapshot, refreshCloudJobs, resetCloudJobs } from "./cloud-jobs-store";
 
 vi.mock("./api", () => ({ rpc: vi.fn() }));

@@ -13,7 +13,7 @@ vi.mock("./plot-tool.js", () => ({
   renderPlotSpecToSvg: () => "<svg/>",
 }));
 
-const { renderPlotFromTool } = await import("./workspace-file-tools.js");
+const { renderPlotFromTool } = await import("./tools/workspace-file-tools.js");
 
 const context: AdapterContext = {
   operationId: "op",

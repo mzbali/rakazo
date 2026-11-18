@@ -12,7 +12,7 @@ import {
 import { useLingui } from "@lingui/react/macro";
 import { useState } from "react";
 import { PlatformColor, useWindowDimensions, View } from "react-native";
-import { native, useResolvedAppearance } from "../lib/native";
+import { native, useResolvedAppearance } from "../lib/native/native";
 import type { JobSwipeRowProps } from "./job-swipe-row";
 
 // Measured row heights, so recycled and reopened rows start at their size instead of 0.

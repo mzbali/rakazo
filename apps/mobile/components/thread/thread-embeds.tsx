@@ -6,13 +6,13 @@ import { embedTarget, formatFileSize } from "@rakazo/core";
 import type { ReactNode } from "react";
 import { useCallback } from "react";
 import { Alert, Pressable, Text } from "react-native";
-import { mobileTokens } from "../../lib/appearance";
-import type { MobileArtifactTarget } from "../../lib/artifact-open";
-import { openMobileArtifact } from "../../lib/artifact-open";
-import type { MobileMessage } from "../../lib/mobile-types";
-import { errorText } from "../../lib/user-error";
-import { AudioAttachment } from "../audio-attachment";
-import { InlineImageAttachment } from "../inline-image-attachment";
+import type { MobileMessage } from "../../lib/api/mobile-types";
+import { errorText } from "../../lib/api/user-error";
+import { mobileTokens } from "../../lib/appearance/appearance";
+import type { MobileArtifactTarget } from "../../lib/artifacts/artifact-open";
+import { openMobileArtifact } from "../../lib/artifacts/artifact-open";
+import { AudioAttachment } from "../media/audio-attachment";
+import { InlineImageAttachment } from "../media/inline-image-attachment";
 import { VisualCard } from "./visual-card";
 
 /** Resolves embed images from messages this thread already holds. */

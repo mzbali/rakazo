@@ -5,14 +5,14 @@ import { typeScale } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { rpc } from "../../lib/api";
-import { mobileTokens } from "../../lib/appearance";
+import { rpc } from "../../lib/api/api";
+import { errorText } from "../../lib/api/user-error";
+import { mobileTokens } from "../../lib/appearance/appearance";
 import { refreshCloudJobs } from "../../lib/cloud-jobs-store";
-import { hapticSuccess } from "../../lib/haptics";
-import { showIOSActionSheet } from "../../lib/ios-action-sheet";
-import { errorText } from "../../lib/user-error";
-import { NativeActionButton } from "../native-action-button";
-import { NativeSymbol } from "../native-symbol";
+import { hapticSuccess } from "../../lib/native/haptics";
+import { showIOSActionSheet } from "../../lib/native/ios-action-sheet";
+import { NativeActionButton } from "../native/native-action-button";
+import { NativeSymbol } from "../native/native-symbol";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
 

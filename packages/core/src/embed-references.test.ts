@@ -8,9 +8,9 @@ import {
   placedEmbedMessages,
   plainEmbedReferences,
 } from "./embed-references.js";
-import { plainTextFromMarkdown } from "./markdown-plain.js";
-import { visibleTextFromMarkdown } from "./message-quote.js";
-import { copyableMessageText } from "./message-text.js";
+import { plainTextFromMarkdown } from "./messages/markdown-plain.js";
+import { visibleTextFromMarkdown } from "./messages/message-quote.js";
+import { copyableMessageText } from "./messages/message-text.js";
 
 function row(
   id: string,

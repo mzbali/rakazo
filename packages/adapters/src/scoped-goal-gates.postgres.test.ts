@@ -3,10 +3,14 @@ import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapte
 import { ScopedGoalScope } from "@rakazo/contracts";
 import { createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { CloudAgentConnection } from "./cloud-agent-factory.js";
-import { pollCloudAgent } from "./cloud-agent-poll.js";
-import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agent-service.js";
-import { reconcileCloudWork } from "./run-runtime.js";
+import type { CloudAgentConnection } from "./cloud-agents/cloud-agent-factory.js";
+import { pollCloudAgent } from "./cloud-agents/cloud-agent-poll.js";
+import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agents/cloud-agent-service.js";
+import {
+  T3ThreadEventsEmulator,
+  t3EmulatedProvider,
+} from "./cloud-agents/t3/t3-cloud-agent.test-support.js";
+import { reconcileCloudWork } from "./runs/assembly/run-runtime.js";
 import { observe } from "./scoped-goal-observers.js";
 import {
   advanceScopedGoal,
@@ -15,7 +19,6 @@ import {
   scopedGoalTool,
   settleScopedGoalStarts,
 } from "./scoped-goal-service.js";
-import { T3ThreadEventsEmulator, t3EmulatedProvider } from "./t3-cloud-agent.test-support.js";
 
 const PR = "https://github.com/example/demo/pull/1";
 const SHA = "a".repeat(40);
@@ -124,6 +127,7 @@ suite("scoped goal gates advance in code", () => {
     const jobs: JobPublisher = {
       enqueue: vi.fn(async (_job: BackgroundJob) => undefined),
       enqueueIn: vi.fn(async (_tx: unknown, _job: BackgroundJob) => undefined),
+      enqueueManyIn: vi.fn(async () => undefined),
       cancelIn: vi.fn(async (_tx: unknown, _key: string) => undefined),
       cancel: async () => undefined,
       close: async () => undefined,

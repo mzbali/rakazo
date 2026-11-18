@@ -1,6 +1,6 @@
 import type { CloudAgentJob } from "@rakazo/contracts";
 import { cloudAgentShelf, cloudAgentState, createRefreshCoalescer } from "@rakazo/core";
-import { rpc } from "./api";
+import { rpc } from "./api/api";
 
 type Snapshot = { jobs: CloudAgentJob[] | null; error: unknown };
 

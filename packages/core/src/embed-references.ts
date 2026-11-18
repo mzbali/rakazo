@@ -1,5 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
-import { codeSkipEnds } from "./page-links.js";
+import { codeSkipEnds } from "./messages/page-links.js";
 
 export type EmbedKind = "visual" | "image";
 

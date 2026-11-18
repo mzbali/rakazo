@@ -8,13 +8,13 @@ import {
 } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { Pressable, Text, View } from "react-native";
-import { mobileTokens } from "../../lib/appearance";
-import { hapticSelection } from "../../lib/haptics";
+import { mobileTokens } from "../../lib/appearance/appearance";
 import { useNow } from "../../lib/job-format";
 import type { JobPill } from "../../lib/job-pill";
-import { GlassSurface } from "../glass-surface";
+import { hapticSelection } from "../../lib/native/haptics";
 import { JobStatusDot, jobToneColor } from "../job-status";
-import { NativeSymbol } from "../native-symbol";
+import { GlassSurface } from "../native/glass-surface";
+import { NativeSymbol } from "../native/native-symbol";
 
 /**
  * A glass pill, centred above the composer, while the chat has T3 jobs going: how many are working and for

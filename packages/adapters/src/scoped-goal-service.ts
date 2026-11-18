@@ -11,13 +11,13 @@ import {
   runAsSystem,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agent-factory.js";
-import { createCloudAgentWake } from "./cloud-agent-poll.js";
+import type { CloudAgentConnection, UserCloudAgents } from "./cloud-agents/cloud-agent-factory.js";
+import { createCloudAgentWake } from "./cloud-agents/cloud-agent-poll.js";
 import {
   cloudAgentFor,
   enqueueCloudAgent,
   queueCloudAgentFollowupInTransaction,
-} from "./cloud-agent-service.js";
+} from "./cloud-agents/cloud-agent-service.js";
 import type { ObservedResult, ObserverEgress } from "./scoped-goal-observers.js";
 import { isCodeObserver, observe } from "./scoped-goal-observers.js";
 

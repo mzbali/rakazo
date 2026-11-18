@@ -9,10 +9,10 @@ import {
 } from "@rakazo/core";
 import { currentDbContext } from "@rakazo/db";
 import { z } from "zod";
-import { hasRepeatedTopLevelKey } from "./auto-review.js";
-import { resolveDeploymentModel } from "./deployment-model.js";
-import { resolveMemberMainModel } from "./model-roles.js";
-import { resolvedModelRunFields, resolveModelKeyMaterial } from "./run-model.js";
+import { hasRepeatedTopLevelKey } from "./approvals/auto-review.js";
+import { resolveDeploymentModel } from "./models/deployment-model.js";
+import { resolveMemberMainModel } from "./models/model-roles.js";
+import { resolvedModelRunFields, resolveModelKeyMaterial } from "./runs/turn/run-model.js";
 
 const Verdict = z
   .object({ status: z.enum(["accepted", "rejected", "unqualified"]), reason: z.string().max(2000) })
@@ -32,7 +32,7 @@ export function createCorrectedClaimJudge(
 ): CorrectedClaimJudge {
   return async (input) => {
     const selected = await resolve();
-    const { PiAgentRuntime } = await import("./pi-runtime.js");
+    const { PiAgentRuntime } = await import("./runtime/pi/pi-runtime.js");
     const runtime = new PiAgentRuntime();
     const operationId = `corrected-claims:${randomUUID()}`;
     const signal = AbortSignal.timeout(30000);
@@ -102,6 +102,7 @@ export function configureCorrectedClaimsConnections(
           ...material,
           apiKey: material.apiKey,
           callObserver: undefined,
+          connectionId: main.credential.id,
         }),
         thinkingLevel: main.thinkingLevel ?? null,
       };

@@ -1,3 +1,4 @@
+import { LifecycleEmailKind } from "@rakazo/contracts";
 import { z } from "zod";
 import type {
   BackgroundJob,
@@ -6,6 +7,7 @@ import type {
   BackgroundJobHandlers,
   BackgroundJobName,
   BackgroundJobPayloads,
+  UnreferencedMachine,
 } from "./types.js";
 
 const payloadSchemas = {
@@ -22,6 +24,7 @@ const payloadSchemas = {
     leaseId: z.string().min(1),
   }),
   "skill.teaching-expire": z.object({ skillId: z.string().min(1) }),
+  "run.forget-secrets": z.object({ runId: z.string().min(1) }),
   "call.expire": z.object({ threadId: z.string().min(1), callId: z.string().min(1) }),
   // The member whose turn asked for it, who pays; older jobs name only the thread.
   "history.compact": z.object({
@@ -59,9 +62,36 @@ const payloadSchemas = {
   "messaging.reply": z.object({ runId: z.string().min(1) }),
   "messaging.deliver": z.object({ runId: z.string().min(1).optional() }),
   "messaging.progress": z.object({ runId: z.string().min(1) }),
+  "secret.cleanup": z.object({
+    kind: z.enum([
+      "secret_row",
+      "secret_tables",
+      "messaging_installation",
+      "deployment_computer_provider",
+      "purchase_request",
+      "purchase_card",
+      "purchase_token",
+      "payment_wallet",
+      "store_write",
+    ]),
+    recordId: z.string().min(1),
+    ref: z.string().min(1),
+  }),
   "messaging.credential-cleanup": z.object({
     installationId: z.string().min(1),
     ref: z.string().min(1),
+  }),
+  "connection.cleanup": z.object({
+    spaceId: z.string().min(1),
+    userId: z.string().min(1),
+    connectorId: z.string().min(1),
+    provider: z.string().min(1),
+    ref: z.string().min(1).optional(),
+  }),
+  "computer.machine-cleanup": z.object({
+    provider: z.string().min(1),
+    machineId: z.string().min(1),
+    homeKey: z.string().min(1).optional(),
   }),
   "team_chat.engage": z.object({ externalMessageId: z.string().min(1) }),
   "team_chat.ambient": z.object({ conversationId: z.string().min(1) }),
@@ -81,6 +111,17 @@ const payloadSchemas = {
     userId: z.string().min(1),
     ticketId: z.string().min(1),
     tokenDigest: z.string().min(1),
+  }),
+  "email.lifecycle": z.object({
+    kind: LifecycleEmailKind,
+    organizationId: z.string().min(1),
+    userId: z.string().min(1),
+    message: z.object({
+      subject: z.string().min(1),
+      text: z.string().min(1),
+      html: z.string().optional(),
+      headers: z.record(z.string(), z.string()).optional(),
+    }),
   }),
 } satisfies { [Name in BackgroundJobName]: z.ZodType<BackgroundJobPayloads[Name]> };
 
@@ -200,6 +241,16 @@ export function skillTeachingExpireJob(skillId: string, availableAt: Date): Back
   };
 }
 
+/** Keyed to the run, so each new pause moves the one pending cleanup. */
+export function runForgetSecretsJob(runId: string, availableAt: Date): BackgroundJob {
+  return {
+    name: "run.forget-secrets",
+    payload: { runId },
+    availableAt,
+    replaceKey: `run.forget-secrets:${runId}`,
+  };
+}
+
 export function callExpireJob(threadId: string, callId: string, availableAt: Date): BackgroundJob {
   return {
     name: "call.expire",
@@ -300,6 +351,54 @@ export function memoryPurgeHistoryJob(
     payload,
     replaceKey: `memory.purge-history:${JSON.stringify([payload.spaceId, payload.botId, payload.threadId, payload.generations, payload.connectionIdentity])}`,
     maxAttempts: 12,
+  };
+}
+
+export function connectionCleanupJobKey(
+  payload: BackgroundJobPayloads["connection.cleanup"],
+): string {
+  return `connection.cleanup:${JSON.stringify([payload.spaceId, payload.userId, payload.connectorId, payload.provider, payload.ref ?? null])}`;
+}
+
+/**
+ * Tries of one cleanup before it is given up and reported. An authorization nobody removes
+ * stays active at the provider, so the job has to outlast a long provider outage: the queue's
+ * backoff grows to about six hours between tries, which makes this many span about a month.
+ */
+export const CONNECTION_CLEANUP_MAX_ATTEMPTS = 125;
+
+/** Without `availableAt` it runs now, which is how a failed direct attempt hands over. */
+export function connectionCleanupJob(
+  payload: BackgroundJobPayloads["connection.cleanup"],
+  availableAt?: Date,
+): BackgroundJob {
+  return {
+    name: "connection.cleanup",
+    payload,
+    ...(availableAt ? { availableAt } : {}),
+    replaceKey: connectionCleanupJobKey(payload),
+    maxAttempts: CONNECTION_CLEANUP_MAX_ATTEMPTS,
+  };
+}
+
+export function machineCleanupJobKey(provider: string, machineId: string): string {
+  return `computer.machine-cleanup:${JSON.stringify([provider, machineId])}`;
+}
+
+/**
+ * The queue's backoff spreads these tries over almost three days, which outlasts a long provider
+ * outage; the last one to fail reports the machine.
+ */
+export const MACHINE_CLEANUP_MAX_ATTEMPTS = 20;
+
+/** The record of one machine no stored computer points at: its delete, due at `availableAt`. */
+export function machineCleanupJob(machine: UnreferencedMachine, availableAt: Date): BackgroundJob {
+  return {
+    name: "computer.machine-cleanup",
+    payload: machine,
+    availableAt,
+    replaceKey: machineCleanupJobKey(machine.provider, machine.machineId),
+    maxAttempts: MACHINE_CLEANUP_MAX_ATTEMPTS,
   };
 }
 
@@ -414,5 +513,27 @@ export function mediaPollJob(jobId: string, availableAt?: Date): BackgroundJob {
     payload: { jobId },
     replaceKey: `media.poll:${jobId}`,
     ...(availableAt ? { availableAt } : {}),
+  };
+}
+
+/** A few tries ride out a database or queue blip; a send that was claimed is never repeated. */
+const LIFECYCLE_EMAIL_MAX_ATTEMPTS = 5;
+
+/**
+ * One lifecycle mail for one owner of one organization, due at `availableAt`. Keyed by kind,
+ * person and organization, so scheduling it again moves the one job, and a person's mails share
+ * a queue, so two that are due together run one after the other.
+ */
+export function lifecycleEmailJob(
+  payload: BackgroundJobPayloads["email.lifecycle"],
+  availableAt: Date,
+): BackgroundJob {
+  return {
+    name: "email.lifecycle",
+    payload,
+    availableAt,
+    replaceKey: `email.lifecycle:${payload.kind}:${payload.userId}:${payload.organizationId}`,
+    queueName: `email.lifecycle:${payload.userId}`,
+    maxAttempts: LIFECYCLE_EMAIL_MAX_ATTEMPTS,
   };
 }

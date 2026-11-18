@@ -1,8 +1,8 @@
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMcpJsonSchemaValidator } from "./mcp-output-schema.js";
+import { createMcpJsonSchemaValidator } from "./mcp/mcp-output-schema.js";
+import { McpSession } from "./mcp/mcp-transport.js";
 import { CachedJsonSchemaValidator } from "./mcp-schema-validator.js";
-import { McpSession } from "./mcp-transport.js";
 
 // A fresh object each time, as every `tools/list` response parses new schema objects.
 const outputSchema = () => ({

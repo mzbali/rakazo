@@ -291,10 +291,9 @@ export function appLinkMatches(text: string): { index: number; lastIndex: number
  * The app a link opens, when its label is just its address: it then reads "Open in {name}"
  * instead, so a long app address never shows, or wraps, as text. An author's label stays.
  */
-export function bareAppLinkName(text: string | undefined, href: string): string | undefined {
+export function bareAppLinkName(text: string, href: string): string | undefined {
   const address = (value: string) => decodedUrl(value.trim());
-  if (text !== undefined && address(text) !== address(href)) return undefined;
-  return findAppLink(href, appLinks)?.name;
+  return address(text) === address(href) ? findAppLink(href, appLinks)?.name : undefined;
 }
 
 export type PlainTextPart =

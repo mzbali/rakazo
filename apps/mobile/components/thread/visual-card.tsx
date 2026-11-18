@@ -5,7 +5,7 @@ import type { VisualFit } from "@rakazo/core";
 import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Modal, StyleSheet, Text, View } from "react-native";
 import { currentApiBase } from "../../lib/api";
 import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
 import { HEADER_CONTROL_SIZE } from "../../lib/native-controls";
@@ -63,9 +63,9 @@ function useVisualActions() {
 }
 
 /**
- * A visual the bot drew in the chat. One that fits works in place. Its Expand button
- * grows the same running view in the conversation, so what the reader did in it stays.
- * A taller one draws its top without taking touches and opens whole in a sheet on a tap.
+ * A visual the bot drew in the chat. One that fits works in place at its own height, with no
+ * full-screen control. A taller one draws its top without taking touches and opens whole in a
+ * sheet from the full-screen button.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
@@ -73,7 +73,6 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const theme = useResolvedAppearance();
   const errorTitle = t`This page couldn't be shown.`;
   const { runtime, failed } = usePageRuntime();
-  const window = useWindowDimensions();
   const [height, setHeight] = useState<number | null>(null);
   const [fit, setFit] = useState<VisualFit>("drawing");
   const [open, setOpen] = useState(false);
@@ -88,8 +87,8 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [runtime, block.code, theme, errorTitle, tokens.card],
   );
   const live = fit === "inline";
-  const expanded = open && live;
-  const sheet = open && !live;
+  const preview = fit === "preview";
+  const sheet = open && preview;
   // Built only once opened, from the runtime the card already has: each document carries all of it.
   const full = useMemo(
     () =>
@@ -102,9 +101,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [sheet, runtime, block.code, theme, errorTitle, tokens.background],
   );
 
-  const shown = expanded
-    ? window.height * 0.8
-    : Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
   const frame = (
     <View
       pointerEvents={live ? "auto" : "none"}
@@ -119,8 +116,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           <SandboxedHtmlPreview
             html={inline}
             background={tokens.card}
-            // An inline visual that grew past the card scrolls in place.
-            scrollEnabled={expanded || (live && height !== null && height > MAX_INLINE_HEIGHT)}
+            // Classified inline, then grown by its own controls: scroll the card rather than
+            // turning it into a preview under the reader's finger.
+            scrollEnabled={live && height !== null && height > MAX_INLINE_HEIGHT}
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {
@@ -151,21 +149,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` },
         ]}
       >
-        {expanded ? (
-          <View style={styles.expandedHeader}>
-            <Text numberOfLines={1} style={[styles.sheetTitle, { color: tokens.foreground }]}>
-              {block.title}
-            </Text>
-            <NativeActionButton
-              accessibilityLabel={t`Close`}
-              icon={{ ios: "xmark", android: "close", size: 20 }}
-              prominence="secondary"
-              onPress={() => setOpen(false)}
-            />
-          </View>
-        ) : null}
         {frame}
-        {expanded ? null : live ? (
+        {preview && !sheet ? (
+          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
           <View style={styles.expand}>
             <NativeActionButton
               accessibilityLabel={t`Expand ${block.title}`}
@@ -179,19 +165,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               onPress={() => setOpen(true)}
             />
           </View>
-        ) : (
-          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t`Open ${block.title}`}
-            accessibilityHint={block.text}
-            onPress={() => setOpen(true)}
-            style={({ pressed }) => [
-              StyleSheet.absoluteFill,
-              pressed ? { backgroundColor: `${tokens.foreground}14` } : null,
-            ]}
-          />
-        )}
+        ) : null}
       </View>
       <Modal
         visible={sheet}
@@ -285,7 +259,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   expand: { position: "absolute", top: 10, right: 10 },
-  expandedHeader: { flexDirection: "row", alignItems: "center", padding: 12 },
   sheetTitle: {
     flex: 1,
     fontSize: 17,

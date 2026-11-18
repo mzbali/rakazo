@@ -7701,10 +7701,7 @@ msgstr ""
 msgid "Open"
 msgstr "Abrir"
 
-#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
-#: apps/mobile/components/thread/visual-card.tsx
-#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar-roster.tsx
 msgid "Open {0}"
 msgstr "Abrir {0}"

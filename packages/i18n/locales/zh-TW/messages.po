@@ -5940,7 +5940,7 @@ msgstr "隱藏"
 msgid "Hide"
 msgstr "隱藏"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Hide {label}"
 msgstr "隱藏 {label}"
 
@@ -7919,7 +7919,7 @@ msgid "Open {0}"
 msgstr "開啟 {0}"
 
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Open {name}"
 msgstr "開啟 {name}"
@@ -9942,7 +9942,7 @@ msgstr "已與訪客共用"
 msgid "Show"
 msgstr "顯示"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Show {label}"
 msgstr "顯示 {label}"
 

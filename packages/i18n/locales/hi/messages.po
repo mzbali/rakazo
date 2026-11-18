@@ -5939,7 +5939,7 @@ msgstr "छिपा हुआ"
 msgid "Hide"
 msgstr "छिपाएँ"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Hide {label}"
 msgstr "{label} छिपाएँ"
 
@@ -7918,7 +7918,7 @@ msgid "Open {0}"
 msgstr "{0} खोलें"
 
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Open {name}"
 msgstr "{name} खोलें"
@@ -9941,7 +9941,7 @@ msgstr "मेहमानों के साथ शेयर किया ग�
 msgid "Show"
 msgstr "दिखाएँ"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Show {label}"
 msgstr "{label} दिखाएँ"
 

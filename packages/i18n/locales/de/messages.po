@@ -5939,7 +5939,7 @@ msgstr "Verborgen"
 msgid "Hide"
 msgstr "Ausblenden"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Hide {label}"
 msgstr "{label} ausblenden"
 
@@ -7918,7 +7918,7 @@ msgid "Open {0}"
 msgstr "{0} öffnen"
 
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Open {name}"
 msgstr "{name} öffnen"
@@ -9941,7 +9941,7 @@ msgstr "Mit Gästen geteilt"
 msgid "Show"
 msgstr "Anzeigen"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Show {label}"
 msgstr "{label} anzeigen"
 

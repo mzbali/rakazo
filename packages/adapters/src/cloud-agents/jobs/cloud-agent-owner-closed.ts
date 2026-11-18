@@ -11,10 +11,10 @@ export const OWNER_CLOSED_POLL_MS = 5 * 60_000;
 /** How long after the work ended that check goes on; the question then stays until answered. */
 const OWNER_CLOSED_WATCH_MS = 7 * 24 * 60 * 60_000;
 
-/** When ended work with an owner question is next checked, or never. */
+/** When ended work with an owner question is next checked: never later than the watch's end. */
 export function ownerClosedPollAt(endedAt: Date | null, now = Date.now()): Date | null {
-  if (endedAt && now - endedAt.getTime() > OWNER_CLOSED_WATCH_MS) return null;
-  return new Date(now + OWNER_CLOSED_POLL_MS);
+  const end = endedAt ? endedAt.getTime() + OWNER_CLOSED_WATCH_MS : Number.POSITIVE_INFINITY;
+  return now >= end ? null : new Date(Math.min(now + OWNER_CLOSED_POLL_MS, end));
 }
 
 /**
@@ -28,10 +28,9 @@ export async function ownerClosedPoll(
   provider: Pick<CloudAgentProvider, "ownerClosed">,
   context: AdapterContext,
 ) {
-  const watched =
-    agent.ownerQuestion && agent.remoteId && !agent.clearedAt && provider.ownerClosed
-      ? ownerClosedPollAt(agent.endedAt)
-      : null;
+  const watched = Boolean(
+    agent.ownerQuestion && agent.remoteId && !agent.clearedAt && provider.ownerClosed,
+  );
   let closed = false;
   // A review still running decides the question first; the next check looks again.
   if (watched && !agent.reviewingAt) {
@@ -42,7 +41,8 @@ export async function ownerClosedPoll(
       if (!(error instanceof CloudAgentRetryLater)) throw error;
     }
   }
-  const nextPollAt = closed ? null : watched;
+  // The check that falls due at the watch's end still reads, and schedules no other.
+  const nextPollAt = watched && !closed ? ownerClosedPollAt(agent.endedAt) : null;
   const saved = await deps.prisma.$transaction(async (tx) => {
     await assertLeaseHeld(tx, agent.lease);
     return tx.cloudAgent.updateMany({

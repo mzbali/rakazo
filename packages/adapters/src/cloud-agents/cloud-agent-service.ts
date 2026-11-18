@@ -909,8 +909,6 @@ export async function reportCloudAgent(
     return {
       error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
     };
-  // The owner may deal with a question in the provider instead; the poll then lets it go.
-  const watchAt = report.ownerQuestion ? ownerClosedPollAt(agent.endedAt) : null;
   // One verdict per piece of work, so the asking bot never holds a different one than the record.
   // A follow-up accepted meanwhile starts new work, which this verdict is not about.
   const recorded = await deps.prisma.cloudAgent.updateMany({
@@ -924,7 +922,6 @@ export async function reportCloudAgent(
       verdict: report.verdict,
       verdictSummary: report.summary,
       ownerQuestion: report.ownerQuestion ?? null,
-      nextPollAt: watchAt,
     },
   });
   if (!recorded.count) {
@@ -936,9 +933,22 @@ export async function reportCloudAgent(
   }
   // The question belongs on the job's card too, whatever the helper's own result says.
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
-  if (recorded.count && watchAt) await enqueueCloudAgent(deps, agent.id, watchAt);
-  // Only the call that recorded the verdict settles, so a replay never does it twice.
-  if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
+  // A question closed by the owner in the provider goes; a poll already due is left as it is.
+  const watchAt = report.ownerQuestion ? ownerClosedPollAt(agent.endedAt) : null;
+  if (recorded.count && watchAt) {
+    const watching = await deps.prisma.cloudAgent.updateMany({
+      where: { id: agent.id, generation: agent.generation, nextPollAt: null },
+      data: { nextPollAt: watchAt },
+    });
+    if (watching.count) await enqueueCloudAgent(deps, agent.id, watchAt);
+  }
+  // Settled once, by the recording call; work still asking the owner stays in their list.
+  if (
+    recorded.count &&
+    report.verdict === "accepted" &&
+    !report.ownerQuestion &&
+    agent.status === "finished"
+  ) {
     const owner =
       (await bestEffort("load cloud agent connection", cloudAgentFor(deps, agent))) ?? null;
     if (owner)

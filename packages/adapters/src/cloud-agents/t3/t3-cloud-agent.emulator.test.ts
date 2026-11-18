@@ -7,6 +7,7 @@ import {
   t3EmulatedProvider,
   t3EmulatorConnector,
 } from "./t3-cloud-agent.test-support.js";
+import { t3ThreadClosed } from "./t3-thread-closed.js";
 
 const context: AdapterContext = {
   operationId: "op",
@@ -92,6 +93,10 @@ describe("T3 cloud agent provider over the T3 MCP emulator (offline)", () => {
     thread.settled = false;
     thread.archived = true;
     expect(await provider.ownerClosed(agent.id, context)).toBe(true);
+    // A server that leaves out the count has not said nothing is open.
+    const archived = { thread: { archived: true } };
+    expect(t3ThreadClosed(archived)).toBe(false);
+    expect(t3ThreadClosed({ thread: { ...archived.thread, pendingRequestCount: 0 } })).toBe(true);
     // A thread T3 no longer has says nothing about the owner.
     expect(await provider.ownerClosed("gone", context)).toBe(false);
   });

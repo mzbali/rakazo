@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-/** Older servers leave these out, which reads as a thread still open. */
+/** Older servers leave these out, which reads as a thread still open; so does a missing count. */
 const closedSchema = z.object({
   thread: z.object({
     settled: z.boolean().default(false),
     archived: z.boolean().default(false),
-    pendingRequestCount: z.number().default(0),
+    pendingRequestCount: z.number().optional(),
   }),
 });
 

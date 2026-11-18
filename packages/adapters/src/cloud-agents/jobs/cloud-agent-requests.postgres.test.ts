@@ -1204,6 +1204,22 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       expect(provider.settled).toEqual([]);
     });
 
+    it("leaves accepted work that still asks the owner something in their list", async () => {
+      const t = await setup();
+      const { id } = await finished(t, 1);
+      await runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, t.context, t.run, {
+          id,
+          verdict: "accepted",
+          summary: "Done",
+          ownerQuestion: "Ship it now?",
+        }),
+      );
+      expect(t.provider.settled).toEqual([]);
+      await t.poll(id);
+      expect(await t.state(id)).toMatchObject({ ownerQuestion: "Ship it now?", clearedAt: null });
+    });
+
     it("keeps the verdict when settling is refused", async () => {
       const t = await setup();
       const provider = t.provider;

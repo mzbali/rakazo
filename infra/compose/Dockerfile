@@ -38,11 +38,14 @@ COPY --chmod=755 infra/updater/package.json infra/updater/
 # largest layer stays byte-identical until the lockfile changes and a deploy downloads only the
 # app's own files. The deps and build stages run at the same time and share the store, so each
 # install locks it: two installs writing one store at once once shipped a truncated native binary.
+# The install also loads vite's native binding, so a damaged layer fails here and is never cached:
+# the mount's sharing mode is not part of the cache key, so the lock alone kept reusing the bad layer.
 FROM manifests AS deps
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store,sharing=locked pnpm install --frozen-lockfile --prod \
   --store-dir=/pnpm/store --cpu=current --os=current \
   --filter="@rakazo/api..." --filter="@rakazo/worker..." \
-  --filter="@rakazo/web..." --filter="@rakazo/sandbox-supervisor..."
+  --filter="@rakazo/web..." --filter="@rakazo/sandbox-supervisor..." \
+  && cd apps/web && node_modules/.bin/vite --version
 
 FROM manifests AS build
 # Only what the image runs (api, worker, web, supervisor) and the root build tools, with

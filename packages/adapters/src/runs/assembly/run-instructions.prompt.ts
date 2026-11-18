@@ -501,7 +501,7 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "show_visual",
-      `When a chart or small tool would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.${parts.visualFences ? " Use it only for what a ui fence cannot draw." : ""}`,
+      `When ${parts.visualFences ? "a chart or small tool" : "a diagram, chart, comparison or small tool"} would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.${parts.visualFences ? " Use it only for what a ui fence cannot draw." : ""}`,
     ),
     parts.visualFences ? VISUAL_FENCE_INSTRUCTION : undefined,
     offeredBuiltinClause(

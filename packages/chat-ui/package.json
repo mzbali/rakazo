@@ -31,7 +31,8 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-native": ">=0.79",
-    "@ronradtke/react-native-markdown-display": "9.0.3"
+    "@ronradtke/react-native-markdown-display": "9.0.3",
+    "react-native-svg": ">=15"
   },
   "peerDependenciesMeta": {
     "react-dom": {
@@ -41,6 +42,9 @@
       "optional": true
     },
     "@ronradtke/react-native-markdown-display": {
+      "optional": true
+    },
+    "react-native-svg": {
       "optional": true
     }
   },
@@ -52,6 +56,7 @@
     "react-native": "0.88.1",
     "typescript": "7.0.2",
     "vitest": "5.1.0",
-    "@ronradtke/react-native-markdown-display": "9.0.3"
+    "@ronradtke/react-native-markdown-display": "9.0.3",
+    "react-native-svg": "15.16.0"
   }
 }

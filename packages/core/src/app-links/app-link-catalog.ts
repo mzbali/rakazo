@@ -16,6 +16,6 @@ export const appLinkCatalog: readonly (AppLink & { name: string; icon: string })
     name: "Gmail",
     icon: "https://mail.google.com",
     queryKeys: ["accountId"],
-    mobileOnly: true,
+    iosOnly: true,
   },
 ];

@@ -584,6 +584,7 @@ describe("bare app links", () => {
     expect(links("See the book (reader://books/42).")).toEqual(["reader://books/42"]);
     expect(links("Open reader://books/42!?")).toEqual(["reader://books/42"]);
     expect(links("Open reader://books/a(b)")).toEqual(["reader://books/a(b)"]);
+    expect(links("Open reader://books/a)b(c))")).toEqual(["reader://books/a)b(c)"]);
   });
 
   it("still finds a web address that follows an app link the host refuses", () => {

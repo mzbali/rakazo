@@ -239,19 +239,19 @@ const CLOSING_PUNCTUATION = ".,;:!?";
  * One backward pass, so a long run of punctuation costs no more than its length.
  */
 function appLinkTailLength(tail: string): number {
-  let unmatched = 0;
-  for (const character of tail) {
-    if (character === "(") unmatched--;
-    else if (character === ")") unmatched++;
+  // A closing parenthesis is unmatched when no opening one inside the link is still open.
+  const unmatched = new Set<number>();
+  let open = 0;
+  for (let index = 0; index < tail.length; index++) {
+    if (tail[index] === "(") open++;
+    else if (tail[index] === ")") {
+      if (open > 0) open--;
+      else unmatched.add(index);
+    }
   }
   let end = tail.length;
-  while (end > 2) {
-    const character = tail[end - 1]!;
-    if (CLOSING_PUNCTUATION.includes(character)) end--;
-    else if (character === ")" && unmatched > 0) {
-      unmatched--;
-      end--;
-    } else break;
+  while (end > 2 && (CLOSING_PUNCTUATION.includes(tail[end - 1]!) || unmatched.has(end - 1))) {
+    end--;
   }
   return end;
 }

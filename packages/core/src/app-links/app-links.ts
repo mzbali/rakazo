@@ -13,14 +13,14 @@ export type AppLink = {
   icon?: string;
   /** Query keys that only pick what the app shows, such as which account. */
   queryKeys?: readonly string[];
-  /** The app runs only on phones, so desktop and web leave its links as text. */
-  mobileOnly?: boolean;
+  /** Only the iPhone app takes these links, so every other surface leaves them as text. */
+  iosOnly?: boolean;
 };
 
 export { appLinkCatalog };
 
 /** The catalog's apps a computer can open, for web and desktop. */
-export const computerAppLinks = appLinkCatalog.filter((link) => !link.mobileOnly);
+export const computerAppLinks = appLinkCatalog.filter((link) => !link.iosOnly);
 
 const schemePattern = /^([a-z][a-z\d+.-]*):/i;
 

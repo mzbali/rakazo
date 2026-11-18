@@ -12,6 +12,7 @@ import type { ResolvedAppearance } from "../../src/lib/preferences/ui-appearance
 import { applyResolvedAppearance } from "../../src/lib/preferences/ui-appearance";
 import { queryClient } from "../../src/lib/query/query";
 import "../../src/styles.css";
+import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
 // Every chat surface over fake data, so consistency can be checked without a backend.
@@ -190,6 +191,49 @@ const approvals: Scenario = {
   id: "approvals",
   label: "Approvals",
   messages: [
+    // A tool's server asking mid-call; its text is the server's, so markdown stays literal.
+    bot([
+      {
+        kind: "tool_question",
+        question: {
+          source: "Tool gateway",
+          message: "Run **send_email** to sam@example.test?",
+          fields: [
+            { name: "approve", label: "Approve this call", required: true, type: "boolean" },
+            {
+              name: "reason",
+              label: "Reason",
+              description: "Shown in the audit log",
+              required: false,
+              type: "text",
+              maxLength: 200,
+            },
+            {
+              name: "scope",
+              label: "Scope",
+              required: true,
+              type: "choice",
+              options: [
+                { value: "once", label: "This call" },
+                { value: "session", label: "This session" },
+              ],
+            },
+          ],
+        },
+        status: "pending",
+        expiresAt: "2026-10-26T09:10:00.000Z",
+        publicKey: "gallery-key",
+      },
+    ]),
+    bot([
+      {
+        kind: "tool_question",
+        question: { source: "Tool gateway", message: "Delete the draft?", fields: [] },
+        status: "declined",
+        expiresAt: "2026-10-26T09:10:00.000Z",
+        publicKey: "gallery-key",
+      },
+    ]),
     bot([
       {
         kind: "ask",
@@ -820,11 +864,6 @@ const SCENARIOS: Scenario[] = [
   calls,
   research,
 ];
-
-const IMAGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="480" height="320" fill="#d4d4d4"/><circle cx="160" cy="150" r="70" fill="#a3a3a3"/><rect x="250" y="90" width="150" height="120" rx="12" fill="#737373"/></svg>`;
-
-/** A browser on a sign-in page, as a computer card's still of the screen. */
-const SCREEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" font-family="Helvetica,Arial,sans-serif"><rect width="1280" height="800" fill="#f5f5f7"/><rect width="1280" height="40" fill="#dfe1e5"/><rect x="12" y="8" width="240" height="32" rx="8" fill="#fff"/><text x="28" y="29" font-size="14" fill="#333">Sign in - Harbor Bookings</text><rect y="40" width="1280" height="48" fill="#fff"/><rect x="96" y="50" width="1088" height="28" rx="14" fill="#f1f3f4"/><text x="116" y="69" font-size="14" fill="#444">bookings.example.test/login</text><rect x="450" y="210" width="380" height="380" rx="16" fill="#fff" stroke="#e3e3e8"/><text x="482" y="262" font-size="26" font-weight="700" fill="#111">Welcome back</text><text x="482" y="290" font-size="15" fill="#666">Sign in to manage your reservations.</text><text x="482" y="334" font-size="13" fill="#444">Email</text><rect x="482" y="344" width="316" height="40" rx="8" fill="#fff" stroke="#ccc"/><text x="482" y="414" font-size="13" fill="#444">Password</text><rect x="482" y="424" width="316" height="40" rx="8" fill="#fff" stroke="#ccc"/><rect x="482" y="500" width="316" height="44" rx="8" fill="#2457f5"/><text x="640" y="528" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">Sign in</text><rect y="764" width="1280" height="36" fill="#1f2023"/><text x="1250" y="787" font-size="13" fill="#ccc" text-anchor="end">4:19 PM</text></svg>`;
 
 // The page has no API; answer the few reads cards make on mount with fake data.
 const realFetch = window.fetch.bind(window);

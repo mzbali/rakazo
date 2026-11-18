@@ -1,6 +1,6 @@
 import { ph, t } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
-import { ChatMarkdown, MarkdownLongPressContext, withBlockMentions } from "@rakazo/chat-ui/native";
+import { MarkdownLongPressContext, withBlockMentions } from "@rakazo/chat-ui/native";
 import type { LoginFieldInput, MessageBlock } from "@rakazo/contracts";
 import { artifactPreviewKind, isAttachmentAudioMimeType } from "@rakazo/contracts";
 import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
@@ -15,7 +15,7 @@ import {
 import { messageSources } from "@rakazo/core/answer-sources";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import type { ComponentProps } from "react";
-import { memo, useContext, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { TextProps } from "react-native";
 import { Alert, Pressable, Text, View } from "react-native";
 import type { MobileBot, MobileMessage, MobileSnapshot } from "../../lib/api/mobile-types";
@@ -27,12 +27,7 @@ import { openMobileArtifact } from "../../lib/artifacts/artifact-open";
 import { allowsSpace } from "../../lib/cards/ask-action-label";
 import { plainAskTitle } from "../../lib/cards/ask-title";
 import { isInlineImageBlock } from "../../lib/messages/inline-image";
-import {
-  mentionedBots,
-  textWithMentions,
-  UserMentionsContext,
-  userMentionTargets,
-} from "../../lib/messages/message-mentions";
+import { UserMentionsContext, userMentionTargets } from "../../lib/messages/message-mentions";
 import { messagePresentationSegments } from "../../lib/messages/message-presentation";
 import type { UserBubble } from "../../lib/messages/user-bubble";
 import { withUserBubble } from "../../lib/messages/user-bubble";
@@ -47,16 +42,17 @@ import { ComputerCard } from "../cards/ComputerCard";
 import { ChangeUndo, isUndoableChange } from "../cards/change-undo";
 import { ImportSetupCard } from "../cards/ImportSetupCard";
 import { McpApprovalCard } from "../cards/McpApprovalCard";
+import { ToolQuestionCard } from "../cards/ToolQuestionCard";
 import { AudioAttachment } from "../media/audio-attachment";
 import type { ImageArtifactPreviewTarget } from "../media/image-artifact-viewer";
 import { InlineImageAttachment } from "../media/inline-image-attachment";
 import { MessageMentions } from "../messages/bot-mention";
 import { MessageCaption } from "../messages/message-caption";
-import { NativeSymbol } from "../native/native-symbol";
 import { AskBlock } from "./ask-block";
 import { CloudAgentCards } from "./cloud-agent-card";
 import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
+import { AgentEventLabel, MessageTextCard } from "./message-text-card";
 import { PeerReceiptLine } from "./peer-receipt-line";
 import { isSpecialMessageBlock, SpecialMessageCard } from "./special-message-card";
 import { VisualCard } from "./visual-card";
@@ -152,7 +148,8 @@ function isOwnCardBlock(block: MessageBlock): boolean {
     isSpecialMessageBlock(block) ||
     block.kind === "page" ||
     block.kind === "app" ||
-    block.kind === "visual"
+    block.kind === "visual" ||
+    block.kind === "tool_question"
   );
 }
 
@@ -191,6 +188,16 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
     if (first.kind === "page")
       return <PageCard key={`page-${index}`} block={first} messageId={message.id} />;
     if (first.kind === "visual") return <VisualCard key={`visual-${index}`} block={first} />;
+    if (first.kind === "tool_question")
+      return (
+        <ToolQuestionCard
+          key={`question-${index}`}
+          block={first}
+          messageId={message.id}
+          target={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
+          canAnswer={props.canAnswer}
+        />
+      );
     if (first.kind === "app")
       return (
         <McpAppCard
@@ -847,152 +854,3 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     </View>
   );
 });
-
-const OPEN_BOT_ACTION = "open-bot:";
-
-function MessageTextCard({
-  message,
-  outgoing,
-  speaker,
-  speakerColor,
-  actionProps,
-  doubleTapSurface = false,
-  userBubble,
-}: {
-  message: MobileMessage;
-  outgoing: boolean;
-  speaker?: string;
-  speakerColor?: string;
-  actionProps: MessageActionProps;
-  doubleTapSurface?: boolean;
-  userBubble?: UserBubble;
-}) {
-  const colorScheme = useResolvedAppearance();
-  const tokens = withUserBubble(mobileTokens(), userBubble);
-  const contentText = blockText(message);
-  const { t } = useLingui();
-  const sources = message.role === "bot" ? messageSources(message.blocks) : undefined;
-  const userMentions = useContext(UserMentionsContext);
-  if (!contentText) return null;
-  // The surface is one accessibility element, so the bots a message names are offered as its
-  // actions too; a tap on the name still opens the chat for everyone else.
-  const bots =
-    message.role === "user" && userMentions
-      ? mentionedBots(textWithMentions(contentText, userMentions.targets))
-      : [];
-  const accessibilityActions = bots.length
-    ? [
-        ...(actionProps.accessibilityActions ?? []),
-        ...bots.map((bot) => ({
-          name: `${OPEN_BOT_ACTION}${bot.id}`,
-          label: t`Open ${ph({ name: bot.name })}`,
-        })),
-      ]
-    : actionProps.accessibilityActions;
-  // The menu wrapper owns surface gestures; links and code controls remain responders.
-  const Surface = doubleTapSurface ? View : Pressable;
-  return (
-    <Surface
-      {...actionProps}
-      accessible
-      accessibilityActions={accessibilityActions}
-      onAccessibilityAction={(event) => {
-        const actionName = event.nativeEvent.actionName;
-        const bot = bots.find((candidate) => `${OPEN_BOT_ACTION}${candidate.id}` === actionName);
-        if (bot) userMentions?.onOpenBot(bot.id, bot.name);
-        else actionProps.onAccessibilityAction?.(event);
-      }}
-      onLongPress={doubleTapSurface ? undefined : actionProps.onLongPress}
-      style={
-        message.role === "bot"
-          ? { width: "100%", flexShrink: 1, minWidth: 0 }
-          : {
-              flexShrink: 1,
-              minWidth: 0,
-              maxWidth: "100%",
-              backgroundColor: outgoing ? tokens.chatUser : tokens.muted,
-              paddingHorizontal: 14,
-              paddingVertical: 9,
-              borderRadius: 20,
-            }
-      }
-    >
-      {speaker ? (
-        <Text
-          style={{
-            color: speakerColor ?? tokens.mutedForeground,
-            ...typeScale.footnote,
-            marginBottom: 4,
-          }}
-        >
-          {speaker}
-        </Text>
-      ) : null}
-      <MessageCaption
-        role={message.role}
-        received={!outgoing}
-        text={contentText}
-        tokens={tokens}
-        colorScheme={colorScheme}
-        streaming={message.id.startsWith("progress:")}
-        sources={sources}
-        sourcesRow={Boolean(sources?.length)}
-      />
-    </Surface>
-  );
-}
-
-function AgentEventLabel({
-  label,
-  detail,
-  expanded,
-  onToggle,
-  actionProps,
-}: {
-  label: string;
-  detail?: string;
-  expanded: boolean;
-  onToggle: () => void;
-  actionProps: MessageActionProps;
-}) {
-  const colorScheme = useResolvedAppearance();
-  const tokens = mobileTokens();
-  const { t } = useLingui();
-  return (
-    <Pressable
-      {...actionProps}
-      onPress={onToggle}
-      accessibilityRole="button"
-      accessibilityLabel={expanded ? t`Hide ${label}` : t`Show ${label}`}
-      style={{ width: "100%", paddingVertical: 4, alignItems: "center" }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        <NativeSymbol
-          ios="arrow.left.arrow.right"
-          android="swap-horizontal"
-          size={12}
-          color={tokens.mutedForeground}
-        />
-        <Text style={{ color: tokens.mutedForeground, fontSize: 13.5, textAlign: "center" }}>
-          {label}
-        </Text>
-      </View>
-      {expanded && detail ? (
-        <View
-          style={{
-            width: "100%",
-            marginTop: 6,
-            borderRadius: 14,
-            backgroundColor: tokens.card,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-          }}
-        >
-          <ChatMarkdown palette={tokens} colorScheme={colorScheme}>
-            {detail}
-          </ChatMarkdown>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}

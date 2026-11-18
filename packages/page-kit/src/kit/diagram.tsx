@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { DiagramEdge, DiagramNode, Point } from "./diagram-layout.js";
+import type { DiagramEdge, DiagramNode } from "./diagram-layout.js";
 import {
   curveMid,
   DETAIL_LINE,

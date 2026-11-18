@@ -123,6 +123,16 @@ name: Thread
 - assertNotVisible: "Expand Launch path"
 - assertNotVisible: "Expand Quarter trend"
 - takeScreenshot: 08-visual
+# A ui fence in the reply draws as a visual on the chat background, with no frame.
+- scrollUntilVisible:
+    element: ".*turns density estimation into classification.*"
+    direction: UP
+    timeout: 30000
+    visibilityPercentage: 100
+    centerElement: false
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 08b-answer-fence
 # A tap on the card acts in place and opens no sheet. The copy control lives in the page,
 # so the catalog does not depend on reading it.
 - tapOn:

@@ -95,8 +95,13 @@ function Formula({
     <View
       accessible
       accessibilityLabel={tex}
-      // MathJax's baseline is below the bottom edge for a formula with descenders.
-      style={{ width, height, transform: [{ translateY: -svg.baseline * ex }] }}
+      // An inline formula sits with its bottom on the text baseline; MathJax's baseline is lower
+      // when the formula has descenders.
+      style={{
+        width,
+        height,
+        transform: display ? undefined : [{ translateY: -svg.baseline * ex }],
+      }}
     >
       <SvgXml
         xml={svg.xml}
@@ -108,7 +113,7 @@ function Formula({
   );
   if (!display) return drawing;
   return (
-    <SidewaysScrollView contentWidth={width}>
+    <SidewaysScrollView>
       <View style={{ minWidth: "100%", alignItems: "center" }}>{drawing}</View>
     </SidewaysScrollView>
   );

@@ -63,9 +63,9 @@ export function noteRunProducedFile(run: object, filePath: string): void {
   producedPaths.set(run, paths);
 }
 
-/** True when this run wrote the path, or the attach call says the bot made the file. */
+/** What the attach call says when it says it; otherwise whether this run wrote the path. */
 export function fileWasProduced(run: object, filePath: string, made: unknown): boolean {
-  if (made === true) return true;
+  if (typeof made === "boolean") return made;
   const key = producedPathKey(filePath);
   return key !== undefined && (producedPaths.get(run)?.has(key) ?? false);
 }

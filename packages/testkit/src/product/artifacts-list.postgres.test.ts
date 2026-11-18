@@ -105,7 +105,8 @@ describe.skipIf(!hasDb)("artifacts.listSpace made by bots", () => {
         createdAt: new Date("2026-01-04T00:00:00.000Z"),
       },
     });
-    // An older row a run attached before produced was recorded.
+    // A run attached it before produced was recorded (or the previous release did, mid-rollout),
+    // so it stays listed as made.
     await prisma.artifact.create({
       data: {
         spaceId: owner.spaceId,
@@ -140,12 +141,13 @@ describe.skipIf(!hasDb)("artifacts.listSpace made by bots", () => {
       ["draft.md", 2, 2],
       ["newer-report.md", 1, 1],
       ["older-report.md", 1, 1],
+      ["unclassified.md", 1, 1],
     ]);
 
     const first = await list({ madeByBots: true, limit: 2 });
     expect(first.items.map((item) => item.name)).toEqual(["draft.md", "newer-report.md"]);
     const second = await list({ madeByBots: true, limit: 2, cursor: first.nextCursor });
-    expect(second.items.map((item) => item.name)).toEqual(["older-report.md"]);
+    expect(second.items.map((item) => item.name)).toEqual(["older-report.md", "unclassified.md"]);
     expect(second.nextCursor).toBeNull();
 
     const firstOfAll = await list({ limit: 1 });

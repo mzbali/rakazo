@@ -405,7 +405,9 @@ export async function listSpaceArtifacts(
   const scopeBotId = input.botId ?? null;
   const botFilter = scopeBotId ? Prisma.sql`AND "botId" = ${scopeBotId}` : Prisma.empty;
   const madeByBots = input.madeByBots ?? false;
-  const madeByBotsFilter = madeByBots ? Prisma.sql`AND latest."produced" IS TRUE` : Prisma.empty;
+  const madeByBotsFilter = madeByBots
+    ? Prisma.sql`AND COALESCE(latest."produced", latest."runId" IS NOT NULL)`
+    : Prisma.empty;
 
   let asOf = new Date();
   let cursorFilter = Prisma.empty;

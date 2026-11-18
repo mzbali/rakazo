@@ -1,5 +1,6 @@
 -- A bot's own file, recorded where the row is created. Null on rows the previous
--- release still inserts, and on uploads, which never set it.
+-- release still inserts, and on uploads, which never set it. The list treats a null
+-- row from a run as made, so a file attached during the rollout stays listed.
 ALTER TABLE "artifacts" ADD COLUMN "produced" BOOLEAN;
 
 -- Rows attached during a run were listed as made. Keep that for files we cannot
@@ -18,7 +19,7 @@ WHERE artifact.id IN (
   FROM "external_effects" AS effect
   CROSS JOIN LATERAL regexp_matches(
     effect.result::text,
-    '\(image:([A-Za-z0-9_-]+)\)',
+    '\]\(image:([A-Za-z0-9_-]+)\)',
     'g'
   ) AS matched
   WHERE effect.kind = 'save_web_images'

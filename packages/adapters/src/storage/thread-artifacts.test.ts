@@ -29,6 +29,8 @@ describe("whether an attached file was produced", () => {
     expect(fileWasProduced(run, "shots/found.png", false)).toBe(false);
     noteRunProducedFile(run, "notes\\result.txt");
     expect(fileWasProduced(run, "notes/result.txt", undefined)).toBe(true);
+    // A file the run wrote and then replaced with a download is what the call says it is.
+    expect(fileWasProduced(run, "notes/result.txt", false)).toBe(false);
     expect(fileWasProduced(run, "shots/found.png", false)).toBe(false);
     expect(fileWasProduced(run, "shots/found.png", true)).toBe(true);
     expect(fileWasProduced({}, "notes/result.txt", undefined)).toBe(false);

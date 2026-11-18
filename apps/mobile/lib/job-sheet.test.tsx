@@ -3,26 +3,25 @@ import { act, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import JobSheet from "../app/job";
-import { rpc } from "./api";
+import { rpc } from "./api/api";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ agentId: "old-job" }),
   useRouter: () => ({ push, dismiss: vi.fn() }),
 }));
-vi.mock("./api", () => ({ rpc: vi.fn() }));
-vi.mock("./cloud-jobs", () => ({ useCloudJobs: () => ({ jobs: [] }) }));
-vi.mock("./foreground-poll", () => ({
+vi.mock("./api/api", () => ({ rpc: vi.fn() }));
+vi.mock("./query/foreground-poll", () => ({
   useForegroundPoll: (run: () => Promise<void>) =>
     useEffect(() => {
       void run();
     }, [run]),
 }));
-vi.mock("./native", () => ({
+vi.mock("./native/native", () => ({
   native: { groupedPage: "white" },
   useResolvedAppearance: () => "dark",
 }));
-vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
+vi.mock("./appearance/appearance", () => ({ mobileTokens: () => ({}) }));
 vi.mock("@rakazo/chat-ui/native", () => ({
   allowedAppLink: () => undefined,
   ChatMarkdown: ({ children }: { children: string }) => <span>{children}</span>,
@@ -43,14 +42,14 @@ vi.mock("../components/job-proof", () => ({
 vi.mock("../components/job-row", () => ({
   JobRow: ({ job }: { job: { title: string } }) => <span>{job.title}</span>,
 }));
-vi.mock("../components/native-action-button", () => ({
+vi.mock("../components/native/native-action-button", () => ({
   NativeActionButton: ({ label, onPress }: { label: string; onPress: () => void }) => (
     <button type="button" onClick={onPress}>
       {label}
     </button>
   ),
 }));
-vi.mock("../components/load-failure", () => ({ LoadFailure: () => <span>Load failed</span> }));
+vi.mock("../components/ui/load-failure", () => ({ LoadFailure: () => <span>Load failed</span> }));
 vi.mock("@lingui/react/macro", () => ({
   useLingui: () => ({ t: (strings: TemplateStringsArray) => strings[0] }),
 }));

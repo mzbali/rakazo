@@ -100,6 +100,7 @@ suite("durable scoped continuation", () => {
       const jobs: JobPublisher = {
         enqueue,
         enqueueIn: async () => undefined,
+        enqueueManyIn: async () => undefined,
         cancelIn: async () => undefined,
         cancel: async () => undefined,
         close: async () => undefined,

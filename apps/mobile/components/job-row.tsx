@@ -13,11 +13,11 @@ import {
 import { typeScale } from "@rakazo/ui-tokens";
 import { memo } from "react";
 import { Text, View } from "react-native";
-import { mobileTokens } from "../lib/appearance";
+import { mobileTokens } from "../lib/appearance/appearance";
 import { useNow } from "../lib/job-format";
 import { JobModel } from "./job-model";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "./job-status";
-import { NativeSymbol } from "./native-symbol";
+import { NativeSymbol } from "./native/native-symbol";
 
 /** The job's own fields; the jobs list adds the bot and chat on top. */
 export type JobRowJob = Omit<CloudAgentJob, "botId" | "botName" | "threadId"> &

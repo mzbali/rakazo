@@ -2,7 +2,7 @@ import { MenuView } from "@expo/ui/community/menu";
 import { useLingui } from "@lingui/react/macro";
 import * as Clipboard from "expo-clipboard";
 import type { ReactNode } from "react";
-import { useResolvedAppearance } from "../lib/native";
+import { useResolvedAppearance } from "../lib/native/native";
 
 /**
  * Long-pressing a quote opens a menu for just that quote, lifted above the rest of the message:

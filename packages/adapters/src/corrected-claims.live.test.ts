@@ -1,7 +1,7 @@
 import { CORRECTED_CLAIMS_CALIBRATION } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { deploymentCorrectedClaimJudge } from "./corrected-claims.js";
-import { resolveDeploymentModel } from "./deployment-model.js";
+import { resolveDeploymentModel } from "./models/deployment-model.js";
 
 describe.skipIf(process.env.RAKAZO_CLAIMS_CALIBRATE !== "true")(
   "live claim rubric calibration",

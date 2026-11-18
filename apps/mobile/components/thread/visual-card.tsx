@@ -6,14 +6,14 @@ import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@ra
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
-import { currentApiBase } from "../../lib/api";
-import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
-import { HEADER_CONTROL_SIZE } from "../../lib/native-controls";
-import { loadPageRuntime } from "../../lib/page-runtime";
+import { currentApiBase } from "../../lib/api/api";
+import { useMobileTokens, useResolvedAppearance } from "../../lib/native/native";
+import { HEADER_CONTROL_SIZE } from "../../lib/native/native-controls";
 import { usePageTapGate } from "../../lib/page-tap-gate";
-import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages";
-import { NativeActionButton } from "../native-action-button";
-import { SandboxedHtmlPreview } from "../sandboxed-html-preview";
+import { loadPageRuntime } from "../../lib/pages/page-runtime";
+import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages/pages";
+import { SandboxedHtmlPreview } from "../media/sandboxed-html-preview";
+import { NativeActionButton } from "../native/native-action-button";
 
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 

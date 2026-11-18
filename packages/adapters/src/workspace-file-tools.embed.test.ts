@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const publishMessage = vi.hoisted(() => vi.fn());
 const attachWorkspaceFileToThread = vi.hoisted(() => vi.fn());
 
-vi.mock("./run-messages.js", () => ({ publishMessage }));
-vi.mock("./thread-artifacts.js", () => ({ attachWorkspaceFileToThread }));
-vi.mock("./plot-tool.js", () => ({
+vi.mock("./runs/assembly/run-messages.js", () => ({ publishMessage }));
+vi.mock("./storage/thread-artifacts.js", () => ({ attachWorkspaceFileToThread }));
+vi.mock("./tools/plot-tool.js", () => ({
   assertPlotDataWithinLimits: () => undefined,
   parsePlotData: () => [],
   plotSvgToPng: async () => new Uint8Array([1]),
   renderPlotSpecToSvg: () => "<svg/>",
 }));
 
-const { renderPlotFromTool } = await import("./workspace-file-tools.js");
+const { renderPlotFromTool } = await import("./tools/workspace-file-tools.js");
 
 const context: AdapterContext = {
   operationId: "op",

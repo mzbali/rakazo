@@ -16,16 +16,16 @@ import {
 import { JobRow } from "../components/job-row";
 import { useJobPhaseLabel } from "../components/job-status";
 import { JobSwipeRow } from "../components/job-swipe-row";
-import { LoadFailure } from "../components/load-failure";
-import { mobileTokens } from "../lib/appearance";
+import { LoadFailure } from "../components/ui/load-failure";
+import { errorText } from "../lib/api/user-error";
+import { mobileTokens } from "../lib/appearance/appearance";
 import { useCloudJobs } from "../lib/cloud-jobs";
 import { clearCloudJob, refreshCloudJobs } from "../lib/cloud-jobs-store";
-import { hapticSelection } from "../lib/haptics";
 import type { JobListItem, JobShelf } from "../lib/job-shelves";
 import { jobIsClearable, jobListItems } from "../lib/job-shelves";
-import { native, useThemedStyles } from "../lib/native";
-import { useSideInsets } from "../lib/side-insets";
-import { errorText } from "../lib/user-error";
+import { useSideInsets } from "../lib/layout/side-insets";
+import { hapticSelection } from "../lib/native/haptics";
+import { native, useThemedStyles } from "../lib/native/native";
 
 const JobListRow = memo(function JobListRow({
   job,

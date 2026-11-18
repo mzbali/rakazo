@@ -11,7 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import type { mobileTokens } from "../lib/appearance";
+import type { mobileTokens } from "../lib/appearance/appearance";
 
 type MobileTokens = ReturnType<typeof mobileTokens>;
 

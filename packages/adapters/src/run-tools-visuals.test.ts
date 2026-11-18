@@ -2,13 +2,13 @@ import { MessageBlock, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const publishMessage = vi.fn();
-vi.mock("./run-messages.js", async (importActual) => ({
-  ...(await importActual<typeof import("./run-messages.js")>()),
+vi.mock("./runs/assembly/run-messages.js", async (importActual) => ({
+  ...(await importActual<typeof import("./runs/assembly/run-messages.js")>()),
   publishMessage: (...args: unknown[]) => publishMessage(...args),
 }));
 
 const { visualTools } = await import("./run-tools-visuals.js");
-const { redactBlocks } = await import("./run-messages.js");
+const { redactBlocks } = await import("./runs/assembly/run-messages.js");
 
 const FLOW = [
   "const Flow = () => (",

@@ -35,7 +35,12 @@ function connector(options: { connected?: boolean; response?: Response } = {}) {
     },
   } as unknown as XaiXSearchDeps["prisma"];
   // A plain stored string is an API key, so no sign-in refresh runs.
-  const secrets = { load: async () => "synthetic-xai-key", put: vi.fn(), delete: vi.fn() };
+  const secrets = {
+    load: async () => "synthetic-xai-key",
+    put: vi.fn(),
+    delete: vi.fn(),
+    isRemote: () => false,
+  };
   return { provider: new XaiXSearchConnector({ prisma, secrets, fetch }), fetch };
 }
 

@@ -13,25 +13,27 @@ const root = fileURLToPath(new URL("../../..", import.meta.url));
  * owner typed (check it with assertNoAddedClaims) or moves text that is already saved (exempt).
  */
 const WRITERS: Record<string, string> = {
-  "packages/db/src/bot-instructions.ts": "checked: writeBotInstructions, restores exempt",
-  "packages/db/src/bot-update.ts":
+  "packages/db/src/bots/bot-instructions.ts": "checked: writeBotInstructions, restores exempt",
+  "packages/db/src/bots/bot-update.ts":
     "checked: instruction changes go through writeBotInstructions; the direct write has none",
   "packages/testkit/src/evals/runner.ts": "exempt: eval fixture setup",
-  "packages/db/src/repos.ts":
+  "packages/db/src/bots/bot-repository.ts":
     "checked at its callers (app create, spawnBot, agent import); duplicate, templates and account import are exempt",
-  "packages/adapters/src/skill-tools.ts": "checked: skillCreateFromTool, skillUpdateFromTool",
-  "apps/api/src/agent-skills.ts": "checked: create and update",
-  "apps/api/src/agent-import.ts": "checked: instructions, skills and memory picked for an import",
+  "packages/adapters/src/tools/skill-tools.ts": "checked: skillCreateFromTool, skillUpdateFromTool",
+  "apps/api/src/bots/agent-skills.ts": "checked: create and update",
+  "apps/api/src/bots/agent-import.ts":
+    "checked: instructions, skills and memory picked for an import",
   "packages/memory/src/index.ts":
     "checked upstream for a bot's own remember (editMemory); the owner's memory editor is exempt",
-  "apps/api/src/account-import.ts": "exempt: restores an account export",
-  "apps/api/src/availability.ts": "exempt: changes where a skill is available, not its text",
-  "apps/api/src/plugin-installs.ts": "exempt: third-party, read-only plugin skills",
-  "packages/db/src/spaces.ts": "exempt: moves or copies rows that are already saved",
-  "packages/adapters/src/child-bots.ts":
+  "apps/api/src/account/account-import.ts": "exempt: restores an account export",
+  "apps/api/src/spaces/name-claims.ts": "exempt: changes where a skill is available, not its text",
+  "apps/api/src/integrations/plugin-installs.ts": "exempt: third-party, read-only plugin skills",
+  "packages/db/src/spaces/spaces.ts": "exempt: moves or copies rows that are already saved",
+  "packages/adapters/src/bots/child-bots.ts":
     "exempt: archiving a bot moves its saved memory to the space (raw SQL); spawnBot is checked",
-  "packages/testkit/src/cli/ios-screenshot-seed.ts": "exempt: screenshot fixture",
-  "packages/db/src/bootstrap-user.ts": "exempt: a fixed starter space memory for a new user",
+  "packages/testkit/src/screenshots/ios-screenshot-seed.ts": "exempt: screenshot fixture",
+  "packages/db/src/account/bootstrap-user.ts":
+    "exempt: a fixed starter space memory for a new user",
 };
 
 const WRITES = [
@@ -47,16 +49,17 @@ const WRITES = [
  * through commitBotUpdate always reach writeBotInstructions, so they need no list.
  */
 const CALLERS: Record<string, string> = {
-  "packages/adapters/src/run-tools-memory.ts":
+  "packages/adapters/src/runs/tools/run-tools-memory.ts":
     "checked: remember (editMemory), save_shared_memory and save_memory",
-  "packages/adapters/src/run-turn.ts": "exempt: scripted test turns",
+  "packages/adapters/src/runs/lifecycle/run-complete.ts":
+    "checked: scripted turns call assertNoAddedClaims before commit",
   "apps/api/src/routes/memory.ts": "exempt: the owner's own memory editor",
-  "packages/adapters/src/history-compaction.ts":
+  "packages/adapters/src/runtime/context/history-compaction.ts":
     "exempt: a summary of the thread's existing text, scoped to that thread",
   "apps/api/src/routes/bots.ts": "checked: app create; duplicate copies saved text (exempt)",
-  "packages/db/src/messaging.ts":
+  "packages/db/src/messaging/messaging.ts":
     "exempt: a fixed built-in instruction for the first messaging bot",
-  "apps/api/src/agent-import-services.ts":
+  "apps/api/src/bots/agent-import-services.ts":
     "checked in createImportedBot for imports; templates are scanned below",
 };
 

@@ -20,7 +20,7 @@ describe("structured claim judgments", () => {
 });
 
 it("composes the actual runtime with full documents and no tools", async () => {
-  vi.doMock("./deployment-model.js", () => ({
+  vi.doMock("./models/deployment-model.js", () => ({
     resolveDeploymentModel: () => ({
       configured: true,
       provider: "fixture",
@@ -31,7 +31,7 @@ it("composes the actual runtime with full documents and no tools", async () => {
   const run = vi.fn(async function* (_request: unknown, _context: unknown) {
     yield { type: "done", text: JSON.stringify({ status: "rejected", reason: "Contradiction" }) };
   });
-  vi.doMock("./pi-runtime.js", () => ({
+  vi.doMock("./runtime/pi/pi-runtime.js", () => ({
     PiAgentRuntime: class {
       run = run;
     },
@@ -47,8 +47,8 @@ it("composes the actual runtime with full documents and no tools", async () => {
     prompt: expect.stringContaining("Full replacement"),
   });
   expect(deploymentCorrectedClaimJudge).toBeTypeOf("function");
-  vi.doUnmock("./deployment-model.js");
-  vi.doUnmock("./pi-runtime.js");
+  vi.doUnmock("./models/deployment-model.js");
+  vi.doUnmock("./runtime/pi/pi-runtime.js");
 });
 
 it("reads the opt-in when called, so an environment loaded after import still applies", async () => {
@@ -71,12 +71,12 @@ it("uses only the current member's main connection and refuses missing tenant co
     credential: { id: "fixture-connection" },
   }));
   const material = vi.fn(async () => ({ apiKey: "fake", redact: [] }));
-  vi.doMock("./model-roles.js", () => ({ resolveMemberMainModel: main }));
-  vi.doMock("./run-model.js", () => ({
+  vi.doMock("./models/model-roles.js", () => ({ resolveMemberMainModel: main }));
+  vi.doMock("./runs/turn/run-model.js", () => ({
     resolveModelKeyMaterial: material,
     resolvedModelRunFields: () => ({ apiKey: "fake" }),
   }));
-  vi.doMock("./pi-runtime.js", () => ({
+  vi.doMock("./runtime/pi/pi-runtime.js", () => ({
     PiAgentRuntime: class {
       async *run() {
         yield { type: "done", text: '{"status":"accepted","reason":"Fixture"}' };
@@ -111,7 +111,7 @@ it("uses only the current member's main connection and refuses missing tenant co
   );
   configureCorrectedClaimJudge(undefined);
   vi.unstubAllEnvs();
-  vi.doUnmock("./model-roles.js");
-  vi.doUnmock("./run-model.js");
-  vi.doUnmock("./pi-runtime.js");
+  vi.doUnmock("./models/model-roles.js");
+  vi.doUnmock("./runs/turn/run-model.js");
+  vi.doUnmock("./runtime/pi/pi-runtime.js");
 });

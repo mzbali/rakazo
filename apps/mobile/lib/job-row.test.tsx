@@ -34,9 +34,9 @@ vi.mock("react-native-reanimated", async () => {
     withTiming: (value: number) => value,
   };
 });
-vi.mock("./appearance", () => ({ mobileTokens: () => ({}) }));
+vi.mock("./appearance/appearance", () => ({ mobileTokens: () => ({}) }));
 vi.mock("react-native-svg", () => ({ default: () => null, Path: () => null }));
-vi.mock("../components/native-symbol", () => ({ NativeSymbol: () => <i /> }));
+vi.mock("../components/native/native-symbol", () => ({ NativeSymbol: () => <i /> }));
 
 const job = {
   agentId: "agent-1",

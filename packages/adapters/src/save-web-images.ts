@@ -3,12 +3,12 @@ import { embedLine, messageBlockForArtifact } from "@rakazo/core";
 import { citationSiteLabel } from "@rakazo/core/answer-sources";
 import { normalizedHttpUrl } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
-import type { RunContext } from "./run-context.js";
-import { persistMessageInTransaction, runLeaseFor } from "./run-messages.js";
-import type { ToolCall } from "./run-tool-gate.js";
-import { attachWorkspaceFileToThread } from "./thread-artifacts.js";
-import type { ResolveHostname } from "./web-ssrf.js";
-import { fetchSafeWebBytes } from "./web-ssrf.js";
+import type { RunContext } from "./runs/assembly/run-context.js";
+import { persistMessageInTransaction, runLeaseFor } from "./runs/assembly/run-messages.js";
+import type { ToolCall } from "./runs/tools/run-tool-gate.js";
+import { attachWorkspaceFileToThread } from "./storage/thread-artifacts.js";
+import type { ResolveHostname } from "./web/web-ssrf.js";
+import { fetchSafeWebBytes } from "./web/web-ssrf.js";
 
 const MAX_IMAGES = 6;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

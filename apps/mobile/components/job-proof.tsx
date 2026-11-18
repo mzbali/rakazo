@@ -4,10 +4,10 @@ import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import { mobileTokens } from "../lib/appearance";
-import type { MobileArtifactTarget } from "../lib/artifact-open";
-import { imageArtifactUri } from "../lib/artifact-open";
-import { hapticSelection } from "../lib/haptics";
+import { mobileTokens } from "../lib/appearance/appearance";
+import type { MobileArtifactTarget } from "../lib/artifacts/artifact-open";
+import { imageArtifactUri } from "../lib/artifacts/artifact-open";
+import { hapticSelection } from "../lib/native/haptics";
 import { JobStatusDot, jobToneColor } from "./job-status";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;

@@ -7,11 +7,10 @@ const actions = vi.hoisted(() => ({
   steer: vi.fn(),
   stop: vi.fn(),
   Refused: class extends Error {
-    constructor(
-      readonly code: string,
-      message: string,
-    ) {
+    readonly code: string;
+    constructor(reason: string, message: string) {
       super(message);
+      this.code = reason === "not_found" ? "NOT_FOUND" : "CONFLICT";
     }
   },
 }));

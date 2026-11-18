@@ -29,64 +29,49 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-g
 import { KeyboardAvoidingView, KeyboardProvider } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppErrorBoundary } from "../components/app-error-boundary";
-import { CallCard } from "../components/CallCard";
-import { chatRouteHeader } from "../components/chat-route-header";
-import { CodeCopyButton } from "../components/code-copy-button";
-import { ComputerUpdateProgress } from "../components/computer-update-progress";
-import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
-import { IncomingCall } from "../components/IncomingCall";
-import { MermaidDiagram } from "../components/mermaid-diagram";
-import { MessageMenuHost } from "../components/message-action-menu";
-import { MessageActionSheetHost } from "../components/message-action-sheet-host";
-import { NativeSymbol } from "../components/native-symbol";
+import { CallCard } from "../components/calls/CallCard";
+import { IncomingCall } from "../components/calls/IncomingCall";
+import { VoicePlayerBar } from "../components/calls/voice-player-bar";
+import { ComputerUpdateProgress } from "../components/computers/computer-update-progress";
+import { CodeCopyButton } from "../components/messages/code-copy-button";
+import { MermaidDiagram } from "../components/messages/mermaid-diagram";
+import { MessageMenuHost } from "../components/messages/message-action-menu";
+import { MessageActionSheetHost } from "../components/messages/message-action-sheet-host";
+import { floatingHeaderOptions, glassHeaderOptions } from "../components/native/glass-title";
+import { NativeSymbol } from "../components/native/native-symbol";
 import { QuoteCopyMenu } from "../components/quote-copy-menu";
-import { VoicePlayerBar } from "../components/voice-player-bar";
+import { chatRouteHeader } from "../components/thread/header/chat-route-header";
+import { AppErrorBoundary } from "../components/ui/app-error-boundary";
 import {
   currentApiBase,
   rpc,
   selectedSpaceId,
+  subscribeAiConsentGranted,
   subscribeApiBase,
   subscribeSessionRejected,
-} from "../lib/api";
-import { loadApiBase } from "../lib/api-server";
-import { clearAppBadge } from "../lib/app-badge";
-import { mobileAppLinks } from "../lib/app-links";
-import { loadAppearancePreference, mobileTokens } from "../lib/appearance";
-import { replaceWithSignIn } from "../lib/auth-routing";
-import { AvatarScreenFocus } from "../lib/avatar-life";
-import { CallKeyboardContext } from "../lib/call-keyboard-context";
-import { useCallActive } from "../lib/call-session";
-import { installClientUpdates, watchForegroundUpdates } from "../lib/client-update";
-import { loadHapticsPreference } from "../lib/haptics";
-import { bootstrapI18n } from "../lib/i18n";
-import { startIncomingCalls } from "../lib/incoming-calls";
-import { clearLastBot } from "../lib/last-bot";
-import { loadLinkFavicon } from "../lib/link-favicons";
-import {
-  configureForegroundNotifications,
-  resumeLiveNotifications,
-} from "../lib/live-notifications";
-import { OpenPageContext } from "../lib/message-mentions";
-import { setMobileMonitoringScreen } from "../lib/monitoring";
-import { native, useMobileTokens, useResolvedAppearance } from "../lib/native";
-import { useNotificationResponses } from "../lib/open-notification";
-import { clearQueries } from "../lib/query";
-import { useReferral } from "../lib/referral";
-import {
-  getCachedRemoteImagesEnabled,
-  loadRemoteImagesPreference,
-  subscribeRemoteImages,
-} from "../lib/remote-images-preference";
-import { loadResponseStreamingPreference } from "../lib/response-streaming";
-import { clearSavedChats } from "../lib/saved-chats";
+} from "../lib/api/api";
+import { loadApiBase } from "../lib/api/api-server";
+import { installClientUpdates, watchForegroundUpdates } from "../lib/api/client-update";
 import {
   currentReadySessionGeneration,
   loadSessionToken,
   registerSessionDiskCache,
   subscribeSessionGeneration,
-} from "../lib/session";
-import { InboxBesideContext } from "../lib/side-insets";
+} from "../lib/api/session";
+import { mobileAppLinks } from "../lib/app-links";
+import { loadAppearancePreference, mobileTokens } from "../lib/appearance/appearance";
+import { capTextScaling } from "../lib/appearance/text-scale";
+import { replaceWithSignIn } from "../lib/auth/auth-routing";
+import { useReferral } from "../lib/billing/referral";
+import { AvatarScreenFocus } from "../lib/bots/avatar-life";
+import { CallKeyboardContext } from "../lib/calls/call-keyboard-context";
+import { useCallActive } from "../lib/calls/call-session";
+import { startIncomingCalls } from "../lib/calls/incoming-calls";
+import { loadComposerModelPickerPreference } from "../lib/composer/composer-model-picker-preference";
+import { bootstrapI18n } from "../lib/i18n/i18n";
+import { clearLastBot } from "../lib/inbox/last-bot";
+import { clearSavedChats } from "../lib/inbox/saved-chats";
+import { InboxBesideContext } from "../lib/layout/side-insets";
 import {
   chooseInboxWidth,
   closesSplitPane,
@@ -94,20 +79,38 @@ import {
   loadInboxWidth,
   setInboxHidden,
   useSplitView,
-} from "../lib/split-view";
+} from "../lib/layout/split-view";
+import { loadLinkFavicon } from "../lib/messages/link-favicons";
+import { OpenPageContext } from "../lib/messages/message-mentions";
+import { loadHapticsPreference } from "../lib/native/haptics";
+import { native, useMobileTokens, useResolvedAppearance } from "../lib/native/native";
+import { useNavigatorMounted } from "../lib/navigation/navigator-mounted";
+import { clearAppBadge } from "../lib/notifications/app-badge";
+import {
+  configureForegroundNotifications,
+  resumeLiveNotifications,
+} from "../lib/notifications/live-notifications";
+import { useNotificationResponses } from "../lib/notifications/open-notification";
+import { startWorkActivities } from "../lib/notifications/work-activity";
+import { setMobileMonitoringScreen } from "../lib/platform/monitoring";
 import {
   completeMobileStartup,
   markMobileStartupMounted,
   trackMobileStartup,
-} from "../lib/startup";
-import { capTextScaling } from "../lib/text-scale";
+} from "../lib/platform/startup";
+import {
+  getCachedRemoteImagesEnabled,
+  loadRemoteImagesPreference,
+  subscribeRemoteImages,
+} from "../lib/preferences/remote-images-preference";
+import { loadResponseStreamingPreference } from "../lib/preferences/response-streaming";
+import { clearQueries, resetRpcQueries } from "../lib/query/query";
 import {
   loadTrustedLinkSites,
   trustLinkSite,
   useTrustedLinkSites,
-} from "../lib/trusted-link-sites";
-import { startUnsentSends } from "../lib/unsent-sends";
-import { startWorkActivities } from "../lib/work-activity";
+} from "../lib/settings/trusted-link-sites";
+import { startUnsentSends } from "../lib/thread/send/unsent-sends";
 import { InboxPane } from "./index";
 
 // Before anything renders: text grows with the iOS text size only up to a fixed maximum.
@@ -116,6 +119,7 @@ configureForegroundNotifications();
 allowAppLinks(mobileAppLinks);
 registerSessionDiskCache(clearSavedChats);
 registerSessionDiskCache(clearQueries);
+subscribeAiConsentGranted(() => void resetRpcQueries("aiConsent/status"));
 registerSessionDiskCache((sameAccount) => {
   if (!sameAccount) return clearLastBot();
 });
@@ -293,6 +297,7 @@ function LayoutContent() {
   const canInvite = Boolean(useReferral());
   const chatAnimation = split ? "none" : undefined;
   const [ready, setReady] = useState(false);
+  useNavigatorMounted(ready);
   useNotificationResponses(ready);
   const callSession = useSyncExternalStore(
     subscribeSessionGeneration,
@@ -379,6 +384,7 @@ function LayoutContent() {
         ),
         trackMobileStartup("streaming", loadResponseStreamingPreference()),
         trackMobileStartup("images", loadRemoteImagesPreference()),
+        trackMobileStartup("modelPicker", loadComposerModelPickerPreference()),
         trackMobileStartup("inbox", loadInboxWidth()),
       ]).catch(() => undefined),
       trackMobileStartup("language", bootstrapI18n()).catch(() => undefined),
@@ -575,6 +581,15 @@ function LayoutContent() {
                         options={glassHeaderOptions(t`Chat settings`)}
                       />
                       <Stack.Screen name="bot-model" options={glassHeaderOptions(t`Model`)} />
+                      <Stack.Screen
+                        name="chat-model"
+                        options={{
+                          ...glassHeaderOptions(t`Model`),
+                          presentation: Platform.OS === "ios" ? "formSheet" : "card",
+                          sheetAllowedDetents: [0.6, 1],
+                          sheetGrabberVisible: true,
+                        }}
+                      />
                       <Stack.Screen
                         name="thread"
                         options={({ route }) => ({

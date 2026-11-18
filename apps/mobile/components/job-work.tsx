@@ -4,7 +4,7 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentWorkParts } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { Linking, Pressable, Text, View } from "react-native";
-import { mobileTokens } from "../lib/appearance";
+import { mobileTokens } from "../lib/appearance/appearance";
 
 type Job = Extract<MessageBlock, { kind: "cloud_agent" }>;
 type Work = NonNullable<Job["work"]>[number];

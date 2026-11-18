@@ -30,6 +30,9 @@ export function messageRowLayout(
       block.kind === "page" ||
       block.kind === "visual" ||
       block.kind === "cloud_agent" ||
+      block.kind === "subagent" ||
+      block.kind === "choice" ||
+      block.kind === "computer" ||
       (block.kind === "ask" &&
         block.status !== "answered" &&
         Boolean(block.actions?.length) &&

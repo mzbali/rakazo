@@ -13,11 +13,10 @@ import { applyResolvedAppearance } from "../../src/lib/preferences/ui-appearance
 import { queryClient } from "../../src/lib/query/query";
 import "../../src/styles.css";
 import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
+import { VISUAL_SCENARIOS } from "./gallery-visuals";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
-// Every chat surface over fake data, so consistency can be checked without a backend.
-// State lives in the URL (?scenario=&theme=&width=&tools=) so any view can be linked.
-
+// Every chat surface over fake data; state lives in the URL (?scenario=&theme=&width=&tools=).
 const SCOUT = { botId: "bot-2", name: "Scout", color: botColor("green") };
 const LEDGER = { botId: "bot-3", name: "Ledger", color: botColor("red") };
 
@@ -864,6 +863,7 @@ const SCENARIOS: Scenario[] = [
   mediaRows,
   calls,
   research,
+  ...VISUAL_SCENARIOS,
 ];
 
 // The page has no API; answer the few reads cards make on mount with fake data.

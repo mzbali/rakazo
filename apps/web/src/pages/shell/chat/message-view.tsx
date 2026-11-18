@@ -332,6 +332,7 @@ export const MessageView = memo(function MessageView({
                   >
                     <ChatMarkdown
                       streaming={block.kind === "progress"}
+                      visuals={message.role === "bot"}
                       renderMention={renderMention}
                       onOpenPage={openPage}
                       {...citedSources(message.blocks, visibleNarrationBlocks, i, block.kind)}
@@ -459,7 +460,12 @@ export const MessageView = memo(function MessageView({
           if (block.kind === "progress") {
             return (
               <BotProse key={i}>
-                <ChatMarkdown streaming renderMention={renderMention} onOpenPage={openPage}>
+                <ChatMarkdown
+                  streaming
+                  visuals={message.role === "bot"}
+                  renderMention={renderMention}
+                  onOpenPage={openPage}
+                >
                   {block.text}
                 </ChatMarkdown>
               </BotProse>
@@ -630,6 +636,7 @@ export const MessageView = memo(function MessageView({
                 <BotProse>
                   <div data-quote-message-id={quoteMessageId}>
                     <ChatMarkdown
+                      visuals={message.role === "bot"}
                       renderMention={renderMention}
                       onOpenPage={openPage}
                       {...citedSources(message.blocks, blocks, i, block.kind)}

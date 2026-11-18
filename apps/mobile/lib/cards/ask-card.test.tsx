@@ -576,6 +576,7 @@ it("fills the column for a bot answer and keeps a user bubble at chat width", ()
     ],
     mcpApproval: [{ kind: "mcp_approval", serverId: "server-1", name: "Example" }],
     page: [{ kind: "page", pageId: "page-1", version: 1, title: "Plan" }],
+    job: [{ kind: "cloud_agent", agentId: "job-1", title: "Settled job", status: "running" }],
     options: [
       {
         kind: "ask",
@@ -617,7 +618,7 @@ it("fills the column for a bot answer and keeps a user bubble at chat width", ()
   expect(user.width).toBeUndefined();
   expect(user.maxWidth).toBe("90%");
   expect(user.menuMaxWidth).toBe(324);
-  for (const kind of ["appConnect", "mcpApproval", "options", "page"] as const) {
+  for (const kind of ["appConnect", "mcpApproval", "options", "page", "job"] as const) {
     const card = measure(kind, false, false);
     expect(card.width).toBe("100%");
     expect(card.maxWidth).toBe("100%");

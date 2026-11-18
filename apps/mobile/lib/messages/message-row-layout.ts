@@ -25,6 +25,7 @@ export function messageRowLayout(
     (block) =>
       block.kind === "app_connect" ||
       block.kind === "mcp_approval" ||
+      block.kind === "tool_question" ||
       block.kind === "app" ||
       block.kind === "page" ||
       block.kind === "visual" ||

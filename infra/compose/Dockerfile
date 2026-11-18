@@ -36,9 +36,10 @@ COPY --chmod=755 infra/sandboxes/supervisor/package.json infra/sandboxes/supervi
 COPY --chmod=755 infra/updater/package.json infra/updater/
 # Production dependencies get their own stage, built from the manifests alone, so the runtime's
 # largest layer stays byte-identical until the lockfile changes and a deploy downloads only the
-# app's own files.
+# app's own files. The deps and build stages run at the same time and share the store, so each
+# install locks it: two installs writing one store at once once shipped a truncated native binary.
 FROM manifests AS deps
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --prod \
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store,sharing=locked pnpm install --frozen-lockfile --prod \
   --store-dir=/pnpm/store --cpu=current --os=current \
   --filter="@rakazo/api..." --filter="@rakazo/worker..." \
   --filter="@rakazo/web..." --filter="@rakazo/sandbox-supervisor..."
@@ -47,7 +48,7 @@ FROM manifests AS build
 # Only what the image runs (api, worker, web, supervisor) and the root build tools, with
 # native binaries for this image's platform alone. Mobile, desktop and the marketing site
 # never run here.
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile \
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store,sharing=locked pnpm install --frozen-lockfile \
   --store-dir=/pnpm/store --cpu=current --os=current \
   --filter=. --filter="@rakazo/api..." --filter="@rakazo/worker..." \
   --filter="@rakazo/web..." --filter="@rakazo/sandbox-supervisor..."
@@ -77,6 +78,9 @@ WORKDIR /app
 COPY --link --from=deps /app /app
 COPY --link --from=build /app /app
 RUN install -d -m 750 -o node -g node /data /app/apps/web/node_modules/.vite-temp /app/apps/web/asset-archive
+# The web server loads vite's native bindings first; a damaged one crashes it with no log, so a
+# build that ships one fails here instead of on the server.
+RUN cd apps/web && node_modules/.bin/vite --version
 # Last root step, so a cached earlier layer cannot be the filesystem that ships.
 RUN /tmp/apt-security.sh --check && rm -f /tmp/apt-security.sh
 ARG GIT_SHA

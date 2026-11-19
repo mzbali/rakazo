@@ -292,7 +292,8 @@ function delimiterRow(line: string): boolean {
   return true;
 }
 
-const MEDIA_ITEM = /^(?:[-+*]|\d{1,9}[.)])[ \t]+!\[([^\]\n]*)\]\(([^)\s]+)\)[ \t]*(.*)$/;
+// The item's words are captured whole and trimmed after, so no two quantifiers overlap.
+const MEDIA_ITEM = /^(?:[-+*]|\d{1,9}[.)])[ \t]+!\[([^\]\n]*)\]\(([^)\s]+)\)(.*)$/;
 
 /**
  * A top-level list item (no indent, so not a nested one) that opens with an `image:` embed and goes on with text is a media row.
@@ -340,7 +341,7 @@ function splitMediaRows(markdown: string): MarkdownSegment[] {
         last = next;
       }
     }
-    const rest = [item?.[3] ?? "", ...continuation].join("\n");
+    const rest = [item?.[3]?.trimStart() ?? "", ...continuation].join("\n");
     const embed = item ? markdownEmbed(item[2], item[1]) : undefined;
     const opening = item
       ? openingMediaImage([

@@ -1433,6 +1433,8 @@ describe("native markdown segments", () => {
     for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a](", "| $$x$$\n", "![a](visual:v) "]) {
       expectLinearTime(() => markdownSegments(unit.repeat(40_000), true));
     }
+    const tabs = `- ![a](image:a1)${"\t".repeat(40_000)}x\n* \t![](!${"\t".repeat(40_000)}`;
+    expectLinearTime(() => markdownSegments(tabs, true));
   });
 });
 

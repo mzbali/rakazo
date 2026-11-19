@@ -27,7 +27,6 @@ const codeText = {
   lineHeight: undefined,
 };
 
-// The library pads code blocks by 10 already.
 const codeBox = {
   borderWidth: 0,
   borderRadius: 10,
@@ -102,13 +101,20 @@ export function markdownStyles(palette: ColorTokens) {
     fence: {
       backgroundColor: palette.secondary,
       borderColor: palette.border,
+      overflow: "hidden",
       ...codeBox,
     },
     fence_code: {
       backgroundColor: "transparent",
+      padding: 10,
     },
     fence_header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
       backgroundColor: "transparent",
+      borderBottomWidth: 1,
       borderBottomColor: palette.border,
     },
     fence_token: codeText,
@@ -118,6 +124,7 @@ export function markdownStyles(palette: ColorTokens) {
       ...typeScale.body,
     },
     fence_language_label: {
+      fontSize: 11,
       color: palette.foreground,
       fontFamily: MONO_FONT,
     },
@@ -164,6 +171,9 @@ export function markdownStyles(palette: ColorTokens) {
     hr: {
       backgroundColor: palette.border,
       height: StyleSheet.hairlineWidth,
+    },
+    image: {
+      flex: 1,
     },
     // Custom keys. An image label outside a text node inherits no color, so it carries the body color.
     plain_text: {
@@ -295,6 +305,9 @@ export function markdownStyles(palette: ColorTokens) {
     },
   });
 }
+
+/** The app's own styles for what Markdown draws with React Native views: code, diagrams and images. */
+export type FenceStyles = ReturnType<typeof markdownStyles>;
 
 export const layout = StyleSheet.create({
   wrap: {

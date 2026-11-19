@@ -50,7 +50,7 @@ export function MessageCaption({
     }),
     [t],
   );
-  const renderMention = useContext(MessageMentionsContext);
+  const mentionLink = useContext(MessageMentionsContext);
   const userMentions = useContext(UserMentionsContext);
   const openPage = useContext(OpenPageContext);
   // User messages keep literal Markdown; only explicit URLs, email addresses and page links link.
@@ -88,7 +88,7 @@ export function MessageCaption({
         palette={tokens}
         colorScheme={colorScheme}
         streaming={streaming}
-        renderMention={renderMention}
+        mentionLink={mentionLink}
         onOpenPage={openPage}
         sources={sources}
         sourcesRow={sourcesRow}

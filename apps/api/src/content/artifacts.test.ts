@@ -93,7 +93,9 @@ describe("listSpaceArtifacts", () => {
       expect(text).toContain("DISTINCT ON");
       expect(text).toContain("LIMIT");
       expect(text).not.toMatch(/\b500\b/);
-      expect(text).not.toContain('COALESCE(latest."produced", latest."runId" IS NOT NULL)');
+      expect(text).not.toContain(
+        'COALESCE(latest."produced", latest."runId" IS NOT NULL OR latest."meetingSessionId" IS NOT NULL)',
+      );
       expect(scopedClause(sql)).toContain('"createdAt" <=');
       expect(sql.values).toContain(3);
       expect(sql.values).toContainEqual(new Date("2026-09-20T12:00:00.000Z"));
@@ -239,7 +241,9 @@ describe("listSpaceArtifacts", () => {
     const text = statement(queryRaw.mock.calls[0]?.[0] as { strings: string[] });
     expect(text).toContain("produced, name");
     // A row the previous release attached during a rollout has no flag yet and counts as made.
-    expect(text).toContain('COALESCE(latest."produced", latest."runId" IS NOT NULL)');
+    expect(text).toContain(
+      'COALESCE(latest."produced", latest."runId" IS NOT NULL OR latest."meetingSessionId" IS NOT NULL)',
+    );
   });
 
   it("reads a cursor issued before the made-by-bots filter as the full list", async () => {

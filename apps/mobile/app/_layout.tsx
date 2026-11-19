@@ -8,7 +8,6 @@ import {
   LinkFaviconsContext,
   MarkdownLinkPromptProvider,
   MermaidDiagramContext,
-  QuoteMenuContext,
   RemoteImagesContext,
 } from "@rakazo/chat-ui/native";
 import { analyticsScreen } from "@rakazo/core";
@@ -19,6 +18,7 @@ import {
   useGlobalSearchParams,
   usePathname,
   useRouter,
+  useSegments,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -39,7 +39,6 @@ import { MessageMenuHost } from "../components/messages/message-action-menu";
 import { MessageActionSheetHost } from "../components/messages/message-action-sheet-host";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/native/glass-title";
 import { NativeSymbol } from "../components/native/native-symbol";
-import { QuoteCopyMenu } from "../components/quote-copy-menu";
 import { chatRouteHeader } from "../components/thread/header/chat-route-header";
 import { AppErrorBoundary } from "../components/ui/app-error-boundary";
 import {
@@ -49,13 +48,16 @@ import {
   subscribeAiConsentGranted,
   subscribeApiBase,
   subscribeSessionRejected,
+  subscribeSpaceSelection,
 } from "../lib/api/api";
 import { loadApiBase } from "../lib/api/api-server";
 import { installClientUpdates, watchForegroundUpdates } from "../lib/api/client-update";
 import {
   currentReadySessionGeneration,
+  currentSessionGeneration,
   loadSessionToken,
   registerSessionDiskCache,
+  sessionOnlyInMemory,
   subscribeSessionGeneration,
 } from "../lib/api/session";
 import { mobileAppLinks } from "../lib/app-links";
@@ -91,6 +93,7 @@ import {
   resumeLiveNotifications,
 } from "../lib/notifications/live-notifications";
 import { useNotificationResponses } from "../lib/notifications/open-notification";
+import { invalidateWatchChat } from "../lib/notifications/watch-chat";
 import { startWorkActivities } from "../lib/notifications/work-activity";
 import { setMobileMonitoringScreen } from "../lib/platform/monitoring";
 import {
@@ -135,6 +138,7 @@ const FULL_WINDOW_ROUTES = new Set(["/sign-in", "/server", "/image", "/computer"
 /** On a wide window the chat list stays on the left and the stack shows the open chat beside it. */
 function SplitFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const segments = useSegments();
   const router = useRouter();
   const params = useGlobalSearchParams();
   const routeKey = JSON.stringify([pathname, params]);
@@ -149,7 +153,11 @@ function SplitFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (home) setInboxHidden(false);
   }, [home]);
-  const showsInbox = split && (home || inboxShown) && !FULL_WINDOW_ROUTES.has(pathname);
+  // iOS presents settings as a sheet over the window; Android pushes them as a page, which
+  // takes the whole window rather than sitting beside the chat list.
+  const settingsPage = Platform.OS !== "ios" && segments[0] === "(settings)";
+  const showsInbox =
+    split && (home || inboxShown) && !FULL_WINDOW_ROUTES.has(pathname) && !settingsPage;
   // Dragging resizes the list natively; the width is kept when the finger lifts.
   const paneWidth = useSharedValue(inboxWidth);
   const dragStart = useRef(inboxWidth);
@@ -275,10 +283,7 @@ function ChatContentProviders({
         <LinkFaviconsContext.Provider value={linkFavicons}>
           <MermaidDiagramContext.Provider value={MermaidDiagram}>
             <CodeCopyButtonContext.Provider value={CodeCopyButton}>
-              {/* Android keeps its whole-message sheet: its menu has no lifted preview. */}
-              <QuoteMenuContext.Provider value={Platform.OS === "ios" ? QuoteCopyMenu : null}>
-                <OpenPageContext.Provider value={openPage}>{children}</OpenPageContext.Provider>
-              </QuoteMenuContext.Provider>
+              <OpenPageContext.Provider value={openPage}>{children}</OpenPageContext.Provider>
             </CodeCopyButtonContext.Provider>
           </MermaidDiagramContext.Provider>
         </LinkFaviconsContext.Provider>
@@ -300,6 +305,29 @@ function LayoutContent() {
   const [ready, setReady] = useState(false);
   useNavigatorMounted(ready);
   useNotificationResponses(ready);
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    let active = true;
+    const unsubscribeSpace = subscribeSpaceSelection(() =>
+      invalidateWatchChat("space", selectedSpaceId() ?? ""),
+    );
+    const unsubscribe = subscribeSessionGeneration(() => {
+      invalidateWatchChat("sessionUnavailable");
+      const generation = currentSessionGeneration();
+      if (generation !== currentReadySessionGeneration()) return;
+      void loadSessionToken().then((token) => {
+        // The native relay reads durable credentials only. A failed wipe or in-memory fallback
+        // must never re-enable an earlier bearer from the iPhone's Keychain.
+        if (active && token && generation === currentSessionGeneration() && !sessionOnlyInMemory())
+          invalidateWatchChat("sessionReady");
+      });
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+      unsubscribeSpace();
+    };
+  }, []);
   const callSession = useSyncExternalStore(
     subscribeSessionGeneration,
     currentReadySessionGeneration,
@@ -577,6 +605,15 @@ function LayoutContent() {
                         options={glassHeaderOptions(t`Group settings`)}
                       />
                       <Stack.Screen name="bot-profile" options={glassHeaderOptions(t`Profile`)} />
+                      <Stack.Screen name="meetings" options={glassHeaderOptions(t`Meetings`)} />
+                      <Stack.Screen
+                        name="meeting-calendar"
+                        options={glassHeaderOptions(t`Auto-join`)}
+                      />
+                      <Stack.Screen
+                        name="meeting-transcript"
+                        options={glassHeaderOptions(t`Transcript`)}
+                      />
                       <Stack.Screen
                         name="bot-settings"
                         options={glassHeaderOptions(t`Chat settings`)}

@@ -30,6 +30,7 @@ import {
 import type { RunContext } from "../assembly/run-context.js";
 import { persistMessageInTransaction, runLeaseFor } from "../assembly/run-messages.js";
 import { textContentArg } from "../turn/tool-text.js";
+import { readStoppedRunFile } from "./run-stopped-file.js";
 import type { ToolCall, ToolHandlers } from "./run-tool-gate.js";
 import { recordComputerAction } from "./run-tools-computer.js";
 
@@ -112,7 +113,9 @@ export const fileTools: ToolHandlers = {
     const { deps } = ctx;
     const { args } = call;
     const workspace = runWorkspace(ctx, call);
-    return readFileFromTool(deps.sandbox, workspace, args);
+    return readFileFromTool(deps.sandbox, workspace, args, (path, maxBytes) =>
+      readStoppedRunFile(ctx, path, maxBytes),
+    );
   },
   async write_file(ctx, call) {
     const { deps, bot, context } = ctx;

@@ -1,5 +1,15 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
+import { unwrapEnvFromKeyManager } from "@rakazo/adapters";
+import { configuredMeetingMedia } from "@rakazo/adapters/meeting-media";
+import { loadRootEnv } from "@rakazo/core/node/load-root-env";
+import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
+import { startWorkerHealth } from "./health.js";
+import { createWorkerSecretStore } from "./secret-store.js";
+
+loadRootEnv();
+await unwrapEnvFromKeyManager();
+
 import {
   apnsVoipConfig,
   ChatSdkMessagingSurface,
@@ -8,6 +18,8 @@ import {
   configureCorrectedClaimsFromEnv,
   configuredBotEmailProvider,
   configuredEmailProvider,
+  configuredMeetingProviders,
+  configuredMeetingSpaces,
   contentKeyProviderFromEnv,
   createAgentHomeStore,
   createApnsActivityProvider,
@@ -35,7 +47,10 @@ import {
   InMemoryJobQueue,
   installedMessaging,
   isMessagingSurfaceEnabled,
+  MeetingCalendarService,
+  MeetingService,
   machineCleanupRecords,
+  meetingCalendarScope,
   messagingEnvFromProcess,
   messagingPlatformsFromEnv,
   PiAgentRuntime,
@@ -53,7 +68,6 @@ import {
   sandboxProviderOptionsFromEnv,
   shutdownPiTelemetry,
   UserDevices,
-  unwrapEnvFromKeyManager,
   userDeviceForwardSecret,
   WorkActivities,
   withHostComputerScreen,
@@ -62,9 +76,7 @@ import {
   withSecretWriteAhead,
 } from "@rakazo/adapters";
 import { abortableDelay } from "@rakazo/core";
-import { loadRootEnv } from "@rakazo/core/node/load-root-env";
-import { resolveSupervisorToken } from "@rakazo/core/node/secrets-guard";
-import { stopOnShutdownSignals } from "@rakazo/core/node/shutdown-signals";
+import { resolveMeetingSigningKey, resolveSupervisorToken } from "@rakazo/core/node/secrets-guard";
 import {
   createBoardEvents,
   createDb,
@@ -86,11 +98,7 @@ import { bestEffort, SERVICE_NAMES } from "@rakazo/logging";
 import { createRootLogger } from "@rakazo/logging/axiom";
 import { watchEventLoopStalls } from "@rakazo/logging/event-loop";
 import { MarkdownMemoryStore } from "@rakazo/memory";
-import { startWorkerHealth } from "./health.js";
-import { createWorkerSecretStore } from "./secret-store.js";
 
-loadRootEnv();
-await unwrapEnvFromKeyManager();
 configureCorrectedClaimsFromEnv();
 
 const logger = await createRootLogger(SERVICE_NAMES.worker);
@@ -257,8 +265,39 @@ async function main() {
   const lifecycleEmail = accountEmail
     ? createLifecycleEmailSender({ prisma, email: accountEmail, jobs, analytics })
     : undefined;
+  const { meeting: meetingProvider, calendar: calendarProvider } =
+    await configuredMeetingProviders();
+  const meetingMedia = meetingProvider && configuredMeetingMedia();
+  const meetings =
+    meetingProvider &&
+    new MeetingService({
+      prisma,
+      jobs,
+      events,
+      provider: meetingProvider,
+      spaceIds: configuredMeetingSpaces(meetingProvider),
+      buildJoin: meetingMedia?.buildJoin,
+    });
+  const meetingCalendar =
+    calendarProvider &&
+    meetings &&
+    new MeetingCalendarService({
+      prisma,
+      jobs,
+      provider: calendarProvider,
+      webOrigin: process.env.WEB_ORIGIN?.trim() || "http://127.0.0.1:5173",
+      oauthStateKey: resolveMeetingSigningKey(),
+      enabled: (spaceId) => meetings.enabled(spaceId),
+      buildJoin: meetingMedia?.buildJoin ?? ((input) => input),
+      publish: async ({ spaceId, userId }) => {
+        await events.publishSpaceChange?.(meetingCalendarScope(spaceId, userId), "meetingCalendar");
+      },
+    });
   const { executor, jobHandlers, messagingDelivery, teamChat } = createRunRuntime(env, connectors, {
     mediaGeneration,
+    meetingWork: meetings?.work.bind(meetings),
+    meetingCalendarSync:
+      meetingCalendar && (({ connectionId }) => meetingCalendar.sync(connectionId)),
     prisma,
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.

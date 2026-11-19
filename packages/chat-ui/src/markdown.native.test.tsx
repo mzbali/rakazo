@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type {
+  EnrichedMarkdownTextProps,
+  MarkdownCodeBlock,
+  MarkdownImageBlock,
+  MarkdownImageOccurrence,
+  MarkdownLinkOccurrence,
+} from "react-native-enriched-markdown";
 import { describe, expect, it, vi } from "vitest";
 
 const alert = vi.hoisted(() => vi.fn());
@@ -14,42 +21,29 @@ const linking = vi.hoisted(() => ({
 
 const i18n = vi.hoisted(() => ({ isRTL: false }));
 
-// The iOS text size, as React Native reports it.
-const windowSize = vi.hoisted(() => ({ fontScale: 1 }));
-
 // The module's Text, which the app replaces with a capped one after this package has loaded.
 const reactNativeText = vi.hoisted(() => ({ current: undefined as unknown }));
 
-// The load handler of each rendered Image, so a test can report its decoded size.
-const imageLoads = vi.hoisted(
-  () =>
-    [] as Array<(event: { nativeEvent: { source: { width: number; height: number } } }) => void>,
-);
-
-// Every rendered View's layout handler, so a test can report the width each one gets.
-const viewLayouts = vi.hoisted(
-  () =>
-    [] as Array<(event: { nativeEvent: { layout: { width: number; height: number } } }) => void>,
-);
-
-type TouchEvent = { nativeEvent: { pageX: number; pageY: number }; persist(): void };
-
-const tableEvents = vi.hoisted(() => ({
+// The handlers of the code scroll view, so a test can report its measured sizes.
+const scrollEvents = vi.hoisted(() => ({
   onLayout: undefined as
     | ((event: { nativeEvent: { layout: { width: number; height: number } } }) => void)
     | undefined,
   onStartShouldSetResponder: undefined as (() => boolean) | undefined,
-  onResponderGrant: undefined as ((event: TouchEvent) => void) | undefined,
-  onResponderMove: undefined as ((event: TouchEvent) => void) | undefined,
-  onResponderRelease: undefined as (() => void) | undefined,
-  onResponderTerminate: undefined as (() => void) | undefined,
   onContentSizeChange: undefined as ((width: number, height: number) => void) | undefined,
 }));
 
+// The props the native Markdown view last received, and how many times it mounted.
+const enriched = vi.hoisted(() => ({
+  props: undefined as EnrichedMarkdownTextProps | undefined,
+  // The Markdown of each view drawn since a test last cleared this, in order.
+  runs: [] as string[],
+  mounts: 0,
+}));
+
 // react-native ships uncompiled Flow source that node cannot load, so tests mock
-// its component surface as marker elements that expose the layout props the
-// render rules set (horizontal scrolling, per-row minimum width, cell width) and
-// the color and hairline size of rules drawn inside a message.
+// its component surface as marker elements that expose the style props the
+// code and image views set.
 vi.mock("react-native", async () => {
   const { createElement } = await import("react");
 
@@ -83,34 +77,29 @@ vi.mock("react-native", async () => {
         if (typeof rest[key] === "boolean") data[`data-${kebab(key)}`] = String(rest[key]);
       }
       if (tag === "rn-view" && typeof rest.onLayout === "function") {
-        tableEvents.onLayout = rest.onLayout as typeof tableEvents.onLayout;
-        viewLayouts.push(rest.onLayout as (typeof viewLayouts)[number]);
+        scrollEvents.onLayout = rest.onLayout as typeof scrollEvents.onLayout;
       }
       if (tag === "rn-view" && typeof rest.onStartShouldSetResponder === "function") {
-        tableEvents.onStartShouldSetResponder =
-          rest.onStartShouldSetResponder as typeof tableEvents.onStartShouldSetResponder;
+        scrollEvents.onStartShouldSetResponder =
+          rest.onStartShouldSetResponder as typeof scrollEvents.onStartShouldSetResponder;
         delete rest.onStartShouldSetResponder;
       }
-      if (tag === "rn-view" && typeof rest.onResponderGrant === "function") {
-        for (const key of [
-          "onResponderGrant",
-          "onResponderMove",
-          "onResponderRelease",
-          "onResponderTerminate",
-        ] as const) {
-          tableEvents[key] = rest[key] as never;
-          delete rest[key];
-        }
-        delete rest.onResponderTerminationRequest;
+      for (const key of [
+        "onResponderGrant",
+        "onResponderMove",
+        "onResponderRelease",
+        "onResponderTerminate",
+        "onResponderTerminationRequest",
+      ]) {
+        delete rest[key];
       }
-      if (tag === "rn-image" && typeof rest.onLoad === "function") {
-        imageLoads.push(rest.onLoad as (typeof imageLoads)[number]);
+      if (tag === "rn-image") {
         delete rest.onLoad;
         delete rest.onError;
       }
       if (tag === "rn-scroll-view" && typeof rest.onContentSizeChange === "function") {
-        tableEvents.onContentSizeChange =
-          rest.onContentSizeChange as typeof tableEvents.onContentSizeChange;
+        scrollEvents.onContentSizeChange =
+          rest.onContentSizeChange as typeof scrollEvents.onContentSizeChange;
         delete rest.onContentSizeChange;
       }
       return createElement(
@@ -140,45 +129,19 @@ vi.mock("react-native", async () => {
     "fontFamily",
     "fontSize",
     "lineHeight",
-    "fontVariant",
     "backgroundColor",
     "borderWidth",
     "textAlign",
     "writingDirection",
-    "width",
     "maxFontSizeMultiplier",
   ]);
 
   return {
     View: mockComponent("rn-view", [
-      "minWidth",
-      "width",
-      "maxWidth",
-      "borderColor",
-      "borderLeftColor",
       "backgroundColor",
       "borderWidth",
-      "borderBottomWidth",
-      "borderTopWidth",
-      "borderTopColor",
-      "paddingTop",
-      "height",
-      "gap",
-      "marginTop",
-      "marginBottom",
-      "flexShrink",
-      "flex",
-      "flexGrow",
-      "flexDirection",
-      "overflow",
       "borderRadius",
-      "borderLeftWidth",
-      "alignItems",
-      "alignSelf",
-      "position",
-      "top",
-      "marginLeft",
-      "marginRight",
+      "flexDirection",
       "accessibilityElementsHidden",
       "importantForAccessibility",
       "accessibilityRole",
@@ -188,15 +151,10 @@ vi.mock("react-native", async () => {
     },
     ScrollView: mockComponent(
       "rn-scroll-view",
-      ["horizontal", "borderColor", "borderWidth"],
+      ["horizontal"],
       ["scrollEnabled", "showsHorizontalScrollIndicator", "showsVerticalScrollIndicator"],
     ),
-    Pressable: mockComponent("rn-pressable", [
-      "accessibilityRole",
-      "accessibilityLabel",
-      "borderBottomWidth",
-      "backgroundColor",
-    ]),
+    Pressable: mockComponent("rn-pressable", ["accessibilityRole", "backgroundColor"]),
     TextInput: mockComponent("rn-text-input"),
     Image: mockComponent("rn-image"),
     Animated: {
@@ -225,51 +183,110 @@ vi.mock("react-native", async () => {
     ActionSheetIOS: { showActionSheetWithOptions: actionSheet },
     I18nManager: i18n,
     useColorScheme: () => "dark",
-    useWindowDimensions: () => windowSize,
+    useWindowDimensions: () => ({ fontScale: 1 }),
   };
 });
 
-import { appLinkCatalog } from "@rakazo/core/app-links";
+// The native view draws text itself. The stand-in records its props and, like the library,
+// hands each code block and image paragraph to `renderers`, drawing what they return.
+vi.mock("react-native-enriched-markdown", async () => {
+  const { createElement, Fragment, useEffect } = await import("react");
+  const { createMarkdownIt } = await import("@ronradtke/react-native-markdown-display");
+  const parser = createMarkdownIt();
+  type Token = {
+    type: string;
+    info: string;
+    content: string;
+    children: Token[] | null;
+    attrGet(name: string): string | null;
+  };
+
+  function blocks(markdown: string): (MarkdownCodeBlock | MarkdownImageBlock)[] {
+    const tokens: Token[] = parser.parse(markdown, {});
+    return tokens.flatMap((token, index): (MarkdownCodeBlock | MarkdownImageBlock)[] => {
+      const id = `block-${index}`;
+      if (token.type === "fence" || token.type === "code_block") {
+        return [
+          {
+            kind: "code",
+            id,
+            placement: "root",
+            language: token.info.trim().split(/\s+/)[0] ?? "",
+            code: token.content.replace(/\n+$/, ""),
+            isComplete: true,
+          },
+        ];
+      }
+      if (token.type !== "inline" || tokens[index - 1]?.type !== "paragraph_open") return [];
+      const [image, ...rest] = (token.children ?? []).filter(
+        (child) => !(child.type === "text" && !child.content.trim()),
+      );
+      if (image?.type !== "image" || rest.length > 0) return [];
+      return [
+        {
+          kind: "image",
+          id,
+          placement: "root",
+          url: image.attrGet("src") ?? "",
+          altText: image.content,
+          title: image.attrGet("title") ?? "",
+          occurrenceId: `${id}-image`,
+        },
+      ];
+    });
+  }
+
+  function EnrichedMarkdownText(props: EnrichedMarkdownTextProps) {
+    enriched.props = props;
+    enriched.runs.push(props.markdown);
+    useEffect(() => {
+      enriched.mounts += 1;
+    }, []);
+    return createElement(
+      "enriched-markdown",
+      null,
+      blocks(props.markdown).map((block) =>
+        createElement(
+          Fragment,
+          { key: block.id },
+          (block.kind === "code"
+            ? props.renderers?.code?.(block)
+            : props.renderers?.image?.(block)) ??
+            createElement("native-block", { "data-kind": block.kind }),
+        ),
+      ),
+    );
+  }
+
+  return { EnrichedMarkdownText };
+});
+
+import { expectLinearTime } from "@rakazo/contracts/test-timing";
 import { darkTokens, lightTokens, MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import { themes } from "prism-react-renderer";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import type { TextProps } from "react-native";
-import { Platform, Pressable, StyleSheet } from "react-native";
-import { allowAppLinks } from "./markdown";
-import type { LinkFavicons, MermaidDiagramProps } from "./markdown.native";
+import { Pressable } from "react-native";
+import type { MarkdownEmbed } from "./markdown";
+import { allowAppLinks, MarkdownEmbedContext } from "./markdown";
+import type { LinkFavicons, MentionLink, MermaidDiagramProps } from "./markdown.native";
 import {
   ChatMarkdown,
   CodeCopyButtonContext,
   LinkFaviconsContext,
   LinkifiedText,
-  MarkdownEmbedContext,
   MarkdownLinkPromptProvider,
-  MarkdownLongPressContext,
   MermaidDiagramContext,
   markdownCodeBlocks,
-  QuoteMenuContext,
   RemoteImagesContext,
-  RemoteMarkdownImage,
 } from "./markdown.native";
+import { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
+import { RemoteMarkdownImage } from "./native/images";
 import { textBlocks } from "./native/linkified-text";
-
-const THREE_COLUMN_TABLE = `| Name | Status | Detail |
-| --- | --- | --- |
-| Alice | done | [docs](https://docs.example.test) |
-| Bob | queued | A longer note that wraps inside the cell |`;
-
-const SIX_COLUMN_TABLE = `| A | B | C | D | E | F |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 2 | 3 | 4 | 5 | 6 |`;
-
-const CONTENT_SIZED_TABLE = `| ID | City | Notes |
-| --- | --- | --- |
-| AL | Montgomery | This note is long enough to wrap inside the column instead of stretching the table without limit and turning the notes into a one letter strip. |`;
-
-function numericWidths(html: string) {
-  return [...html.matchAll(/data-width="(\d+(?:\.\d+)?)"/g)].map((match) => Number(match[1]));
-}
+import { markdownSegments } from "./native/markdown-scan";
+import { withAppAutolinks } from "./native/native-markdown";
+import { markdownStyles } from "./native/styles";
 
 // The data attributes of the innermost text element holding exactly `content`.
 function textStyle(html: string, content: string) {
@@ -285,438 +302,144 @@ function textStyle(html: string, content: string) {
   );
 }
 
-const BULLET_DOT = 'rn-view[data-width="5"][data-height="5"]';
-
-function bulletDots(html: string) {
-  return [...new DOMParser().parseFromString(html, "text/html").querySelectorAll(BULLET_DOT)];
+function nativeProps(): EnrichedMarkdownTextProps {
+  if (!enriched.props) throw new Error("the native view never rendered");
+  return enriched.props;
 }
 
-// The view around a bullet dot, which also holds the line that centres it.
-function isBulletDot(element: Element | null | undefined) {
-  return [...(element?.children ?? [])].some((child) => child.matches(BULLET_DOT));
-}
-
-// The view around an ordered-list number.
-function isNumberColumn(element: Element | null | undefined) {
-  const number = element?.firstElementChild;
-  return (
-    element?.tagName.toLowerCase() === "rn-view" &&
-    number?.tagName.toLowerCase() === "rn-text" &&
-    /^\d+[.)]$/.test(number.textContent ?? "")
-  );
-}
-
-function numberColumns(html: string) {
-  return [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("rn-view")].filter(
-    isNumberColumn,
-  );
-}
-
-function tableRows(html: string) {
-  const document = new DOMParser().parseFromString(html, "text/html");
-  return [...document.querySelectorAll("rn-view[data-border-bottom-width]")].map((row) => ({
-    width: Number(row.getAttribute("data-width")),
-    cells: [...row.querySelectorAll("rn-view[data-max-width]")].map((cell) =>
-      Number(cell.getAttribute("data-width")),
-    ),
-  }));
-}
-
-describe("native markdown tables", () => {
-  it("wraps the table in a horizontal scroll view", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{THREE_COLUMN_TABLE}</ChatMarkdown>);
-    expect(html).toContain("<rn-scroll-view");
-    expect(html).toContain('data-horizontal="true"');
-  });
-
-  it("sizes each row from its columns so wide tables scroll instead of collapsing", () => {
-    const narrow = tableRows(
-      renderToStaticMarkup(<ChatMarkdown>{THREE_COLUMN_TABLE}</ChatMarkdown>),
-    );
-    const wide = tableRows(renderToStaticMarkup(<ChatMarkdown>{SIX_COLUMN_TABLE}</ChatMarkdown>));
-    expect(narrow.length).toBeGreaterThan(0);
-    expect(wide.length).toBeGreaterThan(0);
-    for (const row of [...narrow, ...wide]) {
-      expect(row.width).toBeGreaterThan(0);
-      expect(row.width).toBe(row.cells.reduce((total, width) => total + width, 0));
-    }
-    // Six short columns keep the minimum width each, so the row stays wider
-    // than a phone column instead of squeezing. A long cell can make the
-    // three-column table wider still once cells use the body type.
-    const wideRow = wide[0];
-    expect(wideRow?.cells).toHaveLength(6);
-    expect(wideRow?.cells.every((cell) => cell >= 64)).toBe(true);
-    expect(wideRow?.width).toBeGreaterThanOrEqual(64 * 6);
-  });
-
-  it("renders cell text and keeps inline links tappable inside cells", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{THREE_COLUMN_TABLE}</ChatMarkdown>);
-    expect(html).toContain("Alice");
-    expect(html).toContain("A longer note that wraps inside the cell");
-    expect(html).toContain('data-accessibility-role="link"');
-    expect(html).toContain('data-text-decoration-line="underline"');
-    expect(html).toContain("docs");
-  });
-
-  it("sizes columns to their content, keeps a column one width, and caps long text", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{CONTENT_SIZED_TABLE}</ChatMarkdown>);
-    const rows = tableRows(html);
-    expect(rows).toHaveLength(2);
-    for (const row of rows) {
-      expect(row.cells).toHaveLength(3);
-      expect(row.width).toBe(row.cells.reduce((total, width) => total + width, 0));
-    }
-    const [header, body] = rows;
-    expect(header?.cells).toEqual(body?.cells);
-    const [id, city, notes] = header?.cells ?? [];
-    expect(id).toBeLessThan(city ?? 0);
-    expect(city).toBeGreaterThan(96);
-    expect(city).toBeLessThan(notes ?? 0);
-    expect(notes).toBeLessThan(400);
-    expect(html.match(/data-font-weight="600"/g)).toHaveLength(3);
-    expect(html).toContain('data-flex-shrink="0"');
-  });
-
-  it("lets every cell set its row's height, even in columns scrolled out of view", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
+async function mount(node: ReactNode) {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const render = async (next: ReactNode) => {
     await act(async () => {
-      root.render(<ChatMarkdown>{CONTENT_SIZED_TABLE}</ChatMarkdown>);
+      root.render(next);
     });
-    await act(async () => {
-      tableEvents.onLayout?.({ nativeEvent: { layout: { width: 70, height: 40 } } });
-    });
-
-    const cells = [
-      ...new DOMParser()
-        .parseFromString(container.innerHTML, "text/html")
-        .querySelectorAll("rn-view[data-border-bottom-width] rn-view[data-max-width]"),
-    ];
-    expect(cells).toHaveLength(6);
-    for (const cell of cells) {
-      expect(cell.getAttribute("data-height")).toBeNull();
-      expect(cell.getAttribute("data-overflow")).toBeNull();
-    }
-
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-  });
-
-  describe.each(["ios", "android"])("on %s", (os) => {
-    it.each([
-      [
-        "wide table",
-        SIX_COLUMN_TABLE.replace("| A |", "| [A](https://example.com/docs) |"),
-        200,
-        true,
-      ],
-      ["fitting table", THREE_COLUMN_TABLE, 1000, false],
-      ["wide code", "```xml\nlong code line\n```", 200, true],
-      ["fitting code", "```xml\nshort\n```", 1000, false],
-    ])(
-      "claims overflowing content at touch start on a %s",
-      async (_case, markdown, width, overflows) => {
-        vi.useFakeTimers();
-        vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-        const platform = Platform as { OS: string };
-        const previousOS = platform.OS;
-        platform.OS = os;
-        const container = document.createElement("div");
-        document.body.appendChild(container);
-        const root = createRoot(container);
-        const openMenu = vi.fn();
-        const touch = (pageX: number, pageY: number) => ({
-          nativeEvent: { pageX, pageY },
-          persist() {},
-        });
-        try {
-          await act(async () => {
-            root.render(
-              <Pressable onLongPress={os === "ios" ? undefined : openMenu}>
-                <MarkdownLongPressContext.Provider value={os === "ios" ? undefined : openMenu}>
-                  <ChatMarkdown>{markdown}</ChatMarkdown>
-                </MarkdownLongPressContext.Provider>
-              </Pressable>,
-            );
-          });
-          await act(async () => {
-            tableEvents.onLayout?.({ nativeEvent: { layout: { width, height: 40 } } });
-            if (_case.includes("code")) tableEvents.onContentSizeChange?.(500, 40);
-          });
-
-          expect(tableEvents.onStartShouldSetResponder?.()).toBe(overflows);
-          const timersBeforeTouch = vi.getTimerCount();
-          if (overflows) expect(tableEvents.onResponderGrant?.(touch(100, 100))).toBeUndefined();
-          // iOS leaves long presses to the native context menu without a JS timer.
-          if (os === "ios") expect(vi.getTimerCount()).toBe(timersBeforeTouch);
-          vi.advanceTimersByTime(499);
-          expect(openMenu).not.toHaveBeenCalled();
-          vi.advanceTimersByTime(1);
-          vi.advanceTimersByTime(500);
-          expect(openMenu).toHaveBeenCalledTimes(overflows && os !== "ios" ? 1 : 0);
-          if (_case === "wide table") {
-            alert.mockClear();
-            linking.openURL.mockClear();
-            const link = container.querySelector<HTMLElement>("[data-accessibility-role='link']");
-            expect(link).not.toBeNull();
-            await act(async () => {
-              link?.click();
-            });
-            expect(alert).toHaveBeenCalledTimes(1);
-            const buttons = alert.mock.calls[0]?.[2];
-            await act(async () => {
-              buttons[1].onPress();
-            });
-            expect(linking.openURL).toHaveBeenCalledWith("https://example.com/docs");
-            expect(openMenu).toHaveBeenCalledTimes(overflows && os !== "ios" ? 1 : 0);
-          }
-
-          expect(
-            container.querySelector("rn-scroll-view")?.getAttribute("data-scroll-enabled"),
-          ).toBe(String(overflows));
-        } finally {
-          vi.useRealTimers();
-          platform.OS = previousOS;
-          await act(async () => {
-            root.unmount();
-          });
-          container.remove();
-        }
-      },
-    );
-  });
-
-  it.each(["move horizontally", "move vertically", "release", "terminate", "unmount"])(
-    "cancels a claimed long press on %s",
-    async (reason) => {
-      vi.useFakeTimers();
-      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-      const root = createRoot(document.createElement("div"));
-      const openMenu = vi.fn();
-      try {
-        await act(async () => {
-          root.render(
-            <MarkdownLongPressContext.Provider value={openMenu}>
-              <ChatMarkdown>{SIX_COLUMN_TABLE}</ChatMarkdown>
-            </MarkdownLongPressContext.Provider>,
-          );
-        });
-        await act(async () => {
-          tableEvents.onLayout?.({ nativeEvent: { layout: { width: 200, height: 40 } } });
-        });
-        tableEvents.onResponderGrant?.({ nativeEvent: { pageX: 100, pageY: 100 }, persist() {} });
-        vi.advanceTimersByTime(499);
-        if (reason.startsWith("move"))
-          tableEvents.onResponderMove?.({
-            nativeEvent: {
-              pageX: reason === "move horizontally" ? 106 : 100,
-              pageY: reason === "move vertically" ? 106 : 100,
-            },
-            persist() {},
-          });
-        if (reason === "release") tableEvents.onResponderRelease?.();
-        if (reason === "terminate") tableEvents.onResponderTerminate?.();
-        if (reason === "unmount") await act(async () => root.unmount());
-        vi.advanceTimersByTime(500);
-        expect(openMenu).not.toHaveBeenCalled();
-      } finally {
-        if (reason !== "unmount") await act(async () => root.unmount());
-        vi.useRealTimers();
-      }
+  };
+  await render(node);
+  return {
+    container,
+    render,
+    async cleanup() {
+      await act(async () => {
+        root.unmount();
+      });
+      container.remove();
     },
-  );
+  };
+}
 
-  it.each([
-    ["fits", THREE_COLUMN_TABLE, 1000, "false"],
-    ["is wider than the bubble", SIX_COLUMN_TABLE, 200, "true"],
-  ])("exposes scrolling only when the table %s", async (_case, table, width, scrolls) => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(<ChatMarkdown>{table}</ChatMarkdown>);
-    });
-    await act(async () => {
-      tableEvents.onLayout?.({ nativeEvent: { layout: { width, height: 40 } } });
-    });
+const link = (url: string, label = url): MarkdownLinkOccurrence => ({ url, label, title: "" });
 
-    const scrollView = container.querySelector("rn-scroll-view");
-    expect(scrollView?.getAttribute("data-scroll-enabled")).toBe(scrolls);
-    expect(scrollView?.getAttribute("data-shows-horizontal-scroll-indicator")).toBe(scrolls);
-    expect(scrollView?.getAttribute("data-shows-vertical-scroll-indicator")).toBe("false");
-
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+/** As the native view does once it has parsed the document's links. */
+async function reportLinks(links: MarkdownLinkOccurrence[]) {
+  await act(async () => {
+    nativeProps().onLinksChange?.(links);
   });
+}
 
-  it.each([
-    ["light", lightTokens],
-    ["dark", darkTokens],
-  ] as const)(
-    "draws table, quote, list and divider colours on the %s bot bubble",
-    (scheme, palette) => {
-      const html = renderToStaticMarkup(
-        <ChatMarkdown palette={palette} colorScheme={scheme}>
-          {`${THREE_COLUMN_TABLE}\n\n> A quote\n\n- An item\n\n---`}
-        </ChatMarkdown>,
-      );
-      const hairline = "1";
-      const tableScroll = html.match(/<rn-scroll-view[^>]*>/)?.[0] ?? "";
-      expect(tableScroll).not.toMatch(new RegExp(`data-border-width="${hairline}"`));
-      const rows = html.match(
-        new RegExp(
-          `<rn-view[^>]*data-border-color="${palette.input}"[^>]*data-border-bottom-width="${hairline}"`,
-          "g",
-        ),
-      );
-      expect(rows).toHaveLength(3);
-      expect(html).toContain(`data-border-left-color="${palette.faintForeground}"`);
-      expect(html).toMatch(
-        new RegExp(
-          `<rn-view[^>]*data-background-color="${palette.border}"[^>]*data-height="${hairline}"`,
-        ),
-      );
-      const texts = [
-        ...new DOMParser().parseFromString(html, "text/html").querySelectorAll("rn-text"),
-      ];
-      const colorOf = (label: string) =>
-        texts.findLast((text) => text.textContent === label)?.getAttribute("data-color");
-      expect(colorOf("Name")).toBe(palette.foreground);
-      expect(colorOf("Alice")).toBe(palette.foreground);
-      expect(colorOf("A quote")).toBe(palette.mutedForeground);
-      expect(bulletDots(html)[0]?.getAttribute("data-background-color")).toBe(
-        palette.faintForeground,
-      );
-    },
-  );
-
-  it("applies the same table layout while streaming", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown streaming>{SIX_COLUMN_TABLE}</ChatMarkdown>);
-    expect(html).toContain("<rn-scroll-view");
-    expect(html).toContain('data-horizontal="true"');
-    const widths = numericWidths(html);
-    expect(widths[0]).toBeGreaterThan(0);
+async function pressLink(url: string) {
+  await act(async () => {
+    nativeProps().onLinkPress?.({ url });
   });
+}
 
-  it("separates top-level blocks with one gap and no leading or trailing margin", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {[
-          "## Rollout",
-          "",
-          "Intro paragraph.",
-          "",
-          "- One",
-          "- Two",
-          "",
-          CONTENT_SIZED_TABLE,
-          "",
-          "> First quoted paragraph.",
-          ">",
-          "> Second quoted paragraph.",
-          "",
-          "---",
-          "",
-          "Trailing paragraph.",
-        ].join("\n")}
-      </ChatMarkdown>,
-    );
-    expect(html).toContain('data-gap="8"');
-    expect(html).toMatch(/data-border-left-color="[^"]+"[^>]*data-gap="8"/);
-    expect(html).not.toContain('data-margin-top="10"');
-    expect(html).not.toContain('data-margin-bottom="9"');
-    expect(html).not.toContain('data-margin-bottom="5"');
-    expect(html).toContain('data-margin-top="0"');
-    expect(html).toContain('data-margin-bottom="0"');
+/** The style the native view gives this URL: the first variant whose pattern matches. */
+function variantFor(url: string) {
+  return Object.entries(nativeProps().markdownStyle?.linkVariants ?? {}).find(([pattern]) =>
+    new RegExp(pattern).test(url),
+  )?.[1];
+}
+
+const image = (url: string, placement: MarkdownImageOccurrence["placement"] = "inline") => ({
+  id: url,
+  url,
+  altText: "",
+  title: "",
+  placement,
+});
+
+describe("native markdown view", () => {
+  it("hands the message to the native view, animating it while it streams", () => {
+    renderToStaticMarkup(<ChatMarkdown streaming>{"Partial **reply"}</ChatMarkdown>);
+    expect(nativeProps()).toMatchObject({
+      markdown: "Partial **reply",
+      flavor: "github",
+      streamingAnimation: true,
+    });
+    renderToStaticMarkup(<ChatMarkdown>{"Done."}</ChatMarkdown>);
+    expect(nativeProps().streamingAnimation).toBe(false);
   });
 });
 
-describe("native markdown code blocks", () => {
-  it.each(["first\n\nthird", "first\n\nthird\n", "first\n\nthird\n```"])(
-    "preserves blank fence lines without adding a trailing row: %j",
-    (code) => {
-      const html = renderToStaticMarkup(
-        <ChatMarkdown colorScheme="light">{`\`\`\`\n${code}`}</ChatMarkdown>,
-      );
-      const document = new DOMParser().parseFromString(html, "text/html");
-      const rows = document.querySelectorAll("rn-scroll-view rn-view[data-flex-direction='row']");
-      expect(rows).toHaveLength(3);
-      expect([...rows].map((row) => row.textContent)).toEqual(["first", " ", "third"]);
-      const tokens = [...rows].map((row) => row.querySelector("rn-text"));
-      for (const token of tokens) {
-        expect(token).not.toBeNull();
-        expect(token?.getAttribute("data-color")).toBe(themes.oneLight.plain.color);
-        for (const attribute of ["data-font-family", "data-font-size"]) {
-          expect(token?.getAttribute(attribute)).toBeTruthy();
-          expect(token?.getAttribute(attribute)).toBe(tokens[0]?.getAttribute(attribute));
-        }
-        // Code keeps the monospaced font's own line spacing, so a blank line is as tall as the rest.
-        expect(token?.getAttribute("data-line-height")).toBe(
-          tokens[0]?.getAttribute("data-line-height"),
-        );
-      }
-    },
+const codeBlock = (code: string, language = ""): MarkdownCodeBlock => ({
+  kind: "code",
+  id: "code",
+  placement: "root",
+  code,
+  language,
+  isComplete: true,
+});
+
+// Stands in for the app's copy button, recording the code it would copy.
+function CopyProbe({ code }: { code: string }) {
+  return createElement("copy-probe", { "data-code": code });
+}
+
+// Stands in for the app's WebView, recording what the renderer hands it.
+function ProbeDiagram({ source, palette, colorScheme, fallback }: MermaidDiagramProps) {
+  return createElement(
+    "diagram-probe",
+    { "data-source": source, "data-scheme": colorScheme, "data-foreground": palette.foreground },
+    fallback,
   );
+}
 
-  const LONG_LINE =
-    '<settings><entry key="preview.enabled" value="true" note="a line wider than the bubble"/></settings>';
-
+describe("native markdown code blocks", () => {
   it.each([
-    [
-      "scrolls a fence with a line wider than the bubble",
-      `\`\`\`xml\n${LONG_LINE}\n\`\`\``,
-      900,
-      true,
-    ],
-    ["keeps a fence that fits still", "```\nok\n```", 40, false],
-    [
-      "scrolls an indented code block with a line wider than the bubble",
-      `    ${LONG_LINE}`,
-      900,
-      true,
-    ],
-    [
-      "scrolls a mermaid fence the app draws as code",
-      `\`\`\`mermaid\n${LONG_LINE}\n\`\`\``,
-      900,
-      true,
-    ],
-  ])("%s", async (_case, markdown, width, scrolls) => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    tableEvents.onContentSizeChange = undefined;
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    });
-    await act(async () => {
-      tableEvents.onLayout?.({ nativeEvent: { layout: { width: 200, height: 40 } } });
-      tableEvents.onContentSizeChange?.(width, 40);
-    });
-
-    const scrollViews = container.querySelectorAll("rn-scroll-view");
-    expect(scrollViews).toHaveLength(1);
-    const scrollView = scrollViews[0];
-    expect(scrollView?.getAttribute("data-horizontal")).toBe("true");
-    expect(scrollView?.getAttribute("data-scroll-enabled")).toBe(String(scrolls));
-    expect(scrollView?.getAttribute("data-shows-horizontal-scroll-indicator")).toBe(
-      String(scrolls),
+    ["a fence", "```ts\nconst a = 1;\n```"],
+    ["a fence without a language", "```\nnpm install\n```"],
+    ["an indented block", "Run:\n\n    npm test"],
+    ["a mermaid fence the app cannot draw", "```mermaid\ngraph LR\n  A --> B\n```"],
+  ])("leaves %s to the native view", (_case, markdown) => {
+    const html = renderToStaticMarkup(
+      <CodeCopyButtonContext.Provider value={CopyProbe}>
+        <ChatMarkdown>{markdown}</ChatMarkdown>
+      </CodeCopyButtonContext.Provider>,
     );
-    expect(tableEvents.onStartShouldSetResponder?.()).toBe(scrolls);
-    expect(scrollView?.textContent).toBe(markdown.includes(LONG_LINE) ? LONG_LINE : "ok");
+    expect(html).toContain('<native-block data-kind="code">');
+    expect(html).not.toContain("<rn-scroll-view");
+    // The native view draws its own copy control.
+    expect(html).not.toContain("<copy-probe");
+  });
 
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+  it("keeps native code blocks from offering to wrap", () => {
+    renderToStaticMarkup(<ChatMarkdown>{"```ts\nconst a = 1;\n```"}</ChatMarkdown>);
+    expect(nativeProps().enableCodeBlockWrapToggle).toBe(false);
+    expect(nativeProps().renderers?.code?.(codeBlock("const a = 1;", "ts"))).toBeUndefined();
+    expect(nativeProps().renderers?.code?.(codeBlock("npm test"))).toBeUndefined();
+  });
+
+  it("lists the code of every fenced and indented block, and nothing else", () => {
+    const markdown = [
+      "Run `npm test` first.",
+      "```ts\nconst a = 1;\n\n  return a;\n```",
+      "```\n```",
+      "> ```\n> quoted\n> ```",
+      "- item\n\n      indented in a list",
+      "```mermaid\ngraph LR\n  A --> B\n```",
+      "```text\nDear team,\n```",
+    ].join("\n\n");
+    expect(markdownCodeBlocks(markdown)).toEqual([
+      "const a = 1;\n\n  return a;",
+      "quoted",
+      "indented in a list",
+      "graph LR\n  A --> B",
+      "Dear team,",
+    ]);
+    expect(markdownCodeBlocks("No code here, only `inline`.")).toEqual([]);
+    expect(markdownCodeBlocks("```ts\n\n\n```")).toEqual([]);
   });
 });
 
@@ -724,9 +447,14 @@ describe("native markdown prose fences", () => {
   const draft =
     "Dear team, this line of prose is far wider than a bubble, so it wraps instead of scrolling.";
 
-  // Stands in for the app's copy button, as the code copy tests do.
-  function CopyProbe({ code }: { code: string }) {
-    return createElement("copy-probe", { "data-code": code });
+  function renderProse(markdown: string, props: { streaming?: boolean } = {}) {
+    return renderToStaticMarkup(
+      <CodeCopyButtonContext.Provider value={CopyProbe}>
+        <ChatMarkdown palette={lightTokens} colorScheme="light" {...props}>
+          {markdown}
+        </ChatMarkdown>
+      </CodeCopyButtonContext.Provider>,
+    );
   }
 
   it.each(["text", "txt", "plaintext", "Text"])(
@@ -740,6 +468,7 @@ describe("native markdown prose fences", () => {
       const document = new DOMParser().parseFromString(html, "text/html");
       // No sideways scroll view: the line wraps inside the fence's card.
       expect(document.querySelector("rn-scroll-view")).toBeNull();
+      expect(document.querySelector("native-block")).toBeNull();
       expect(
         document.querySelector(`[data-background-color="${lightTokens.secondary}"]`),
       ).not.toBeNull();
@@ -749,20 +478,6 @@ describe("native markdown prose fences", () => {
         "data-line-height": "22",
       });
       expect(textStyle(html, draft)["data-font-family"]).toBeUndefined();
-    },
-  );
-
-  it.each(["ts", ""])(
-    "keeps a fence marked %j monospaced in a sideways scroll view",
-    (language) => {
-      const html = renderToStaticMarkup(
-        <ChatMarkdown colorScheme="light">{`\`\`\`${language}\nconst a = 1;\n\`\`\``}</ChatMarkdown>,
-      );
-      const document = new DOMParser().parseFromString(html, "text/html");
-      expect(document.querySelector("rn-scroll-view")).not.toBeNull();
-      expect(
-        document.querySelector("rn-scroll-view rn-text")?.getAttribute("data-font-family"),
-      ).toBe("ui-monospace");
     },
   );
 
@@ -781,15 +496,10 @@ describe("native markdown prose fences", () => {
 
   it("gives a prose fence a copy button for its exact code, outside any scroll view", () => {
     const code = "Dear team,\n\n  see you Monday.";
-    const html = renderToStaticMarkup(
-      <CodeCopyButtonContext.Provider value={CopyProbe}>
-        <ChatMarkdown
-          palette={lightTokens}
-          colorScheme="light"
-        >{`\`\`\`text\n${code}\n\`\`\``}</ChatMarkdown>
-      </CodeCopyButtonContext.Provider>,
+    const document = new DOMParser().parseFromString(
+      renderProse(`\`\`\`text\n${code}\n\`\`\``),
+      "text/html",
     );
-    const document = new DOMParser().parseFromString(html, "text/html");
     const probes = document.querySelectorAll("copy-probe");
     expect(probes).toHaveLength(1);
     expect(probes[0]?.getAttribute("data-code")).toBe(code);
@@ -798,6 +508,29 @@ describe("native markdown prose fences", () => {
     const frame = probes[0]?.parentElement?.parentElement;
     expect(frame?.getAttribute("data-border-width")).toBeTruthy();
     expect(frame?.getAttribute("data-background-color")).toBe(lightTokens.secondary);
+  });
+
+  it("shows the button while a reply streams, and none for an empty fence or without one", () => {
+    expect(renderProse("```text\nDear team,", { streaming: true })).toContain("<copy-probe");
+    expect(renderProse("```text\n\n\n```")).not.toContain("<copy-probe");
+    const html = renderToStaticMarkup(<ChatMarkdown>{"```text\nDear team,\n```"}</ChatMarkdown>);
+    expect(html).not.toContain("<copy-probe");
+    expect(html).toContain("Dear team,");
+  });
+
+  it("draws prose with the Text the app installs after this package loads", () => {
+    // As the app's text-size cap does when it starts.
+    const original = reactNativeText.current as (props: TextProps) => ReactNode;
+    reactNativeText.current = (props: TextProps) =>
+      createElement(original, { ...props, maxFontSizeMultiplier: MAX_FONT_SCALE });
+    try {
+      const html = renderToStaticMarkup(<ChatMarkdown>{"```text\nDear team,\n```"}</ChatMarkdown>);
+      expect(textStyle(html, "Dear team,")["data-max-font-size-multiplier"]).toBe(
+        String(MAX_FONT_SCALE),
+      );
+    } finally {
+      reactNativeText.current = original;
+    }
   });
 
   it("aligns each prose line by its own direction, like a paragraph", () => {
@@ -819,163 +552,612 @@ describe("native markdown prose fences", () => {
   });
 });
 
-describe("native markdown code copy", () => {
-  // Stands in for the app's copy button, recording the code it would copy.
-  function ProbeCopyButton({ code }: { code: string }) {
-    return createElement("copy-probe", { "data-code": code });
+describe("native markdown diagrams", () => {
+  const SOURCE = "graph LR\n  A[Clone] --> B[Branch]";
+  const FLOW = `\`\`\`mermaid\n${SOURCE}\n\`\`\``;
+
+  function renderWithDiagrams(
+    markdown: string,
+    props: { streaming?: boolean; colorScheme?: "light" | "dark" } = {},
+  ) {
+    const { colorScheme = "light", ...rest } = props;
+    return renderToStaticMarkup(
+      <MermaidDiagramContext.Provider value={ProbeDiagram}>
+        <CodeCopyButtonContext.Provider value={CopyProbe}>
+          <ChatMarkdown
+            palette={colorScheme === "light" ? lightTokens : darkTokens}
+            colorScheme={colorScheme}
+            {...rest}
+          >
+            {markdown}
+          </ChatMarkdown>
+        </CodeCopyButtonContext.Provider>
+      </MermaidDiagramContext.Provider>,
+    );
   }
 
-  function renderWithCopy(markdown: string, props: { streaming?: boolean } = {}) {
-    const html = renderToStaticMarkup(
-      <CodeCopyButtonContext.Provider value={ProbeCopyButton}>
-        <ChatMarkdown palette={lightTokens} colorScheme="light" {...props}>
-          {markdown}
-        </ChatMarkdown>
-      </CodeCopyButtonContext.Provider>,
-    );
-    return new DOMParser().parseFromString(html, "text/html");
-  }
+  it("hands a mermaid fence to the app's diagram with its code block as the fallback", () => {
+    const html = renderWithDiagrams(FLOW);
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const probe = document.querySelector("diagram-probe");
+    expect(probe?.getAttribute("data-source")).toBe(SOURCE);
+    expect(probe?.getAttribute("data-scheme")).toBe("light");
+    expect(probe?.getAttribute("data-foreground")).toBe(lightTokens.foreground);
+    expect(probe?.textContent).toContain("A[Clone] --> B[Branch]");
+    expect(document.querySelector("native-block")).toBeNull();
+  });
+
+  it("gives the fallback code a copy button for its exact code, beside its scroll view", () => {
+    const document = new DOMParser().parseFromString(renderWithDiagrams(FLOW), "text/html");
+    const probe = document.querySelector("diagram-probe copy-probe");
+    expect(probe?.getAttribute("data-code")).toBe(SOURCE);
+    expect(probe?.closest("rn-scroll-view")).toBeNull();
+    const row = probe?.parentElement;
+    expect(row?.getAttribute("data-flex-direction")).toBe("row");
+    expect(row?.querySelector("rn-scroll-view")).not.toBeNull();
+    const frame = row?.parentElement;
+    expect(frame?.getAttribute("data-border-width")).toBeTruthy();
+    expect(frame?.getAttribute("data-background-color")).toBe(lightTokens.secondary);
+  });
 
   it.each([
-    ["a fence", "```ts\nconst a = 1;\n\n  return a;\n```", "const a = 1;\n\n  return a;"],
-    ["a fence without a language", "```\nnpm install\n```", "npm install"],
-    ["an indented block", "Run:\n\n    line one\n      line two\n", "line one\n  line two"],
-    [
-      "a mermaid fence shown as code",
-      "```mermaid\ngraph LR\n  A --> B\n```",
-      "graph LR\n  A --> B",
-    ],
-  ])("gives %s a copy button for its exact code", (_case, markdown, code) => {
-    const document = renderWithCopy(markdown);
-    const probes = document.querySelectorAll("copy-probe");
-    expect(probes).toHaveLength(1);
-    expect(probes[0]?.getAttribute("data-code")).toBe(code);
+    ["dark", darkTokens, themes.oneDark],
+    ["light", lightTokens, themes.oneLight],
+  ] as const)("draws the fallback in the %s theme, filled once", (scheme, palette, theme) => {
+    const html = renderWithDiagrams("```mermaid\nplain text\n```", { colorScheme: scheme });
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const rows = document.querySelectorAll("rn-scroll-view rn-view[data-flex-direction='row']");
+    expect([...rows].map((row) => row.textContent)).toEqual(["plain text"]);
+    const token = rows[0]?.querySelector("rn-text");
+    expect(token?.getAttribute("data-color")).toBe(theme.plain.color);
+    expect(token?.getAttribute("data-font-family")).toBe("ui-monospace");
+    expect(token?.getAttribute("data-font-size")).toBe("14");
+    expect(token?.hasAttribute("data-line-height")).toBe(false);
+    expect(html.split(`data-background-color="${palette.secondary}"`)).toHaveLength(2);
   });
 
-  it("keeps the button inside the block's frame, beside the code rather than in its scroll view", () => {
-    for (const markdown of ["```ts\nconst a = 1;\n```", "    const a = 1;"]) {
-      const probe = renderWithCopy(markdown).querySelector("copy-probe");
-      expect(probe?.closest("rn-scroll-view")).toBeNull();
-      const row = probe?.parentElement;
-      expect(row?.getAttribute("data-flex-direction")).toBe("row");
-      expect(row?.querySelector("rn-scroll-view")).not.toBeNull();
-      const frame = row?.parentElement;
-      expect(frame?.getAttribute("data-border-width")).toBeTruthy();
-      expect(frame?.getAttribute("data-background-color")).toBe(lightTokens.secondary);
-    }
-  });
-
-  it("draws an indented block with the Text the app installs after this package loads", () => {
-    // As the app's text-size cap does when it starts.
-    const original = reactNativeText.current as (props: TextProps) => ReactNode;
-    reactNativeText.current = (props: TextProps) =>
-      createElement(original, { ...props, maxFontSizeMultiplier: MAX_FONT_SCALE });
-    try {
-      const html = renderToStaticMarkup(<ChatMarkdown>{"Run:\n\n    npm test"}</ChatMarkdown>);
-      expect(textStyle(html, "npm test")["data-max-font-size-multiplier"]).toBe(
-        String(MAX_FONT_SCALE),
-      );
-    } finally {
-      reactNativeText.current = original;
-    }
-  });
-
-  it("moves an indented block's frame off its text", () => {
-    const text = renderWithCopy("    const a = 1;").querySelector("rn-scroll-view rn-text");
-    expect(text?.textContent).toBe("const a = 1;");
-    expect(text?.getAttribute("data-border-width")).toBeNull();
-    expect(text?.getAttribute("data-background-color")).toBeNull();
-  });
-
-  it("shows the button while a reply streams", () => {
-    expect(
-      renderWithCopy("```ts\nconst live = true;", { streaming: true }).querySelector("copy-probe"),
-    ).not.toBeNull();
-  });
-
-  it("gives inline code and an empty fence no button", () => {
-    const blankFence = "```ts\n\n\n```";
-    expect(renderWithCopy(blankFence).querySelector("copy-probe")).toBeNull();
-    expect(markdownCodeBlocks(blankFence)).toEqual([]);
-    expect(renderWithCopy("Run `npm test` first.").querySelector("copy-probe")).toBeNull();
-    expect(renderWithCopy("```ts\n```").querySelector("copy-probe")).toBeNull();
-  });
-
-  it("lists the code of every block that gets a button, and nothing else", () => {
-    const markdown = [
-      "Run `npm test` first.",
-      "```ts\nconst a = 1;\n\n  return a;\n```",
-      "```\n```",
-      "> ```\n> quoted\n> ```",
-      "- item\n\n      indented in a list",
-      "```mermaid\ngraph LR\n  A --> B\n```",
-    ].join("\n\n");
-    const probes = [...renderWithCopy(markdown).querySelectorAll("copy-probe")].map((probe) =>
-      probe.getAttribute("data-code"),
+  it("scrolls a fallback with a line wider than the bubble", async () => {
+    const line =
+      'graph LR\n  A["a label far wider than the bubble, so the code scrolls sideways"] --> B';
+    scrollEvents.onContentSizeChange = undefined;
+    const view = await mount(
+      <MermaidDiagramContext.Provider value={ProbeDiagram}>
+        <ChatMarkdown>{`\`\`\`mermaid\n${line}\n\`\`\``}</ChatMarkdown>
+      </MermaidDiagramContext.Provider>,
     );
-    expect(markdownCodeBlocks(markdown)).toEqual([
-      "const a = 1;\n\n  return a;",
-      "quoted",
-      "indented in a list",
-      "graph LR\n  A --> B",
-    ]);
-    expect(markdownCodeBlocks(markdown)).toEqual(probes);
-    expect(markdownCodeBlocks("No code here, only `inline`.")).toEqual([]);
+    await act(async () => {
+      scrollEvents.onLayout?.({ nativeEvent: { layout: { width: 200, height: 40 } } });
+      scrollEvents.onContentSizeChange?.(900, 40);
+    });
+    const scrollView = view.container.querySelector("rn-scroll-view");
+    expect(scrollView?.getAttribute("data-horizontal")).toBe("true");
+    expect(scrollView?.getAttribute("data-scroll-enabled")).toBe("true");
+    expect(scrollEvents.onStartShouldSetResponder?.()).toBe(true);
+    await view.cleanup();
   });
 
-  it("draws no button when the app supplies none", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"```\nnpm test\n```"}</ChatMarkdown>);
-    expect(html).not.toContain("<copy-probe");
-    expect(html).toContain("npm test");
+  it.each([
+    [
+      "without a diagram from the app",
+      () => renderToStaticMarkup(<ChatMarkdown>{FLOW}</ChatMarkdown>),
+    ],
+    ["while the reply streams", () => renderWithDiagrams(FLOW, { streaming: true })],
+    ["for an empty mermaid fence", () => renderWithDiagrams("```mermaid\n\n```")],
+    ["for other fences", () => renderWithDiagrams("```ts\nconst a = 1;\n```")],
+  ])("leaves the code to the native view %s", (_case, render) => {
+    const html = render();
+    expect(html).not.toContain("<diagram-probe");
+    expect(html).toContain('<native-block data-kind="code">');
   });
 });
 
-describe("native markdown re-renders", () => {
-  it("keeps a streaming reply's earlier blocks mounted as it grows", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const first = "First paragraph.\n\n```ts\nconst a = 1;\n```";
-    const paragraph = () =>
-      [...container.querySelectorAll("rn-text")].find(
-        (text) => text.textContent === "First paragraph.",
-      );
-    const codeLine = () =>
-      [...container.querySelectorAll("rn-text")].find(
-        (text) => text.textContent === "const a = 1;",
-      );
-    await act(async () => {
-      root.render(<ChatMarkdown streaming>{first}</ChatMarkdown>);
-    });
-    const before = [paragraph(), codeLine()];
-    expect(before.every(Boolean)).toBe(true);
-    for (const text of [`${first}\n\nMore`, `${first}\n\nMore text`]) {
-      await act(async () => {
-        root.render(<ChatMarkdown streaming>{text}</ChatMarkdown>);
-      });
-      expect([paragraph(), codeLine()].every((node, index) => node === before[index])).toBe(true);
-    }
+describe("native markdown images", () => {
+  it("shows a remote image as a placeholder that loads it in place on tap", async () => {
+    const markdown = '![chart](https://images.example.test/tap.png?d=secret "Q3 revenue")';
+    const html = renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(html).not.toContain("<rn-stub");
+    expect(html).toContain('data-accessibility-role="button"');
+    expect(html).toContain('accessibilityLabel="chart, images.example.test"');
+    expect(html).toContain('accessibilityHint="Q3 revenue"');
+    // A filled chip on the muted bubble reads as a control in both themes.
+    expect(html).toContain(`data-background-color="${darkTokens.background}"`);
 
+    linking.openURL.mockClear();
+    const view = await mount(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(view.container.querySelector("rn-stub")).toBeNull();
     await act(async () => {
-      root.unmount();
+      view.container.querySelector<HTMLElement>("[data-accessibility-role='button']")?.click();
     });
-    container.remove();
+    expect(view.container.querySelector("rn-stub")).not.toBeNull();
+    expect(view.container.querySelector("[data-accessibility-role='button']")).toBeNull();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await view.cleanup();
+
+    // The reader's choice holds for the session, so a remounted bubble keeps the image.
+    expect(renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>)).toContain("<rn-stub");
   });
 
-  it("draws each code line as one text with its tokens inside", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown colorScheme="light">{"```ts\nconst a = 1;\nreturn a;\n```"}</ChatMarkdown>,
+  it("shows a placeholder when a tapped image is replaced with another url", async () => {
+    const styles = markdownStyles(darkTokens);
+    const remote = (href: string) => (
+      <RemoteMarkdownImage
+        image={{ href, host: "images.example.test" }}
+        alt="chart"
+        styles={styles}
+      />
     );
-    const rows = new DOMParser()
-      .parseFromString(html, "text/html")
-      .querySelectorAll("rn-scroll-view rn-view[data-flex-direction='row']");
-    expect([...rows].map((row) => row.textContent)).toEqual(["const a = 1;", "return a;"]);
-    for (const row of rows) {
-      expect(row.children).toHaveLength(1);
-      expect(row.children[0]?.tagName.toLowerCase()).toBe("rn-text");
-      expect(row.children[0]?.querySelectorAll("rn-text").length).toBeGreaterThan(1);
+    const view = await mount(remote("https://images.example.test/native-first.png"));
+    await act(async () => {
+      view.container.querySelector<HTMLElement>("[data-accessibility-role='button']")?.click();
+    });
+    expect(view.container.querySelector("rn-stub")).not.toBeNull();
+
+    await view.render(remote("https://images.example.test/native-second.png"));
+    expect(view.container.querySelector("rn-stub")).toBeNull();
+    expect(view.container.querySelector("[data-accessibility-role='button']")).not.toBeNull();
+    await view.cleanup();
+  });
+
+  it("loads remote images at once when the reader turned that on", async () => {
+    const html = renderToStaticMarkup(
+      <RemoteImagesContext.Provider value={true}>
+        <ChatMarkdown>{"![chart](https://images.example.test/auto.png)"}</ChatMarkdown>
+      </RemoteImagesContext.Provider>,
+    );
+    expect(html).toContain("<rn-stub");
+    expect(html).not.toContain('data-accessibility-role="button"');
+    for (const placement of ["inline", "list", "table", "link"] as const) {
+      await expect(
+        Promise.resolve(
+          nativeProps().resolveImageSource?.(
+            image("https://badge.example.test/auto.svg", placement),
+          ),
+        ),
+      ).resolves.toEqual({ uri: "https://badge.example.test/auto.svg" });
     }
+  });
+
+  it("never requests an image inside text until the reader allows remote images", async () => {
+    renderToStaticMarkup(
+      <ChatMarkdown>{"See ![build](https://badge.example.test/b.svg) now"}</ChatMarkdown>,
+    );
+    const resolve = nativeProps().resolveImageSource;
+    for (const url of [
+      "https://badge.example.test/b.svg",
+      "/api/v1/p.gif",
+      "example.test/p.gif",
+      "mailto:user@example.test",
+      "tel:+15551212",
+      "javascript:alert(1)",
+    ]) {
+      await expect(Promise.resolve(resolve?.(image(url)))).rejects.toThrow(
+        "Remote image not allowed",
+      );
+    }
+  });
+
+  it("lets an image inside text load once the reader tapped the same image", async () => {
+    const url = "https://images.example.test/tapped-then-inline.png";
+    const view = await mount(<ChatMarkdown>{`![chart](${url})`}</ChatMarkdown>);
+    await expect(
+      Promise.resolve(nativeProps().resolveImageSource?.(image(url, "list"))),
+    ).rejects.toThrow();
+    await act(async () => {
+      view.container.querySelector<HTMLElement>("[data-accessibility-role='button']")?.click();
+    });
+    await expect(
+      Promise.resolve(nativeProps().resolveImageSource?.(image(url, "list"))),
+    ).resolves.toEqual({ uri: url });
+    await view.cleanup();
+  });
+
+  it("starts the native view over when the reader turns remote images on", async () => {
+    const markdown = "See ![build](https://badge.example.test/remount.svg)";
+    const view = await mount(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    const mounts = enriched.mounts;
+    await view.render(<ChatMarkdown>{`${markdown} now`}</ChatMarkdown>);
+    expect(enriched.mounts).toBe(mounts);
+    await view.render(
+      <RemoteImagesContext.Provider value={true}>
+        <ChatMarkdown>{`${markdown} now`}</ChatMarkdown>
+      </RemoteImagesContext.Provider>,
+    );
+    expect(enriched.mounts).toBe(mounts + 1);
+    await view.cleanup();
+  });
+
+  it("leaves embedded image data and unopenable sources to the native view", async () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown>
+        {"![dot](data:image/png;base64,iVBORw0KGgo=)\n\n![logo](/api/v1/p.gif)"}
+      </ChatMarkdown>,
+    );
+    expect(html).not.toContain("<rn-stub");
+    expect(html).not.toContain("data-accessibility-role");
+    expect(html.match(/<native-block data-kind="image">/g)).toHaveLength(2);
+    // Embedded data loads as written; nothing else does.
+    expect(
+      nativeProps().resolveImageSource?.(image("data:image/png;base64,iVBORw0KGgo=")),
+    ).toBeUndefined();
+  });
+});
+
+const ICON = "data:image/png;base64,iVBORw0KGgo=";
+const globe = createElement("rn-globe");
+
+function withFavicons(favicons: LinkFavicons, node: ReactNode) {
+  return <LinkFaviconsContext.Provider value={favicons}>{node}</LinkFaviconsContext.Provider>;
+}
+
+describe("native app links", () => {
+  allowAppLinks([
+    {
+      scheme: "reader",
+      host: "books",
+      name: "Reader",
+      icon: "https://reader.example.test/icon.png",
+    },
+  ]);
+
+  it("writes a bare app link as an autolink, outside code", async () => {
+    const view = await mount(
+      <ChatMarkdown>
+        {"Open reader://books/42 or `reader://books/43` or [x](reader://books/44)"}
+      </ChatMarkdown>,
+    );
+    expect(nativeProps().markdown).toBe(
+      "Open <reader://books/42> or `reader://books/43` or [x](reader://books/44)",
+    );
+    await view.cleanup();
+  });
+
+  it("leaves link labels, long fences and double-backtick code as written", async () => {
+    const markdown = [
+      "[see reader://books/1](https://example.com)",
+      "````\nreader://books/2\n```\nreader://books/3\n````",
+      "``a ` reader://books/4``",
+      "then reader://books/5",
+    ].join("\n\n");
+    const view = await mount(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(nativeProps().markdown).toBe(
+      markdown.replace("then reader://books/5", "then <reader://books/5>"),
+    );
+    await view.cleanup();
+  });
+
+  it("scans text full of backticks and brackets in linear time", () => {
+    for (const unit of ["` ", "`` ", "[a](", "[", "~~ "]) {
+      const text = `${unit.repeat(40_000)}reader://books/1`;
+      expectLinearTime(() => expect(withAppAutolinks(text)).toContain("<reader://books/1>"));
+    }
+  });
+
+  it("draws an app link as a pill that reads Open in the app", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: null }), globe },
+        <ChatMarkdown>{"Open reader://books/42"}</ChatMarkdown>,
+      ),
+    );
+    await reportLinks([link("reader://books/42")]);
+    expect(nativeProps().linkPillContent?.["reader://books/42"]?.label).toMatch(/Reader/);
+    expect(variantFor("reader://books/42")).toEqual(
+      expect.objectContaining({ pill: expect.any(Object) }),
+    );
+    await view.cleanup();
+  });
+});
+
+describe("native website links", () => {
+  it("keeps a link's own text and shortens a bare URL to host and path", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: null }), globe },
+        <ChatMarkdown>
+          {
+            "[Post](https://native-a.example.test/p/1) https://www.native-b.example.test/status/9?s=1"
+          }
+        </ChatMarkdown>,
+      ),
+    );
+    await reportLinks([
+      link("https://native-a.example.test/p/1", "Post"),
+      link("https://www.native-b.example.test/status/9?s=1"),
+    ]);
+    expect(nativeProps().linkPillContent).toEqual({
+      "https://native-a.example.test/p/1": {},
+      "https://www.native-b.example.test/status/9?s=1": { label: "native-b.example.test/status/9" },
+    });
+    expect(variantFor("https://native-a.example.test/p/1")).toEqual(
+      expect.objectContaining({ pill: expect.any(Object), color: darkTokens.foreground }),
+    );
+    await view.cleanup();
+  });
+
+  it("keeps a link's own text when the same address is also written bare", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: null }), globe },
+        <ChatMarkdown>
+          {"[Docs](https://native-z.example.test/a) https://native-z.example.test/a"}
+        </ChatMarkdown>,
+      ),
+    );
+    await reportLinks([
+      link("https://native-z.example.test/a", "Docs"),
+      link("https://native-z.example.test/a"),
+    ]);
+    expect(nativeProps().linkPillContent).toEqual({ "https://native-z.example.test/a": {} });
+    await view.cleanup();
+  });
+
+  it("shortens and cleans bare URLs whose escapes the parser decoded", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: null }), globe },
+        <ChatMarkdown>{"See the files"}</ChatMarkdown>,
+      ),
+    );
+    const bidi = "https://bidi.example.test/%E2%80%AEtxt.exe";
+    const cafe = "https://native-k.example.test/caf%C3%A9";
+    await reportLinks([link(bidi), link(cafe, "https://native-k.example.test/café")]);
+    expect(nativeProps().linkPillContent?.[bidi]?.label).toBe("bidi.example.test/txt.exe");
+    expect(nativeProps().linkPillContent?.[cafe]?.label).toBe("native-k.example.test/café");
+    await view.cleanup();
+  });
+
+  it("adds the site's icon once the API answers, asking once per site", async () => {
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const view = await mount(withFavicons({ load, globe }, <ChatMarkdown>{"Links"}</ChatMarkdown>));
+    const first = "https://native-c.example.test/one";
+    const second = "https://native-c.example.test/two";
+    await reportLinks([link(first, "One"), link(second, "Two")]);
+    await vi.waitFor(() => {
+      expect(nativeProps().linkPillContent).toEqual({
+        [first]: { iconUri: ICON },
+        [second]: { iconUri: ICON },
+      });
+    });
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith("https://native-c.example.test");
+    await view.cleanup();
+  });
+
+  it("shows no icon and does not ask again right away after a failed lookup", async () => {
+    const load = vi.fn(async () => {
+      throw new Error("Not found");
+    });
+    const links = [link("https://native-i.example.test/", "A")];
+    const first = await mount(withFavicons({ load, globe }, <ChatMarkdown>{"[A]"}</ChatMarkdown>));
+    await reportLinks(links);
+    await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    expect(nativeProps().linkPillContent).toEqual({
+      "https://native-i.example.test/": {},
+    });
+    await first.cleanup();
+
+    const again = await mount(withFavicons({ load, globe }, <ChatMarkdown>{"[A]"}</ChatMarkdown>));
+    await reportLinks(links);
+    expect(nativeProps().linkPillContent).toEqual({
+      "https://native-i.example.test/": {},
+    });
+    expect(load).toHaveBeenCalledTimes(1);
+    await again.cleanup();
+  });
+
+  it("asks for no icon while a reply streams", async () => {
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const markdown = "Partial https://native-e.example.test/x";
+    const view = await mount(
+      withFavicons({ load, globe }, <ChatMarkdown streaming>{markdown}</ChatMarkdown>),
+    );
+    await reportLinks([link("https://native-e.example.test/x")]);
+    expect(load).not.toHaveBeenCalled();
+    expect(nativeProps().linkPillContent).toEqual({
+      "https://native-e.example.test/x": { label: "native-e.example.test/x" },
+    });
+    await view.render(withFavicons({ load, globe }, <ChatMarkdown>{markdown}</ChatMarkdown>));
+    expect(load).toHaveBeenCalledWith("https://native-e.example.test");
+    await view.cleanup();
+  });
+
+  it("gives no pill or icon to links that are not websites", async () => {
+    const load = vi.fn(async () => ({ icon: ICON }));
+    const view = await mount(withFavicons({ load, globe }, <ChatMarkdown>{"Links"}</ChatMarkdown>));
+    const others = ["mailto:someone@example.com", "tel:+15555550100", "/docs", "page:page_1"];
+    await reportLinks([...others.map((url) => link(url, "label")), link("rakazo-mention:bot_1")]);
+    expect(nativeProps().linkPillContent).toEqual({});
+    expect(load).not.toHaveBeenCalled();
+    // Links that are not websites keep the plain link style.
+    for (const url of others.slice(0, 2)) expect(variantFor(url)).toBeUndefined();
+    expect(nativeProps().markdownStyle?.link).toMatchObject({ color: darkTokens.link });
+    // Addresses the app will not open read as plain text.
+    for (const url of ["/docs", "javascript:alert(1)", "ftp://example.test/f"]) {
+      expect(variantFor(url)).toEqual({ color: darkTokens.foreground, underline: false });
+    }
+    expect(variantFor("HTTPS://native-a.example.test/")).toHaveProperty("pill");
+    await view.cleanup();
+  });
+});
+
+describe("native mention links", () => {
+  it("colors a mention by its bot and opens it, and does nothing for a bot that is gone", async () => {
+    const open = vi.fn();
+    const mentionLink = (id: string): MentionLink | undefined =>
+      id === "bot.1" ? { color: lightTokens.destructive, open } : undefined;
+    alert.mockClear();
+    linking.openURL.mockClear();
+    const view = await mount(
+      <ChatMarkdown mentionLink={mentionLink}>{"[Ada](rakazo-mention:bot.1)"}</ChatMarkdown>,
+    );
+    await reportLinks([
+      link("rakazo-mention:bot.1", "Ada"),
+      link("rakazo-mention:gone", "Old bot"),
+    ]);
+    expect(variantFor("rakazo-mention:bot.1")).toEqual({
+      color: lightTokens.destructive,
+      underline: false,
+    });
+    // Only its own URL takes the bot's color: the pattern is exact, dots included.
+    expect(variantFor("rakazo-mention:botx1")?.color).toBe(darkTokens.foreground);
+    expect(variantFor("rakazo-mention:gone")).toEqual({
+      color: darkTokens.foreground,
+      underline: false,
+    });
+
+    await pressLink("rakazo-mention:bot.1");
+    expect(open).toHaveBeenCalledTimes(1);
+    await pressLink("rakazo-mention:gone");
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await view.cleanup();
+  });
+});
+
+describe("native markdown page links", () => {
+  it("opens a page link with the handler, and leaves it plain without one", async () => {
+    alert.mockClear();
+    linking.openURL.mockClear();
+    const openPage = vi.fn();
+    const markdown = "See [Duplex voice](page:page_1) and [z](page:a/b)";
+    const view = await mount(<ChatMarkdown onOpenPage={openPage}>{markdown}</ChatMarkdown>);
+    expect(variantFor("page:page_1")).toMatchObject({ underline: true });
+    await pressLink("page:page_1");
+    expect(openPage).toHaveBeenCalledWith("page_1");
+    await pressLink("page:a/b");
+    await pressLink("javascript:alert(1)");
+    expect(openPage).toHaveBeenCalledTimes(1);
+
+    await view.render(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(variantFor("page:page_1")).toMatchObject({ underline: false });
+    await pressLink("page:page_1");
+    expect(openPage).toHaveBeenCalledTimes(1);
+    expect(alert).not.toHaveBeenCalled();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await view.cleanup();
+  });
+});
+
+describe("native external link confirmation", () => {
+  async function mountLinks(appOrigin?: string) {
+    alert.mockClear();
+    linking.openURL.mockClear();
+    const body = <ChatMarkdown>{"Links"}</ChatMarkdown>;
+    return mount(
+      appOrigin ? (
+        <MarkdownLinkPromptProvider appOrigin={appOrigin}>{body}</MarkdownLinkPromptProvider>
+      ) : (
+        body
+      ),
+    );
+  }
+
+  it("asks before an external link and leaves it closed on cancel", async () => {
+    const view = await mountLinks();
+    await pressLink("https://example.test/docs?x=1");
+    expect(alert).toHaveBeenCalledWith(
+      "Open external link?",
+      "example.test\n\nhttps://example.test/docs?x=1",
+      expect.any(Array),
+      { cancelable: true },
+    );
+    expect(alert.mock.calls.at(-1)?.[2][0]).toMatchObject({ text: "Cancel", style: "cancel" });
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await view.cleanup();
+  });
+
+  it("opens mailto and tel without asking", async () => {
+    const view = await mountLinks();
+    await pressLink("mailto:user@example.test");
+    await pressLink("tel:+15551212");
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith("mailto:user@example.test");
+      expect(linking.openURL).toHaveBeenCalledWith("tel:+15551212");
+    });
+    await view.cleanup();
+  });
+
+  it("opens a same-origin link without asking", async () => {
+    const view = await mountLinks("https://app.example.test");
+    await pressLink("https://app.example.test/threads/1");
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith("https://app.example.test/threads/1");
+    });
+    await view.cleanup();
+  });
+
+  it("ignores a link that is not safe to open", async () => {
+    const view = await mountLinks();
+    await pressLink("javascript:alert(1)");
+    await pressLink("data:text/html,hi");
+    expect(alert).not.toHaveBeenCalled();
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await view.cleanup();
+  });
+
+  it("shows a full long URL and opens it only on confirmation", async () => {
+    const url = `https://example.test/${"a".repeat(10000)}`;
+    const view = await mountLinks();
+    await pressLink(url);
+    const [title, message, buttons, options] = alert.mock.calls.at(-1)!;
+    expect(title).toBe("Open external link?");
+    expect(message).toBe(`example.test\n\n${url}`);
+    expect(buttons.map((button: { text: string }) => button.text)).toEqual(["Cancel", "Open"]);
+    expect(options).toEqual({ cancelable: true });
+    expect(linking.openURL).not.toHaveBeenCalled();
+    await act(async () => {
+      buttons[1].onPress();
+    });
+    expect(linking.openURL).toHaveBeenCalledWith(url);
+    await view.cleanup();
+  });
+});
+
+describe("native trusted link sites", () => {
+  async function mountTrusted(trustedSites: string[], trustSite = vi.fn()) {
+    alert.mockClear();
+    linking.openURL.mockClear();
+    return mount(
+      <MarkdownLinkPromptProvider trustedSites={trustedSites} trustSite={trustSite}>
+        <ChatMarkdown>{"[Docs](https://docs.example.test/a)"}</ChatMarkdown>
+      </MarkdownLinkPromptProvider>,
+    );
+  }
+
+  it("opens the link and trusts its site from the third button", async () => {
+    const trustSite = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const view = await mountTrusted([], trustSite);
+    await pressLink("https://docs.example.test/a");
+    const buttons = alert.mock.calls.at(-1)![2] as Array<{ text: string; onPress?: () => void }>;
+    expect(buttons.map((button) => button.text)).toEqual([
+      "Cancel",
+      "Always open example.test",
+      "Open",
+    ]);
+    await act(async () => {
+      buttons[1]!.onPress?.();
+    });
+    // A failed save still opens the link.
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith("https://docs.example.test/a");
+    });
+    expect(trustSite).toHaveBeenCalledWith("https://docs.example.test/a");
+    await view.cleanup();
+  });
+
+  it("opens a link to a trusted site directly", async () => {
+    const view = await mountTrusted(["example.test"]);
+    await pressLink("https://docs.example.test/a");
+    expect(alert).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(linking.openURL).toHaveBeenCalledWith("https://docs.example.test/a");
+    });
+    await view.cleanup();
   });
 });
 
@@ -1032,374 +1214,8 @@ describe("long user messages", () => {
       paragraphs[0]?.querySelectorAll("[data-accessibility-role='link']").length,
     ).toBeGreaterThan(0);
   });
-});
 
-describe("native markdown code colours", () => {
-  it.each([
-    ["dark", darkTokens, themes.oneDark],
-    ["light", lightTokens, themes.oneLight],
-  ] as const)("draws plain code in the %s theme's text colour", (scheme, palette, theme) => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown palette={palette} colorScheme={scheme}>
-        {"```bash\necho hi\n```\n\n```\nplain text\n```"}
-      </ChatMarkdown>,
-    );
-    const code = [...new DOMParser().parseFromString(html, "text/html").querySelectorAll("rn-text")]
-      .filter((text) => /echo|hi|plain text/.test(text.textContent ?? ""))
-      .filter((text) => text.children.length === 0);
-    expect(code.length).toBeGreaterThan(0);
-    for (const text of code) expect(text.getAttribute("data-color")).toBeTruthy();
-    const plain = code.find((text) => text.textContent === "plain text");
-    expect(plain?.getAttribute("data-color")).toBe(theme.plain.color);
-  });
-});
-
-describe("app links", () => {
-  it("draws an app link with the icon of the website its host named", async () => {
-    linking.openURL.mockClear();
-    alert.mockClear();
-    allowAppLinks([{ scheme: "coder", host: "chats", icon: "https://coder-native.example.test/" }]);
-    const load = vi.fn(async () => ({ icon: ICON }));
-    const url = "coder://chats/env-1/chat-1";
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{`Done: [Fix sign-in](${url})`}</ChatMarkdown>,
-      { load, globe: createElement("rn-globe") },
-    );
-    const [link] = view.links();
-    expect(link?.getAttribute("data-accessibility-label")).toBe("Fix sign-in");
-    expect(link?.textContent).toBe(joined("Fix sign-in"));
-    expect(link?.querySelector("rn-image")).not.toBeNull();
-    expect(load).toHaveBeenCalledWith("https://coder-native.example.test");
-    await act(async () => {
-      link?.click();
-    });
-    expect(alert).not.toHaveBeenCalled();
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith(url);
-    });
-    await view.cleanup();
-  });
-
-  it.each([
-    ["Gmail", "googlegmail:///cv=18f3a0c2b4d5e6f7/accountId=0", "https://mail.google.com"],
-    ["T3", "t3code://threads/env-1/thread-1", "https://app.t3.codes"],
-  ])("draws a bare %s link as one Open in pill instead of its address", async (name, url, site) => {
-    linking.openURL.mockClear();
-    alert.mockClear();
-    allowAppLinks(appLinkCatalog);
-    const load = vi.fn(async () => ({ icon: ICON }));
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{`Here it is: ${url}`}</ChatMarkdown>,
-      { load },
-    );
-    const links = view.links();
-    expect(links).toHaveLength(1);
-    expect(links[0]?.getAttribute("data-accessibility-label")).toBe(`Open in ${name}`);
-    expect(links[0]?.textContent).toBe(joined(`Open in ${name}`));
-    expect(links[0]?.querySelector("rn-image")).not.toBeNull();
-    expect(view.container.textContent).not.toContain(url.slice(url.indexOf(":")));
-    expect(load).toHaveBeenCalledWith(site);
-    await act(async () => {
-      links[0]?.click();
-    });
-    expect(alert).not.toHaveBeenCalled();
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith(url);
-    });
-    await view.cleanup();
-  });
-
-  it("asks and opens an app link by its lower-case scheme, as Android compares it", async () => {
-    linking.openURL.mockClear();
-    linking.canOpenURL.mockClear();
-    allowAppLinks(appLinkCatalog);
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{"[thread](T3CODE://threads/env-1/thread-1)"}</ChatMarkdown>,
-      { load: async () => ({ icon: null }) },
-    );
-    await act(async () => {
-      view.links()[0]?.click();
-    });
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("t3code://threads/env-1/thread-1");
-    });
-    expect(linking.canOpenURL).toHaveBeenCalledWith("t3code://threads/env-1/thread-1");
-    await view.cleanup();
-  });
-
-  it("opens an allowed app link without asking", async () => {
-    linking.openURL.mockClear();
-    alert.mockClear();
-    allowAppLinks([{ scheme: "coder", host: "threads" }]);
-    const url = "coder://threads/env-1/mcp%3Alaunch%3Aabc123";
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{`[one](${url}) and [two](${url})`}</ChatMarkdown>,
-      { load: async () => ({ icon: null }) },
-    );
-    const links = view.links();
-    expect(links.map((link) => link.textContent)).toEqual(["one", "two"]);
-    await act(async () => {
-      links[1]?.click();
-    });
-    expect(alert).not.toHaveBeenCalled();
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith(url);
-    });
-    await view.cleanup();
-  });
-});
-
-describe("user message links", () => {
-  it("opens a link tapped inside a user message bubble's long-press pressables", async () => {
-    // The mobile thread wraps a user bubble in two long-press Pressables: the
-    // row, then the bubble. A tap on the address still opens it, and markdown
-    // markers stay literal characters.
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    linking.openURL.mockClear();
-    linking.canOpenURL.mockClear();
-    const longPress = vi.fn();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(
-        <Pressable accessible={false} onLongPress={longPress}>
-          <Pressable onLongPress={longPress}>
-            <LinkifiedText
-              color={darkTokens.foreground}
-              linkColor={darkTokens.link}
-              palette={darkTokens}
-            >
-              {"# Title **important** https://example.com/docs"}
-            </LinkifiedText>
-          </Pressable>
-        </Pressable>,
-      );
-    });
-
-    const link = container.querySelector<HTMLElement>(
-      "rn-pressable rn-pressable [data-accessibility-role='link']",
-    );
-    // A bare address shows as host and path, joined to its site icon.
-    expect(link?.textContent).toBe("\u2060\u2068example.com/docs\u2069");
-    expect(container.textContent).toContain("# Title");
-    expect(container.textContent).toContain("**important**");
-
-    await act(async () => {
-      link?.click();
-    });
-    expect(linking.openURL).not.toHaveBeenCalled();
-    await act(async () => {
-      alert.mock.calls.at(-1)?.[2][1].onPress();
-    });
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("https://example.com/docs");
-    });
-    expect(longPress).not.toHaveBeenCalled();
-
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-  });
-});
-
-describe("native markdown lists", () => {
-  it("gives list items an intrinsic width instead of a zero flex basis", () => {
-    // `flex: 1` on list content collapsed a shrink-wrapped bubble to one character wide.
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"- premier point\n- second point"}</ChatMarkdown>,
-    );
-    expect(html).toContain('data-flex-grow="1"');
-    expect(html).not.toContain('data-flex="1"');
-    expect(html).toContain("premier point");
-    const ordered = renderToStaticMarkup(<ChatMarkdown>{"3. trois\n4. quatre"}</ChatMarkdown>);
-    expect(ordered).toContain("3.");
-    expect(ordered).toContain("4.");
-    expect(ordered).not.toContain('data-flex="1"');
-  });
-
-  it("numbers an ordered list nested inside a bulleted one", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"- outer\n  1. first\n  2. second"}</ChatMarkdown>,
-    );
-    expect(html).toContain("1.");
-    expect(html).toContain("2.");
-    // One bullet for the outer item, none for the nested numbered items.
-    expect(bulletDots(html)).toHaveLength(1);
-  });
-
-  it("marks bullets with a 5pt dot centred on the first line, 26pt before the text", () => {
-    const dots = bulletDots(renderToStaticMarkup(<ChatMarkdown>{"- one\n- two"}</ChatMarkdown>));
-    expect(dots).toHaveLength(2);
-    expect(dots[0]?.getAttribute("data-border-radius")).toBe("2.5");
-    // Centred on an invisible line in the body style, so it follows the text size, in a marker
-    // only as tall as that line, so a wrapped item keeps its dot on the first line.
-    const marker = dots[0]?.parentElement;
-    expect(marker?.getAttribute("data-align-self")).toBe("flex-start");
-    expect(marker?.getAttribute("data-flex-direction")).toBe("row");
-    expect(marker?.getAttribute("data-align-items")).toBe("center");
-    // No offset against the item: a percentage would resolve against the wrapped item's height.
-    expect(dots[0]?.hasAttribute("data-position")).toBe(false);
-    expect(dots[0]?.hasAttribute("data-top")).toBe(false);
-    const line = dots[0]?.parentElement?.querySelector("rn-text");
-    expect(line?.textContent).toBe("\u200B");
-    expect(line?.getAttribute("data-line-height")).toBe("22");
-    expect(line?.getAttribute("data-font-size")).toBe("17");
-    // Markers sit back in the faint colour so the text leads.
-    expect(dots[0]?.getAttribute("data-background-color")).toBe(darkTokens.faintForeground);
-    // 13 + 5 + 8: the dot ends where a one-digit number ends.
-    expect(dots[0]?.parentElement?.getAttribute("data-margin-left")).toBe("13");
-    expect(dots[0]?.parentElement?.getAttribute("data-margin-right")).toBe("8");
-  });
-
-  it("draws task list items as checkboxes instead of their [ ] and [x] text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"- [x] Draft the announcement\n- [ ] Collect quotes\n- plain"}</ChatMarkdown>,
-    );
-    expect(html).not.toContain("[x]");
-    expect(html).not.toContain("[ ]");
-    expect(html).toContain("Draft the announcement");
-    expect(html.match(/data-accessibility-role="checkbox"/g)).toHaveLength(2);
-    expect(html.match(/✓/g)).toHaveLength(1);
-    // Each task is one accessible element that reads its text with its state.
-    expect(html).toMatch(/accessible=""[^>]*accessibilityLabel="Draft the announcement"/);
-    // The plain item keeps its bullet.
-    expect(bulletDots(html)).toHaveLength(1);
-  });
-
-  it("draws a checkbox when the task text starts on the next line", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"- [x]\n  Ship it"}</ChatMarkdown>);
-    expect(html).not.toContain("[x]");
-    expect(html).toContain("Ship it");
-    expect(html.match(/data-accessibility-role="checkbox"/g)).toHaveLength(1);
-  });
-
-  it("keeps each nested task's own checkbox state", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"- [ ] Launch\n  - [x] Draft\n  - [ ] Review"}</ChatMarkdown>,
-    );
-    expect(html.match(/data-accessibility-role="checkbox"/g)).toHaveLength(3);
-    expect(html).toMatch(/accessibilityLabel="Launch"/);
-    expect(html).toMatch(/accessibilityLabel="Draft"/);
-  });
-
-  it("keeps escaped [x] and [ ] as literal text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"- \\[x\\] done literally\n- \\[ \\] open literally"}</ChatMarkdown>,
-    );
-    expect(html).toContain("[x] done literally");
-    expect(html).toContain("[ ] open literally");
-    expect(html).not.toContain('data-accessibility-role="checkbox"');
-    expect(bulletDots(html)).toHaveLength(2);
-  });
-
-  it("draws the bullet dot in the list-marker colour", () => {
-    const markerColor = "#7A7A80";
-    const create = vi
-      .spyOn(StyleSheet, "create")
-      // The message styles gain a list-marker colour, as a colour theme would set it.
-      .mockImplementation((styles) =>
-        "body" in styles ? { ...styles, bullet_list_icon: { color: markerColor } } : styles,
-      );
-    try {
-      const dots = bulletDots(
-        renderToStaticMarkup(<ChatMarkdown palette={{ ...darkTokens }}>{"- one"}</ChatMarkdown>),
-      );
-      expect(dots[0]?.getAttribute("data-background-color")).toBe(markerColor);
-    } finally {
-      create.mockRestore();
-    }
-  });
-
-  it("puts a short list's numbers in an 18pt column, 8pt before the text", () => {
-    const columns = numberColumns(
-      renderToStaticMarkup(<ChatMarkdown>{"1. one\n2. two\n3. three"}</ChatMarkdown>),
-    );
-    expect(columns).toHaveLength(3);
-    for (const column of columns) {
-      expect(column.getAttribute("data-min-width")).toBe("18");
-      expect(column.getAttribute("data-margin-right")).toBe("8");
-      expect(column.getAttribute("data-align-items")).toBe("flex-end");
-    }
-  });
-
-  it("widens the number column for the whole list once it reaches 10, so item text lines up", () => {
-    const columns = numberColumns(
-      renderToStaticMarkup(
-        <ChatMarkdown>
-          {Array.from({ length: 10 }, (_, i) => `${i + 1}. item`).join("\n")}
-        </ChatMarkdown>,
-      ),
-    );
-    expect(columns.map((column) => column.textContent)).toEqual(
-      Array.from({ length: 10 }, (_, i) => `${i + 1}.`),
-    );
-    const widths = new Set(columns.map((column) => Number(column.getAttribute("data-min-width"))));
-    expect(widths.size).toBe(1);
-    expect([...widths][0]).toBeGreaterThan(18);
-  });
-
-  it("separates list items by 8pt", () => {
-    for (const markdown of ["- one\n- two", "1. one\n2. two"]) {
-      const document = new DOMParser().parseFromString(
-        renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>),
-        "text/html",
-      );
-      const firstItem = [...document.querySelectorAll("rn-view")].find(
-        (view) => isBulletDot(view.firstElementChild) || isNumberColumn(view.firstElementChild),
-      );
-      expect(firstItem?.parentElement?.getAttribute("data-gap")).toBe("8");
-    }
-  });
-
-  // iOS font scales: the default, xxxLarge and the second accessibility size.
-  it.each([
-    ["10 items at the default text size", 1, 10, ".", 24],
-    ["100 items at the default text size", 1, 100, ".", 33],
-    ["10 items at the largest standard text size", 1.353, 10, ".", 32],
-    // Text stops growing at the largest standard size, and the column with it.
-    ["10 items at an accessibility text size", 2.143, 10, ".", 32],
-    ["10 items numbered 1) at an accessibility text size", 2.143, 10, ")", 34],
-  ])(
-    "gives every number in a list of %s one column, as wide as its longest number",
-    (_, fontScale, count, markup, width) => {
-      windowSize.fontScale = fontScale;
-      try {
-        const columns = numberColumns(
-          renderToStaticMarkup(
-            <ChatMarkdown>
-              {Array.from({ length: count }, (_, i) => `${i + 1}${markup} item`).join("\n")}
-            </ChatMarkdown>,
-          ),
-        );
-        expect(columns).toHaveLength(count);
-        for (const column of columns) {
-          expect(column.getAttribute("data-min-width")).toBe(String(width));
-        }
-      } finally {
-        windowSize.fontScale = 1;
-      }
-    },
-  );
-
-  it("numbers ordered lists at 15pt in tabular figures", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"9. nine\n10. ten"}</ChatMarkdown>);
-    expect(textStyle(html, "10.")).toMatchObject({
-      "data-font-size": "15",
-      "data-line-height": "22",
-      "data-font-variant": "tabular-nums",
-    });
-  });
-});
-
-describe("native markdown type", () => {
-  it("sets bot and user message text at 17pt on a 22pt line", () => {
-    const bot = renderToStaticMarkup(<ChatMarkdown>{"Plain reply."}</ChatMarkdown>);
-    expect(textStyle(bot, "Plain reply.")).toMatchObject({
-      "data-font-size": "17",
-      "data-line-height": "22",
-    });
+  it("sets user message text at 17pt on a 22pt line", () => {
     const user = renderToStaticMarkup(
       <LinkifiedText color={darkTokens.foreground} linkColor={darkTokens.link} palette={darkTokens}>
         {"Plain message."}
@@ -1410,305 +1226,95 @@ describe("native markdown type", () => {
       "data-line-height": "22",
     });
   });
-
-  it("draws headings and bold text in semibold", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {"# One\n\n## Two\n\n### Three\n\n#### Four\n\nSome **bold** text."}
-      </ChatMarkdown>,
-    );
-    const heading = (size: string, lineHeight: string) => ({
-      "data-font-size": size,
-      "data-line-height": lineHeight,
-      "data-font-weight": "600",
-    });
-    expect(textStyle(html, "One")).toMatchObject(heading("22", "26"));
-    expect(textStyle(html, "Two")).toMatchObject(heading("19", "23"));
-    expect(textStyle(html, "Three")).toMatchObject(heading("17", "22"));
-    expect(textStyle(html, "Four")).toMatchObject(heading("15", "19"));
-    expect(textStyle(html, "bold")).toMatchObject({ "data-font-weight": "600" });
-  });
-
-  it("sets inline code in the system monospaced font at 14pt without a chip", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"Run `pnpm test` now."}</ChatMarkdown>);
-    expect(textStyle(html, "pnpm test")).toMatchObject({
-      "data-font-family": "ui-monospace",
-      "data-font-size": "14",
-      "data-background-color": "transparent",
-      "data-border-width": "0",
-    });
-  });
-
-  it("sets code blocks in the system monospaced font at 14pt with the font's own line spacing, in a rounded box", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"```\nconst a = 1;\n```"}</ChatMarkdown>);
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const token = [...document.querySelectorAll("rn-text")].find((text) =>
-      text.textContent?.includes("const"),
-    );
-    expect(token?.getAttribute("data-font-family")).toBe("ui-monospace");
-    expect(token?.getAttribute("data-font-size")).toBe("14");
-    expect(token?.hasAttribute("data-line-height")).toBe(false);
-    expect(
-      document.querySelector("rn-view[data-border-radius]")?.getAttribute("data-border-radius"),
-    ).toBe("10");
-  });
-
-  it("sets table headers in semibold and cells in the body type", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{THREE_COLUMN_TABLE}</ChatMarkdown>);
-    expect(textStyle(html, "Status")).toMatchObject({
-      "data-color": darkTokens.foreground,
-      "data-font-size": "17",
-      "data-line-height": "22",
-      "data-font-weight": "600",
-    });
-    expect(textStyle(html, "queued")).toMatchObject({
-      "data-color": darkTokens.foreground,
-      "data-font-size": "17",
-      "data-line-height": "22",
-    });
-  });
-
-  it("draws a 3pt quote bar", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"> Quoted."}</ChatMarkdown>);
-    expect(html).toMatch(/data-border-left-color="[^"]+"[^>]*data-border-left-width="3"/);
-  });
 });
 
-describe("native markdown images", () => {
-  it("shows a remote image as a placeholder that loads it in place on tap", async () => {
-    const markdown = '![chart](https://images.example.test/tap.png?d=secret "Q3 revenue")';
-    const html = renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    expect(html).not.toContain("<rn-stub");
-    expect(html).toContain('data-accessibility-role="button"');
-    expect(html).toContain('accessibilityLabel="chart, images.example.test"');
-    expect(html).toContain('accessibilityHint="Q3 revenue"');
-    // A filled chip on the muted bubble reads as a control in both themes.
-    expect(html).toContain(`data-background-color="${darkTokens.background}"`);
-
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+describe("user message links", () => {
+  it("opens a link tapped inside a user message bubble's long-press pressables", async () => {
+    // The mobile thread wraps a user bubble in two long-press Pressables: the
+    // row, then the bubble. A tap on the address still opens it, and markdown
+    // markers stay literal characters.
     linking.openURL.mockClear();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    });
-    expect(container.querySelector("rn-stub")).toBeNull();
-    await act(async () => {
-      container.querySelector<HTMLElement>("[data-accessibility-role='button']")?.click();
-    });
-    expect(container.querySelector("rn-stub")).not.toBeNull();
-    expect(container.querySelector("[data-accessibility-role='button']")).toBeNull();
-    expect(linking.openURL).not.toHaveBeenCalled();
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-
-    // The reader's choice holds for the session, so a remounted bubble keeps the image.
-    expect(renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>)).toContain("<rn-stub");
-  });
-
-  it("shows a placeholder when a tapped image is replaced with another url", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const image = (href: string) => ({ href, host: "images.example.test" });
-    const render = (href: string) => {
-      root.render(
-        <RemoteMarkdownImage
-          image={image(href)}
-          alt="chart"
-          rejectedLink={false}
-          labelStyle={undefined}
-          styleMap={{}}
-        />,
-      );
-    };
-    await act(async () => {
-      render("https://images.example.test/native-first.png");
-    });
-    await act(async () => {
-      container.querySelector<HTMLElement>("[data-accessibility-role='button']")?.click();
-    });
-    expect(container.querySelector("rn-stub")).not.toBeNull();
-
-    await act(async () => {
-      render("https://images.example.test/native-second.png");
-    });
-    expect(container.querySelector("rn-stub")).toBeNull();
-    expect(container.querySelector("[data-accessibility-role='button']")).not.toBeNull();
-
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-  });
-
-  it("loads remote images at once when the reader turned that on", () => {
-    const html = renderToStaticMarkup(
-      <RemoteImagesContext.Provider value={true}>
-        <ChatMarkdown>
-          {
-            "![chart](https://images.example.test/auto.png) [![build](https://badge.example.test/auto.svg)](https://ci.example.test/run)"
-          }
-        </ChatMarkdown>
-      </RemoteImagesContext.Provider>,
+    linking.canOpenURL.mockClear();
+    const longPress = vi.fn();
+    const view = await mount(
+      <Pressable accessible={false} onLongPress={longPress}>
+        <Pressable onLongPress={longPress}>
+          <LinkifiedText
+            color={darkTokens.foreground}
+            linkColor={darkTokens.link}
+            palette={darkTokens}
+          >
+            {"# Title **important** https://example.com/docs"}
+          </LinkifiedText>
+        </Pressable>
+      </Pressable>,
     );
-    expect(html.match(/<rn-stub/g)).toHaveLength(2);
-    expect(html).toContain('data-accessibility-role="link"');
-    expect(html).not.toContain('data-accessibility-role="button"');
-  });
 
-  it("shows unopenable image sources and unsafe links as plain text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {"![logo](/api/v1/p.gif) ![](example.test/p.gif) [x](javascript:alert(1))"}
-      </ChatMarkdown>,
+    const userLink = view.container.querySelector<HTMLElement>(
+      "rn-pressable rn-pressable [data-accessibility-role='link']",
     );
-    expect(html).not.toContain("<rn-stub");
-    expect(html).not.toContain("data-accessibility-role");
-    expect(html).not.toContain("data-text-decoration-line");
-    expect(html).not.toContain("javascript:");
-    expect(html).toContain(">x</rn-text>");
-    expect(html).toContain("logo");
-    expect(html).toContain("example.test/p.gif");
-  });
+    // A bare address shows as host and path, joined to its site icon.
+    expect(userLink?.textContent).toBe("⁠⁨example.com/docs⁩");
+    expect(view.container.textContent).toContain("# Title");
+    expect(view.container.textContent).toContain("**important**");
 
-  it("lays out a linked image placeholder as a block beside the link", async () => {
-    const markdown =
-      "See [![build](https://badge.example.test/tap-linked.svg)](https://ci.example.test/tap-linked) now";
-    const html = renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    expect(html).not.toContain("<rn-stub");
-    expect(html).not.toContain("tap-linked.svg");
-    const holder = document.createElement("div");
-    holder.innerHTML = html;
-    const button = holder.querySelector<HTMLElement>("[data-accessibility-role='button']");
-    const link = holder.querySelector<HTMLElement>("[data-accessibility-role='link']");
-    expect(button?.closest("rn-text")).toBeNull();
-    expect(button?.closest("[data-accessibility-role='link']")).toBeNull();
-    expect(button?.parentElement?.tagName.toLowerCase()).toBe("rn-view");
-    expect(button?.parentElement?.getAttribute("data-flex")).toBeNull();
-    expect(button?.parentElement).toBe(link?.parentElement);
-    expect(link?.contains(button)).toBe(false);
-    expect(link?.textContent).toBe("ci.example.test");
-    expect(holder.textContent).toContain("See ");
-    expect(holder.textContent).toContain(" now");
-
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    linking.openURL.mockClear();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
     await act(async () => {
-      root.render(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    });
-    expect(container.querySelector("rn-stub")).toBeNull();
-
-    const liveLink = container.querySelector<HTMLElement>("[data-accessibility-role='link']");
-    await act(async () => {
-      liveLink?.click();
+      userLink?.click();
     });
     expect(linking.openURL).not.toHaveBeenCalled();
     await act(async () => {
       alert.mock.calls.at(-1)?.[2][1].onPress();
     });
     await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("https://ci.example.test/tap-linked");
+      expect(linking.openURL).toHaveBeenCalledWith("https://example.com/docs");
     });
-    expect(container.querySelector("rn-stub")).toBeNull();
-
-    linking.openURL.mockClear();
-    const liveButton = container.querySelector<HTMLElement>("[data-accessibility-role='button']");
-    expect(liveButton?.closest("[data-accessibility-role='link']")).toBeNull();
-    await act(async () => {
-      liveButton?.click();
-    });
-    const image = container.querySelector("rn-stub");
-    expect(image).not.toBeNull();
-    expect(image?.closest("[data-accessibility-role='link']")).not.toBeNull();
-    expect(container.querySelector("[data-accessibility-role='button']")).toBeNull();
-    expect(linking.openURL).not.toHaveBeenCalled();
-
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+    expect(longPress).not.toHaveBeenCalled();
+    await view.cleanup();
   });
 
-  it("keeps an image inside a rejected link as text when automatic loading is on", () => {
+  it("underlines a user-message link in the bubble's text colour", () => {
     const html = renderToStaticMarkup(
-      <RemoteImagesContext.Provider value={true}>
-        <ChatMarkdown>
-          {
-            "[![Open](https://example.test/visit)](javascript:alert(1)) [![File](https://example.test/file)](data:text/html,hi)"
-          }
-        </ChatMarkdown>
-      </RemoteImagesContext.Provider>,
+      <LinkifiedText
+        color={darkTokens.chatUserForeground}
+        linkColor={darkTokens.chatUserForeground}
+        palette={darkTokens}
+      >
+        {"see https://example.com/docs"}
+      </LinkifiedText>,
     );
-    expect(html).not.toContain("<rn-stub");
-    expect(html).not.toContain("example.test");
-    expect(html).not.toContain("javascript:");
-    expect(html).toContain(`data-color="${darkTokens.foreground}">Open</rn-text>`);
-    expect(html).toContain(`data-color="${darkTokens.foreground}">File</rn-text>`);
+    expect(html).toContain(
+      `data-text-decoration-line="underline" data-text-decoration-color="${darkTokens.chatUserForeground}"`,
+    );
+    expect(html).not.toContain(`data-text-decoration-color="${darkTokens.input}"`);
   });
 
-  it("shows an image inside a rejected link as plain text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {
-          "[![Open](https://example.test/visit)](javascript:alert(1)) [![File](https://example.test/file)](data:text/html,hi)"
-        }
-      </ChatMarkdown>,
+  it("draws the tile in user messages, in the message's own colour", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: ICON }), globe },
+        <LinkifiedText
+          color={lightTokens.secondaryForeground}
+          linkColor={lightTokens.link}
+          palette={lightTokens}
+        >
+          {"look https://native-g.example.test/a/ or mail me@example.com"}
+        </LinkifiedText>,
+      ),
     );
-    expect(html).not.toContain("<rn-stub");
-    expect(html).not.toContain("<rn-pressable");
-    expect(html).not.toContain("data-accessibility-role");
-    expect(html).not.toContain("data-text-decoration-line");
-    expect(html).not.toContain("example.test");
-    expect(html).not.toContain("javascript:");
-    expect(html).toContain(`data-color="${darkTokens.foreground}">Open</rn-text>`);
-    expect(html).toContain(`data-color="${darkTokens.foreground}">File</rn-text>`);
-  });
-
-  it("shows mailto and tel image sources as plain text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"![Contact](mailto:user@example.test) ![Call](tel:+15551212)"}</ChatMarkdown>,
-    );
-    expect(html).not.toContain("data-accessibility-role");
-    expect(html).not.toContain("data-text-decoration-line");
-    expect(html).not.toContain("mailto:");
-    expect(html).not.toContain("tel:");
-    expect(html).toContain("Contact");
-    expect(html).toContain("Call");
-  });
-
-  it("shows an image-only link with an unopenable destination as plain text", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"[![build](https://badge.example.test/b.svg)](/run)"}</ChatMarkdown>,
-    );
-    expect(html).not.toContain("<rn-pressable");
-    expect(html).not.toContain("data-accessibility-role");
-    expect(html).not.toContain("data-text-decoration-line");
-    expect(html).not.toContain("badge.example.test");
-    expect(html).toContain("build");
-    // The label sits outside any text node, so it must carry the body color itself.
-    expect(html).toContain(`data-color="${darkTokens.foreground}">build</rn-text>`);
-  });
-
-  it("renders embedded image data inline", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"![dot](data:image/png;base64,iVBORw0KGgo=)"}</ChatMarkdown>,
-    );
-    // The image component is a stub under test; a link would mean it fell back.
-    expect(html).toContain("<rn-stub");
-    expect(html).not.toContain("data-accessibility-role");
+    const [site, mail] = [
+      ...view.container.querySelectorAll<HTMLElement>("rn-text[data-accessibility-role='link']"),
+    ];
+    expect(site?.getAttribute("data-accessibility-label")).toBe("native-g.example.test/a");
+    expect(site?.getAttribute("data-color")).toBe(lightTokens.secondaryForeground);
+    expect(site?.querySelector("rn-image")).not.toBeNull();
+    expect(mail?.textContent).toBe("me@example.com");
+    expect(mail?.querySelector("rn-view")).toBeNull();
+    expect(mail?.getAttribute("data-color")).toBe(lightTokens.link);
+    await view.cleanup();
   });
 });
 
-describe("message direction", () => {
-  const parse = (html: string) => new DOMParser().parseFromString(html, "text/html");
+describe("user message direction", () => {
   const directionAttributes =
     /data-text-align|data-writing-direction|data-flex-direction="row-reverse"/;
 
@@ -1718,20 +1324,10 @@ describe("message direction", () => {
         {text}
       </LinkifiedText>,
     );
-    return { html, root: parse(html).querySelector("rn-text") };
-  }
-
-  function botTextGroups(markdown: string) {
-    const document = parse(renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>));
-    // A text group is the outermost text of a block; its leaves are nested texts.
-    const groups = [...document.querySelectorAll("rn-text")].filter(
-      (text) => text.parentElement?.tagName.toLowerCase() !== "rn-text",
-    );
-    return { document, groups };
-  }
-
-  function textOf(element: Element | null | undefined) {
-    return element?.textContent ?? "";
+    return {
+      html,
+      root: new DOMParser().parseFromString(html, "text/html").querySelector("rn-text"),
+    };
   }
 
   it("right-aligns a user message whose first letter is Hebrew or Arabic", () => {
@@ -1753,1030 +1349,351 @@ describe("message direction", () => {
     }
   });
 
-  it("aligns each bot block by its own first letter", () => {
-    const { groups } = botTextGroups(
-      [
-        "Fake reply 9. You said:",
-        "",
-        "## כותרת",
-        "",
-        "רשימה קצרה.",
-        "",
-        "See README.md.",
-        "",
-        "> ציטוט",
-      ].join("\n"),
-    );
-    const alignment = Object.fromEntries(
-      groups.map((group) => [
-        textOf(group),
-        [group.getAttribute("data-text-align"), group.getAttribute("data-width")],
-      ]),
-    );
-    expect(alignment).toEqual({
-      "Fake reply 9. You said:": [null, null],
-      כותרת: ["right", "100%"],
-      "רשימה קצרה.": ["right", "100%"],
-      "See README.md.": [null, null],
-      ציטוט: ["right", "100%"],
-    });
-  });
-
-  it("puts each list item's marker on its own side", () => {
-    const { document } = botTextGroups(
-      "- פריט ראשון\n- Install the CLI.\n\n1. אחד\n2. second\n3. שלוש",
-    );
-    const items = [...document.querySelectorAll("rn-view")].filter((view) => {
-      const marker = view.firstElementChild;
-      return isBulletDot(marker) || isNumberColumn(marker);
-    });
-    expect(
-      items.map((item) => [
-        textOf(item.lastElementChild),
-        item.getAttribute("data-flex-direction"),
-        item.firstElementChild?.querySelector("rn-text")?.getAttribute("data-writing-direction") ??
-          null,
-      ]),
-    ).toEqual([
-      ["פריט ראשון", "row-reverse", "rtl"],
-      ["Install the CLI.", "row", null],
-      ["אחד", "row-reverse", "rtl"],
-      ["second", "row", null],
-      ["שלוש", "row-reverse", "rtl"],
-    ]);
-  });
-
-  it("renders an English block in a Hebrew-first reply the same as on its own", () => {
-    const englishItem = (markdown: string) =>
-      [...botTextGroups(markdown).document.querySelectorAll("rn-view")]
-        .filter(
-          (view) =>
-            isBulletDot(view.firstElementChild) &&
-            textOf(view.lastElementChild) === "Install the CLI.",
-        )
-        .map((view) => view.outerHTML);
-    const englishParagraph = (markdown: string) =>
-      botTextGroups(markdown)
-        .groups.filter((group) => textOf(group) === "See README.md.")
-        .map((group) => group.outerHTML);
-    const mixed = "שלום רב.\n\n- פריט ראשון\n- Install the CLI.\n\nSee README.md.";
-    expect(englishItem(mixed)).toEqual(englishItem("- Install the CLI."));
-    expect(englishParagraph(mixed)).toEqual(englishParagraph("See README.md."));
-    expect(englishItem(mixed)).toHaveLength(1);
-  });
-
-  it("keeps code in a right-to-left message as it was", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"שלום\n\n    indented();\n\n```\nfenced();\n```"}</ChatMarkdown>,
-    );
-    const code = [...parse(html).querySelectorAll("rn-text")].filter((text) =>
-      /indented|fenced/.test(textOf(text)),
-    );
-    expect(code.length).toBeGreaterThan(0);
-    for (const text of code) expect(text.outerHTML).not.toMatch(directionAttributes);
-  });
-
-  it("fills code blocks with the secondary fill, not the page colour", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"    indented();\n\n```\nfenced();\n```"}</ChatMarkdown>,
-    );
-    expect(html).toContain(`data-background-color="${darkTokens.secondary}"`);
-    expect(html).not.toContain(`data-background-color="${darkTokens.background}"`);
-  });
-
-  it("fills a fence once, so its header and code do not stack the translucent fill", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"```ts\nfenced();\n```"}</ChatMarkdown>);
-    expect(html.split(`data-background-color="${darkTokens.secondary}"`)).toHaveLength(2);
-  });
-
-  it("keeps a left-to-right bot message laid out as before", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>
-        {"## Heading\n\nIntro שלום.\n\n- one\n- two\n\n1. first\n2. second"}
-      </ChatMarkdown>,
-    );
-    expect(html).not.toMatch(directionAttributes);
-  });
-
   it("aligns an English message to the far side in a right-to-left app", () => {
     i18n.isRTL = true;
     try {
       // React Native mirrors `right` in a right-to-left layout, so it lands on the left.
       expect(userBubble("Hello there.").root?.getAttribute("data-text-align")).toBe("right");
       expect(userBubble("שלום").html).not.toMatch(directionAttributes);
-      const { document } = botTextGroups("1. Install the CLI.");
-      expect(document.querySelector('rn-view[data-flex-direction="row-reverse"]')).not.toBeNull();
-      expect(document.querySelector('rn-text[data-writing-direction="ltr"]')).not.toBeNull();
     } finally {
       i18n.isRTL = false;
     }
   });
 });
 
-const ICON = "data:image/png;base64,iVBORw0KGgo=";
-// Word joiner, then the label wrapped in a first-strong isolate.
-const joined = (label: string) => `\u2060\u2068${label}\u2069`;
-
-async function renderNativeLinks(
-  node: (streaming: boolean) => ReactNode,
-  favicons: LinkFavicons,
-  streaming = false,
-) {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  const render = async (nextStreaming: boolean) => {
-    await act(async () => {
-      root.render(
-        <LinkFaviconsContext.Provider value={favicons}>
-          {node(nextStreaming)}
-        </LinkFaviconsContext.Provider>,
-      );
-    });
+describe("native markdown segments", () => {
+  const runs = (markdown: string, element = <ChatMarkdown>{markdown}</ChatMarkdown>) => {
+    enriched.runs = [];
+    const html = renderToStaticMarkup(element);
+    return { runs: [...enriched.runs], html };
   };
-  await render(streaming);
-  return {
-    container,
-    render,
-    links: () => [
-      ...container.querySelectorAll<HTMLElement>("rn-text[data-accessibility-role='link']"),
-    ],
-    cleanup: async () => {
-      await act(async () => {
-        root.unmount();
-      });
-      container.remove();
-    },
-  };
-}
 
-describe("native website links", () => {
-  const globe = createElement("rn-globe");
-
-  it("draws the API's icon in a hidden tile joined to the author's label", async () => {
-    const load = vi.fn(async () => ({ icon: ICON }));
-    const view = await renderNativeLinks(
-      () => (
-        <ChatMarkdown>{"Traffic plunges. [Post](https://native-a.example.test/p/1)"}</ChatMarkdown>
-      ),
-      { load, globe },
-    );
-    const [link] = view.links();
-    expect(link?.getAttribute("data-accessibility-label")).toBe("Post");
-    expect(link?.textContent).toBe(joined("Post"));
-    const marker = link?.querySelector("rn-view");
-    expect(marker?.getAttribute("data-accessibility-elements-hidden")).toBe("true");
-    expect(marker?.getAttribute("data-important-for-accessibility")).toBe("no-hide-descendants");
-    expect(marker?.querySelector("rn-image")).not.toBeNull();
-    expect(
-      marker
-        ?.querySelector("rn-view[data-background-color]")
-        ?.getAttribute("data-background-color"),
-    ).toBe(darkTokens.faviconPlate);
-    // The underline sits on the label, not the tile.
-    expect(link?.getAttribute("data-color")).toBe(darkTokens.foreground);
-    expect(link?.getAttribute("data-text-decoration-line")).toBe("none");
-    expect(load).toHaveBeenCalledWith("https://native-a.example.test");
-    await view.cleanup();
+  it("draws a display formula as a view between runs of text, in order", () => {
+    const { runs: drawn, html } = runs("before $$x^2$$ after");
+    expect(drawn).toEqual(["before", "after"]);
+    // The native view reads no TeX: a single `$` stays text.
+    expect(nativeProps().md4cFlags).toEqual({ latexMath: false });
+    expect(html.indexOf("x^2")).toBeGreaterThan(-1);
+    expect(html.match(/<enriched-markdown>/g)).toHaveLength(2);
   });
 
-  it("shortens a bare URL to host and path", async () => {
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{"See https://www.native-b.example.test/status/9?s=1 now"}</ChatMarkdown>,
-      { load: async () => ({ icon: null }), globe },
-    );
-    const [link] = view.links();
-    expect(link?.getAttribute("data-accessibility-label")).toBe("native-b.example.test/status/9");
-    expect(link?.textContent).toBe(joined("native-b.example.test/status/9"));
-    await view.cleanup();
-  });
-
-  it("shows the app's globe when there is no icon or the icon is a 1×1 pixel", async () => {
-    const view = await renderNativeLinks(
-      () => (
-        <ChatMarkdown>
-          {"[A](https://native-c.example.test/) [B](https://native-d.example.test/)"}
-        </ChatMarkdown>
-      ),
-      {
-        load: async (origin) => ({
-          icon: origin === "https://native-c.example.test" ? null : ICON,
-        }),
-        globe,
-      },
-    );
-    const [first, second] = view.links();
-    expect(first?.querySelector("rn-globe")).not.toBeNull();
-    expect(second?.querySelector("rn-image")).not.toBeNull();
-    await act(async () => {
-      imageLoads.at(-1)?.({ nativeEvent: { source: { width: 1, height: 1 } } });
-    });
-    expect(view.links()[1]?.querySelector("rn-image")).toBeNull();
-    expect(view.links()[1]?.querySelector("rn-globe")).not.toBeNull();
-    await view.cleanup();
-  });
-
-  it("shortens and cleans bare URLs whose escapes the parser decoded", async () => {
-    const view = await renderNativeLinks(
-      () => (
-        <ChatMarkdown>
-          {
-            "See https://bidi.example.test/%E2%80%AEtxt.exe and https://native-k.example.test/caf%C3%A9 now"
-          }
-        </ChatMarkdown>
-      ),
-      { load: async () => ({ icon: null }), globe },
-    );
-    const [bidi, cafe] = view.links();
-    expect(bidi?.getAttribute("data-accessibility-label")).toBe("bidi.example.test/txt.exe");
-    expect(bidi?.textContent).toBe(joined("bidi.example.test/txt.exe"));
-    expect(cafe?.textContent).toBe(joined("native-k.example.test/café"));
-    expect(view.container.textContent).not.toContain("\u202E");
-    await view.cleanup();
-  });
-
-  it("isolates a label so its direction characters stay inside the link", async () => {
-    const view = await renderNativeLinks(
-      () => (
-        <ChatMarkdown>
-          {
-            "See [\u202Eevil](https://native-j.example.test/) then [next](https://native-j.example.test/n)"
-          }
-        </ChatMarkdown>
-      ),
-      { load: async () => ({ icon: null }), globe },
-    );
-    const [evil, next] = view.links();
-    expect(evil?.textContent).toBe(joined("\u202Eevil"));
-    expect(next?.textContent).toBe(joined("next"));
-    await view.cleanup();
-  });
-
-  it("keeps formatting inside a labelled link in the website link style", async () => {
-    const view = await renderNativeLinks(
-      () => <ChatMarkdown>{"[**Bold** label](https://native-h.example.test/)"}</ChatMarkdown>,
-      { load: async () => ({ icon: null }), globe },
-    );
-    const [link] = view.links();
-    // The innermost text run, which carries the style the renderer gives text inside a link.
-    const bold = [...(link?.querySelectorAll("rn-text") ?? [])]
-      .filter((text) => text.textContent === "Bold")
-      .at(-1);
-    expect(bold?.getAttribute("data-color")).toBe(darkTokens.foreground);
-    expect(bold?.getAttribute("data-text-decoration-line")).toBe("underline");
-    expect(bold?.getAttribute("data-font-weight")).toBe("600");
-    const plain = [...(link?.querySelectorAll("rn-text") ?? [])]
-      .filter((text) => text.textContent === " label")
-      .at(-1);
-    expect(plain?.getAttribute("data-font-weight")).toBe("500");
-    await view.cleanup();
-  });
-
-  it("shows the globe and does not ask again right away after a failed lookup", async () => {
-    const load = vi.fn(async () => {
-      throw new Error("Not found");
-    });
-    const markdown = "[A](https://native-i.example.test/) and [B](https://native-i.example.test/b)";
-    const view = await renderNativeLinks(() => <ChatMarkdown>{markdown}</ChatMarkdown>, {
-      load,
-      globe,
-    });
-    expect(view.container.querySelectorAll("rn-globe")).toHaveLength(2);
-    await view.render(false);
-    await view.cleanup();
-    const again = await renderNativeLinks(() => <ChatMarkdown>{markdown}</ChatMarkdown>, {
-      load,
-      globe,
-    });
-    expect(again.container.querySelectorAll("rn-globe")).toHaveLength(2);
-    expect(load).toHaveBeenCalledTimes(1);
-    await again.cleanup();
-  });
-
-  it("asks for no icon while a reply streams", async () => {
-    const load = vi.fn(async () => ({ icon: ICON }));
-    const view = await renderNativeLinks(
-      (streaming) => (
-        <ChatMarkdown streaming={streaming}>
-          {"Partial https://native-e.example.test/x"}
-        </ChatMarkdown>
-      ),
-      { load, globe },
-      true,
-    );
-    expect(load).not.toHaveBeenCalled();
-    await view.render(false);
-    expect(load).toHaveBeenCalledWith("https://native-e.example.test");
-    await view.cleanup();
-  });
-
-  it("gives no tile to links that are not websites", async () => {
-    const load = vi.fn(async () => ({ icon: ICON }));
-    const view = await renderNativeLinks(
-      () => (
-        <ChatMarkdown>
-          {[
-            "[mail](mailto:someone@example.com) [call](tel:+15555550100) [docs](/docs)",
-            "`https://native-f.example.test/in-code`",
-            "[![build](https://badge.example.test/b.svg)](https://native-f.example.test/ci)",
-          ].join("\n\n")}
-        </ChatMarkdown>
-      ),
-      { load, globe },
-    );
-    expect(view.container.querySelector("rn-globe")).toBeNull();
-    expect(view.container.querySelector("rn-image")).toBeNull();
-    expect(load).not.toHaveBeenCalled();
-    // Links that are not websites keep the plain link style.
-    const mail = view.links().find((link) => link.textContent === "mail");
-    expect(mail?.getAttribute("data-color")).toBe(darkTokens.link);
-    await view.cleanup();
-  });
-
-  it("underlines a user-message link in the bubble's text colour", () => {
-    const html = renderToStaticMarkup(
-      <LinkifiedText
-        color={darkTokens.chatUserForeground}
-        linkColor={darkTokens.chatUserForeground}
-        palette={darkTokens}
-      >
-        {"see https://example.com/docs"}
-      </LinkifiedText>,
-    );
-    expect(html).toContain(
-      `data-text-decoration-line="underline" data-text-decoration-color="${darkTokens.chatUserForeground}"`,
-    );
-    expect(html).not.toContain(`data-text-decoration-color="${darkTokens.input}"`);
-  });
-
-  it("draws the tile in user messages, in the message's own colour", async () => {
-    const view = await renderNativeLinks(
-      () => (
-        <LinkifiedText
-          color={lightTokens.secondaryForeground}
-          linkColor={lightTokens.link}
-          palette={lightTokens}
-        >
-          {"look https://native-g.example.test/a/ or mail me@example.com"}
-        </LinkifiedText>
-      ),
-      { load: async () => ({ icon: ICON }), globe },
-    );
-    const [site, mail] = view.links();
-    expect(site?.getAttribute("data-accessibility-label")).toBe("native-g.example.test/a");
-    expect(site?.getAttribute("data-color")).toBe(lightTokens.secondaryForeground);
-    expect(site?.querySelector("rn-image")).not.toBeNull();
-    expect(mail?.textContent).toBe("me@example.com");
-    expect(mail?.querySelector("rn-view")).toBeNull();
-    expect(mail?.getAttribute("data-color")).toBe(lightTokens.link);
-    await view.cleanup();
-  });
-});
-
-describe("native external link confirmation", () => {
-  async function renderMarkdown(markdown: string, appOrigin?: string) {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    linking.openURL.mockClear();
-    alert.mockClear();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    const body = <ChatMarkdown>{markdown}</ChatMarkdown>;
-    await act(async () => {
-      root.render(
-        appOrigin ? (
-          <MarkdownLinkPromptProvider appOrigin={appOrigin}>{body}</MarkdownLinkPromptProvider>
-        ) : (
-          body
-        ),
-      );
-    });
-    return {
-      container,
-      async cleanup() {
-        await act(async () => {
-          root.unmount();
-        });
-        container.remove();
-      },
-    };
-  }
-
-  it("asks before an external link and leaves it closed on cancel", async () => {
-    const view = await renderMarkdown("[Docs](https://example.test/docs?x=1)");
-    await act(async () => {
-      view.container.querySelector<HTMLElement>("[data-accessibility-role='link']")?.click();
-    });
-    expect(alert).toHaveBeenCalledWith(
-      "Open external link?",
-      "example.test\n\nhttps://example.test/docs?x=1",
-      expect.any(Array),
-      { cancelable: true },
-    );
-    expect(alert.mock.calls.at(-1)?.[2][0]).toMatchObject({ text: "Cancel", style: "cancel" });
-    expect(linking.openURL).not.toHaveBeenCalled();
-    expect(view.container.textContent).not.toContain("Open external link?");
-    await view.cleanup();
-  });
-
-  it("opens mailto and tel without asking", async () => {
-    const view = await renderMarkdown("[mail](mailto:user@example.test) [call](tel:+15551212)");
-    const links = view.container.querySelectorAll<HTMLElement>("[data-accessibility-role='link']");
-    expect(links).toHaveLength(2);
-    await act(async () => {
-      links[0]?.click();
-    });
-    await act(async () => {
-      links[1]?.click();
-    });
-    expect(view.container.textContent).not.toContain("Open external link?");
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("mailto:user@example.test");
-      expect(linking.openURL).toHaveBeenCalledWith("tel:+15551212");
-    });
-    await view.cleanup();
-  });
-
-  it("opens a same-origin link without asking", async () => {
-    const view = await renderMarkdown(
-      "[thread](https://app.example.test/threads/1)",
-      "https://app.example.test",
-    );
-    await act(async () => {
-      view.container.querySelector<HTMLElement>("[data-accessibility-role='link']")?.click();
-    });
-    expect(view.container.textContent).not.toContain("Open external link?");
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("https://app.example.test/threads/1");
-    });
-    await view.cleanup();
-  });
-});
-
-describe("native trusted link sites", () => {
-  async function renderTrusted(markdown: string, trustedSites: string[], trustSite = vi.fn()) {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    linking.openURL.mockClear();
-    alert.mockClear();
-    const container = document.createElement("div");
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(
-        <MarkdownLinkPromptProvider trustedSites={trustedSites} trustSite={trustSite}>
-          <ChatMarkdown>{markdown}</ChatMarkdown>
-        </MarkdownLinkPromptProvider>,
-      );
-    });
-    const link = () => container.querySelector<HTMLElement>("[data-accessibility-role='link']");
-    return { link, unmount: () => act(async () => root.unmount()) };
-  }
-
-  it("opens the link and trusts its site from the third button", async () => {
-    const trustSite = vi.fn(async () => {
-      throw new Error("offline");
-    });
-    const view = await renderTrusted("[Docs](https://docs.example.test/a)", [], trustSite);
-    await act(async () => {
-      view.link()?.click();
-    });
-    const buttons = alert.mock.calls.at(-1)![2] as Array<{ text: string; onPress?: () => void }>;
-    expect(buttons.map((button) => button.text)).toEqual([
-      "Cancel",
-      "Always open example.test",
-      "Open",
+  it.each([
+    ["$$", "$$x^2$$"],
+    ["a bracket", "\\[x^2\\]"],
+    ["a parenthesis", "\\(x^2\\)"],
+  ])("takes %s TeX out of the text", (_case, tex) => {
+    expect(markdownSegments(`one ${tex} two`, false)).toEqual([
+      { kind: "markdown", text: "one" },
+      { kind: "math", tex: "x^2", display: tex !== "\\(x^2\\)" },
+      { kind: "markdown", text: "two" },
     ]);
-    await act(async () => {
-      buttons[1]!.onPress?.();
-    });
-    // A failed save still opens the link.
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("https://docs.example.test/a");
-    });
-    expect(trustSite).toHaveBeenCalledWith("https://docs.example.test/a");
-    await view.unmount();
   });
 
-  it("opens a link to a trusted site directly", async () => {
-    const view = await renderTrusted("[Docs](https://docs.example.test/a)", ["example.test"]);
-    await act(async () => {
-      view.link()?.click();
-    });
-    expect(alert).not.toHaveBeenCalled();
-    await vi.waitFor(() => {
-      expect(linking.openURL).toHaveBeenCalledWith("https://docs.example.test/a");
-    });
-    await view.unmount();
-  });
-});
-
-it("shows a full long native URL and opens it only on confirmation", async () => {
-  const url = `https://example.test/${"a".repeat(10000)}`;
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  alert.mockClear();
-  linking.openURL.mockClear();
-  const container = document.createElement("div");
-  const root = createRoot(container);
-  await act(async () => {
-    root.render(<ChatMarkdown>{`[Docs](${url})`}</ChatMarkdown>);
-  });
-  await act(async () => {
-    container.querySelector<HTMLElement>("[data-accessibility-role='link']")?.click();
-  });
-  const [title, message, buttons, options] = alert.mock.calls.at(-1)!;
-  expect(title).toBe("Open external link?");
-  expect(message).toBe(`example.test\n\n${url}`);
-  expect(buttons.map((button: { text: string }) => button.text)).toEqual(["Cancel", "Open"]);
-  expect(options).toEqual({ cancelable: true });
-  expect(linking.openURL).not.toHaveBeenCalled();
-  await act(async () => {
-    buttons[1].onPress();
-  });
-  expect(linking.openURL).toHaveBeenCalledWith(url);
-  await act(async () => {
-    root.unmount();
-  });
-});
-
-describe("native markdown diagrams", () => {
-  const FLOW = "```mermaid\ngraph LR\n  A[Clone] --> B[Branch]\n```";
-
-  // Stands in for the app's WebView, recording what the renderer hands it.
-  function ProbeDiagram({ source, palette, colorScheme, fallback }: MermaidDiagramProps) {
-    return createElement(
-      "diagram-probe",
-      { "data-source": source, "data-scheme": colorScheme, "data-foreground": palette.foreground },
-      fallback,
-    );
-  }
-
-  function renderWithDiagrams(markdown: string, props: { streaming?: boolean } = {}) {
-    return renderToStaticMarkup(
-      <MermaidDiagramContext.Provider value={ProbeDiagram}>
-        <ChatMarkdown palette={lightTokens} colorScheme="light" {...props}>
-          {markdown}
-        </ChatMarkdown>
-      </MermaidDiagramContext.Provider>,
-    );
-  }
-
-  it("hands a mermaid fence to the app's diagram with its code block as the fallback", () => {
-    const html = renderWithDiagrams(FLOW);
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const probe = document.querySelector("diagram-probe");
-    expect(probe?.getAttribute("data-source")).toBe("graph LR\n  A[Clone] --> B[Branch]");
-    expect(probe?.getAttribute("data-scheme")).toBe("light");
-    expect(probe?.getAttribute("data-foreground")).toBe(lightTokens.foreground);
-    expect(probe?.textContent).toContain("A[Clone] --> B[Branch]");
+  it("leaves a single dollar, code and links as written", () => {
+    for (const markdown of [
+      "It costs $5 and then $10.",
+      "Use `\\(x\\)`.\n\n```\n$$y$$\n```",
+      "[\\(x\\)](https://example.com) and \\$\\$not\\$\\$",
+      "    $$indented code$$",
+      "A $$ never closed",
+    ]) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+    }
   });
 
-  it("keeps the code block when the app supplies no diagram", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{FLOW}</ChatMarkdown>);
-    expect(html).not.toContain("<diagram-probe");
-    expect(html).toContain("A[Clone] --&gt; B[Branch]");
+  it("keeps a formula inside a list, quote or table as code, so its backslashes survive", () => {
+    for (const [markdown, expected] of [
+      ["- item \\(x\\)", "- item ` \\(x\\) `"],
+      ["> quote $$y$$", "> quote ` $$y$$ `"],
+      ["| a | \\(z\\) |\n| - | - |", "| a | ` \\(z\\) ` |\n| - | - |"],
+    ] as const) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: expected }]);
+    }
   });
 
-  it("keeps the code block while the reply streams", () => {
-    const html = renderWithDiagrams(FLOW, { streaming: true });
-    expect(html).not.toContain("<diagram-probe");
-    expect(html).toContain("A[Clone] --&gt; B[Branch]");
+  it("draws a formula on a line that only mentions a pipe", () => {
+    expect(markdownSegments("Use a | b, so $$x$$", false)).toEqual([
+      { kind: "markdown", text: "Use a | b, so" },
+      { kind: "math", tex: "x", display: true },
+    ]);
+    expect(markdownSegments("a | \\(z\\)\n--- | ---", false)).toEqual([
+      { kind: "markdown", text: "a | ` \\(z\\) `\n--- | ---" },
+    ]);
   });
 
-  it("leaves other fences and an empty mermaid fence as code", () => {
-    expect(renderWithDiagrams("```ts\nconst a = 1;\n```")).not.toContain("<diagram-probe");
-    expect(renderWithDiagrams("```mermaid\n\n```")).not.toContain("<diagram-probe");
+  it("leaves an escaped opener as text", () => {
+    for (const markdown of ["a \\\\(x\\) b", "a \\$$x$$ b"]) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+    }
+    // An escaped backslash does not escape what follows it.
+    expect(markdownSegments("a \\\\\\(x\\) b", false)).toHaveLength(3);
+  });
+
+  it("finds formulas in text full of delimiters in linear time", () => {
+    for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a](", "| $$x$$\n", "![a](visual:v) "]) {
+      expectLinearTime(() => markdownSegments(unit.repeat(40_000), true));
+    }
+    const tabs = `- ![a](image:a1)${"\t".repeat(40_000)}x\n* \t![](!${"\t".repeat(40_000)}`;
+    expectLinearTime(() => markdownSegments(tabs, true));
   });
 });
 
-describe("native markdown page links", () => {
-  it("draws a page link as a chip that opens the page, or as its title without a handler", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    linking.openURL.mockClear();
-    const openPage = vi.fn();
-    const markdown =
-      "See [Duplex voice](page:page_1) and [x](javascript:alert(1)) and [z](page:a/b)";
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(<ChatMarkdown onOpenPage={openPage}>{markdown}</ChatMarkdown>);
-    });
-    const links = [...container.querySelectorAll<HTMLElement>("[data-accessibility-role='link']")];
-    expect(links.map((link) => link.textContent)).toEqual(["Duplex voice"]);
-    expect(links[0]!.querySelector("rn-view")).not.toBeNull();
-    expect(links[0]!.querySelector("[data-text-decoration-line='underline']")?.textContent).toBe(
-      "Duplex voice",
-    );
-    await act(async () => {
-      links[0]!.click();
-    });
-    expect(openPage).toHaveBeenCalledWith("page_1");
-    expect(linking.openURL).not.toHaveBeenCalled();
-    expect(alert).not.toHaveBeenCalledWith(expect.anything(), "page:page_1", expect.anything());
+describe("native markdown scanning", () => {
+  allowAppLinks([{ scheme: "reader", host: "books", name: "Reader", icon: "" }]);
 
-    await act(async () => {
-      root.render(<ChatMarkdown>{markdown}</ChatMarkdown>);
-    });
-    expect(container.querySelector("[data-accessibility-role='link']")).toBeNull();
-    expect(container.textContent).toContain("See Duplex voice and x and z");
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+  it("opens a fence only at the start of a line, after up to three spaces", () => {
+    // Mid-line backticks are inline code, closed by the next run of three.
+    expect(withAppAutolinks("say ``` then\nreader://books/1\nand ```\n\nreader://books/2")).toBe(
+      "say ``` then\nreader://books/1\nand ```\n\n<reader://books/2>",
+    );
+    // A fence with a marker indented four spaces does not close the fence it sits in.
+    expect(
+      withAppAutolinks("```\nreader://books/1\n    ```\nreader://books/2\n```\nreader://books/3"),
+    ).toBe("```\nreader://books/1\n    ```\nreader://books/2\n```\n<reader://books/3>");
+    expect(withAppAutolinks("   ```\nreader://books/1\n   ```\nreader://books/2")).toBe(
+      "   ```\nreader://books/1\n   ```\n<reader://books/2>",
+    );
+  });
+
+  it("leaves code indented four spaces as written, but not a continuation line or list text", () => {
+    expect(withAppAutolinks("Para\n\n    reader://books/1\n\nreader://books/2")).toBe(
+      "Para\n\n    reader://books/1\n\n<reader://books/2>",
+    );
+    expect(withAppAutolinks("Para\n    reader://books/3")).toBe("Para\n    <reader://books/3>");
+    expect(withAppAutolinks("- item\n\n    reader://books/4")).toBe(
+      "- item\n\n    <reader://books/4>",
+    );
+  });
+
+  it("closes a fence on a line ending in a carriage return", () => {
+    expect(withAppAutolinks("```\r\nreader://books/1\r\n```\r\nreader://books/2")).toBe(
+      "```\r\nreader://books/1\r\n```\r\n<reader://books/2>",
+    );
+  });
+
+  it("lets inline code span lines, but not a blank line", () => {
+    expect(withAppAutolinks("`reader://books/1\nreader://books/2` then reader://books/3")).toBe(
+      "`reader://books/1\nreader://books/2` then <reader://books/3>",
+    );
+    expect(withAppAutolinks("`reader://books/4\n\nreader://books/5`")).toContain(
+      "\n\n<reader://books/5>",
+    );
+  });
+});
+
+describe("native markdown visuals", () => {
+  const visual = `<Visual summary="S"><Callout lead="a">x</Callout></Visual>`;
+  const drawnProps = (element: ReactElement | undefined) =>
+    element?.props as { unavailable: string } | undefined;
+  const fence = (source: string) => `\`\`\`ui\n${source}\n\`\`\``;
+  const drawFence = (source: string, props: { visuals?: boolean; streaming?: boolean } = {}) => {
+    renderToStaticMarkup(<ChatMarkdown {...props}>{fence(source)}</ChatMarkdown>);
+    return nativeProps().renderers?.code?.(codeBlock(source, "ui"));
+  };
+
+  it("draws a ui fence as a visual only for a Space's own bot text", () => {
+    expect(drawFence(visual, { visuals: true })).toBeDefined();
+    expect(drawFence(visual)).toBeUndefined();
+    expect(drawFence(visual, { visuals: false })).toBeUndefined();
+  });
+
+  it("keeps a ui fence that is not a visual as code", () => {
+    expect(drawFence(`<Callout lead="a">x</Callout>`, { visuals: true })).toBeUndefined();
+    expect(drawFence("just text", { visuals: true })).toBeUndefined();
+  });
+
+  it("fills a visual in while the reply streams", () => {
+    expect(
+      drawFence(`<Visual summary="S"><Callout lead="a">x</Callout><Callout lea`, {
+        visuals: true,
+        streaming: true,
+      }),
+    ).toBeDefined();
+    expect(drawFence(`<Visual summary="S">`, { visuals: true, streaming: true })).toBeDefined();
+  });
+
+  it("names a closed element that cannot be drawn", () => {
+    const drawn = drawFence(`<Visual summary="S"><Quote>q</Quote></Visual>`, { visuals: true });
+    expect(drawnProps(drawn)?.unavailable).toBe("Couldn't draw this visual");
+    renderToStaticMarkup(
+      <MarkdownCopyProvider copy={{ ...defaultMarkdownCopy, visualUnavailable: "Not drawn" }}>
+        <ChatMarkdown visuals>{fence(visual)}</ChatMarkdown>
+      </MarkdownCopyProvider>,
+    );
+    expect(drawnProps(nativeProps().renderers?.code?.(codeBlock(visual, "ui")))?.unavailable).toBe(
+      "Not drawn",
+    );
+  });
+
+  it("leaves other fences to the native view next to a visual", () => {
+    renderToStaticMarkup(<ChatMarkdown visuals>{"```ts\nconst a = 1;\n```"}</ChatMarkdown>);
+    expect(nativeProps().renderers?.code?.(codeBlock("const a = 1;", "ts"))).toBeUndefined();
   });
 });
 
 describe("native markdown embeds", () => {
-  it("draws a resolved embed in place and leaves an unknown one as its title", () => {
-    const resolved = renderToStaticMarkup(
-      <MarkdownEmbedContext.Provider
-        value={(embed) => createElement("embed-card", { "data-kind": embed.kind }, embed.label)}
-      >
-        <ChatMarkdown>
-          {"Revenue climbed.\n\n![Quarter trend](visual:message_1)\n\nSeptember is highest."}
-        </ChatMarkdown>
-      </MarkdownEmbedContext.Provider>,
-    );
-    expect(resolved).toContain("<embed-card");
-    expect(resolved).toContain('data-kind="visual"');
-    expect(resolved).toContain("Quarter trend");
-    expect(resolved).toContain("Revenue climbed.");
-    expect(resolved).not.toContain("visual:message_1");
-
-    const missing = renderToStaticMarkup(
-      <ChatMarkdown>{"See ![Quarter trend](visual:missing) here."}</ChatMarkdown>,
-    );
-    expect(missing).toContain("Quarter trend");
-    expect(missing).not.toContain("visual:missing");
-    expect(missing).not.toContain("<embed-card");
-  });
-
-  it("lays an image that opens a list item out as a thumbnail row", () => {
-    const html = renderToStaticMarkup(
-      <MarkdownEmbedContext.Provider
-        value={(embed) =>
-          createElement("embed-card", { "data-frame": embed.frame ?? "" }, embed.label)
-        }
-      >
-        <ChatMarkdown>
-          {[
-            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
-            "",
-            "  The evening boat is back.",
-            "",
-            "- ![Market hall](image:market) **Market hall**",
-            "",
-            "  The Saturday market filled the hall.",
-            "",
-            "- A note without an image.",
-          ].join("\n")}
-        </ChatMarkdown>
-      </MarkdownEmbedContext.Provider>,
-    );
-    expect(html.match(/data-width="88"/g)).toHaveLength(2);
-    expect(html.match(/data-height="88"/g)).toHaveLength(2);
-    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(2);
-    expect(html.match(/data-border-top-width="1"/g)).toHaveLength(1);
-    expect(html.match(/data-width="5"/g)).toHaveLength(1);
-    expect(html).toContain("The evening boat is back.");
-    expect(html).toContain("A note without an image.");
-    // The title starts at the copy's edge, with no space left over from after the image.
-    expect(html).not.toContain('"> </rn-text>');
-    expect(html).not.toContain('data-gap="0"');
-
-    const rows = renderToStaticMarkup(
-      <MarkdownEmbedContext.Provider
-        value={(embed) => createElement("embed-card", null, embed.label)}
-      >
-        <ChatMarkdown>
-          {[
-            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
-            "- ![Wool coat](image:coat) **Wool coat** $128",
-          ].join("\n")}
-        </ChatMarkdown>
-      </MarkdownEmbedContext.Provider>,
-    );
-    expect(rows).toContain('data-gap="0"');
-    expect(rows.match(/data-width="5"/g) ?? []).toHaveLength(0);
-    expect(rows).toContain("$128");
-  });
-
-  it("keeps an image alone, a visual, and an image mid-sentence off the row", () => {
-    const html = renderToStaticMarkup(
-      <MarkdownEmbedContext.Provider
-        value={(embed) =>
-          createElement("embed-card", { "data-frame": embed.frame ?? "" }, embed.label)
-        }
-      >
-        <ChatMarkdown>
-          {[
-            "![Quarter](image:quarter)",
-            "",
-            "![Flow](visual:message_1) still a chart.",
-            "",
-            "See ![Harbor ferry](image:ferry) today.",
-            "",
-            "![River path](image:path) **River path** The path reopened.",
-          ].join("\n")}
-        </ChatMarkdown>
-      </MarkdownEmbedContext.Provider>,
-    );
-    expect(html.match(/data-width="88"/g)).toHaveLength(1);
-    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(1);
-    expect(html).toContain("still a chart.");
-    expect(html).toContain("The path reopened.");
-    expect(html).toContain("See ");
-    expect(html.match(/data-width="5"/g) ?? []).toHaveLength(0);
-  });
-});
-
-describe("native markdown quote menus", () => {
-  // Stands in for the app's menu, showing what each quote would copy.
-  function QuoteMenuProbe({
-    text,
-    markdown,
-    children,
-  }: {
-    text: string;
-    markdown: string;
-    children: ReactNode;
-  }) {
-    return createElement(
-      "quote-menu-probe",
-      { "data-text": text, "data-markdown": markdown },
-      children,
-    );
-  }
-
-  async function renderQuotes(markdown: string, width = 240) {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    viewLayouts.length = 0;
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(
-        <QuoteMenuContext.Provider value={QuoteMenuProbe}>
-          <ChatMarkdown>{markdown}</ChatMarkdown>
-        </QuoteMenuContext.Provider>,
-      );
+  const resolver = (embed: MarkdownEmbed) =>
+    createElement("embed-probe", {
+      "data-kind": embed.kind,
+      "data-id": embed.id,
+      "data-frame": embed.frame,
     });
-    const before = container.querySelectorAll("quote-menu-probe").length;
-    // A quote moved into its menu mounts its nested quotes again, and they measure again.
-    for (let pass = 0; pass < 3; pass += 1) {
-      const layouts = viewLayouts.splice(0);
-      await act(async () => {
-        for (const layout of layouts) layout({ nativeEvent: { layout: { width, height: 40 } } });
-      });
-    }
-    const probes = [...container.querySelectorAll("quote-menu-probe")];
-    return {
-      before,
-      probes,
-      markdown: probes.map((probe) => probe.getAttribute("data-markdown")),
-      text: probes.map((probe) => probe.getAttribute("data-text")),
-      done: () => {
-        act(() => root.unmount());
-        container.remove();
-      },
-    };
-  }
 
-  it("gives each quote its own menu once its width is known, with its own Markdown", async () => {
-    const result = await renderQuotes(
-      [
-        "Intro.",
-        "",
-        "> First line of **one** quote",
-        "> and its second line.",
-        "",
-        "Between them.",
-        "",
-        "> Another [quote](https://example.test).",
-      ].join("\n"),
+  it("draws a visual or image embed from the host, and its title as text without one", () => {
+    const markdown = "![Revenue](visual:msg_1)";
+    const bare = renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(bare).toContain("Revenue");
+    expect(bare).not.toContain("embed-probe");
+    const drawn = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={resolver}>
+        <ChatMarkdown>{markdown}</ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
     );
-    // The menu's native host needs a width, so the quotes render plainly until they have one.
-    expect(result.before).toBe(0);
-    expect(result.markdown).toEqual([
-      "> First line of **one** quote\n> and its second line.",
-      "> Another [quote](https://example.test).",
-    ]);
-    // Plain text keeps the quote's line break and drops its markup and link address.
-    expect(result.text).toEqual([
-      "First line of one quote\nand its second line.",
-      "Another quote.",
-    ]);
-    // The quote inside each menu keeps its bar and takes the measured width.
-    const quote = result.probes[0]?.firstElementChild;
-    expect(quote?.getAttribute("data-border-left-width")).toBe("3");
-    expect(quote?.getAttribute("data-width")).toBe("240");
-    expect(result.probes[0]?.parentElement?.getAttribute("data-border-left-width")).toBeNull();
-    result.done();
-  });
-
-  it("copies a nested quote or a quote in a list without the markup around it", async () => {
-    const result = await renderQuotes(
-      [
-        "> Outer line",
-        "> > Inner line",
-        "> > continues",
-        "",
-        "- > Listed quote",
-        "  > second",
-      ].join("\n"),
-    );
-    expect(result.markdown).toEqual([
-      "> Outer line\n> > Inner line\n> > continues",
-      "> Inner line\n> continues",
-      "> Listed quote\n> second",
-    ]);
-    expect(result.text).toEqual([
-      "Outer line\n\nInner line\ncontinues",
-      "Inner line\ncontinues",
-      "Listed quote\nsecond",
-    ]);
-    // The nested quote's menu sits inside its outer quote's, so a press picks the innermost.
-    expect(result.probes[1]?.parentElement?.closest("quote-menu-probe")).toBe(result.probes[0]);
-    result.done();
-  });
-
-  it("copies a quote's paragraphs, list items and code as separate lines of text", async () => {
-    const result = await renderQuotes(
-      ["> Para one", ">", "> - first", "> - second", ">", "> ```", "> const a = 1;", "> ```"].join(
-        "\n",
+    expect(drawn).toContain('<embed-probe data-kind="visual" data-id="msg_1"');
+    expect(drawn).not.toContain("Revenue");
+    // An address that is not an embed still goes through the remote image path.
+    expect(
+      renderToStaticMarkup(
+        <MarkdownEmbedContext.Provider value={resolver}>
+          <ChatMarkdown>{"![x](https://example.test/a.png)"}</ChatMarkdown>
+        </MarkdownEmbedContext.Provider>,
       ),
-    );
-    expect(result.text).toEqual(["Para one\n\nfirst\nsecond\n\nconst a = 1;"]);
-    result.done();
+    ).not.toContain("embed-probe");
   });
 
-  it("keeps the indentation of code that starts a quote", async () => {
-    const result = await renderQuotes(
-      ["> ```", ">     if ready:", ">         ship()", "> ```"].join("\n"),
-    );
-    expect(result.text).toEqual(["    if ready:\n        ship()"]);
-    result.done();
+  it("opens a top-level list item that starts with an image embed as a media row", () => {
+    const markdown =
+      "- ![Cover](image:art_1) Title\n  Price $5\n- plain item\n- ![Two](image:art_2) Next";
+    expect(markdownSegments(markdown, true)).toEqual([
+      {
+        kind: "media",
+        embed: { kind: "image", id: "art_1", label: "Cover" },
+        alt: "Cover",
+        copy: "Title\nPrice $5",
+        divided: false,
+      },
+      { kind: "markdown", text: "- plain item" },
+      {
+        kind: "media",
+        embed: { kind: "image", id: "art_2", label: "Two" },
+        alt: "Two",
+        copy: "Next",
+        divided: false,
+      },
+    ]);
+    // Without media rows the embeds still draw, after the list, and read as their titles in it.
+    expect(markdownSegments(markdown, false)).toEqual([
+      { kind: "markdown", text: "- Cover Title\n  Price $5\n- plain item\n- Two Next" },
+      { kind: "embed", embed: { kind: "image", id: "art_1", label: "Cover" }, alt: "Cover" },
+      { kind: "embed", embed: { kind: "image", id: "art_2", label: "Two" }, alt: "Two" },
+    ]);
   });
 
-  it("keeps a lazy continuation line in the quote's Markdown", async () => {
-    const result = await renderQuotes("> Starts here\nand carries on.");
-    expect(result.markdown).toEqual(["> Starts here\nand carries on."]);
-    result.done();
+  it("leaves a nested list item in its list and draws its embed after it", () => {
+    expect(markdownSegments("- parent\n  - ![A](image:a1) Nested", true)).toEqual([
+      { kind: "markdown", text: "- parent\n  - A Nested" },
+      { kind: "embed", embed: { kind: "image", id: "a1", label: "A" }, alt: "A" },
+    ]);
   });
 
-  it("draws quotes without a menu when the app gives none", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"> Quoted."}</ChatMarkdown>);
-    expect(html).not.toContain("quote-menu-probe");
-    expect(html).toMatch(/data-border-left-width="3"/);
+  it("draws an embed in a sentence or table after its run, and leaves one alone in its paragraph", () => {
+    expect(markdownSegments("See ![Chart](visual:v1) here.", false)).toEqual([
+      { kind: "markdown", text: "See Chart here." },
+      { kind: "embed", embed: { kind: "visual", id: "v1", label: "Chart" }, alt: "Chart" },
+    ]);
+    expect(markdownSegments("| a | ![B](image:b1) |\n| - | - |", false)).toEqual([
+      { kind: "markdown", text: "| a | B |\n| - | - |" },
+      { kind: "embed", embed: { kind: "image", id: "b1", label: "B" }, alt: "B" },
+    ]);
+    const alone = "Intro\n\n![Chart](visual:v1)\n\nAfter";
+    expect(markdownSegments(alone, false)).toEqual([{ kind: "markdown", text: alone }]);
+  });
+
+  it("divides a media row from the one above it, and leaves an image with no words alone", () => {
+    const [, second] = markdownSegments("- ![A](image:a1) One\n- ![B](image:b1) Two", true);
+    expect(second).toMatchObject({ kind: "media", divided: true });
+    expect(markdownSegments("- ![A](image:a1)", true)).toEqual([
+      { kind: "markdown", text: "- A" },
+      { kind: "embed", embed: { kind: "image", id: "a1", label: "A" }, alt: "A" },
+    ]);
+    expect(markdownSegments("- ![V](visual:v1) Words", true)).toEqual([
+      { kind: "markdown", text: "- V Words" },
+      { kind: "embed", embed: { kind: "visual", id: "v1", label: "V" }, alt: "V" },
+    ]);
+    expect(markdownSegments("```\n- ![A](image:a1) One\n```", true)).toEqual([
+      { kind: "markdown", text: "```\n- ![A](image:a1) One\n```" },
+    ]);
+  });
+
+  it("lays a media row out as a thumbnail beside its text", () => {
+    const { runs, html } = (() => {
+      enriched.runs = [];
+      const out = renderToStaticMarkup(
+        <MarkdownEmbedContext.Provider value={resolver}>
+          <ChatMarkdown>{"- ![Cover](image:art_1) Title"}</ChatMarkdown>
+        </MarkdownEmbedContext.Provider>,
+      );
+      return { runs: [...enriched.runs], html: out };
+    })();
+    expect(html).toContain('data-kind="image" data-id="art_1" data-frame="thumbnail"');
+    expect(runs).toEqual(["Title"]);
   });
 });
-
-const NASA = "https://science.nasa.gov/mars/facts/";
-const ESA = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
-const citedSources = [
-  { url: NASA, title: "Mars Facts", site: "nasa" },
-  { url: ESA, title: "Mars Express", site: "esa" },
-];
-const citedAnswer = `A day lasts 24 hours [NASA](${NASA}). A year is 687 days [nasa.gov](${NASA}) [ESA](${ESA}). See [notes](https://notes.example.test/mars).`;
 
 describe("native citation pills", () => {
-  it("draws one pill, a +1 pill and the sources row, and leaves another link as a link", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const sources = [
+    { url: "https://a.example.test/x", title: "A page", site: "A" },
+    { url: "https://b.example.test/y", title: "B page", site: "B" },
+  ];
+  const cited = "Claim. [A](https://a.example.test/x) [B](https://b.example.test/y)";
+
+  it("draws a citation as a link pill with its site, and a group as the first site and a count", async () => {
+    const view = await mount(<ChatMarkdown sources={sources}>{cited}</ChatMarkdown>);
+    expect(nativeProps().markdown).toContain("(rakazo-cite:0)");
+    // The native view tries the longest pattern first: no other may match a citation.
+    const matching = Object.keys(nativeProps().markdownStyle?.linkVariants ?? {}).filter(
+      (pattern) => new RegExp(pattern).test("rakazo-cite:0"),
+    );
+    expect(matching).toEqual(["^rakazo-cite:"]);
+    expect(variantFor("rakazo-cite:0")).toMatchObject({
+      pill: expect.anything(),
+      underline: false,
+    });
+    await reportLinks([link("rakazo-cite:0", "A")]);
+    expect(nativeProps().linkPillContent?.["rakazo-cite:0"]).toMatchObject({ label: "A +1" });
+    await view.cleanup();
+  });
+
+  it("opens the list of sources behind a citation", async () => {
     actionSheet.mockClear();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const root = createRoot(container);
-    await act(async () => {
-      root.render(
-        <ChatMarkdown sources={citedSources} sourcesRow>
-          {citedAnswer}
-        </ChatMarkdown>,
-      );
-    });
-    const buttons = [
-      ...container.querySelectorAll<HTMLElement>("[data-accessibility-role='button']"),
-    ];
-    expect(buttons.map((button) => button.getAttribute("data-accessibility-label"))).toEqual([
-      "nasa",
-      "nasa +1",
-      "2 sources",
-    ]);
-    const sourcesButton = container.querySelector("[data-accessibility-label='2 sources']");
-    expect(
-      sourcesButton?.querySelectorAll("[data-accessibility-elements-hidden='true']"),
-    ).toHaveLength(3);
-    const links = [...container.querySelectorAll<HTMLElement>("[data-accessibility-role='link']")];
-    expect(links.map((link) => link.getAttribute("data-accessibility-label"))).toEqual(["notes"]);
-    await act(async () => {
-      buttons[1]?.click();
-    });
-    expect(actionSheet).toHaveBeenCalledWith(
-      { options: ["Mars Facts", "Mars Express", "Cancel"], cancelButtonIndex: 2 },
-      expect.any(Function),
-    );
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
+    const view = await mount(<ChatMarkdown sources={sources}>{cited}</ChatMarkdown>);
+    await reportLinks([link("rakazo-cite:0", "A")]);
+    await pressLink("rakazo-cite:0");
+    expect(actionSheet).toHaveBeenCalledTimes(1);
+    expect(actionSheet.mock.calls[0]?.[0].options).toEqual(["A page", "B page", "Cancel"]);
+    await view.cleanup();
   });
 
-  it("keeps links as written while streaming and hides the row when there is one source", () => {
-    const streaming = renderToStaticMarkup(
-      <ChatMarkdown sources={citedSources} sourcesRow streaming>
-        {citedAnswer}
+  it("leaves links as written while a reply streams", async () => {
+    const view = await mount(
+      <ChatMarkdown sources={sources} streaming>
+        {cited}
       </ChatMarkdown>,
     );
-    expect(streaming).toContain('data-accessibility-label="NASA"');
-    expect(streaming).toContain('data-accessibility-label="ESA"');
-    expect(streaming).not.toContain('data-accessibility-label="nasa"');
-    expect(streaming).not.toContain("2 sources");
-
-    const one = renderToStaticMarkup(
-      <ChatMarkdown sources={[citedSources[0]!]} sourcesRow>
-        {`A day lasts 24 hours [NASA](${NASA}).`}
-      </ChatMarkdown>,
-    );
-    expect(one).toContain('data-accessibility-label="nasa"');
-    expect(one).not.toContain("1 source");
-  });
-
-  it("draws a dated cluster as one pill and keeps the full stop inside it", () => {
-    const space = "https://www.space.com/mars-sample-return";
-    const html = renderToStaticMarkup(
-      <ChatMarkdown
-        sources={[
-          ...citedSources,
-          { url: space, title: "Mars sample return", site: "space" },
-          { url: "https://www.bbc.co.uk/news/science", title: "News", site: "bbc" },
-        ]}
-        sourcesRow
-      >
-        {`The mission returns samples in 2031. [NASA, 16 November](${NASA}) · [Space.com](${space}).`}
-      </ChatMarkdown>,
-    );
-    const pill = html.match(
-      /<rn-pressable[^>]*data-accessibility-label="nasa \+1"[\s\S]*?<\/rn-pressable>/,
-    );
-    expect(pill?.[0]).toContain(".");
-    expect(html).not.toMatch(/<\/rn-pressable>\s*<rn-text[^>]*>\s*\./);
-    expect(html).not.toContain("16 November");
-    const marks = html.match(/data-accessibility-label="4 sources"[\s\S]*$/);
-    expect(marks?.[0].match(/data-accessibility-elements-hidden="true"/g)).toHaveLength(4);
+    expect(nativeProps().markdown).toBe(cited);
+    await view.cleanup();
   });
 });
 
-describe("native markdown maths layout", () => {
-  it("lays a display formula out as a block between its text, in order", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"before $$x^2$$ after"}</ChatMarkdown>);
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const texts = [...document.querySelectorAll("rn-text")];
-    const run = (content: string) => texts.find((text) => text.textContent?.trim() === content);
-    const before = run("before");
-    const formula = run("x^2");
-    const after = run("after");
-    expect(before && formula && after).toBeTruthy();
-    // The formula is not inside either run of text.
-    expect(before?.contains(formula ?? null)).toBe(false);
-    expect(after?.contains(formula ?? null)).toBe(false);
-    expect(
-      (before?.compareDocumentPosition(formula as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      (formula?.compareDocumentPosition(after as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("aligns the text around a display formula by its own first letter", () => {
-    const html = renderToStaticMarkup(
-      <ChatMarkdown>{"שלום עולם $$x^2$$ and then English text"}</ChatMarkdown>,
-    );
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const run = (start: string) =>
-      [...document.querySelectorAll("rn-text")].find((text) =>
-        text.textContent?.trim().startsWith(start),
-      );
-    expect(run("שלום")?.getAttribute("data-text-align")).toBe("right");
-    expect(run("שלום")?.getAttribute("data-width")).toBe("100%");
-    expect(run("and then")?.getAttribute("data-text-align")).toBeNull();
-  });
-
-  it("keeps an inline formula inside its line of text", () => {
-    const html = renderToStaticMarkup(<ChatMarkdown>{"before \\(x^2\\) after"}</ChatMarkdown>);
-    const document = new DOMParser().parseFromString(html, "text/html");
-    const line = [...document.querySelectorAll("rn-text")].find((text) =>
-      text.textContent?.startsWith("before"),
-    );
-    expect(line?.textContent).toBe("before x^2 after");
-  });
-
-  it("sizes a table column for the formula in it", () => {
-    const table = (cell: string) => `| A | B |\n| --- | --- |\n| ${cell} | 1 |`;
-    const [, plain] = tableRows(renderToStaticMarkup(<ChatMarkdown>{table("a")}</ChatMarkdown>));
-    const [, formula] = tableRows(
-      renderToStaticMarkup(
-        <ChatMarkdown>{table("\\(\\frac{a+b}{c}+\\sqrt{d}+e^{f}\\)")}</ChatMarkdown>,
-      ),
-    );
-    expect(formula?.cells[0]).toBeGreaterThan(plain?.cells[0] ?? 0);
+describe("native table look", () => {
+  it("sets a table in the body type, divided by hairlines with no frame or banding", () => {
+    renderToStaticMarkup(<ChatMarkdown>{"| A | B |\n| - | - |\n| 1 | 2 |"}</ChatMarkdown>);
+    expect(nativeProps().markdownStyle?.table).toMatchObject({
+      color: darkTokens.foreground,
+      borderColor: darkTokens.input,
+      borderRadius: 0,
+      rowEvenBackgroundColor: "transparent",
+      rowOddBackgroundColor: "transparent",
+    });
   });
 });

@@ -406,7 +406,7 @@ export async function listSpaceArtifacts(
   const botFilter = scopeBotId ? Prisma.sql`AND "botId" = ${scopeBotId}` : Prisma.empty;
   const madeByBots = input.madeByBots ?? false;
   const madeByBotsFilter = madeByBots
-    ? Prisma.sql`AND COALESCE(latest."produced", latest."runId" IS NOT NULL)`
+    ? Prisma.sql`AND COALESCE(latest."produced", latest."runId" IS NOT NULL OR latest."meetingSessionId" IS NOT NULL)`
     : Prisma.empty;
 
   let asOf = new Date();
@@ -428,7 +428,7 @@ export async function listSpaceArtifacts(
     ),
     latest AS (
       SELECT DISTINCT ON (COALESCE("rootArtifactId", id))
-        id, "botId", "groupId", "runId", produced, name, description, "mimeType", size, version, "createdAt", "rootArtifactId"
+        id, "botId", "groupId", "runId", "meetingSessionId", produced, name, description, "mimeType", size, version, "createdAt", "rootArtifactId"
       FROM scoped
       ORDER BY COALESCE("rootArtifactId", id), version DESC
     ),

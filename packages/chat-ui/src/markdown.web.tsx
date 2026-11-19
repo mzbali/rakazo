@@ -799,7 +799,7 @@ const components: Components = {
   pre: MarkdownPre,
   span({ node: _node, className, children, ...props }) {
     return className?.split(" ").includes(MATH_CLASS) && typeof children === "string" ? (
-      <MathSpan tex={children} className={className} />
+      <MathSpan key={`${className}:${children}`} tex={children} className={className} />
     ) : (
       <span className={className} {...props}>
         {children}

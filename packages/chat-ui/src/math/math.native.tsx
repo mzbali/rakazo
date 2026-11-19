@@ -3,13 +3,15 @@ import type {
   MarkdownStyleMap,
   RenderRules,
 } from "@ronradtke/react-native-markdown-display";
+import type { ReactNode } from "react";
 import { useContext, useEffect, useState } from "react";
 import type { TextStyle } from "react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { DiagramSurfaceContext } from "../native/code";
 import { textStyleForParents } from "../native/links";
 import { SidewaysScrollView } from "../native/sideways-scroll";
+import { TableCellWidthContext } from "../native/table";
 import { MATH_DISPLAY, MATH_INLINE } from "./markdown-it-math";
 import type { MathSvg } from "./tex-svg";
 
@@ -85,6 +87,8 @@ function Formula({
 }) {
   const { palette } = useContext(DiagramSurfaceContext);
   const svg = useMathSvg(tex, display);
+  const cellWidth = useContext(TableCellWidthContext);
+  const inCell = cellWidth !== undefined;
   // Until MathJax loads, and for TeX it rejects, the source shows as code.
   if (!svg) return <Text style={[textStyle, styleMap.code_inline]}>{tex}</Text>;
   const style = StyleSheet.flatten(textStyle as TextStyle | undefined);
@@ -96,11 +100,11 @@ function Formula({
       accessible
       accessibilityLabel={tex}
       // An inline formula sits with its bottom on the text baseline; MathJax's baseline is lower
-      // when the formula has descenders.
+      // when the formula has descenders. A table cell would clip the part that drops below.
       style={{
         width,
         height,
-        transform: display ? undefined : [{ translateY: -svg.baseline * ex }],
+        transform: display || inCell ? undefined : [{ translateY: -svg.baseline * ex }],
       }}
     >
       <SvgXml
@@ -111,6 +115,14 @@ function Formula({
       />
     </View>
   );
+  // A table cell is only as wide as its column; a wider formula scrolls inside it.
+  if (inCell && width > cellWidth) {
+    return (
+      <ScrollView horizontal nestedScrollEnabled style={{ maxWidth: cellWidth }}>
+        {drawing}
+      </ScrollView>
+    );
+  }
   if (!display) return drawing;
   return (
     <SidewaysScrollView>
@@ -119,12 +131,35 @@ function Formula({
   );
 }
 
-/** A paragraph that is one display formula and nothing else, which is laid out as a block. */
-export function isDisplayMathOnly(node: ASTNode): boolean {
-  const parts = node.children.filter(
-    (child) => child.type !== "text" || child.content.trim() !== "",
-  );
-  return parts.length === 1 && parts[0]?.type === MATH_DISPLAY;
+/**
+ * A line of text with display formulas in it, as runs of text and a block for each formula, in
+ * order. Undefined when it has none. A run of only blank text is dropped.
+ */
+export function splitAtDisplayMath(
+  node: ASTNode,
+  children: readonly ReactNode[],
+  run: (parts: ReactNode[], key: string) => ReactNode,
+): ReactNode[] | undefined {
+  if (!node.children.some((child) => child.type === MATH_DISPLAY)) return undefined;
+  const blocks: ReactNode[] = [];
+  let parts: ReactNode[] = [];
+  let blank = true;
+  const flush = (key: string) => {
+    if (parts.length > 0 && !blank) blocks.push(run(parts, key));
+    parts = [];
+    blank = true;
+  };
+  node.children.forEach((child, index) => {
+    if (child.type === MATH_DISPLAY) {
+      flush(`${node.key}-run-${index}`);
+      blocks.push(children[index]);
+      return;
+    }
+    parts.push(children[index]);
+    if (child.type !== "text" || child.content.trim() !== "") blank = false;
+  });
+  flush(`${node.key}-run-end`);
+  return blocks;
 }
 
 export const mathRenderRules: RenderRules = {

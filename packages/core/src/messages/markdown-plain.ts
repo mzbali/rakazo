@@ -290,6 +290,14 @@ function stripHtmlTags(text: string): string {
 
 /** Formulas keep their TeX as written: `\(x\)` and `\{` must not lose the backslash. */
 function takeMath(text: string, stash: (payload: string) => string): string {
+  // A formula never reaches across a blank line, as in the renderers.
+  return text
+    .split(/(\n[ \t]*\n)/)
+    .map((block, index) => (index % 2 === 1 ? block : takeMathInBlock(block, stash)))
+    .join("");
+}
+
+function takeMathInBlock(text: string, stash: (payload: string) => string): string {
   const scan = createMathScanner(text);
   let out = "";
   let from = 0;

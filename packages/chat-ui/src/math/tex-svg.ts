@@ -4,7 +4,6 @@ import { RegisterHTMLHandler } from "mathjax-full/js/handlers/html.js";
 import { TeX } from "mathjax-full/js/input/tex.js";
 import "mathjax-full/js/input/tex/base/BaseConfiguration.js";
 import "mathjax-full/js/input/tex/ams/AmsConfiguration.js";
-import "mathjax-full/js/input/tex/newcommand/NewcommandConfiguration.js";
 import { mathjax } from "mathjax-full/js/mathjax.js";
 import { SVG } from "mathjax-full/js/output/svg.js";
 
@@ -12,11 +11,13 @@ import { SVG } from "mathjax-full/js/output/svg.js";
 export type MathSvg = { xml: string; width: number; height: number; baseline: number };
 
 // One document for the app: building the input and output jax is the slow part, converting is not.
+// Without the newcommand package a reply cannot define macros (`\def`, `\newcommand`), so one
+// reply's formulas never change how another's draw.
 const adaptor = liteAdaptor();
 RegisterHTMLHandler(adaptor);
 const document = mathjax.document("", {
   InputJax: new TeX({
-    packages: ["base", "ams", "newcommand"],
+    packages: ["base", "ams"],
     // A parse error throws, so the caller shows the source instead of MathJax's error box.
     formatError: (_jax: unknown, error: Error) => {
       throw error;

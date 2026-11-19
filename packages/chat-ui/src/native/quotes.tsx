@@ -7,6 +7,7 @@ import type { ComponentType, ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import { StyleSheet, View } from "react-native";
+import { mathSourceText } from "../math/markdown-it-math";
 
 /**
  * The app's long-press menu for one quote, given its text as shown and its own Markdown with any
@@ -77,6 +78,9 @@ const BLOCK_SEPARATORS: Record<string, string> = {
 /** A quote's text as the bubble shows it: its line breaks kept, its Markdown markup gone. */
 export function quotePlainText(node: ASTNode): string {
   if (node.type === "text" || node.type === "code_inline") return node.content;
+  if (node.type === "math_inline" || node.type === "math_display") {
+    return mathSourceText(node.markup, node.content);
+  }
   if (node.type === "softbreak" || node.type === "hardbreak") return "\n";
   if (node.type === "fence" || node.type === "code_block") return node.content.replace(/\n$/, "");
   if (node.type === "image") return node.attributes.alt ?? "";

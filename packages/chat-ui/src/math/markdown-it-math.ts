@@ -12,6 +12,12 @@ type InlineState = {
 const BACKSLASH = 0x5c;
 const DOLLAR = 0x24;
 
+/** A formula as it was written, for places that show text instead of drawing it. */
+export function mathSourceText(markup: string, tex: string): string {
+  if (markup === "$$") return `$$${tex}$$`;
+  return markup === "\\[" ? `\\[${tex}\\]` : `\\(${tex}\\)`;
+}
+
 /** Token types the rule produces; the render rules take these names. */
 export const MATH_INLINE = "math_inline";
 export const MATH_DISPLAY = "math_display";

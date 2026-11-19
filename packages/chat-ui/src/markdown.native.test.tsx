@@ -2724,3 +2724,45 @@ describe("native citation pills", () => {
     expect(marks?.[0].match(/data-accessibility-elements-hidden="true"/g)).toHaveLength(4);
   });
 });
+
+describe("native markdown maths layout", () => {
+  it("lays a display formula out as a block between its text, in order", () => {
+    const html = renderToStaticMarkup(<ChatMarkdown>{"before $$x^2$$ after"}</ChatMarkdown>);
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const texts = [...document.querySelectorAll("rn-text")];
+    const run = (content: string) => texts.find((text) => text.textContent?.trim() === content);
+    const before = run("before");
+    const formula = run("x^2");
+    const after = run("after");
+    expect(before && formula && after).toBeTruthy();
+    // The formula is not inside either run of text.
+    expect(before?.contains(formula ?? null)).toBe(false);
+    expect(after?.contains(formula ?? null)).toBe(false);
+    expect(
+      (before?.compareDocumentPosition(formula as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      (formula?.compareDocumentPosition(after as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("keeps an inline formula inside its line of text", () => {
+    const html = renderToStaticMarkup(<ChatMarkdown>{"before \\(x^2\\) after"}</ChatMarkdown>);
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const line = [...document.querySelectorAll("rn-text")].find((text) =>
+      text.textContent?.startsWith("before"),
+    );
+    expect(line?.textContent).toBe("before x^2 after");
+  });
+
+  it("sizes a table column for the formula in it", () => {
+    const table = (cell: string) => `| A | B |\n| --- | --- |\n| ${cell} | 1 |`;
+    const [, plain] = tableRows(renderToStaticMarkup(<ChatMarkdown>{table("a")}</ChatMarkdown>));
+    const [, formula] = tableRows(
+      renderToStaticMarkup(
+        <ChatMarkdown>{table("\\(\\frac{a+b}{c}+\\sqrt{d}+e^{f}\\)")}</ChatMarkdown>,
+      ),
+    );
+    expect(formula?.cells[0]).toBeGreaterThan(plain?.cells[0] ?? 0);
+  });
+});

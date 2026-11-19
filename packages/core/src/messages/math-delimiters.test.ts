@@ -75,3 +75,10 @@ describe("plainTextFromMarkdown with maths", () => {
     expect(plainTextFromMarkdown("a \\* b `\\(x\\)` $5")).toBe("a * b \\(x\\) $5");
   });
 });
+
+describe("plainTextFromMarkdown formulas and blocks", () => {
+  it("does not pair delimiters across paragraphs", () => {
+    expect(plainTextFromMarkdown("a $$ b \\* c\n\nc $$ d")).toBe("a $$ b * c c $$ d");
+    expect(plainTextFromMarkdown("\\(a \\* b\n\nc\\) \\(x\\)")).toBe("(a * b c) \\(x\\)");
+  });
+});

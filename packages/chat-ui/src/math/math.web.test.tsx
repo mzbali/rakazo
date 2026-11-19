@@ -53,3 +53,30 @@ describe("web markdown maths", () => {
     await act(async () => root.unmount());
   });
 });
+
+describe("web markdown maths changes", () => {
+  it("draws a formula once its TeX becomes valid", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<ChatMarkdown>{"Edit \\(\\frac{a}{\\) now"}</ChatMarkdown>);
+    });
+    await vi.waitFor(() => expect(container.querySelector("code.rk-math-source")).not.toBeNull());
+    await act(async () => {
+      root.render(<ChatMarkdown>{"Edit \\(\\frac{a}{b}\\) now"}</ChatMarkdown>);
+    });
+    await vi.waitFor(() => expect(container.querySelector(".katex")).not.toBeNull());
+    expect(container.querySelector("code.rk-math-source")).toBeNull();
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it("does not keep a macro one formula defines for the next", async () => {
+    const { container, done } = await draw("\\(\\gdef\\x{y}\\x\\) and \\(\\x\\)");
+    expect(container.querySelectorAll(".katex")).toHaveLength(1);
+    expect(container.querySelector("code.rk-math-source")?.textContent).toBe("\\x");
+    await done();
+  });
+});

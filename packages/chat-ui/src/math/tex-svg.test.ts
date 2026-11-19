@@ -20,3 +20,11 @@ describe("texToSvg", () => {
     expect(() => texToSvg("\\notacommand", false)).toThrow();
   });
 });
+
+describe("texToSvg macros", () => {
+  it("does not let one formula define a macro for the next", () => {
+    expect(() => texToSvg("\\def\\x{y}\\x", false)).toThrow();
+    expect(() => texToSvg("\\x", false)).toThrow();
+    expect(() => texToSvg("\\newcommand{\\z}{q}\\z", false)).toThrow();
+  });
+});

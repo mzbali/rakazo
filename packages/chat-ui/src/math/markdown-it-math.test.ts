@@ -2,7 +2,7 @@ import { expectLinearTime } from "@rakazo/contracts/test-timing";
 import { createMathScanner } from "@rakazo/core/math-delimiters";
 import { createMarkdownIt } from "@ronradtke/react-native-markdown-display";
 import { describe, expect, it, vi } from "vitest";
-import { markMath } from "./markdown-it-math";
+import { markMath, mathSourceText } from "./markdown-it-math";
 
 // The library draws with react-native, whose source node cannot load; parsing needs none of it.
 vi.mock("react-native", () => ({
@@ -118,5 +118,13 @@ describe("markMath", () => {
       const text = unit.repeat(20_000);
       expectLinearTime(() => expect(formulas(text).length).toBeLessThan(20_001));
     }
+  });
+});
+
+describe("mathSourceText", () => {
+  it("writes a formula back as it was delimited", () => {
+    expect(mathSourceText("$$", "x")).toBe("$$x$$");
+    expect(mathSourceText("\\[", "x")).toBe("\\[x\\]");
+    expect(mathSourceText("\\(", "x")).toBe("\\(x\\)");
   });
 });

@@ -24,6 +24,7 @@ import {
 import { parseThreadWork, shownPullRequest } from "./t3-cloud-agent-pull-requests.js";
 import type { T3ModelRoutes } from "./t3-model-routes.js";
 import { answerFor, questionOf, questionSchema } from "./t3-pending-question.js";
+import { t3ThreadClosed } from "./t3-thread-closed.js";
 
 /** T3 Code's thread tools, reached through the space's MCP connection as the requesting bot. */
 export interface T3CloudAgentOptions {
@@ -371,6 +372,15 @@ export class T3CloudAgentProvider implements CloudAgentProvider {
   async settle(id: string, context: AdapterContext): Promise<void> {
     await this.call("t3_thread_organize", { threadId: id, action: "settle" }, context, {
       optional: true,
+    });
+  }
+
+  /** Settled or archived in T3 with nothing open; a thread gone or out of reach is not. */
+  async ownerClosed(id: string, context: AdapterContext): Promise<boolean> {
+    const read = this.call("t3_thread_read", { threadId: id, limit: 1, runLimit: 1 }, context);
+    return read.then(t3ThreadClosed, (error: unknown) => {
+      if (error instanceof CloudAgentRequestRejected) return false;
+      throw error;
     });
   }
 

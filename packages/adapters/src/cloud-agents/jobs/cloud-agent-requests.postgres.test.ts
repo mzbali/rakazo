@@ -2,15 +2,14 @@ import { randomUUID } from "node:crypto";
 import type {
   AdapterContext,
   BackgroundJob,
-  CloudAgentAttention,
   CloudAgentProvider,
-  CloudAgentSnapshot,
   ConnectorProvider,
   JobPublisher,
   NotificationMessage,
   NotificationProvider,
 } from "@rakazo/adapter-kit";
-import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { cloudAgentShelf, cloudAgentState } from "@rakazo/core";
 import { deferred } from "@rakazo/core/test-async";
 import type { PrismaClient } from "@rakazo/db";
 import { asSystem, createDb, runAsSystem } from "@rakazo/db";
@@ -27,89 +26,13 @@ import {
 import { CLOUD_AGENT_REPORT_USAGE } from "../cloud-agent-tools.js";
 import { T3CloudAgentProvider } from "../t3/t3-cloud-agent.js";
 import { T3ThreadEventsEmulator, t3EmulatedProvider } from "../t3/t3-cloud-agent.test-support.js";
+import { cloudAgentBlock } from "./cloud-agent-card.js";
 import { QUOTA_POLL_MARGIN_MS } from "./cloud-agent-quota.js";
 import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
+import { ScriptedProvider } from "./scripted-cloud-agent.test-support.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;
-
-/** A scripted provider: each remote agent's state is set by the test. */
-class ScriptedProvider implements CloudAgentProvider {
-  readonly agents = new Map<
-    string,
-    {
-      status: CloudAgentSnapshot["status"];
-      attention: CloudAgentAttention[];
-      missed?: CloudAgentAttention[];
-      cursor: number;
-      latestRunId?: string;
-      /** A pull request watch with no run working. */
-      watching?: boolean;
-      watchIdle?: boolean;
-      quotaResetsAt?: string;
-      quotaAutoResume?: boolean;
-    }
-  >();
-  launches = 0;
-  /** Holds a read after it is taken, as a slow poll would, until the test lets it return. */
-  stall?: Promise<void>;
-  describe() {
-    return {
-      id: "scripted",
-      contractVersion: "1",
-      adapterVersion: "0",
-      capabilities: { launch: true, reply: true, cancel: true, offline: true },
-    };
-  }
-  async launch(request: { idempotencyKey: string }) {
-    this.launches += 1;
-    const id = `remote:${request.idempotencyKey}`;
-    if (!this.agents.has(id)) this.agents.set(id, { status: "running", attention: [], cursor: 0 });
-    return { id, url: "", title: "", status: "running" as const };
-  }
-  async get(id: string) {
-    this.agents.get(id)!.cursor += 1;
-    const { missed = [], ...agent } = this.agents.get(id)!;
-    // Closed blockers are events: each is reported once, from the cursor that saw it.
-    delete this.agents.get(id)!.missed;
-    const read = { ...agent, attention: [...agent.attention] };
-    await this.stall;
-    return {
-      id,
-      url: "",
-      title: "",
-      ...read,
-      missedAttention: missed,
-    };
-  }
-  replies = 0;
-  replyPrompts: string[] = [];
-  replyKeys: (string | undefined)[] = [];
-  /** Makes the next reply wait for the test, then refuse as a busy provider would. */
-  refuseReply?: Promise<void>;
-  async reply(id: string, request: { prompt: string; idempotencyKey?: string }) {
-    this.replies += 1;
-    this.replyPrompts.push(request.prompt);
-    this.replyKeys.push(request.idempotencyKey);
-    if (this.refuseReply) {
-      const refusal = this.refuseReply;
-      this.refuseReply = undefined;
-      await refusal;
-      throw new CloudAgentRetryLater("unavailable");
-    }
-    return { id, url: "", title: "", status: "running" as const, latestRunId: randomUUID() };
-  }
-  async cancel(id: string) {
-    return this.get(id);
-  }
-  settled: string[] = [];
-  /** Makes settling fail the way a connection without the permission does. */
-  refuseSettle = false;
-  async settle(id: string) {
-    this.settled.push(id);
-    if (this.refuseSettle) throw new CloudAgentRequestRejected("invalid");
-  }
-}
 
 describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
   let prisma: PrismaClient;
@@ -1281,6 +1204,22 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       expect(provider.settled).toEqual([]);
     });
 
+    it("leaves accepted work that still asks the owner something in their list", async () => {
+      const t = await setup();
+      const { id } = await finished(t, 1);
+      await runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, t.context, t.run, {
+          id,
+          verdict: "accepted",
+          summary: "Done",
+          ownerQuestion: "Ship it now?",
+        }),
+      );
+      expect(t.provider.settled).toEqual([]);
+      await t.poll(id);
+      expect(await t.state(id)).toMatchObject({ ownerQuestion: "Ship it now?", clearedAt: null });
+    });
+
     it("keeps the verdict when settling is refused", async () => {
       const t = await setup();
       const provider = t.provider;
@@ -1320,6 +1259,52 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
     });
     expect(JSON.stringify(received.map((message) => message.blocks))).toContain(question);
+  });
+
+  it("stops asking the owner once they settle or archive the work in the provider", async () => {
+    const t = await setup();
+    const id = await t.launch(1);
+    await t.poll(id);
+    const remote = await t.remote(id);
+    remote.status = "failed";
+    await t.poll(id);
+    await runAsSystem("tool", () =>
+      reportCloudAgent(t.deps as never, t.context, t.run, {
+        id,
+        verdict: "needs_owner",
+        summary: "Stopped early",
+        ownerQuestion: "Try again?",
+      }),
+    );
+    // What the Jobs list and the chat's pill both read: the listed job and its shelf.
+    const shelf = async () => {
+      const row = await t.state(id);
+      return row.clearedAt ? "unlisted" : cloudAgentShelf(cloudAgentState(cloudAgentBlock(row)));
+    };
+    const card = async () =>
+      JSON.stringify(
+        (
+          await asSystem(prisma).message.findUniqueOrThrow({
+            where: { id: (await t.state(id)).messageId! },
+          })
+        ).blocks,
+      );
+    expect(await shelf()).toBe("needsYou");
+    expect(await card()).toContain("Try again?");
+    // Still open in the provider: the question stays, and the job is looked at again later.
+    await t.poll(id);
+    expect(await shelf()).toBe("needsYou");
+    expect((await t.state(id)).nextPollAt).not.toBeNull();
+    remote.closed = true;
+    await t.poll(id);
+    expect(await shelf()).toBe("unlisted");
+    expect(await card()).not.toContain("Try again?");
+    expect(await t.state(id)).toMatchObject({
+      ownerQuestion: null,
+      verdict: "needs_owner",
+      status: "failed",
+      nextPollAt: null,
+    });
   });
 
   describe("a usage-limit pause", () => {

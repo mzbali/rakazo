@@ -34,6 +34,7 @@ import {
   cloudAgentJobThreadsEnabled,
   MAX_LAUNCH_BRIEF,
 } from "./jobs/cloud-agent-job-thread.js";
+import { watchOwnerQuestion } from "./jobs/cloud-agent-owner-closed.js";
 import type { CloudAgentProofDeps } from "./jobs/cloud-agent-proof.js";
 import { failedStartRecovery } from "./jobs/cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./jobs/cloud-agent-replacement.js";
@@ -932,8 +933,14 @@ export async function reportCloudAgent(
   }
   // The question belongs on the job's card too, whatever the helper's own result says.
   if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
-  // Only the call that recorded the verdict settles, so a replay never does it twice.
-  if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
+  if (recorded.count && report.ownerQuestion) await watchOwnerQuestion(deps, agent);
+  // Settled once, by the recording call; work still asking the owner stays in their list.
+  if (
+    recorded.count &&
+    report.verdict === "accepted" &&
+    !report.ownerQuestion &&
+    agent.status === "finished"
+  ) {
     const owner =
       (await bestEffort("load cloud agent connection", cloudAgentFor(deps, agent))) ?? null;
     if (owner)

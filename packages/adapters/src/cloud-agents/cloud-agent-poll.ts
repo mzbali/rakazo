@@ -54,6 +54,7 @@ import {
   jobHelperTaskPrompt,
   jobThreadFor,
 } from "./jobs/cloud-agent-job-thread.js";
+import { ownerClosedPoll } from "./jobs/cloud-agent-owner-closed.js";
 import { refreshCloudAgentProof } from "./jobs/cloud-agent-proof.js";
 import {
   continueAfterQuota,
@@ -173,6 +174,12 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
           abandoned,
         );
       }
+      return;
+    }
+    // Ended work is polled only while its owner question waits, to see it closed remotely.
+    if (agent.status !== "running" && !agent.followup && !agent.cancelRequested) {
+      // A job whose chat card or bot is gone has no question left to show.
+      await ownerClosedPoll(deps, agent, abandoned ? {} : provider, context);
       return;
     }
     const dispatchedAt = agent.followup ? agent.followupDispatchedAt : null;

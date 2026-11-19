@@ -210,7 +210,11 @@ function modelTurnRequest(
       // A background helper is not offered the history tools, so it gets no guidance on them.
       historyRetrievalEnabled:
         contextStrategy !== "current" && tools.some((tool) => tool.name === "search_history"),
-      visualFences: visualFencesAllowed({ trigger: conversationRun.trigger, voiceCall }),
+      visualFences: visualFencesAllowed({
+        trigger: conversationRun.trigger,
+        voiceCall,
+        helper: run.trigger === BACKGROUND_HELPER_TRIGGER,
+      }),
       computerInstruction,
       pageBrowserAllowed,
       taskCatalogInstruction,

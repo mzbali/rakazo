@@ -1,3 +1,5 @@
+import { isBackgroundRunTrigger } from "@rakazo/core";
+
 import { DIAGRAM_ICON_NAMES } from "@rakazo/core/visual-fence";
 
 /**
@@ -29,13 +31,19 @@ export const VISUAL_FENCE_INSTRUCTION = [
 
 /**
  * Whether a run is asked for ui fences: its reply shows in the app. A chat-app reply shows a
- * visual only as its summary, a live voice call is spoken, and a background helper's result is
- * read by its parent bot, so none of them is asked for one.
+ * visual only as its summary, a live voice call is spoken, a background helper's result is read
+ * by its parent bot, and ticket work reports through board comments, so none of them is asked
+ * for one.
  */
 export function visualFencesAllowed(run: {
   trigger: string;
   voiceCall: boolean;
   helper: boolean;
 }): boolean {
-  return run.trigger !== "messaging" && !run.voiceCall && !run.helper;
+  return (
+    run.trigger !== "messaging" &&
+    !run.voiceCall &&
+    !run.helper &&
+    !isBackgroundRunTrigger(run.trigger)
+  );
 }

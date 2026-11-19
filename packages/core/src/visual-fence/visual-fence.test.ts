@@ -234,6 +234,13 @@ describe("parseVisualFence", () => {
     expect(parseVisualFence(body).truncated).toBe(true);
   });
 
+  it("rejects a prop value that runs into the next prop", () => {
+    for (const tag of ["<Grid columns=2foo>", "<Grid columns={2}foo>", '<Grid columns="2"foo>']) {
+      const { root } = parseVisualFence(`<Visual summary="S">${tag}</Grid></Visual>`);
+      expect(children(root)[0]?.state).toBe("invalid");
+    }
+  });
+
   it("rejects a diagram edge from a node to itself", () => {
     const { root } = parseVisualFence(
       `<Visual summary="S"><Diagram nodes={[{id:"a",label:"A"}]} edges={[{from:"a",to:"a"}]} /></Visual>`,

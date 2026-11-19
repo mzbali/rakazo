@@ -17,6 +17,28 @@ const MAX_INLINE_HEIGHT = 640;
 const PLACEHOLDER_HEIGHT = 160;
 
 /**
+ * The visual whole, as its own document so it scrolls with a scrollbar. Rendered only while the
+ * dialog is open, so a closed card runs one document hook.
+ */
+function OpenedVisual({
+  code,
+  title,
+  dialog,
+}: {
+  code: string;
+  title: string;
+  dialog: HTMLDialogElement | null;
+}) {
+  const viewer = usePageDocument(code, "background", false, 0, "full");
+  if (viewer.document === null) return null;
+  return (
+    <div className="absolute inset-x-0" style={{ top: 56, bottom: 0 }}>
+      <PageFrame portalContainer={dialog} document={viewer.document} title={title} interactive />
+    </div>
+  );
+}
+
+/**
  * A visual the bot drew in the chat. One that fits works in place at its own height, under the
  * same rules as an opened page, with no full-screen control. A taller one draws its top inert
  * and opens whole from its full-screen button, where its controls work.
@@ -27,9 +49,6 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const live = useLiveNearView(box);
   const viewer = usePageDocument(block.code, "background", false, 0, "card");
   const [open, setOpen] = useState(false);
-  // The opened view is its own document, so it scrolls with a scrollbar; built only once opened.
-  const whole = usePageDocument(open ? block.code : undefined, "background", false, 0, "full");
-  const frameDocument = open ? whole.document : viewer.document;
   // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
   // of the page inert.
   const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
@@ -92,22 +111,24 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               </Button>
             </header>
           ) : null}
-          {(live || open) && frameDocument !== null ? (
+          {live && viewer.document !== null ? (
             // Never taller than the card shows: the reported height is the content's, not the frame's.
+            // Kept mounted but hidden while the visual is open, so the chat copy does not reload.
             <div
-              inert={!inline && !open}
-              className="absolute inset-x-0"
-              style={open ? { top: 56, bottom: 0 } : { top: 0, height: shown }}
+              inert={!inline}
+              className={open ? "hidden" : "absolute inset-x-0"}
+              style={{ top: 0, height: shown }}
             >
               <PageFrame
                 portalContainer={dialog}
-                document={frameDocument}
+                document={viewer.document}
                 title={block.title}
-                interactive={inline || open}
-                onHeight={open ? undefined : onHeight}
+                interactive={inline}
+                onHeight={onHeight}
               />
             </div>
           ) : null}
+          {open ? <OpenedVisual code={block.code} title={block.title} dialog={dialog} /> : null}
         </dialog>
         {drawn ? null : (
           <div

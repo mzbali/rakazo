@@ -28,10 +28,10 @@ const REPORT = `function Report() {
 }
 export default Report;`;
 
-/** The visual's document, two sandboxed frames down. */
+/** The visual's document, two sandboxed frames down; a card keeps its chat copy hidden while opened. */
 function visualFrame(scope: Locator, title: string) {
   return scope
-    .locator(`iframe[title="${title}"]`)
+    .locator(`iframe[title="${title}"]:visible`)
     .contentFrame()
     .locator("iframe#preview")
     .contentFrame();

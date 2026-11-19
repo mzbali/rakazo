@@ -25,7 +25,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const box = useRef<HTMLDivElement>(null);
   const live = useLiveNearView(box);
-  const viewer = usePageDocument(block.code, "card", false, 0, "card");
+  const viewer = usePageDocument(block.code, "background", false, 0, "card");
   const [open, setOpen] = useState(false);
   // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
   // of the page inert.
@@ -56,7 +56,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   return (
     <div
       data-testid="visual-card"
-      className="relative w-full overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
+      className="relative w-full overflow-hidden rounded-[24px] has-focus-visible:ring-2 has-focus-visible:ring-ring"
     >
       <div
         ref={box}
@@ -72,7 +72,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           onCancel={() => setOpen(false)}
           className={
             open
-              ? "fixed inset-0 m-auto h-[88dvh] max-h-none w-[94vw] max-w-[960px] overflow-hidden rounded-2xl border-0 bg-card p-0 text-foreground backdrop:bg-overlay"
+              ? "fixed inset-0 m-auto h-[88dvh] max-h-none w-[94vw] max-w-[960px] overflow-hidden rounded-2xl border-0 bg-background p-0 text-foreground backdrop:bg-overlay"
               : "relative m-0 block h-full w-full max-w-none border-0 bg-transparent p-0 text-foreground"
           }
         >
@@ -114,7 +114,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           </div>
         )}
         {clipped && !open ? (
-          <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-card" />
+          <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-background" />
         ) : null}
       </div>
       <span id={summaryId} hidden>

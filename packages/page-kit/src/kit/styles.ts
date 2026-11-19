@@ -38,6 +38,9 @@ body{font-size:1rem}
 [data-inline] #root{display:flex;flex-direction:column;gap:.75rem;padding:1rem}
 [data-inline] .rk-page{max-width:none;padding:0}
 [data-inline="card"] .rk-diagram svg{min-width:0!important}
+[data-inline="card"],[data-still]{scrollbar-width:none}
+[data-inline="card"]::-webkit-scrollbar,[data-still]::-webkit-scrollbar{display:none}
+[data-still]{overflow:hidden}
 .rk-header{display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.75rem}
 .rk-title{margin:0;font-size:1.875rem;line-height:1.2;font-weight:600;letter-spacing:-0.012em;overflow-wrap:anywhere}
 .rk-summary{margin:0;font-size:1rem;line-height:1.5}

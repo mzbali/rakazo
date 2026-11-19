@@ -729,7 +729,7 @@ private fun takeFencedCode(
   return out.joinToString("\n")
 }
 
-private val UI_FENCE_LINE = Regex("^ {0,3}(`{3,}|~{3,}) *ui *$", RegexOption.MULTILINE)
+private val UI_FENCE_LINE = Regex("^ {0,3}(`{3,}|~{3,})[ \\t]*ui[ \\t]*\\r?$", RegexOption.MULTILINE)
 private val NAME_START = Regex("^[A-Za-z_][A-Za-z0-9_-]*")
 private val ENTITY = Regex("&(lt|gt|amp|quot);")
 private const val SUMMARY_MAX_LENGTH = 500

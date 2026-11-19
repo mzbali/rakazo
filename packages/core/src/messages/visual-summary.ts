@@ -92,3 +92,25 @@ export function foldVisualFences(text: string): string {
   if (fence?.ui) out.push(visualFence(fence.body.join("\n")));
   return out.join("\n");
 }
+
+/** Blocks that carry text another bot, a person or a chat app wrote, which a fence may not use. */
+const RELAYED_BLOCK_KINDS = new Set([
+  "channel_message",
+  "bot_message_received",
+  "bot_message_sent",
+  "handoff",
+]);
+
+/**
+ * Whether the text of this message may draw ```ui fences as visuals: it is the Space's own bot's
+ * reply and nothing relayed from elsewhere is mixed into it. Other blocks of the reply, such as
+ * images, files or tool steps, do not matter. Web and iPhone both ask this one question.
+ */
+export function messageTextDrawsVisuals(message: {
+  role: string;
+  blocks: readonly { kind: string }[];
+}): boolean {
+  return (
+    message.role === "bot" && !message.blocks.some((block) => RELAYED_BLOCK_KINDS.has(block.kind))
+  );
+}

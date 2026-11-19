@@ -10,7 +10,12 @@ import type {
   ThreadMessage,
 } from "@rakazo/contracts";
 import type { ChildBotBlock, PeerExchange } from "@rakazo/core";
-import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
+import {
+  isPeerReceiptBlocks,
+  isToolActivityBlock,
+  messageTextDrawsVisuals,
+  otherAuthor,
+} from "@rakazo/core";
 import { messageSources } from "@rakazo/core/answer-sources";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { UserRound } from "lucide-react";
@@ -332,7 +337,7 @@ export const MessageView = memo(function MessageView({
                   >
                     <ChatMarkdown
                       streaming={block.kind === "progress"}
-                      visuals={message.role === "bot"}
+                      visuals={messageTextDrawsVisuals(message)}
                       renderMention={renderMention}
                       onOpenPage={openPage}
                       {...citedSources(message.blocks, visibleNarrationBlocks, i, block.kind)}
@@ -462,7 +467,7 @@ export const MessageView = memo(function MessageView({
               <BotProse key={i}>
                 <ChatMarkdown
                   streaming
-                  visuals={message.role === "bot"}
+                  visuals={messageTextDrawsVisuals(message)}
                   renderMention={renderMention}
                   onOpenPage={openPage}
                 >
@@ -636,7 +641,7 @@ export const MessageView = memo(function MessageView({
                 <BotProse>
                   <div data-quote-message-id={quoteMessageId}>
                     <ChatMarkdown
-                      visuals={message.role === "bot"}
+                      visuals={messageTextDrawsVisuals(message)}
                       renderMention={renderMention}
                       onOpenPage={openPage}
                       {...citedSources(message.blocks, blocks, i, block.kind)}

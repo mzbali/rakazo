@@ -29,6 +29,7 @@ class MarkdownPreviewTest {
     assertEquals("Look [visual: a < b]", markdownToPreview("Look\n```ui\n<Visual summary=\"a &lt; b\">\n<Callout"))
     assertEquals("[visual]", markdownToPreview("```ui\n<Visual summary=\"Half"))
     assertEquals("[visual]", markdownToPreview("~~~ui\n<Visual>\n</Visual>\n~~~"))
+    assertEquals("[visual: T]", markdownToPreview("```\tui\t\n<Visual summary=\"T\">\n```"))
     assertEquals("const a = 1;", markdownToPreview("```ts\nconst a = 1;\n```"))
   }
 

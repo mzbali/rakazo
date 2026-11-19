@@ -52,19 +52,22 @@ function collapse(raw: string): string {
   );
 }
 
-function utf8Length(text: string): number {
+/**
+ * How many leading characters fit in `max` UTF-8 bytes. It stops counting as soon as the next one
+ * does not, so a huge source costs no more than `max` bytes of scanning.
+ */
+function bytePrefixLength(text: string, max: number): number {
   let bytes = 0;
   for (let at = 0; at < text.length; at++) {
     const code = text.charCodeAt(at);
-    if (code < 0x80) bytes += 1;
-    else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code < 0xdc00 && (text.charCodeAt(at + 1) & 0xfc00) === 0xdc00) {
-      // A surrogate pair is one character of four bytes; a lone surrogate encodes as three.
-      bytes += 4;
-      at++;
-    } else bytes += 3;
+    // A surrogate pair is one character of four bytes; a lone surrogate encodes as three.
+    const pair = code >= 0xd800 && code < 0xdc00 && (text.charCodeAt(at + 1) & 0xfc00) === 0xdc00;
+    const size = code < 0x80 ? 1 : code < 0x800 ? 2 : pair ? 4 : 3;
+    if (bytes + size > max) return at;
+    bytes += size;
+    if (pair) at++;
   }
-  return bytes;
+  return text.length;
 }
 
 type Tag = { name: string; attrs: string; selfClosing: boolean; end: number };
@@ -301,18 +304,23 @@ const CACHE_ENTRIES = 24;
  * reply costs nothing.
  */
 export function parseVisualFence(source: string): VisualParse {
-  const cached = cache.get(source);
+  // Only the first 32 KB is ever read, so only that much is measured, hashed and kept.
+  const fits =
+    source.length <= VISUAL_CODE_MAX_BYTES &&
+    (source.length * 3 <= VISUAL_CODE_MAX_BYTES ||
+      bytePrefixLength(source, VISUAL_CODE_MAX_BYTES) === source.length);
+  // A cut tag is just an unfinished tag, so what has drawn does not change.
+  const body = fits
+    ? source
+    : source.slice(
+        0,
+        bytePrefixLength(source.slice(0, VISUAL_CODE_MAX_BYTES), VISUAL_CODE_MAX_BYTES),
+      );
+  const key = `${fits ? "=" : "!"}${body}`;
+  const cached = cache.get(key);
   if (cached) return cached;
-  const truncated =
-    source.length * 3 > VISUAL_CODE_MAX_BYTES && utf8Length(source) > VISUAL_CODE_MAX_BYTES;
-  let result: VisualParse;
-  if (truncated) {
-    // Keep what fits: a cut tag is just an unfinished tag, so nothing drawn changes.
-    let limit = VISUAL_CODE_MAX_BYTES;
-    while (utf8Length(source.slice(0, limit)) > VISUAL_CODE_MAX_BYTES) limit -= 64;
-    result = { ...parse(source.slice(0, limit)), truncated: true };
-  } else result = parse(source);
+  const result: VisualParse = { ...parse(body), truncated: !fits };
   if (cache.size >= CACHE_ENTRIES) cache.delete(cache.keys().next().value!);
-  cache.set(source, result);
+  cache.set(key, result);
   return result;
 }

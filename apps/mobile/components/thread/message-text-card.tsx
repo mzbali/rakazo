@@ -1,6 +1,7 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { messageTextDrawsVisuals } from "@rakazo/core";
 import { messageSources } from "@rakazo/core/answer-sources";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useContext } from "react";
@@ -21,16 +22,6 @@ import { NativeSymbol } from "../native/native-symbol";
 import type { MessageActionProps } from "./message-bubble";
 
 const OPEN_BOT_ACTION = "open-bot:";
-
-/** Text the Space's own bot wrote, with nothing relayed from a chat app or another bot mixed in. */
-function ownBotText(message: MobileMessage): boolean {
-  return (
-    message.role === "bot" &&
-    message.blocks.every(
-      (block) => block.kind === "text" || block.kind === "progress" || block.kind === "sources",
-    )
-  );
-}
 
 export function MessageTextCard({
   message,
@@ -119,7 +110,7 @@ export function MessageTextCard({
         streaming={message.id.startsWith("progress:")}
         sources={sources}
         sourcesRow={Boolean(sources?.length)}
-        visuals={ownBotText(message)}
+        visuals={messageTextDrawsVisuals(message)}
       />
     </Surface>
   );

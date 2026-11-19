@@ -18,6 +18,7 @@ import {
   GROUP_UNADDRESSED_REPLY_GUIDANCE,
   runReplyGuidance,
 } from "../assembly/run-replies.prompt.js";
+import { visualFencesAllowed } from "../assembly/visual-fence.prompt.js";
 import type { RunExecutorServices, RunHold } from "../lifecycle/run-attempt.js";
 import { completeRun } from "../lifecycle/run-complete.js";
 import { failRun, handoffEndedTurn, requeueRunAfterDatabaseOutage } from "../lifecycle/run-fail.js";
@@ -130,6 +131,7 @@ function modelTurnRequest(
     replyMode,
     sourceMessage,
     userComputer,
+    voiceCall,
   } = turn.capabilities;
   const { strategicBuiltins, taskCatalogInstruction, tools } = turn.tools;
   const { computerInstruction, workspaceInstruction } = turn.computerInstructions;
@@ -208,8 +210,7 @@ function modelTurnRequest(
       // A background helper is not offered the history tools, so it gets no guidance on them.
       historyRetrievalEnabled:
         contextStrategy !== "current" && tools.some((tool) => tool.name === "search_history"),
-      // A reply to a chat app shows a visual only as its summary, so it is not asked for there.
-      visualFences: conversationRun.trigger !== "messaging",
+      visualFences: visualFencesAllowed({ trigger: conversationRun.trigger, voiceCall }),
       computerInstruction,
       pageBrowserAllowed,
       taskCatalogInstruction,

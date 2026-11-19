@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldVisualFences, visualFenceSummary } from "./visual-summary.js";
+import { foldVisualFences, messageTextDrawsVisuals, visualFenceSummary } from "./visual-summary.js";
 
 const fence = (body: string, close = true) => `\`\`\`ui\n${body}${close ? "\n```" : ""}`;
 const BODY = `<Visual summary="NCE: real vs noise">\n<Callout lead="x">a</Callout>\n</Visual>`;
@@ -64,5 +64,34 @@ describe("foldVisualFences", () => {
 
   it("returns text without a ui fence untouched", () => {
     expect(foldVisualFences("plain `ui` text")).toBe("plain `ui` text");
+  });
+});
+
+describe("messageTextDrawsVisuals", () => {
+  const text = { kind: "text" };
+
+  it("allows the own bot's reply, whatever else it carries", () => {
+    expect(messageTextDrawsVisuals({ role: "bot", blocks: [text] })).toBe(true);
+    expect(
+      messageTextDrawsVisuals({
+        role: "bot",
+        blocks: [{ kind: "steps" }, { kind: "image" }, { kind: "file" }, text, { kind: "sources" }],
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses relayed or peer content and anything a bot did not write", () => {
+    for (const relayed of [
+      "channel_message",
+      "bot_message_received",
+      "bot_message_sent",
+      "handoff",
+    ]) {
+      expect(messageTextDrawsVisuals({ role: "bot", blocks: [text, { kind: relayed }] })).toBe(
+        false,
+      );
+    }
+    expect(messageTextDrawsVisuals({ role: "user", blocks: [text] })).toBe(false);
+    expect(messageTextDrawsVisuals({ role: "system", blocks: [text] })).toBe(false);
   });
 });

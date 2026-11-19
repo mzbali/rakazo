@@ -8,6 +8,7 @@ import {
   formatFileSize,
   isApprovalAskBlock,
   isQuestionAskBlock,
+  messageTextDrawsVisuals,
   messagingProviderLabel,
   resolveAskChoice,
   selectedAskActionLabel,
@@ -642,6 +643,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                 tokens={tokens}
                 colorScheme={colorScheme}
                 streaming={message.id.startsWith("progress:")}
+                visuals={messageTextDrawsVisuals(message)}
                 {...(message.role === "bot"
                   ? {
                       sources: messageSources(message.blocks),

@@ -241,6 +241,15 @@ describe("parseVisualFence", () => {
     expect(children(root)[0]?.state).toBe("invalid");
   });
 
+  it("reads a huge source by its first 32 KB without scanning the rest", () => {
+    const huge = `<Visual summary="S">${'<Callout lead="x">filler</Callout>'.repeat(3_000_000)}`;
+    expectLinearTime(() => {
+      const result = parseVisualFence(huge);
+      expect(result.truncated).toBe(true);
+      expect(result.root?.state).toBe("open");
+    });
+  });
+
   it("returns the same result for the same body", () => {
     expect(parseVisualFence(NCE)).toBe(parseVisualFence(NCE));
   });

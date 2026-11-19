@@ -50,6 +50,8 @@ export function pageViewerDocument(input: {
    * card's width; `full` opens it whole.
    */
   inline?: "card" | "full";
+  /** A preview that only draws and is scaled into a card: it never shows a scrollbar. */
+  still?: boolean;
 }): string {
   const boot = JSON.stringify({
     code: input.code,
@@ -62,7 +64,7 @@ export function pageViewerDocument(input: {
       ? `<style>:root{--rk-bottom-inset:${Math.round(input.bottomInset)}px}</style>`
       : "";
   return [
-    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.inline === "card" || input.inline === "full" ? ` data-inline="${input.inline}"` : ""}><head><meta charset="utf-8">`,
+    `<!DOCTYPE html><html${input.touch ? " data-touch" : ""}${input.reply ? " data-reply" : ""}${input.still ? " data-still" : ""}${input.inline === "card" || input.inline === "full" ? ` data-inline="${input.inline}"` : ""}><head><meta charset="utf-8">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<script>${input.runtime}</script>`,
     input.surface !== undefined && HEX_COLOR.test(input.surface)

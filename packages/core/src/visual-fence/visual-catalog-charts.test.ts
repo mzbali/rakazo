@@ -87,6 +87,11 @@ describe("the rest of the catalog", () => {
     expect(element.reason).toBeTruthy();
   });
 
+  it("keeps big figures in a table or a metric, which only show them as text", () => {
+    expect(only(`<Table columns={["A"]} rows={[[1e16]]} />`).state).toBe("complete");
+    expect(only(`<Metrics metrics={[{value: 1e16, label: "x"}]} />`).state).toBe("complete");
+  });
+
   it("lets a diagram node name an icon from the fixed list only", () => {
     const node = (icon: string) =>
       only(`<Diagram nodes={[{id: "a", label: "A", icon: "${icon}"}]} />`);

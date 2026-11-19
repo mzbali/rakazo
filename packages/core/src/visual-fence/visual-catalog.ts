@@ -107,11 +107,13 @@ function list(
   return items;
 }
 
-/** Past this a scale cannot tell a value from the next one, so charts would draw no plot. */
-const NUMBER_MAX = 1e15;
-
 const finiteNumber = (value: VisualValue | undefined) =>
-  typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= NUMBER_MAX;
+  typeof value === "number" && Number.isFinite(value);
+
+/** Past this a chart's scale cannot tell a value from the next one, so it would draw no plot. */
+const CHART_NUMBER_MAX = 1e15;
+const chartNumber = (value: VisualValue | undefined) =>
+  finiteNumber(value) && Math.abs(value as number) <= CHART_NUMBER_MAX;
 
 function steps(props: VisualObject): Checked {
   const items = list(props.steps, 20, (step) => {
@@ -198,21 +200,18 @@ function diagram(props: VisualObject): Checked {
 }
 
 const numberInRange = (value: VisualValue | undefined, low: number, high: number) =>
-  finiteNumber(value) && (value as number) >= low && (value as number) <= high;
+  chartNumber(value) && (value as number) >= low && (value as number) <= high;
 
 /** Up to `max` finite numbers, at least one. */
 function numbers(value: VisualValue | undefined, max: number): number[] | undefined {
-  return Array.isArray(value) &&
-    value.length > 0 &&
-    value.length <= max &&
-    value.every(finiteNumber)
+  return Array.isArray(value) && value.length > 0 && value.length <= max && value.every(chartNumber)
     ? (value as number[])
     : undefined;
 }
 
 function bars(props: VisualObject): Checked {
   const items = list(props.bars, 20, (bar) =>
-    text(bar.label, 120) && finiteNumber(bar.value) && text(bar.display, 40) !== false
+    text(bar.label, 120) && chartNumber(bar.value) && text(bar.display, 40) !== false
       ? pick(bar, ["label", "value", "display"])
       : undefined,
   );
@@ -229,7 +228,7 @@ function bars(props: VisualObject): Checked {
 
 function lineChart(props: VisualObject): Checked {
   const points = list(props.points, 120, (point) =>
-    text(point.label, 40) !== false && finiteNumber(point.value)
+    text(point.label, 40) !== false && chartNumber(point.value)
       ? pick(point, ["label", "value"])
       : undefined,
   );
@@ -254,8 +253,8 @@ function lineChart(props: VisualObject): Checked {
   )
     return fail("labels is up to 5 series names");
   if (
-    (props.floor !== undefined && !finiteNumber(props.floor)) ||
-    (props.ceiling !== undefined && !finiteNumber(props.ceiling)) ||
+    (props.floor !== undefined && !chartNumber(props.floor)) ||
+    (props.ceiling !== undefined && !chartNumber(props.ceiling)) ||
     text(props.unit, 12) === false
   )
     return fail("floor and ceiling are numbers; unit is a short text");
@@ -271,7 +270,7 @@ function lineChart(props: VisualObject): Checked {
 function pie(props: VisualObject): Checked {
   const parts = list(props.parts, 12, (part) =>
     text(part.label, 80) &&
-    finiteNumber(part.value) &&
+    chartNumber(part.value) &&
     (part.value as number) >= 0 &&
     text(part.display, 40) !== false
       ? pick(part, ["label", "value", "display"])
@@ -287,7 +286,7 @@ function pie(props: VisualObject): Checked {
 
 /** A cell as the table draws it, or undefined when it is not usable. */
 function tableCell(cell: VisualValue | undefined): VisualValue | undefined {
-  if ((typeof cell === "string" && cell.length <= 200) || finiteNumber(cell)) return cell;
+  if ((typeof cell === "string" && cell.length <= 200) || chartNumber(cell)) return cell;
   if (!isObject(cell) || typeof cell.text !== "string" || cell.text.length > 200) return undefined;
   return oneOf(cell.tone, PILL_TONES) === false ? undefined : pick(cell, ["text", "tone"]);
 }

@@ -139,7 +139,9 @@ if (args[0] === "inspect") {
     }
     if (process.env.INTERRUPT_STARTUP) process.kill(process.ppid, process.env.INTERRUPT_STARTUP);
   }
-} else if (!args.includes("pg_isready")) {
+} else if (args.includes("pg_isready")) {
+  if (process.env.FAIL_POSTGRES_WAIT === "1") process.exit(1);
+} else {
   process.exit(92);
 }
 `,
@@ -363,7 +365,7 @@ describe("development backup failures", () => {
     if (hasEnv) expect(f.commands()[0]).toContain(path.join(f.checkout, ".env"));
   });
 
-  it.each(["", ".", "..", "../data", "link/snapshot"])(
+  it.each(["", ".", "..", ".pending", "../data", "link/snapshot"])(
     "rejects unsafe stamp %j without changing contents or modes",
     (stamp) => {
       const f = fixture();
@@ -432,9 +434,14 @@ describe("development backup failures", () => {
     expect(statSync(output).mode & 0o777).toBe(0o700);
     expect(statSync(path.join(output, "rakazo.sql")).mode & 0o777).toBe(0o600);
     expect(statSync(path.join(output, "homes.tgz")).mode & 0o777).toBe(0o600);
+    expect(readFileSync(path.join(output, "rakazo.sql"), "utf8")).toContain("CREATE TABLE");
+    expect(contents(path.join(output, "homes.tgz"))).toContain("data/home.txt");
   });
 
-  it("keeps reused artifacts private and unreplaced when the database dump fails", () => {
+  it.each([
+    { failure: "FAIL_DUMP", status: 2 },
+    { failure: "FAIL_TAR", status: 1 },
+  ])("keeps both previous artifacts when $failure occurs", ({ failure, status }) => {
     const f = fixture();
     mkdirSync(path.join(f.checkout, "data"));
     const output = path.join(f.checkout, "backups/example");
@@ -444,15 +451,16 @@ describe("development backup failures", () => {
     }
     chmodSync(output, 0o755);
 
-    const result = f.run("scripts/backup.sh", ["example"], { FAIL_DUMP: "1" });
+    const result = f.run("scripts/backup.sh", ["example"], { [failure]: "1" });
 
-    expect(result.status).toBe(2);
+    expect(result.status).toBe(status);
     expect(result.stdout).not.toContain("Backup written");
-    expect(readFileSync(path.join(output, "homes.tgz"), "utf8")).toBe("old backup");
     expect(statSync(output).mode & 0o777).toBe(0o700);
     for (const name of ["rakazo.sql", "homes.tgz"]) {
+      expect(readFileSync(path.join(output, name), "utf8")).toBe("old backup");
       expect(statSync(path.join(output, name)).mode & 0o777).toBe(0o600);
     }
+    expect(f.run("scripts/backup.sh", ["example"]).status).toBe(0);
   });
 
   it.each(["directory", "artifact"])("does not write through a backup %s symlink", (kind) => {
@@ -478,6 +486,36 @@ describe("development backup failures", () => {
     ).toBe("keep this");
     expect(f.commands()).toEqual([]);
   });
+
+  it("preserves the previous backup if publishing the new directory fails", () => {
+    const f = fixture();
+    write(path.join(f.checkout, "data/home.txt"), "new home");
+    const output = path.join(f.checkout, "backups/example");
+    write(path.join(output, "rakazo.sql"), "old dump");
+    write(path.join(output, "homes.tgz"), "old archive");
+    const move = path.join(f.root, "bin/mv");
+    write(move, '#!/bin/bash\n[[ "$1" != */new ]] || exit 23\nexec /bin/mv "$@"\n');
+    chmodSync(move, 0o755);
+
+    expect(f.run("scripts/backup.sh", ["example"]).status).toBe(23);
+    expect(readFileSync(path.join(output, "rakazo.sql"), "utf8")).toBe("old dump");
+    expect(readFileSync(path.join(output, "homes.tgz"), "utf8")).toBe("old archive");
+  });
+
+  it.each([".pending/example/previous", "example/notes"])(
+    "leaves an occupied backup path alone: %s",
+    (occupied) => {
+      const f = fixture();
+      mkdirSync(path.join(f.checkout, "data"));
+      const entry = path.join(f.checkout, "backups", occupied);
+      write(entry, "keep");
+      chmodSync(path.dirname(entry), 0o750);
+      expect(f.run("scripts/backup.sh", ["example"]).status).not.toBe(0);
+      expect(readFileSync(entry, "utf8")).toBe("keep");
+      expect(statSync(path.dirname(entry)).mode & 0o777).toBe(0o750);
+      expect(f.commands()).toEqual([]);
+    },
+  );
 
   it("refuses to back up without data", () => {
     const f = fixture();
@@ -540,6 +578,33 @@ describe("development restore failures", () => {
     write(path.join(f.checkout, "data/home.txt"), "current home");
     return f;
   }
+
+  it("reports a Postgres health timeout without importing or replacing data", () => {
+    const f = restoreFixture();
+    const clock = path.join(f.root, "clock.sh");
+    write(clock, "sleep() { SECONDS=$((SECONDS + 60)); }\n");
+    const result = f.run("scripts/restore.sh", [path.join(f.checkout, "backups/example")], {
+      BASH_ENV: clock,
+      FAIL_POSTGRES_WAIT: "1",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Timed out waiting for Postgres after 60 seconds.");
+    expect(result.stderr).toContain("docker compose --env-file");
+    expect(result.stderr).toContain("logs postgres");
+    const commands = f.commands();
+    const composeCommands = commands.filter((args) => args[0] === "compose");
+    expect(composeCommands.map((args) => args.slice(args.indexOf("-f") + 2))).toEqual([
+      ["stop", "api", "worker", "supervisor"],
+      ["up", "-d", "postgres"],
+      expect.arrayContaining(["exec", "-T", "postgres"]),
+      expect.arrayContaining(["exec", "-T", "postgres"]),
+      ["stop", "api", "worker", "supervisor"],
+    ]);
+    expect(commands.filter((args) => args[0] === "pg_isready")).toHaveLength(2);
+    expect(f.serviceStates()).toEqual(stoppedWriters);
+    expect(readFileSync(path.join(f.checkout, "data/home.txt"), "utf8")).toBe("current home");
+  });
 
   it.each([false, true])(
     "restores files and starts services only after SQL succeeds: %s",
@@ -821,6 +886,145 @@ describe.skipIf(process.platform !== "linux")(
       expect(existsSync(f.snapshots)).toBe(false);
     });
 
+    function composeFiles(command: string[]) {
+      return command.flatMap((arg, index) => (command[index - 1] === "-f" ? [arg] : []));
+    }
+
+    it.each([false, true])(
+      "backs up a published-images install, with its override: %s",
+      (override) => {
+        const f = fixture();
+        write(path.join(f.checkout, "docker-compose.images.yml"), "services: {}\n");
+        if (override) write(path.join(f.checkout, "docker-compose.override.yml"), "services: {}\n");
+        const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_DEPLOY_DIR: f.checkout });
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain("Verified Rakazo backup");
+        const commands = f.commands().filter((args) => args[0] === "compose");
+        expect(commands.length).toBeGreaterThan(0);
+        for (const command of commands) {
+          expect(composeFiles(command)).toEqual(
+            ["docker-compose.images.yml", ...(override ? ["docker-compose.override.yml"] : [])].map(
+              (file) => path.join(f.checkout, file),
+            ),
+          );
+        }
+      },
+    );
+
+    it("prefers a checkout's production file over a published-images file beside it", () => {
+      const f = fixture();
+      write(path.join(f.checkout, "docker-compose.images.yml"), "services: {}\n");
+      write(path.join(f.checkout, "infra/compose/docker-compose.prod.yml"), "services: {}\n");
+      const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_DEPLOY_DIR: f.checkout });
+      expect(result.status, result.stderr).toBe(0);
+      for (const command of f.commands().filter((args) => args[0] === "compose")) {
+        expect(composeFiles(command)).toEqual([
+          path.join(f.checkout, "infra/compose/docker-compose.prod.yml"),
+        ]);
+      }
+    });
+
+    it.each([":", ";"])("uses the listed Compose files in order, separated by %s", (separator) => {
+      const f = fixture();
+      const result = f.run("infra/compose/backup-prod.sh", [], {
+        RAKAZO_DEPLOY_DIR: f.checkout,
+        RAKAZO_COMPOSE_FILE: ["docker-compose.images.yml", "ops/overlay.yml"].join(separator),
+        ...(separator === ":" ? {} : { COMPOSE_PATH_SEPARATOR: separator }),
+      });
+      expect(result.status, result.stderr).toBe(0);
+      for (const command of f.commands().filter((args) => args[0] === "compose")) {
+        expect(composeFiles(command)).toEqual([
+          path.join(f.checkout, "docker-compose.images.yml"),
+          path.join(f.checkout, "ops/overlay.yml"),
+        ]);
+      }
+    });
+
+    it.each([
+      ["RAKAZO_COMPOSE_FILE=a.yml:ops/b.yml\n", ["a.yml", "ops/b.yml"]],
+      [
+        'RAKAZO_COMPOSE_FILE="a.yml:ops/b.yml" # the updater reads this too\r\n',
+        ["a.yml", "ops/b.yml"],
+      ],
+      [
+        "RAKAZO_COMPOSE_FILE=old.yml\n# RAKAZO_COMPOSE_FILE=no.yml\nRAKAZO_COMPOSE_FILE \t  = 'new.yml'",
+        ["new.yml"],
+      ],
+      [
+        "COMPOSE_PATH_SEPARATOR=;\nRAKAZO_COMPOSE_FILE=a.yml;ops/b.yml # overlay\n",
+        ["a.yml", "ops/b.yml"],
+      ],
+      ["OTHER_RAKAZO_COMPOSE_FILE=no.yml\nRAKAZO_COMPOSE_FILE=\n", ["docker-compose.images.yml"]],
+      ["exported=no\nexport RAKAZO_COMPOSE_FILE=a.yml:ops/b.yml\n", ["a.yml", "ops/b.yml"]],
+    ])("reads the file list the updater uses from the deployment environment: %j", (env, files) => {
+      const f = fixture();
+      write(path.join(f.checkout, ".env"), env);
+      write(path.join(f.checkout, "docker-compose.images.yml"), "services: {}\n");
+      const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_DEPLOY_DIR: f.checkout });
+      expect(result.status, result.stderr).toBe(0);
+      const commands = f.commands().filter((args) => args[0] === "compose");
+      expect(commands.length).toBeGreaterThan(0);
+      for (const command of commands) {
+        expect(composeFiles(command)).toEqual(files.map((file) => path.join(f.checkout, file)));
+      }
+    });
+
+    it("prefers the service's own setting and ignores spaces and empty entries, as the updater does", () => {
+      const f = fixture();
+      write(path.join(f.checkout, ".env"), "RAKAZO_COMPOSE_FILE=from-env-file.yml\n");
+      const result = f.run("infra/compose/backup-prod.sh", [], {
+        RAKAZO_DEPLOY_DIR: f.checkout,
+        RAKAZO_COMPOSE_FILE: " a.yml : ops/b.yml ::",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      for (const command of f.commands().filter((args) => args[0] === "compose")) {
+        expect(composeFiles(command)).toEqual([
+          path.join(f.checkout, "a.yml"),
+          path.join(f.checkout, "ops/b.yml"),
+        ]);
+      }
+    });
+
+    it("refuses a list it would have to expand, instead of backing up some other stack", () => {
+      const f = fixture();
+      write(
+        path.join(f.checkout, ".env"),
+        "OVERLAY=ops/b.yml\nRAKAZO_COMPOSE_FILE=a.yml:${OVERLAY}\n",
+      );
+      write(path.join(f.checkout, "docker-compose.images.yml"), "services: {}\n");
+      const result = f.run("infra/compose/backup-prod.sh", [], { RAKAZO_DEPLOY_DIR: f.checkout });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("set the plain value in /etc/rakazo/backup.env");
+      expect(f.commands()).toEqual([]);
+      expect(existsSync(f.snapshots)).toBe(false);
+    });
+
+    it("rejects a list that names no Compose file", () => {
+      const f = fixture();
+      const result = f.run("infra/compose/backup-prod.sh", [], {
+        RAKAZO_DEPLOY_DIR: f.checkout,
+        RAKAZO_COMPOSE_FILE: " : ",
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("at least one Compose file");
+      expect(f.commands()).toEqual([]);
+    });
+
+    it.each(["/etc/compose.yml", "../other/compose.yml", "ops/../../compose.yml", "a.yml: /b.yml"])(
+      "rejects a Compose file outside the deployment directory: %s",
+      (files) => {
+        const f = fixture();
+        const result = f.run("infra/compose/backup-prod.sh", [], {
+          RAKAZO_DEPLOY_DIR: f.checkout,
+          RAKAZO_COMPOSE_FILE: files,
+        });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain("inside the deployment directory");
+        expect(f.commands()).toEqual([]);
+        expect(existsSync(f.snapshots)).toBe(false);
+      },
+    );
+
     it("preserves host archiving and the live-file warning allowance from PR #618", () => {
       const f = fixture();
       const result = f.run("infra/compose/backup-prod.sh", [], { CHANGED_TAR: "1" });
@@ -1066,130 +1270,124 @@ function snapshotOf(result: { stdout: string }) {
   return result.stdout.split("written to ")[1]!.split("\n")[0]!;
 }
 
-describe.skipIf(process.platform !== "linux")(
-  "encrypted production backups",
-  { timeout: 20_000 },
-  () => {
-    it.each([false, true])(
-      "streams every artifact through age without plaintext on disk (file: %s)",
-      (fromFile) => {
-        const f = fixture();
-        const file = path.join(f.root, "recipients.txt");
-        write(file, `# backup keys\n${recipients.split(" ").join("\n")}\n`);
-        const result = f.run(
-          "infra/compose/backup-prod.sh",
-          [],
-          fromFile
-            ? { RAKAZO_BACKUP_AGE_RECIPIENTS_FILE: file }
-            : { RAKAZO_BACKUP_AGE_RECIPIENTS: recipients },
-        );
-        expect(result.status, result.stderr).toBe(0);
-        expect(result.stderr).not.toContain("not encrypted");
-        const snapshot = snapshotOf(result);
-        expect(readdirSync(snapshot).sort()).toEqual([
-          "SHA256SUMS",
-          "SOURCE_SIZE_KB",
-          "appdata.tgz.age",
-          "rakazo.dump.age",
-        ]);
-        for (const name of ["rakazo.dump.age", "appdata.tgz.age"]) {
-          const sealed = readFileSync(path.join(snapshot, name), "utf8");
-          expect(sealed.startsWith("age-encryption.org/v1\n-> fake age1fakeprimary\n")).toBe(true);
-          expect(sealed).toContain("-> fake age1fakerecovery");
-        }
-        expect(readFileSync(path.join(snapshot, "rakazo.dump.age"), "utf8")).not.toContain(
-          "custom-format dump",
-        );
-        expect(readFileSync(path.join(snapshot, "SHA256SUMS"), "utf8")).toContain(
-          "rakazo.dump.age",
-        );
-        expect(existsSync(path.join(f.snapshots, ".encrypted"))).toBe(true);
-
-        // The drill runs where the private key lives and rejects any other identity.
-        const key = path.join(f.root, "backup.key");
-        write(key, identity);
-        const drill = f.run("infra/compose/backup-drill.sh", [snapshot, key]);
-        expect(drill.status, drill.stderr).toBe(0);
-        expect(drill.stdout).toContain("decrypts and verifies");
-        write(key, "# public key: age1someoneelse\n");
-        expect(f.run("infra/compose/backup-drill.sh", [snapshot, key]).status).not.toBe(0);
-
-        write(key, identity);
-        write(path.join(snapshot, "appdata.tgz.age"), "age-encryption.org/v1\ntampered");
-        expect(f.run("infra/compose/backup-drill.sh", [snapshot, key]).status).not.toBe(0);
-      },
-    );
-
-    it.each([
-      [{ RAKAZO_BACKUP_AGE_RECIPIENTS: "not-a-recipient" }, "age rejected"],
-      [{ RAKAZO_BACKUP_AGE_RECIPIENTS_FILE: "/nonexistent/recipients" }, "not a readable"],
-    ])("refuses broken recipient settings before any backup commands: %j", (settings, message) => {
+describe("encrypted production backups", { timeout: 20_000 }, () => {
+  it.each([false, true])(
+    "streams every artifact through age without plaintext on disk (file: %s)",
+    (fromFile) => {
       const f = fixture();
-      const result = f.run("infra/compose/backup-prod.sh", [], settings);
-      expect(result.status).toBe(1);
-      expect(result.stderr).toContain(message);
-      expect(f.commands()).toEqual([]);
-      expect(existsSync(f.snapshots)).toBe(false);
-    });
-
-    it("refuses plaintext after encryption was configured unless explicitly allowed", () => {
-      const f = fixture();
-      const first = f.run("infra/compose/backup-prod.sh", [], {
-        RAKAZO_BACKUP_AGE_RECIPIENTS: recipients,
-      });
-      expect(first.status, first.stderr).toBe(0);
-      const before = snapshotNames(f.snapshots).sort();
-      const commandsBefore = f.commands().length;
-
-      const refused = f.run("infra/compose/backup-prod.sh");
-      expect(refused.status).toBe(1);
-      expect(refused.stderr).toContain("refusing to write plaintext");
-      expect(f.commands()).toHaveLength(commandsBefore);
-      expect(snapshotNames(f.snapshots).sort()).toEqual(before);
-
-      // A later stamp, so this run never collides with the first one's second.
-      write(path.join(f.root, "bin/date"), "#!/bin/bash\necho 20991231T000000Z\n");
-      chmodSync(path.join(f.root, "bin/date"), 0o755);
-      const allowed = f.run("infra/compose/backup-prod.sh", [], {
-        RAKAZO_BACKUP_ALLOW_PLAINTEXT: "1",
-      });
-      expect(allowed.status, allowed.stderr).toBe(0);
-      expect(allowed.stderr).toContain("not encrypted");
-      expect(existsSync(path.join(snapshotOf(allowed), "rakazo.dump"))).toBe(true);
-    });
-
-    it("does not publish a snapshot when sealing fails", () => {
-      const f = fixture();
-      // age accepts the recipients during preflight, then fails while writing.
-      write(
-        path.join(f.root, "bin/age"),
-        `#!/bin/bash\n[[ "$*" != *" -o "* ]] || { cat >/dev/null; exit 1; }\n`,
+      const file = path.join(f.root, "recipients.txt");
+      write(file, `# backup keys\n${recipients.split(" ").join("\n")}\n`);
+      const result = f.run(
+        "infra/compose/backup-prod.sh",
+        [],
+        fromFile
+          ? { RAKAZO_BACKUP_AGE_RECIPIENTS_FILE: file }
+          : { RAKAZO_BACKUP_AGE_RECIPIENTS: recipients },
       );
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).not.toContain("not encrypted");
+      const snapshot = snapshotOf(result);
+      expect(readdirSync(snapshot).sort()).toEqual([
+        "SHA256SUMS",
+        "SOURCE_SIZE_KB",
+        "appdata.tgz.age",
+        "rakazo.dump.age",
+      ]);
+      for (const name of ["rakazo.dump.age", "appdata.tgz.age"]) {
+        const sealed = readFileSync(path.join(snapshot, name), "utf8");
+        expect(sealed.startsWith("age-encryption.org/v1\n-> fake age1fakeprimary\n")).toBe(true);
+        expect(sealed).toContain("-> fake age1fakerecovery");
+      }
+      expect(readFileSync(path.join(snapshot, "rakazo.dump.age"), "utf8")).not.toContain(
+        "custom-format dump",
+      );
+      expect(readFileSync(path.join(snapshot, "SHA256SUMS"), "utf8")).toContain("rakazo.dump.age");
+      expect(existsSync(path.join(f.snapshots, ".encrypted"))).toBe(true);
+
+      // The drill runs where the private key lives and rejects any other identity.
+      const key = path.join(f.root, "backup.key");
+      write(key, identity);
+      const drill = f.run("infra/compose/backup-drill.sh", [snapshot, key]);
+      expect(drill.status, drill.stderr).toBe(0);
+      expect(drill.stdout).toContain("decrypts and verifies");
+      write(key, "# public key: age1someoneelse\n");
+      expect(f.run("infra/compose/backup-drill.sh", [snapshot, key]).status).not.toBe(0);
+
+      write(key, identity);
+      write(path.join(snapshot, "appdata.tgz.age"), "age-encryption.org/v1\ntampered");
+      expect(f.run("infra/compose/backup-drill.sh", [snapshot, key]).status).not.toBe(0);
+    },
+  );
+
+  it.each([
+    [{ RAKAZO_BACKUP_AGE_RECIPIENTS: "not-a-recipient" }, "age rejected"],
+    [{ RAKAZO_BACKUP_AGE_RECIPIENTS_FILE: "/nonexistent/recipients" }, "not a readable"],
+  ])("refuses broken recipient settings before any backup commands: %j", (settings, message) => {
+    const f = fixture();
+    const result = f.run("infra/compose/backup-prod.sh", [], settings);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(message);
+    expect(f.commands()).toEqual([]);
+    expect(existsSync(f.snapshots)).toBe(false);
+  });
+
+  it("refuses plaintext after encryption was configured unless explicitly allowed", () => {
+    const f = fixture();
+    const first = f.run("infra/compose/backup-prod.sh", [], {
+      RAKAZO_BACKUP_AGE_RECIPIENTS: recipients,
+    });
+    expect(first.status, first.stderr).toBe(0);
+    const before = snapshotNames(f.snapshots).sort();
+    const commandsBefore = f.commands().length;
+
+    const refused = f.run("infra/compose/backup-prod.sh");
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain("refusing to write plaintext");
+    expect(f.commands()).toHaveLength(commandsBefore);
+    expect(snapshotNames(f.snapshots).sort()).toEqual(before);
+
+    // A later stamp, so this run never collides with the first one's second.
+    write(path.join(f.root, "bin/date"), "#!/bin/bash\necho 20991231T000000Z\n");
+    chmodSync(path.join(f.root, "bin/date"), 0o755);
+    const allowed = f.run("infra/compose/backup-prod.sh", [], {
+      RAKAZO_BACKUP_ALLOW_PLAINTEXT: "1",
+    });
+    expect(allowed.status, allowed.stderr).toBe(0);
+    expect(allowed.stderr).toContain("not encrypted");
+    expect(existsSync(path.join(snapshotOf(allowed), "rakazo.dump"))).toBe(true);
+  });
+
+  it("does not publish a snapshot when sealing fails", () => {
+    const f = fixture();
+    // age accepts the recipients during preflight, then fails while writing.
+    write(
+      path.join(f.root, "bin/age"),
+      `#!/bin/bash\n[[ "$*" != *" -o "* ]] || { cat >/dev/null; exit 1; }\n`,
+    );
+    const result = f.run("infra/compose/backup-prod.sh", [], {
+      RAKAZO_BACKUP_AGE_RECIPIENTS: recipients,
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).not.toContain("Verified Rakazo backup");
+    expect(snapshotNames(f.snapshots)).toEqual([]);
+    expect(existsSync(path.join(f.snapshots, ".encrypted"))).toBe(false);
+  });
+
+  it.each<Record<string, string>>([{ FAIL_VERIFY: "1" }, { FAIL_TAR: "2" }])(
+    "verifies the plaintext stream without the private key: %j",
+    (failure) => {
+      const f = fixture();
       const result = f.run("infra/compose/backup-prod.sh", [], {
         RAKAZO_BACKUP_AGE_RECIPIENTS: recipients,
+        ...failure,
       });
       expect(result.status).not.toBe(0);
-      expect(result.stdout).not.toContain("Verified Rakazo backup");
       expect(snapshotNames(f.snapshots)).toEqual([]);
-      expect(existsSync(path.join(f.snapshots, ".encrypted"))).toBe(false);
-    });
+    },
+  );
+});
 
-    it.each<Record<string, string>>([{ FAIL_VERIFY: "1" }, { FAIL_TAR: "2" }])(
-      "verifies the plaintext stream without the private key: %j",
-      (failure) => {
-        const f = fixture();
-        const result = f.run("infra/compose/backup-prod.sh", [], {
-          RAKAZO_BACKUP_AGE_RECIPIENTS: recipients,
-          ...failure,
-        });
-        expect(result.status).not.toBe(0);
-        expect(snapshotNames(f.snapshots)).toEqual([]);
-      },
-    );
-  },
-);
-
-describe.skipIf(process.platform !== "linux")("off-site copies", { timeout: 20_000 }, () => {
+describe("off-site copies", { timeout: 20_000 }, () => {
   const remote = "offsite:rakazo/";
   const remoteDir = (f: ReturnType<typeof fixture>) => path.join(f.env.FAKE_REMOTE, "rakazo");
   const rcloneCalls = (f: ReturnType<typeof fixture>) =>

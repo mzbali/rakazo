@@ -22,6 +22,7 @@ import { ArtifactFileCard } from "../../../components/messages/ArtifactFileCard"
 import { AskCard } from "../../../components/messages/AskCard";
 import { CloudAgentCard } from "../../../components/messages/CloudAgentCard";
 import { McpAppCard } from "../../../components/messages/McpAppCard";
+import { OutgoingDraftCard } from "../../../components/messages/OutgoingDraftCard";
 import { SubagentCard } from "../../../components/messages/SubagentCard";
 import {
   LIVE_TOOL_STEP_WINDOW,
@@ -57,6 +58,7 @@ import {
   McpApprovalCard,
 } from "./message-cards";
 import { MessageHoverActions } from "./message-hover-actions";
+import { RoutineEventRow } from "./routine-event-row";
 
 /** Citation pills for a text block, and the sources row on the last one. */
 function citedSources(
@@ -445,6 +447,7 @@ export const MessageView = memo(function MessageView({
               </div>
             );
           }
+          if (block.kind === "routine_event") return <RoutineEventRow key={i} block={block} />;
           if (block.kind === "meta") {
             return (
               <div
@@ -611,7 +614,7 @@ export const MessageView = memo(function MessageView({
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
                   className={cn(
-                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-2xl px-[18px] py-3 text-body-lg",
+                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-2xl px-4 py-2.5 text-body-lg",
                     author
                       ? "bg-muted text-foreground/90"
                       : "bg-chat-user text-chat-user-foreground",
@@ -674,17 +677,26 @@ export const MessageView = memo(function MessageView({
           if (block.kind === "ask") {
             return (
               <div key={i} className="relative w-full min-w-0">
-                <AskCard
-                  block={block}
-                  answerIsSeparate={separateAnswers?.has(block)}
-                  canAnswer={canAnswer}
-                  canDismiss={canDismiss}
-                  onAnswer={(text, fields, remember) =>
-                    onAnswer(message, text, fields, undefined, remember)
-                  }
-                  onDismiss={() => onAnswer(message, "", undefined, true)}
-                  rpc={rpc}
-                />
+                {block.outgoingDraft ? (
+                  <OutgoingDraftCard
+                    block={block}
+                    message={message}
+                    target={artifactTarget}
+                    canAnswer={canAnswer}
+                  />
+                ) : (
+                  <AskCard
+                    block={block}
+                    answerIsSeparate={separateAnswers?.has(block)}
+                    canAnswer={canAnswer}
+                    canDismiss={canDismiss}
+                    onAnswer={(text, fields, remember) =>
+                      onAnswer(message, text, fields, undefined, remember)
+                    }
+                    onDismiss={() => onAnswer(message, "", undefined, true)}
+                    rpc={rpc}
+                  />
+                )}
                 {i === hoverAnchorIndex ? hoverActions : null}
               </div>
             );

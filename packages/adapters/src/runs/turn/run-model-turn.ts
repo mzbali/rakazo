@@ -228,8 +228,8 @@ function modelTurnRequest(
             )
           : disabledBuiltinTools,
       offeredFleetTools: offeredFleetTools(strategicBuiltins),
-      followUpsOffered: followUpsOffered(strategicBuiltins, ownerStartedRun),
       webImagesOffered: tools.some((tool) => tool.name === "save_web_images"),
+      followUpsOffered: followUpsOffered(strategicBuiltins, ownerStartedRun, run.trigger),
       backgroundHelpersAllowed: backgroundHelpersAllowed({
         trigger: run.trigger,
       }),

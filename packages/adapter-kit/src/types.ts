@@ -299,6 +299,8 @@ export interface SandboxKindCapabilities {
   serverOwnsStoredTeamHome: boolean;
   /** The computer works in a copy on a host that outlives it; the stored home only backs it up. */
   storedHomeIsBackup: boolean;
+  /** The provider can read the disk of a stopped sandbox without starting it. */
+  readStoppedFiles?: boolean;
 }
 
 export interface SandboxCapabilities {
@@ -317,6 +319,8 @@ export interface ConnectorTool {
   inputSchema: Record<string, unknown>;
   /** Expose this available built-in directly for this run. */
   pinned?: boolean;
+  /** Editable, fully previewable outgoing arguments selected by the adapter. */
+  outgoingDraft?: OutgoingDraftDescriptor;
   /** Declared effect. `false` forces approval; `true` never relaxes the name-based gate. */
   readOnly?: boolean;
   /** Set when the tool runs other actions named in its arguments; see ToolBatch. */
@@ -331,6 +335,14 @@ export interface ConnectorTool {
   unavailable?: boolean;
 }
 
+export interface OutgoingDraftDescriptor {
+  kind: "email" | "message";
+  source: string;
+  keys: { to: string; body: string; subject?: string };
+  defaults?: Record<string, string | boolean>;
+  recipientAlias?: string;
+}
+
 /**
  * Where a batch tool's arguments name the actions it runs: `args[items][i][action]`, each with
  * its own arguments at `args[items][i][arguments]`. Approval rules and the read/write check judge
@@ -340,6 +352,7 @@ export interface ToolBatch {
   items: string;
   action: string;
   arguments: string;
+  outgoingDrafts?: Readonly<Record<string, OutgoingDraftDescriptor>>;
 }
 
 export interface ConnectorRoute {
@@ -616,6 +629,8 @@ export interface AgentRunModel {
   gatewayId?: string;
   projectId?: string;
   region?: string;
+  /** Route only to endpoints that keep no prompts or replies, where the provider offers it. */
+  zeroDataRetention?: boolean;
   baseUrl?: string;
   apiProtocol?: ModelApiProtocol;
   headers?: Record<string, string>;
@@ -979,6 +994,7 @@ export interface BackgroundJobPayloads {
   "skill.teaching-expire": { skillId: string };
   /** Drop the run-only logins and codes of a run still waiting on someone after the expiry. */
   "run.forget-secrets": { runId: string };
+  "approval.expire": { runId: string; effectId: string };
   /** The bot's call rang out: mark it missed if nobody answered. */
   "call.expire": { threadId: string; callId: string };
   "history.compact": { threadId: string; userId?: string };
@@ -1063,6 +1079,19 @@ export interface BackgroundJobPayloads {
   "cloud_agent.relay_pointer": { agentId: string; generation: number };
   /** Observe and advance one scoped goal; its gates' remote reads never wait on another goal. */
   "scoped_goal.advance": { goalId: string };
+  "meeting.calendar-sync": { connectionId: string };
+  "meeting.work": {
+    sessionId: string;
+    action:
+      | "join"
+      | "leave"
+      | "expire"
+      | "reconcile"
+      | "transcript"
+      | "transcript-check"
+      | "cleanup";
+    detached?: { provider: string; externalId?: string; recordingId?: string };
+  };
   "purchase.poll": { purchaseId: string };
   /** Check a submitted video and post it when ready; the ID is the bot-visible job ID. */
   "media.poll": { jobId: string };
@@ -1820,6 +1849,11 @@ export interface AutoReviewRequest {
    * instruction.
    */
   savedContextWrite?: boolean;
+  /**
+   * The owner's own earlier messages in this chat, oldest first, before `userTask`: never a tool
+   * result or anyone else's message. Redacted and capped by the caller.
+   */
+  ownerMessages?: string[];
 }
 
 export interface AutoReviewResult {

@@ -40,6 +40,8 @@ export function messageRowLayout(
         !block.instructionUpdate &&
         !block.settingsUpdate),
   );
+  // A routine row is one centered line, so its menu host spans the column instead of the text.
+  const routineRow = blocks.some((block) => block.kind === "routine_event");
   const gutter = activityBotId ? (inGroup ? 28 : 36) : 0;
   const content = columnWidth - COLUMN_PADDING - gutter;
   // A bot answer is one column beside its avatar. User bubbles stay capped.
@@ -50,14 +52,14 @@ export function messageRowLayout(
     return {
       width: full || !activityBotId ? "100%" : undefined,
       maxWidth: full || !activityBotId ? "100%" : undefined,
-      menuFullWidth: wideAsk || fillsBubble || prose,
+      menuFullWidth: wideAsk || fillsBubble || prose || routineRow,
       menuMaxWidth: isCenteredAgentEvent(blocks) ? columnWidth - COLUMN_PADDING : content,
     } as const;
   }
   return {
     width: full ? "100%" : fillsBubble && !activityBotId ? "90%" : undefined,
     maxWidth: full ? "100%" : activityBotId ? undefined : "90%",
-    menuFullWidth: wideAsk || fillsBubble,
+    menuFullWidth: wideAsk || fillsBubble || routineRow,
     menuMaxWidth: wideAsk
       ? content
       : isCenteredAgentEvent(blocks)

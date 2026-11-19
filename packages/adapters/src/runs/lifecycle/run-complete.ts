@@ -37,6 +37,7 @@ import {
   runAllowsSilentEmpty,
   TOOL_STEPS_WITHOUT_RESPONSE,
 } from "../assembly/run-replies.prompt.js";
+import { deleteSpentOneShotRoutine } from "../assembly/run-routines.js";
 import {
   isNoResponseReply,
   isPlaceholderReply,
@@ -157,6 +158,11 @@ export async function completeRun(ctx: RunContext) {
   ctx.stopHeartbeatAfterCompletion();
   if (run.trigger === "routine" && run.routineId) {
     await clearRoutineBackoff(deps, { routineId: run.routineId, userId: run.userId });
+    await deleteSpentOneShotRoutine(deps, {
+      spaceId: run.spaceId,
+      routineId: run.routineId,
+      userId: run.userId,
+    });
   }
   const { screenRelease } = ctx.state.computerUse;
   if (screenRelease) screenRelease.keepWarm = true;

@@ -26,7 +26,9 @@ const OPEN_BOT_ACTION = "open-bot:";
 function ownBotText(message: MobileMessage): boolean {
   return (
     message.role === "bot" &&
-    message.blocks.every((block) => block.kind === "text" || block.kind === "progress")
+    message.blocks.every(
+      (block) => block.kind === "text" || block.kind === "progress" || block.kind === "sources",
+    )
   );
 }
 

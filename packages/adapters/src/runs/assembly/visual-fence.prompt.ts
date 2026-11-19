@@ -9,7 +9,7 @@ export const VISUAL_FENCE_INSTRUCTION = [
 - <Callout tone="info|success|warning|danger" lead="Short title">one plain-text sentence</Callout>
 - <Steps steps={[{title: "Step", detail: "Optional"}]} />
 - <Metrics metrics={[{value: "92%", label: "Accuracy", delta: "+4", better: "up", detail: "vs last month"}]} /> (up to 8)
-- <Diagram direction="horizontal" nodes={[{id: "a", label: "Real samples", detail: "Optional"}]} edges={[{from: "a", to: "b", label: "Optional"}]} /> (up to 24 nodes; give every node a unique id and use only those ids in edges)
+- <Diagram direction="horizontal" nodes={[{id: "a", label: "Real samples", detail: "Optional"}, {id: "b", label: "Classifier"}]} edges={[{from: "a", to: "b", label: "Optional"}]} /> (up to 24 nodes; give every node a unique id and use only those ids in edges)
 - <Grid columns={2}> … </Grid> around other tags, to put them side by side (no Grid inside a Grid)
 - <Formula tex="p(x) = \\frac{a}{b}" /> (the tex string is literal: write backslashes once)`,
   `Props are a "double-quoted string" (no escapes; write a value containing a double quote as {"…"}), a number, true or false, or a {literal} of arrays and objects with unquoted keys and quoted strings. Never write expressions, functions, variables, on* props, spreads or markdown inside a tag; write links as plain https URLs. Write < as &lt; inside text.`,

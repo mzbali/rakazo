@@ -224,6 +224,18 @@ describe("parseVisualFence", () => {
     expect(parseVisualFence(big).truncated).toBe(true);
   });
 
+  it("counts an emoji as four bytes, not five", () => {
+    const body = `<Visual summary="S"><Callout lead="a">${"😀".repeat(6000)}</Callout></Visual>`;
+    expect(parseVisualFence(body).truncated).toBe(false);
+  });
+
+  it("rejects a diagram edge from a node to itself", () => {
+    const { root } = parseVisualFence(
+      `<Visual summary="S"><Diagram nodes={[{id:"a",label:"A"}]} edges={[{from:"a",to:"a"}]} /></Visual>`,
+    );
+    expect(children(root)[0]?.state).toBe("invalid");
+  });
+
   it("returns the same result for the same body", () => {
     expect(parseVisualFence(NCE)).toBe(parseVisualFence(NCE));
   });

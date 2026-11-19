@@ -142,6 +142,7 @@ function diagram(props: VisualObject): Checked {
               typeof edge.to !== "string" ||
               !ids.has(edge.from) ||
               !ids.has(edge.to) ||
+              edge.from === edge.to ||
               text(edge.label, 200) === false ||
               (edge.dashed !== undefined && typeof edge.dashed !== "boolean")
             )

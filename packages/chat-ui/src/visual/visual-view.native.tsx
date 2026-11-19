@@ -209,6 +209,7 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
 }
 
 const ARROW = 7;
+const GRID_GAP = 16;
 
 function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
   const nodes = element.props.nodes as DiagramNode[];
@@ -353,14 +354,24 @@ function Draw({ element, surface }: { element: VisualElement; surface: Surface }
   const plan = drawPlan(element);
   if (plan === "skip") return null;
   if (plan === "unavailable") return <Note surface={surface}>{surface.unavailable}</Note>;
+  // A grid cell is narrower than the column it sits in, so a diagram scales to the cell.
+  const columns =
+    element.tag === "Grid"
+      ? surface.narrow
+        ? 1
+        : ((element.props.columns as number | undefined) ?? 2)
+      : 1;
+  const inner =
+    columns > 1
+      ? { ...surface, width: (surface.width - GRID_GAP * (columns - 1)) / columns }
+      : surface;
   const drawn = element.children.map((child) => (
-    <Draw key={child.key} element={child} surface={surface} />
+    <Draw key={child.key} element={child} surface={inner} />
   ));
   switch (element.tag) {
     case "Visual":
       return <View style={styles.root}>{drawn}</View>;
     case "Grid": {
-      const columns = surface.narrow ? 1 : ((element.props.columns as number | undefined) ?? 2);
       const rows: ReactNode[][] = [];
       for (let at = 0; at < drawn.length; at += columns) rows.push(drawn.slice(at, at + columns));
       return (
@@ -459,7 +470,7 @@ const styles = StyleSheet.create({
   metricRow: { flexDirection: "row", gap: 16 },
   metric: { flex: 1, minWidth: 0 },
   metricValue: { fontWeight: "500" },
-  gridRow: { flexDirection: "row", gap: 16 },
+  gridRow: { flexDirection: "row", gap: GRID_GAP },
   gridCell: { flex: 1, minWidth: 0 },
   formula: { fontSize: 15, lineHeight: 24 },
 });

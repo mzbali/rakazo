@@ -53,6 +53,15 @@ describe("foldVisualFences", () => {
     expect(foldVisualFences(two)).toBe("[visual: NCE: real vs noise]\nbetween\n[visual: B]");
   });
 
+  it("reads tabs around ui and CRLF line ends", () => {
+    expect(foldVisualFences(`\`\`\`\tui\t\n<Visual summary="T">\n\`\`\`\nafter`)).toBe(
+      "[visual: T]\nafter",
+    );
+    expect(foldVisualFences('```ui\r\n<Visual summary="C">\r\n```\r\nOutro')).toBe(
+      "[visual: C]\nOutro",
+    );
+  });
+
   it("returns text without a ui fence untouched", () => {
     expect(foldVisualFences("plain `ui` text")).toBe("plain `ui` text");
   });

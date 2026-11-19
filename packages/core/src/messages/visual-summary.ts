@@ -64,7 +64,7 @@ export function visualFence(body: string): string {
  * one of them is only text.
  */
 export function foldVisualFences(text: string): string {
-  if (!/^ {0,3}(`{3,}|~{3,}) *ui *$/m.test(text)) return text;
+  if (!/^ {0,3}(`{3,}|~{3,})[ \t]*ui[ \t]*\r?$/m.test(text)) return text;
   const lines = text.split("\n");
   const out: string[] = [];
   let fence: { mark: string; ui: boolean; body: string[] } | undefined;
@@ -81,7 +81,7 @@ export function foldVisualFences(text: string): string {
       if (!fence.ui) out.push(line);
       continue;
     }
-    const closing = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line)?.[1];
+    const closing = /^ {0,3}(`{3,}|~{3,})[ \t]*\r?$/.exec(line)?.[1];
     if (closing && closing[0] === fence.mark[0] && closing.length >= fence.mark.length) {
       if (fence.ui) out.push(visualFence(fence.body.join("\n")));
       else out.push(line);

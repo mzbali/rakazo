@@ -1,13 +1,17 @@
-import { useId } from "react";
+import { createElement, useId } from "react";
+import { iconShapes } from "./diagram-icons.js";
 import type { DiagramEdge, DiagramNode } from "./diagram-layout.js";
 import {
   curveMid,
   DETAIL_LINE,
   edgePoints,
+  ICON_SIZE,
+  iconOrigin,
   LABEL_LINE,
   layoutDiagram,
   PAD_Y,
   SERIES_COLORS,
+  textCentre,
 } from "./diagram-layout.js";
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
@@ -114,11 +118,21 @@ export function Diagram({
                 rx={node.kind === "terminal" ? Math.min(node.height / 2, 22) : 10}
                 style={accent ? { stroke: accent } : undefined}
               />
+              {iconShapes(node.icon) ? (
+                <g
+                  className="rk-diagram-icon"
+                  transform={`translate(${iconOrigin(node)[0]} ${iconOrigin(node)[1]}) scale(${ICON_SIZE / 24})`}
+                >
+                  {iconShapes(node.icon)!.map(([tag, attrs], index) =>
+                    createElement(tag, { key: index, ...attrs }),
+                  )}
+                </g>
+              ) : null}
               {node.labelLines.map((line, index) => (
                 <text
                   key={`l${index}`}
                   className="rk-diagram-label"
-                  x={node.x + node.width / 2}
+                  x={textCentre(node)}
                   y={node.y + PAD_Y + LABEL_LINE * (index + 0.5)}
                   dy="0.35em"
                   textAnchor="middle"
@@ -130,7 +144,7 @@ export function Diagram({
                 <text
                   key={`d${index}`}
                   className="rk-diagram-detail"
-                  x={node.x + node.width / 2}
+                  x={textCentre(node)}
                   y={
                     node.y +
                     PAD_Y +

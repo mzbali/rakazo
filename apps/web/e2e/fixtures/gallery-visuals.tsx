@@ -21,6 +21,27 @@ const NCE_FENCE = `<Visual summary="NCE turns density estimation into real-vs-no
   <Metrics metrics={[{value: "0.92", label: "Accuracy", delta: "+0.04", better: "up"}, {value: "12 ms", label: "Step time"}, {value: 3, label: "Noise ratio"}]} />
 </Visual>`;
 
+// The rest of the catalog: charts, a table, pros and cons, a status, a copy button and tabs.
+const CATALOG_FENCE = `<Visual summary="Latency fell after the cache shipped, and the plan costs less than the old one.">
+  <Metrics metrics={[{value: "42 ms", label: "p95 latency", delta: "-18%", better: "down"}, {value: "99.9%", label: "Uptime"}]} />
+  <Tabs>
+    <Tab label="Trend">
+      <LineChart points={[{label: "Mon", value: 80}, {label: "Tue", value: 74}, {label: "Wed", value: 61}, {label: "Thu", value: 48}, {label: "Fri", value: 42}]} lines={[{label: "Target", values: [50, 50, 50, 50, 50]}]} labels={["p95"]} unit="ms" />
+    </Tab>
+    <Tab label="By region">
+      <Bars bars={[{label: "Europe", value: 38, display: "38 ms"}, {label: "North America", value: 44, display: "44 ms"}, {label: "Asia", value: 71, display: "71 ms"}]} />
+    </Tab>
+    <Tab label="Share">
+      <Pie parts={[{label: "Cached", value: 72}, {label: "Origin", value: 21}, {label: "Errors", value: 7}]} total="100%" label="Requests" />
+    </Tab>
+  </Tabs>
+  <Table columns={["Plan", "Seats", "Price"]} rows={[["Starter", 3, "$9"], ["Team", 25, {text: "$49", tone: "success"}], ["Scale", 250, {text: "$399", tone: "warning"}]]} emphasis={0} />
+  <ProsCons pros={["Cheaper at every size", "No cold starts"]} cons={["Smaller edge network"]} />
+  <Status tone="success">Rolled out</Status>
+  <CopyButton label="Copy command" text="curl -fsS https://example.test/health | jq .status" />
+  <Diagram direction="horizontal" nodes={[{id: "app", label: "App", icon: "globe"}, {id: "cache", label: "Cache", icon: "zap"}, {id: "db", label: "Database", icon: "database"}]} edges={[{from: "app", to: "cache"}, {from: "cache", to: "db", label: "miss", dashed: true}]} />
+</Visual>`;
+
 const INTRO = "Noise-contrastive estimation, in one picture:\n\n";
 const OUTRO = "\n\nThat is the whole trick.";
 const fenced = (body: string, closed = true) =>
@@ -63,6 +84,20 @@ export const VISUAL_SCENARIOS: VisualScenario[] = [
     running: true,
     messages: [ask, streamed(fenced(NCE_FENCE.slice(0, at), false))],
   })),
+  {
+    id: "visual-catalog",
+    label: "Visual: catalog",
+    messages: [ask, answer(fenced(CATALOG_FENCE))],
+  },
+  {
+    id: "visual-catalog-tabs-cut",
+    label: "Visual: cut in the second tab",
+    running: true,
+    messages: [
+      ask,
+      streamed(fenced(CATALOG_FENCE.slice(0, CATALOG_FENCE.indexOf("<Bars") + 30), false)),
+    ],
+  },
   {
     id: "visual-too-big",
     label: "Visual: over 32 KB",

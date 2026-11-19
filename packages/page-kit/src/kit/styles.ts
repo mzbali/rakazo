@@ -185,6 +185,7 @@ body{font-size:1rem}
 .rk-diagram{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .rk-diagram svg{display:block;width:100%;height:auto;overflow:visible}
 .rk-diagram-node{fill:var(--background);stroke:var(--rk-line);stroke-width:1.25}
+.rk-diagram-icon{color:var(--rk-secondary);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .rk-diagram-label{fill:var(--foreground);font-size:14px;font-weight:500}
 .rk-diagram-detail{fill:var(--rk-secondary);font-size:12.5px}
 .rk-diagram-edge{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5}

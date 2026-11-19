@@ -10,6 +10,9 @@ const VISUAL_CSS = `
 .rkv-formula-display{display:block}
 .rkv-formula-display .katex-display{margin:0}
 .rkv-formula-source{font:.9375rem/1.5rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--rk-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
+.rk-frame{padding:0;border:0;border-radius:0}
+.rkv-copy{display:flex;flex-direction:column;gap:.5rem;align-items:flex-start}
+.rkv-copy-text{box-sizing:border-box;width:100%;margin:0;padding:.625rem .75rem;border-radius:8px;background:var(--rk-fill);font:.875rem/1.35rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 @media (prefers-reduced-motion:no-preference){.rkv-pending{animation:rkv-pulse 1.4s ease-in-out infinite}}
 @keyframes rkv-pulse{50%{opacity:.45}}
 `;

@@ -1,5 +1,10 @@
 import { VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
-import { checkVisualTag, isVisualTag, visualContent } from "./visual-catalog.js";
+import {
+  checkVisualTag,
+  holdsVisualElements,
+  isVisualTag,
+  visualContent,
+} from "./visual-catalog.js";
 import type { VisualObject, VisualValue } from "./visual-literal.js";
 import { literalEnd, parseVisualLiteral } from "./visual-literal.js";
 
@@ -28,6 +33,7 @@ export type VisualParse = {
   truncated: boolean;
 };
 
+const MAX_TABS = 8;
 const UPPER = /[A-Z]/;
 const NAME_PART = /[A-Za-z0-9]/;
 const ATTR_START = /[A-Za-z_]/;
@@ -154,8 +160,7 @@ function readAttrs(raw: string): { props: VisualObject } | { error: string } {
 type Frame = { element: VisualElement; raw: string; count: number };
 
 /** Whether the element is a tag that holds elements; an unknown tag is not drawn at all. */
-const holdsElements = (element: VisualElement) =>
-  isVisualTag(element.tag) && visualContent(element.tag) === "elements";
+const holdsElements = (element: VisualElement) => holdsVisualElements(element.tag);
 
 function parse(source: string): VisualParse {
   const stack: Frame[] = [];
@@ -204,6 +209,12 @@ function parse(source: string): VisualParse {
     else if (tag.name === "Visual" && parent) reject("Visual is the root only");
     else if (tag.name === "Grid" && stack.some((frame) => frame.element.tag === "Grid"))
       reject("Grid does not nest");
+    else if (tag.name === "Tab" && parent?.element.tag !== "Tabs") reject("Tab goes inside Tabs");
+    else if (parent?.element.tag === "Tabs" && tag.name !== "Tab") reject("Tabs holds only Tab");
+    else if (tag.name === "Tabs" && stack.some((frame) => frame.element.tag === "Tabs"))
+      reject("Tabs does not nest");
+    else if (tag.name === "Tab" && parent!.count > MAX_TABS)
+      reject(`a Tabs holds at most ${MAX_TABS} tabs`);
     else if (parent && !holdsElements(parent.element))
       reject(`${parent.element.tag} holds no elements`);
     else {

@@ -2,6 +2,7 @@ import type { VisualElement, VisualParse } from "@rakazo/core/visual-fence";
 import type { HostBridge } from "@rakazo/page-kit/kit-host";
 import { HostBridgeContext, visualKit as kit } from "@rakazo/page-kit/kit-host";
 import type { ComponentProps, ReactNode } from "react";
+import { useState } from "react";
 import { useMarkdownCopy } from "../markdown-copy";
 import { FormulaText } from "./formula.web";
 import { drawPlan, hasUnfinishedPart } from "./visual-draw";
@@ -9,6 +10,30 @@ import { useNarrowColumn, VisualShadow } from "./visual-shadow.web";
 import { visualStyles } from "./visual-styles";
 
 type Tone = ComponentProps<typeof kit.Callout>["tone"];
+
+type Props<T extends keyof typeof kit> = ComponentProps<(typeof kit)[T]>;
+
+/** The tabs that can show, a switch between them, and the chosen tab's own elements. */
+function Tabs({ element, unavailable }: { element: VisualElement; unavailable: string }) {
+  const [chosen, setChosen] = useState<string>();
+  const tabs = element.children.filter((tab) => tab.state !== "invalid");
+  const shown = tabs.find((tab) => tab.key === chosen) ?? tabs[0];
+  return (
+    <div className="rkv-root">
+      {tabs.length > 0 ? (
+        <kit.Segmented
+          options={tabs.map((tab) => ({ value: tab.key, label: String(tab.props.label) }))}
+          value={shown?.key}
+          onChange={setChosen}
+        />
+      ) : null}
+      {shown ? <Draw key={shown.key} element={shown} unavailable={unavailable} /> : null}
+      {element.children.some((tab) => tab.state === "invalid") ? (
+        <p className="rkv-note">{unavailable}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function Draw({
   element,
@@ -55,6 +80,68 @@ function Draw({
       );
     case "Formula":
       return <FormulaText tex={props.tex as string} />;
+    case "Bars":
+      return (
+        <kit.Bars
+          bars={props.bars as Props<"Bars">["bars"]}
+          emphasis={props.emphasis as Props<"Bars">["emphasis"]}
+        />
+      );
+    case "LineChart":
+      return (
+        <kit.LineChart
+          points={props.points as Props<"LineChart">["points"]}
+          lines={props.lines as Props<"LineChart">["lines"]}
+          labels={props.labels as string[] | undefined}
+          floor={props.floor as number | undefined}
+          ceiling={props.ceiling as number | undefined}
+          unit={props.unit as string | undefined}
+        />
+      );
+    case "Pie":
+      return (
+        <kit.Pie
+          parts={props.parts as Props<"Pie">["parts"]}
+          total={props.total as boolean | string | undefined}
+          label={props.label as string | undefined}
+        />
+      );
+    case "Table":
+      return (
+        <kit.Table
+          columns={props.columns as string[]}
+          rows={props.rows as Props<"Table">["rows"]}
+          align={props.align as Props<"Table">["align"]}
+          emphasis={props.emphasis as number | undefined}
+        />
+      );
+    case "ProsCons":
+      return (
+        <kit.ProsCons
+          pros={props.pros as string[] | undefined}
+          cons={props.cons as string[] | undefined}
+          prosHeading={props.prosHeading as string | undefined}
+          consHeading={props.consHeading as string | undefined}
+        />
+      );
+    case "Status":
+      // Inside a block, so the pill keeps its own width in a column.
+      return (
+        <div>
+          <kit.Status tone={props.tone as Props<"Status">["tone"]}>{element.text}</kit.Status>
+        </div>
+      );
+    case "CopyButton":
+      return (
+        <div className="rkv-copy">
+          <pre className="rkv-copy-text">{props.text as string}</pre>
+          <kit.CopyButton label={props.label as string} text={props.text as string} />
+        </div>
+      );
+    case "Tabs":
+      return <Tabs element={element} unavailable={unavailable} />;
+    case "Tab":
+      return <div className="rkv-root">{drawn}</div>;
     default:
       return null;
   }

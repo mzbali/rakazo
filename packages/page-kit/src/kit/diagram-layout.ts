@@ -1,9 +1,13 @@
+import { iconShapes } from "./diagram-icons.js";
+
 export type DiagramNode = {
   id: string;
   label: string;
   detail?: string;
   kind?: "box" | "terminal";
   series?: number;
+  /** A name from `DIAGRAM_ICONS`, drawn at the start of the node. */
+  icon?: string;
 };
 export type DiagramEdge = { from: string; to: string; label?: string; dashed?: boolean };
 
@@ -17,6 +21,9 @@ const MIN_WIDTH = 88;
 const MAX_WIDTH = 208;
 const NODE_GAP = 24;
 export const LOOP_ROOM = 36;
+/** Room an icon takes at the start of a node, and its size. */
+export const ICON_ROOM = 24;
+export const ICON_SIZE = 16;
 /** Node accents for `series` 0 to 4, in chart colour order. */
 export const SERIES_COLORS = ["--rk-c1", "--rk-c2", "--rk-c3", "--rk-c4", "--rk-c5"];
 
@@ -73,6 +80,8 @@ export type Placed = DiagramNode & {
   detailLines: string[];
   width: number;
   height: number;
+  /** Room kept at the start for the icon; the text centres in what is left. */
+  inset: number;
   layer: number;
   x: number;
   y: number;
@@ -88,11 +97,12 @@ export function layoutDiagram(
   horizontal: boolean,
   edgeLabels: boolean,
 ) {
-  const perLabel = Math.floor((MAX_WIDTH - PAD_X * 2) / LABEL_CHAR);
-  const perDetail = Math.floor((MAX_WIDTH - PAD_X * 2) / DETAIL_CHAR);
   const byId = new Map<string, Placed>();
   for (const node of nodes) {
     if (!node || typeof node.id !== "string" || byId.has(node.id)) continue;
+    const inset = iconShapes(node.icon) ? ICON_ROOM : 0;
+    const perLabel = Math.floor((MAX_WIDTH - PAD_X * 2 - inset) / LABEL_CHAR);
+    const perDetail = Math.floor((MAX_WIDTH - PAD_X * 2 - inset) / DETAIL_CHAR);
     const labelLines = wrapText(String(node.label ?? node.id), perLabel);
     const detailLines = node.detail ? wrapText(String(node.detail), perDetail) : [];
     const measuredWidth = Math.max(
@@ -103,7 +113,8 @@ export function layoutDiagram(
       ...node,
       labelLines,
       detailLines,
-      width: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.ceil(measuredWidth + PAD_X * 2))),
+      width: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.ceil(measuredWidth + PAD_X * 2 + inset))),
+      inset,
       height: PAD_Y * 2 + labelLines.length * LABEL_LINE + detailLines.length * DETAIL_LINE,
       layer: 0,
       x: 0,
@@ -251,3 +262,12 @@ export function edgePoints(
   const right = Math.max(a[0], d[0]) + LOOP_ROOM - 6;
   return [a, [right, a[1]], [right, d[1]], d];
 }
+
+/** Where a node's icon starts (its top-left corner), on the first line of the label. */
+export const iconOrigin = (node: Placed): Point => [
+  node.x + PAD_X,
+  node.y + PAD_Y + (LABEL_LINE - ICON_SIZE) / 2,
+];
+
+/** The horizontal centre of a node's text, clear of its icon. */
+export const textCentre = (node: Placed): number => node.x + (node.width + node.inset) / 2;

@@ -12,6 +12,7 @@ import { ErrorBoundary } from "./boundary.js";
 import { Inline, Link, webUrl } from "./inline.js";
 import { documentLanguage, PageLanguage, wordsFor } from "./labels.js";
 import { PageHero, PageMeta, slugify } from "./text.js";
+import { TONE_PATHS } from "./tone-icon.js";
 
 /**
  * Blocks a Section caption describes: it sits under the first of them, like a figure caption,
@@ -233,14 +234,6 @@ export function Text({ children }: { children?: ReactNode }) {
 }
 
 const CALLOUT_TONES = new Set(["info", "success", "warning", "danger"]);
-
-// One stroke weight for all four, drawn on a 16px grid so they sit on the lead's first line.
-const TONE_PATHS: Record<string, string> = {
-  info: "M8 7.25v4M8 4.75v.01",
-  success: "M5.25 8.25l1.9 1.9 3.6-3.9",
-  warning: "M8 6.25v3M8 11.5v.01",
-  danger: "M8 4.75v4M8 11.25v.01",
-};
 
 function ToneIcon({ tone }: { tone: string }) {
   return (

@@ -4530,6 +4530,11 @@ msgstr "無法驗證電腦設定（{failureMessage}）。請修復連線後再�
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "無法複製。請選取連結後複製。"
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "無法載入授權記錄"

@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { Children, isValidElement, useEffect, useState } from "react";
-import { Inline, openViaHost, webUrl } from "./inline.js";
+import { useOpenViaHost } from "./host-bridge.js";
+import { Inline, webUrl } from "./inline.js";
 import { useWords } from "./labels.js";
 
 // Lists nest at most this deep; deeper items are dropped rather than overflowing the column.
@@ -209,6 +210,7 @@ const LINK_ICON =
   "M6.5 9.5l3-3M7.4 4.6l.9-.9a2.5 2.5 0 013.5 3.5l-.9.9M8.6 11.4l-.9.9a2.5 2.5 0 01-3.5-3.5l.9-.9";
 
 export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numbered?: boolean }) {
+  const openLink = useOpenViaHost();
   const cards = Array.isArray(links)
     ? links.filter(
         (link) => link && typeof link === "object" && (text(link.title) || webUrl(link.href)),
@@ -273,7 +275,7 @@ export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numb
                 href={href}
                 rel="noopener noreferrer"
                 title={text(link.title)}
-                onClick={openViaHost}
+                onClick={openLink}
               >
                 {body}
               </a>

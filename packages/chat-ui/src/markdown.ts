@@ -24,7 +24,15 @@ export type ChatMarkdownProps = {
   sources?: readonly SourceItem[];
   /** The quiet sources row under this markdown. One source stays a pill only. */
   sourcesRow?: boolean;
+  /**
+   * Draws a ```ui fence as a visual. Set only for text a Space's own bot wrote: a fence from
+   * anyone else stays a code block.
+   */
+  visuals?: boolean;
 };
+
+/** Whether ```ui fences draw as visuals for the markdown being drawn. */
+export const VisualsContext = createContext(false);
 
 /** Citation clusters for the markdown currently drawn. Empty while a reply is still streaming. */
 export const CitationGroupsContext = createContext<readonly CitationGroup[]>([]);

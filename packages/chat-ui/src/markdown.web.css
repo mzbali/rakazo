@@ -624,3 +624,19 @@ a.rk-chat-link:hover .rk-chat-link-label {
   list-style: none;
   padding-left: 0;
 }
+
+.rk-chat-markdown .rk-math-pending,
+.rk-chat-markdown .rk-math-source {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.rk-chat-markdown .rk-math-display {
+  display: block;
+  margin: 0.65em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}

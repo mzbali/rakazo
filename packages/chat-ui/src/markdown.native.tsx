@@ -1,4 +1,4 @@
-import { showSourcesRow } from "@rakazo/core/answer-sources";
+import { preparedCitationMarkdown, showSourcesRow } from "@rakazo/core/answer-sources";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
 import { darkTokens } from "@rakazo/ui-tokens";
 import { createMarkdownIt } from "@ronradtke/react-native-markdown-display";
@@ -36,6 +36,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   onOpenPage,
   sources,
   sourcesRow = false,
+  visuals = false,
   palette = darkTokens,
   colorScheme = "dark",
 }: Omit<ChatMarkdownProps, "renderMention"> & {
@@ -48,6 +49,10 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   const copy = useMarkdownCopy();
   const linkCopy = useMarkdownLinkCopy();
   const fenceStyles = useMemo(() => markdownStyles(palette), [palette]);
+  const prepared = useMemo(
+    () => preparedCitationMarkdown(children, sources, streaming),
+    [children, sources, streaming],
+  );
   const showRow = !streaming && sourcesRow && !!sources && showSourcesRow(sources.length);
   const diagramSurface = useMemo(
     () => ({ streaming, palette, colorScheme }),
@@ -58,8 +63,10 @@ export const ChatMarkdown = memo(function ChatMarkdown({
       <LinkFaviconsPausedContext.Provider value={streaming}>
         <DiagramSurfaceContext.Provider value={diagramSurface}>
           <NativeMarkdown
-            markdown={children}
+            markdown={prepared.markdown}
             streaming={streaming}
+            visuals={visuals}
+            citations={prepared.groups}
             palette={palette}
             colorScheme={colorScheme}
             fenceStyles={fenceStyles}

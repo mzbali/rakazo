@@ -1,7 +1,7 @@
 import { pageKitPalette } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import { openViaHost } from "./inline.js";
+import { FRAME_BRIDGE, useHostBridge, useOpenViaHost } from "./host-bridge.js";
 import { useWords } from "./labels.js";
 
 /** The page asks the host to put text in the chat's composer; the reader still presses Send. */
@@ -24,36 +24,22 @@ function sendReply(text: string) {
   window.parent?.postMessage({ type: REPLY_MESSAGE, text }, "*");
 }
 
-const COPY_MESSAGE = "rakazo-page:copy";
-const COPIED_MESSAGE = "rakazo-page:copied";
 /** The app copies no more than this for a page. */
 const COPY_MAX_LENGTH = 20_000;
-let copies = 0;
+
+/** The text to copy, or undefined when there is none or it is longer than the app copies. */
+function copyable(value: unknown): string | undefined {
+  const content = text(value);
+  return content && content.length <= COPY_MAX_LENGTH ? content : undefined;
+}
 
 /**
  * Copies text for the reader and resolves whether it worked. Pages have no clipboard of their
  * own: the app copies, one copy per click in the page, and says whether it could.
  */
 export function copyText(value: unknown): Promise<boolean> {
-  const content = text(value);
-  if (!content || content.length > COPY_MAX_LENGTH) return Promise.resolve(false);
-  copies += 1;
-  const id = `copy-${copies}`;
-  return new Promise((resolve) => {
-    function answer(event: MessageEvent) {
-      const data = event.data as { type?: unknown; id?: unknown; ok?: unknown } | null;
-      if (data?.type === COPIED_MESSAGE && data.id === id) finish(data.ok === true);
-    }
-    function finish(ok: boolean) {
-      window.removeEventListener("message", answer);
-      clearTimeout(timer);
-      resolve(ok);
-    }
-    // A host that cannot copy for pages never answers.
-    const timer = setTimeout(() => finish(false), 2000);
-    window.addEventListener("message", answer);
-    window.parent?.postMessage({ type: COPY_MESSAGE, id, text: content }, "*");
-  });
+  const content = copyable(value);
+  return content ? FRAME_BRIDGE.copy(content) : Promise.resolve(false);
 }
 
 /** A link the host may open: web and mail addresses only. */
@@ -143,6 +129,7 @@ export function CopyButton({
   variant?: "quiet" | "primary";
 }) {
   const words = useWords();
+  const bridge = useHostBridge();
   const name = text(label);
   const content = text(value) || name;
   const request = useRef(0);
@@ -173,7 +160,8 @@ export function CopyButton({
         onClick={() => {
           const id = ++request.current;
           setFeedback(null);
-          void copyText(content).then((ok) => {
+          const toCopy = copyable(content);
+          void (toCopy ? bridge.copy(toCopy) : Promise.resolve(false)).then((ok) => {
             if (request.current === id) {
               setFeedback({ content, name, state: ok ? "copied" : "blocked" });
             }
@@ -199,6 +187,7 @@ export function LinkButton({
   /** The full name for screen readers when the label is a short verb such as "View". */
   description?: string;
 }) {
+  const openLink = useOpenViaHost();
   const name = text(label);
   const url = linkUrl(href);
   if (!name) return null;
@@ -210,7 +199,7 @@ export function LinkButton({
       href={url}
       rel="noopener noreferrer"
       aria-label={text(description) || undefined}
-      onClick={openViaHost}
+      onClick={openLink}
     >
       {name}
       <ArrowIcon />
@@ -219,10 +208,11 @@ export function LinkButton({
 }
 
 export function TextLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const openLink = useOpenViaHost();
   const url = linkUrl(href);
   if (!url) return <>{children ?? null}</>;
   return (
-    <a className="rk-text-link" href={url} rel="noopener noreferrer" onClick={openViaHost}>
+    <a className="rk-text-link" href={url} rel="noopener noreferrer" onClick={openLink}>
       {children ?? href}
       <ArrowIcon />
     </a>

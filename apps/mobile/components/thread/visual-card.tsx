@@ -82,9 +82,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
       runtime &&
       pageDocumentWith(runtime, block.code, theme, errorTitle, {
         inline: "card",
-        surface: tokens.card,
+        surface: tokens.background,
       }),
-    [runtime, block.code, theme, errorTitle, tokens.card],
+    [runtime, block.code, theme, errorTitle, tokens.background],
   );
   const live = fit === "inline";
   const preview = fit === "preview";
@@ -115,7 +115,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         <View style={{ height: shown }}>
           <SandboxedHtmlPreview
             html={inline}
-            background={tokens.card}
+            background={tokens.background}
             // Classified inline, then grown by its own controls: scroll the card rather than
             // turning it into a preview under the reader's finger.
             scrollEnabled={live && height !== null && height > MAX_INLINE_HEIGHT}
@@ -132,7 +132,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         </View>
       ) : null}
       {height === null ? (
-        <View style={[styles.placeholder, { backgroundColor: tokens.card }]}>
+        <View style={[styles.placeholder, { backgroundColor: tokens.background }]}>
           <Text numberOfLines={4} style={[styles.summary, { color: tokens.mutedForeground }]}>
             {block.text}
           </Text>
@@ -142,13 +142,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   );
   return (
     <>
-      <View
-        testID="visual-card"
-        style={[
-          styles.card,
-          { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` },
-        ]}
-      >
+      <View testID="visual-card" style={styles.card}>
         {frame}
         {preview && !sheet ? (
           // Over the frame rather than around it, so the WebView never reloads when the fit settles.
@@ -235,7 +229,7 @@ function VisualSheet({
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", borderRadius: 24, borderWidth: 1, overflow: "hidden" },
+  card: { width: "100%", borderRadius: 24, overflow: "hidden" },
   placeholder: {
     position: "absolute",
     top: 0,

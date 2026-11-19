@@ -4529,6 +4529,11 @@ msgstr "컴퓨터 설정을 확인할 수 없습니다 ({failureMessage}). 연�
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "복사하지 못했습니다. 링크를 선택해 복사하세요."
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "권한 목록을 불러오지 못했습니다"

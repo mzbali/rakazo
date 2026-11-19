@@ -101,6 +101,11 @@ describe("pageViewerDocument", () => {
     expect(injected).not.toContain("<style>");
     expect(injected).not.toContain("x()");
   });
+
+  it("marks a still preview, and only then", () => {
+    expect(pageViewerDocument({ ...base, still: true })).toContain("<html data-still>");
+    expect(pageViewerDocument(base)).not.toContain("data-still");
+  });
 });
 
 describe("pageReplyText", () => {

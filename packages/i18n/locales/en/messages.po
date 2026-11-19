@@ -4529,6 +4529,11 @@ msgstr "Could not verify computer setup ({failureMessage}). Fix the connection, 
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "Couldn't copy. Select the link and copy it."
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr "Couldn't draw this visual"
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "Couldn't load grants"

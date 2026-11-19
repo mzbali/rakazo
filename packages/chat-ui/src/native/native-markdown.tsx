@@ -1,8 +1,10 @@
+import type { CitationGroup } from "@rakazo/core/answer-sources";
+import { CITATION_URL_PREFIX, citationGroupIndex } from "@rakazo/core/answer-sources";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
 import { fontWeight, MAX_FONT_SCALE, typeScale } from "@rakazo/ui-tokens";
 import type { ReactElement } from "react";
 import { useCallback, useContext, useMemo, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import type {
   LinkPillContent,
   MarkdownCodeBlock,
@@ -13,10 +15,11 @@ import type {
 } from "react-native-enriched-markdown";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 import {
-  appLinkMatches,
   inlineMarkdownImageSrc,
   isProseFence,
   linkFaviconOrigin,
+  MarkdownEmbedContext,
+  markdownEmbed,
   markdownMentionId,
   markdownPageId,
   RemoteImagesContext,
@@ -25,11 +28,21 @@ import {
   sanitizeMarkdownUrl,
   useLinkFavicons,
 } from "../markdown";
+import { useMarkdownCopy } from "../markdown-copy";
+import { useMarkdownLinkCopy } from "../markdown-link-prompt";
+import { FormulaView } from "../math/math.native";
 import { isMermaidFence } from "../mermaid";
+import { VISUAL_FENCE_LANGUAGE } from "../visual/visual-draw";
+import { visualFence } from "../visual/visual-fence.native";
+import { openSourceList } from "./citations";
 import { CodeFence, MermaidDiagramContext, MermaidFence, ProseFence } from "./code";
 import { RemoteMarkdownImage } from "./images";
 import { useLinkLabel } from "./links";
+import type { MarkdownSegment } from "./markdown-scan";
+import { markdownSegments, withAppAutolinks } from "./markdown-scan";
 import type { FenceStyles } from "./styles";
+
+export { withAppAutolinks };
 
 const MONO_FONT = Platform.select({ ios: "Menlo", default: "monospace" });
 const BLOCK_GAP = 8;
@@ -37,110 +50,10 @@ const WEBSITE_LINK = "^[Hh][Tt][Tt][Pp][Ss]?://";
 const WEB_ADDRESS = /^https?:\/\//i;
 const MENTION_LINK = "^rakazo-mention:";
 const PAGE_LINK = "^page:";
+const CITE_LINK = `^${CITATION_URL_PREFIX}`;
 // Addresses the app will not open (any scheme but these) read as plain text, as they do on web.
 const UNOPENABLE_LINK =
   "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|page:)";
-
-/** The parser autolinks only web addresses, so a bare app link is written as an autolink. */
-export function withAppAutolinks(markdown: string): string {
-  let out = "";
-  let from = 0;
-  for (const [start, end] of asWrittenSpans(markdown)) {
-    out += autolinkProse(markdown.slice(from, start)) + markdown.slice(start, end);
-    from = end;
-  }
-  return out + autolinkProse(markdown.slice(from));
-}
-
-/**
- * Where code and explicit links sit, which stay as written: a fence closes on a run of its own
- * marker at least as long, inline code on a backtick run of the same length on its line. A
- * scanner rather than a pattern, so bot text full of backticks or brackets stays linear.
- */
-function asWrittenSpans(text: string): Array<[number, number]> {
-  const spans: Array<[number, number]> = [];
-  const found = new Map<string, number>();
-  // The next index of `char` from `from`, remembered because `from` only moves forward.
-  const next = (char: string, from: number) => {
-    let at = found.get(char);
-    if (at === undefined || (at !== -1 && at < from)) {
-      at = text.indexOf(char, from);
-      found.set(char, at);
-    }
-    return at === -1 ? text.length : at;
-  };
-  // Backtick run lengths with no closer before this line end.
-  const unclosed = new Map<number, number>();
-  let i = 0;
-  while (i < text.length) {
-    const char = text[i];
-    if (char === "`" || char === "~") {
-      let end = i;
-      while (text[end] === char) end++;
-      const length = end - i;
-      if (length >= 3) {
-        const close = text.indexOf(char.repeat(length), end);
-        const stop = close === -1 ? text.length : close + length;
-        spans.push([i, stop]);
-        i = stop;
-        continue;
-      }
-      const lineEnd = next("\n", end);
-      if (char === "`" && (unclosed.get(length) ?? -1) < lineEnd) {
-        const close = backtickRun(text, end, lineEnd, length);
-        if (close !== -1) {
-          spans.push([i, close + length]);
-          i = close + length;
-          continue;
-        }
-        unclosed.set(length, lineEnd);
-      }
-      i = end;
-      continue;
-    }
-    if (char === "[") {
-      const lineEnd = next("\n", i);
-      const label = next("]", i);
-      const target = label < lineEnd && text[label + 1] === "(" ? next(")", label) : -1;
-      if (target !== -1 && target < lineEnd) {
-        spans.push([i, target + 1]);
-        i = target + 1;
-        continue;
-      }
-    }
-    i++;
-  }
-  return spans;
-}
-
-/** Where a run of exactly `length` backticks starts in [from, to), or -1. */
-function backtickRun(text: string, from: number, to: number, length: number): number {
-  let i = from;
-  while (i < to) {
-    if (text[i] !== "`") {
-      i++;
-      continue;
-    }
-    let end = i;
-    while (end < to && text[end] === "`") end++;
-    if (end - i === length) return i;
-    i = end;
-  }
-  return -1;
-}
-
-function autolinkProse(part: string): string {
-  let out = "";
-  let from = 0;
-  for (const match of appLinkMatches(part)) {
-    if (match.index < from || part.slice(Math.max(0, match.index - 1), match.index) === "<") {
-      continue;
-    }
-    out += `${part.slice(from, match.index)}<${match.url}>`;
-    from = match.lastIndex;
-  }
-  return out + part.slice(from);
-}
 
 /** How a mention link draws and opens: its bot's color, or nothing for a bot that is gone. */
 export type MentionLink = { color: string; open: () => void };
@@ -179,6 +92,8 @@ function nativeMarkdownStyle(
       pill: LINK_PILL,
     };
   }
+  // A citation is a pill too, with its site's icon and name.
+  linkVariants[CITE_LINK] = { color: palette.foreground, underline: false, pill: LINK_PILL };
   Object.assign(linkVariants, {
     [UNOPENABLE_LINK]: { color: palette.foreground, underline: false },
     [WEBSITE_LINK]: {
@@ -236,23 +151,30 @@ function nativeMarkdownStyle(
       backgroundColor: "transparent",
     },
     list: { ...text, bulletColor: palette.faintForeground, markerColor: palette.faintForeground },
+    // Rows divided by a hairline, with no frame or banding, in the body type.
     table: {
       ...block,
-      fontSize: typeScale.caption.fontSize,
-      color: palette.mutedForeground,
+      fontSize: typeScale.body.fontSize,
+      color: palette.foreground,
       headerTextColor: palette.foreground,
+      headerBackgroundColor: "transparent",
+      rowEvenBackgroundColor: "transparent",
+      rowOddBackgroundColor: "transparent",
       borderColor: palette.input,
-      borderWidth: 0.5,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 0,
     },
     taskList: { checkedColor: palette.foreground, borderColor: palette.faintForeground },
     thematicBreak: { color: palette.border },
   };
 }
 
-/** Bot Markdown drawn as native text, with the app's own views for code, diagrams and images. */
+/** Bot Markdown drawn as native text, with the app's own views for what native text cannot draw. */
 export function NativeMarkdown({
   markdown,
   streaming,
+  visuals,
+  citations,
   palette,
   colorScheme,
   fenceStyles,
@@ -262,6 +184,9 @@ export function NativeMarkdown({
 }: {
   markdown: string;
   streaming: boolean;
+  /** Draw ```ui fences as visuals: set only for text the Space's own bot wrote. */
+  visuals: boolean;
+  citations: readonly CitationGroup[];
   palette: ColorTokens;
   colorScheme: ResolvedAppearance;
   fenceStyles: FenceStyles;
@@ -269,8 +194,129 @@ export function NativeMarkdown({
   onOpenPage?: (pageId: string) => void;
   onOpenLink: (url: string) => void;
 }) {
-  const text = useMemo(() => withAppAutolinks(markdown), [markdown]);
+  const resolveEmbed = useContext(MarkdownEmbedContext);
+  const segments = useMemo(
+    () => markdownSegments(markdown, resolveEmbed !== null),
+    [markdown, resolveEmbed],
+  );
+  const run = (text: string) => (
+    <MarkdownRun
+      text={text}
+      streaming={streaming}
+      visuals={visuals}
+      citations={citations}
+      palette={palette}
+      colorScheme={colorScheme}
+      fenceStyles={fenceStyles}
+      mentionLink={mentionLink}
+      onOpenPage={onOpenPage}
+      onOpenLink={onOpenLink}
+    />
+  );
+  const [only] = segments;
+  if (segments.length === 1 && only?.kind === "markdown") return run(only.text);
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <SegmentView
+          // Segments have no identity but their place, which holds while a reply streams.
+          key={index}
+          segment={segment}
+          palette={palette}
+          fenceStyles={fenceStyles}
+          run={run}
+        />
+      ))}
+    </>
+  );
+}
+
+function SegmentView({
+  segment,
+  palette,
+  fenceStyles,
+  run,
+}: {
+  segment: MarkdownSegment;
+  palette: ColorTokens;
+  fenceStyles: FenceStyles;
+  run: (text: string) => ReactElement;
+}) {
+  const resolveEmbed = useContext(MarkdownEmbedContext);
+  if (segment.kind === "markdown") return run(segment.text);
+  if (segment.kind === "math") {
+    const fontSize = typeScale.body.fontSize;
+    return (
+      <View style={{ marginBottom: BLOCK_GAP }}>
+        <FormulaView
+          tex={segment.tex}
+          display={segment.display}
+          color={palette.foreground}
+          fontSize={fontSize}
+          source={
+            <Text style={{ color: palette.foreground, fontFamily: MONO_FONT, fontSize }}>
+              {segment.tex}
+            </Text>
+          }
+        />
+      </View>
+    );
+  }
+  const thumbnail = resolveEmbed?.({ ...segment.embed, frame: "thumbnail" });
+  // An embed the app cannot draw keeps its title as text, ahead of the item's own words.
+  if (!thumbnail) return run(segment.alt ? `${segment.alt}\n\n${segment.copy}` : segment.copy);
+  return (
+    <View style={[fenceStyles.media_row, segment.divided ? fenceStyles.media_divider : null]}>
+      <View style={fenceStyles.media_thumb}>{thumbnail}</View>
+      <View style={fenceStyles.media_copy}>{run(segment.copy)}</View>
+    </View>
+  );
+}
+
+/** An inline or block embed an `image:` or `visual:` address names, drawn by the host app. */
+function MarkdownEmbedBlock({
+  embed,
+  alt,
+  fenceStyles,
+}: {
+  embed: NonNullable<ReturnType<typeof markdownEmbed>>;
+  alt: string;
+  fenceStyles: FenceStyles;
+}) {
+  const resolve = useContext(MarkdownEmbedContext);
+  const resolved = resolve?.(embed);
+  // A card without its own width collapses; the embed takes the full width as a block.
+  if (resolved) return <View style={{ width: "100%" }}>{resolved}</View>;
+  return alt ? <Text style={fenceStyles.plain_text}>{alt}</Text> : <View />;
+}
+
+function MarkdownRun({
+  text: written,
+  streaming,
+  visuals,
+  citations,
+  palette,
+  colorScheme,
+  fenceStyles,
+  mentionLink,
+  onOpenPage,
+  onOpenLink,
+}: {
+  text: string;
+  streaming: boolean;
+  visuals: boolean;
+  citations: readonly CitationGroup[];
+  palette: ColorTokens;
+  colorScheme: ResolvedAppearance;
+  fenceStyles: FenceStyles;
+  mentionLink?: (id: string) => MentionLink | undefined;
+  onOpenPage?: (pageId: string) => void;
+  onOpenLink: (url: string) => void;
+}) {
+  const text = useMemo(() => withAppAutolinks(written), [written]);
   const [links, setLinks] = useState<readonly MarkdownLinkOccurrence[]>([]);
+  const copy = useMarkdownCopy();
+  const linkCopy = useMarkdownLinkCopy();
   const websiteLinks = useMemo(
     () => links.filter((link) => linkFaviconOrigin(link.url) !== undefined),
     [links],
@@ -281,8 +327,24 @@ export function NativeMarkdown({
     ],
     [websiteLinks],
   );
+  // Each citation in this run, with the group of sources its pill stands for.
+  const cited = useMemo(
+    () =>
+      links.flatMap((link) => {
+        const index = citationGroupIndex(link.url);
+        const group = index === undefined ? undefined : citations[index];
+        return group?.items[0] ? [{ url: link.url, group }] : [];
+      }),
+    [links, citations],
+  );
   const linkLabel = useLinkLabel();
-  const websiteHrefs = useMemo(() => websiteLinks.map((link) => link.url), [websiteLinks]);
+  const websiteHrefs = useMemo(
+    () => [
+      ...websiteLinks.map((link) => link.url),
+      ...cited.map(({ group }) => group.items[0]?.url ?? ""),
+    ],
+    [websiteLinks, cited],
+  );
   const favicons = useLinkFavicons(websiteHrefs);
   // The bubble hands a new lookup each render; the colors it gives decide the style.
   const mentionColorList = JSON.stringify(
@@ -316,16 +378,30 @@ export function NativeMarkdown({
         ...(icon ? { iconUri: icon } : {}),
       };
     }
+    for (const { url, group } of cited) {
+      const first = group.items[0];
+      if (!first) continue;
+      const extra = group.items.length - 1;
+      const icon = favicons.get(first.url);
+      content[url] = {
+        label: extra > 0 ? `${first.site} +${extra}` : first.site,
+        ...(icon ? { iconUri: icon } : {}),
+      };
+    }
     return content;
-  }, [websiteLinks, favicons, linkLabel]);
+  }, [websiteLinks, cited, favicons, linkLabel]);
 
   const loadRemote = useContext(RemoteImagesContext);
   const Diagram = useContext(MermaidDiagramContext);
+  const unavailable = copy.visualUnavailable;
   const renderers = useMemo(
     () => ({
-      // Code stays native; only a diagram the app can draw and a plain-text fence, which wraps in
-      // the body font, are drawn by the app.
+      // Code stays native; only a visual, a diagram the app can draw and a plain-text fence, which
+      // wraps in the body font, are drawn by the app.
       code: ({ code, language }: MarkdownCodeBlock): ReactElement | undefined => {
+        if (visuals && language === VISUAL_FENCE_LANGUAGE) {
+          return visualFence(code, { streaming, palette, colorScheme, unavailable });
+        }
         if (isProseFence(language)) {
           return <ProseFence code={code} language={language} styles={fenceStyles} />;
         }
@@ -345,6 +421,9 @@ export function NativeMarkdown({
         );
       },
       image: ({ url, altText, title }: MarkdownImageBlock): ReactElement | undefined => {
+        const embed = markdownEmbed(url, altText);
+        if (embed)
+          return <MarkdownEmbedBlock embed={embed} alt={altText} fenceStyles={fenceStyles} />;
         if (inlineMarkdownImageSrc(url)) return undefined;
         const remote = remoteMarkdownImage(url);
         if (!remote) return undefined;
@@ -358,7 +437,7 @@ export function NativeMarkdown({
         );
       },
     }),
-    [Diagram, streaming, colorScheme, fenceStyles],
+    [Diagram, streaming, visuals, palette, colorScheme, fenceStyles, unavailable],
   );
   // Images inside text, lists, tables and links load only when the reader allowed remote
   // images; until then they keep their placeholder and the address is never requested.
@@ -374,6 +453,11 @@ export function NativeMarkdown({
 
   const onLinkPress = useCallback(
     ({ url }: { url: string }) => {
+      const group = citations[citationGroupIndex(url) ?? -1];
+      if (group) {
+        openSourceList(group.items, onOpenLink, linkCopy.cancel);
+        return;
+      }
       const mentionId = markdownMentionId(url);
       if (mentionId) {
         mentionLink?.(mentionId)?.open();
@@ -386,7 +470,7 @@ export function NativeMarkdown({
       }
       if (sanitizeMarkdownUrl(url)) onOpenLink(url);
     },
-    [mentionLink, onOpenPage, onOpenLink],
+    [citations, mentionLink, onOpenPage, onOpenLink, linkCopy.cancel],
   );
 
   return (
@@ -396,6 +480,8 @@ export function NativeMarkdown({
       flavor="github"
       markdown={text}
       markdownStyle={style}
+      // A single `$` is text; formulas are drawn by the app, as segments between runs.
+      md4cFlags={{ latexMath: false }}
       linkPillContent={pillContent}
       onLinksChange={setLinks}
       onLinkPress={onLinkPress}

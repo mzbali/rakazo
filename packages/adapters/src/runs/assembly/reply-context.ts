@@ -1,6 +1,6 @@
 import type { MessageBlock, ToolHistory } from "@rakazo/contracts";
 import { ToolHistorySchema, truncateReplyQuote } from "@rakazo/contracts";
-import type { AgentHistorySegment } from "@rakazo/core";
+import type { AgentHistorySegment, HistoryTextOptions } from "@rakazo/core";
 import {
   blocksToAgentHistorySegments,
   blocksToAgentHistoryText,
@@ -61,8 +61,25 @@ function replyContext(source: ReplyMessage, threadId: string): string | undefine
   return replyTargetNote(emoji, quote);
 }
 
-export function messageToAgentHistoryText(message: ReplyMessage): string {
-  return [replyContext(message, message.threadId), blocksToAgentHistoryText(messageBlocks(message))]
+/**
+ * The latest message that replays as this bot's own assistant turn: a bot row nobody else
+ * speaks for. `messages` is newest first. Its visual fence stays as written in the history.
+ */
+export function latestOwnReplyId(
+  messages: readonly { id: string; role: string }[],
+  hasSpeaker: (message: { id: string; role: string }) => boolean,
+): string | undefined {
+  return messages.find((message) => message.role === "bot" && !hasSpeaker(message))?.id;
+}
+
+export function messageToAgentHistoryText(
+  message: ReplyMessage,
+  options?: HistoryTextOptions,
+): string {
+  return [
+    replyContext(message, message.threadId),
+    blocksToAgentHistoryText(messageBlocks(message), options),
+  ]
     .filter(Boolean)
     .join("\n\n");
 }
@@ -70,9 +87,11 @@ export function messageToAgentHistoryText(message: ReplyMessage): string {
 /** A message split at its tool steps, as messageToAgentHistoryText reads it; none without steps. */
 export function messageToAgentHistorySegments(
   message: ReplyMessage & { toolHistory?: string | null },
+  options?: HistoryTextOptions,
 ): AgentHistorySegment[] | undefined {
   const segments = blocksToAgentHistorySegments(
     withToolHistory(messageBlocks(message), parsedToolHistory(message.toolHistory)),
+    options,
   );
   if (!segments.some((segment) => "steps" in segment)) return undefined;
   const context = replyContext(message, message.threadId);

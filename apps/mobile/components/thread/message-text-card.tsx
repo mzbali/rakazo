@@ -1,6 +1,7 @@
 import { ph } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { messageTextDrawsVisuals } from "@rakazo/core";
 import { messageSources } from "@rakazo/core/answer-sources";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useContext } from "react";
@@ -109,6 +110,7 @@ export function MessageTextCard({
         streaming={message.id.startsWith("progress:")}
         sources={sources}
         sourcesRow={Boolean(sources?.length)}
+        visuals={messageTextDrawsVisuals(message)}
       />
     </Surface>
   );

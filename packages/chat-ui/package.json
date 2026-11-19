@@ -16,10 +16,15 @@
   "dependencies": {
     "@rakazo/contracts": "workspace:*",
     "@rakazo/core": "workspace:*",
+    "@rakazo/page-kit": "workspace:*",
     "@rakazo/ui-tokens": "workspace:*",
     "@rakazo/ui-web": "workspace:*",
+    "katex": "0.19.1",
     "linkify-it": "5.0.2",
+    "mathjax-full": "3.2.2",
+    "mdast-util-from-markdown": "2.0.3",
     "mermaid": "11.17.2",
+    "micromark-util-types": "2.0.3",
     "prism-react-renderer": "2.4.1",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
@@ -31,7 +36,8 @@
     "react-dom": "19.3.1",
     "react-native": ">=0.79",
     "@ronradtke/react-native-markdown-display": "9.0.3",
-    "react-native-enriched-markdown": "1.2.0"
+    "react-native-enriched-markdown": "1.2.0",
+    "react-native-svg": ">=15"
   },
   "peerDependenciesMeta": {
     "react-dom": {
@@ -45,6 +51,9 @@
     },
     "react-native-enriched-markdown": {
       "optional": true
+    },
+    "react-native-svg": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -56,6 +65,7 @@
     "typescript": "7.0.2",
     "vitest": "5.1.0",
     "@ronradtke/react-native-markdown-display": "9.0.3",
-    "react-native-enriched-markdown": "1.2.0"
+    "react-native-enriched-markdown": "1.2.0",
+    "react-native-svg": "15.16.0"
   }
 }

@@ -4529,6 +4529,11 @@ msgstr "Impossible de vérifier la configuration des ordinateurs ({failureMessag
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "Copie impossible. Sélectionnez le lien et copiez-le."
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "Impossible de charger les accès accordés"

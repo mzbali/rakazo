@@ -89,6 +89,7 @@ export * from "./messages/remote-images.js";
 export * from "./messages/text-safety.js";
 export * from "./messages/time-separators.js";
 export * from "./messages/unread-divider.js";
+export { messageTextDrawsVisuals } from "./messages/visual-summary.js";
 export * from "./messaging/messaging.prompt.js";
 export * from "./messaging/messaging-commands.js";
 export * from "./messaging/messaging-link-guard.js";

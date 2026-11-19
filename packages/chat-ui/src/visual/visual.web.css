@@ -1,0 +1,14 @@
+/* On the chat's own background: no card, no ring, no inner scrollbar. */
+.rkv-host {
+  display: block;
+  min-width: 0;
+  margin: 0.65em 0;
+  padding: 0;
+}
+
+/* Held while the visual's code loads, the height of one line of what it will draw. */
+.rkv-pending {
+  height: 1.5rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}

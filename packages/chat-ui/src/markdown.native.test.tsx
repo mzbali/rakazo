@@ -12,6 +12,7 @@ import type {
 import { describe, expect, it, vi } from "vitest";
 
 const alert = vi.hoisted(() => vi.fn());
+const actionSheet = vi.hoisted(() => vi.fn());
 
 const linking = vi.hoisted(() => ({
   canOpenURL: vi.fn(async () => true),
@@ -35,6 +36,8 @@ const scrollEvents = vi.hoisted(() => ({
 // The props the native Markdown view last received, and how many times it mounted.
 const enriched = vi.hoisted(() => ({
   props: undefined as EnrichedMarkdownTextProps | undefined,
+  // The Markdown of each view drawn since a test last cleared this, in order.
+  runs: [] as string[],
   mounts: 0,
 }));
 
@@ -177,6 +180,7 @@ vi.mock("react-native", async () => {
     },
     Linking: linking,
     Alert: { alert },
+    ActionSheetIOS: { showActionSheetWithOptions: actionSheet },
     I18nManager: i18n,
     useColorScheme: () => "dark",
     useWindowDimensions: () => ({ fontScale: 1 }),
@@ -234,6 +238,7 @@ vi.mock("react-native-enriched-markdown", async () => {
 
   function EnrichedMarkdownText(props: EnrichedMarkdownTextProps) {
     enriched.props = props;
+    enriched.runs.push(props.markdown);
     useEffect(() => {
       enriched.mounts += 1;
     }, []);
@@ -263,7 +268,8 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import type { TextProps } from "react-native";
 import { Pressable } from "react-native";
-import { allowAppLinks } from "./markdown";
+import type { MarkdownEmbed } from "./markdown";
+import { allowAppLinks, MarkdownEmbedContext } from "./markdown";
 import type { LinkFavicons, MentionLink, MermaidDiagramProps } from "./markdown.native";
 import {
   ChatMarkdown,
@@ -275,8 +281,10 @@ import {
   markdownCodeBlocks,
   RemoteImagesContext,
 } from "./markdown.native";
+import { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
 import { RemoteMarkdownImage } from "./native/images";
 import { textBlocks } from "./native/linkified-text";
+import { markdownSegments } from "./native/markdown-scan";
 import { withAppAutolinks } from "./native/native-markdown";
 import { markdownStyles } from "./native/styles";
 
@@ -1350,5 +1358,282 @@ describe("user message direction", () => {
     } finally {
       i18n.isRTL = false;
     }
+  });
+});
+
+describe("native markdown segments", () => {
+  const runs = (markdown: string, element = <ChatMarkdown>{markdown}</ChatMarkdown>) => {
+    enriched.runs = [];
+    const html = renderToStaticMarkup(element);
+    return { runs: [...enriched.runs], html };
+  };
+
+  it("draws a display formula as a view between runs of text, in order", () => {
+    const { runs: drawn, html } = runs("before $$x^2$$ after");
+    expect(drawn).toEqual(["before", "after"]);
+    // The native view reads no TeX: a single `$` stays text.
+    expect(nativeProps().md4cFlags).toEqual({ latexMath: false });
+    expect(html.indexOf("x^2")).toBeGreaterThan(-1);
+    expect(html.match(/<enriched-markdown>/g)).toHaveLength(2);
+  });
+
+  it.each([
+    ["$$", "$$x^2$$"],
+    ["a bracket", "\\[x^2\\]"],
+    ["a parenthesis", "\\(x^2\\)"],
+  ])("takes %s TeX out of the text", (_case, tex) => {
+    expect(markdownSegments(`one ${tex} two`, false)).toEqual([
+      { kind: "markdown", text: "one" },
+      { kind: "math", tex: "x^2", display: tex !== "\\(x^2\\)" },
+      { kind: "markdown", text: "two" },
+    ]);
+  });
+
+  it("leaves a single dollar, code and links as written", () => {
+    for (const markdown of [
+      "It costs $5 and then $10.",
+      "Use `\\(x\\)`.\n\n```\n$$y$$\n```",
+      "[\\(x\\)](https://example.com) and \\$\\$not\\$\\$",
+      "    $$indented code$$",
+      "A $$ never closed",
+    ]) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+    }
+  });
+
+  it("keeps a formula inside a list, quote or table as code, so its backslashes survive", () => {
+    for (const [markdown, expected] of [
+      ["- item \\(x\\)", "- item ` \\(x\\) `"],
+      ["> quote $$y$$", "> quote ` $$y$$ `"],
+      ["| a | \\(z\\) |\n| - | - |", "| a | ` \\(z\\) ` |\n| - | - |"],
+    ] as const) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: expected }]);
+    }
+  });
+
+  it("finds formulas in text full of delimiters in linear time", () => {
+    for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a]("]) {
+      expectLinearTime(() => markdownSegments(unit.repeat(40_000), true));
+    }
+  });
+});
+
+describe("native markdown scanning", () => {
+  allowAppLinks([{ scheme: "reader", host: "books", name: "Reader", icon: "" }]);
+
+  it("opens a fence only at the start of a line, after up to three spaces", () => {
+    // Mid-line backticks are inline code, closed by the next run of three.
+    expect(withAppAutolinks("say ``` then\nreader://books/1\nand ```\n\nreader://books/2")).toBe(
+      "say ``` then\nreader://books/1\nand ```\n\n<reader://books/2>",
+    );
+    // A fence with a marker indented four spaces does not close the fence it sits in.
+    expect(
+      withAppAutolinks("```\nreader://books/1\n    ```\nreader://books/2\n```\nreader://books/3"),
+    ).toBe("```\nreader://books/1\n    ```\nreader://books/2\n```\n<reader://books/3>");
+    expect(withAppAutolinks("   ```\nreader://books/1\n   ```\nreader://books/2")).toBe(
+      "   ```\nreader://books/1\n   ```\n<reader://books/2>",
+    );
+  });
+
+  it("leaves code indented four spaces as written, but not a continuation line or list text", () => {
+    expect(withAppAutolinks("Para\n\n    reader://books/1\n\nreader://books/2")).toBe(
+      "Para\n\n    reader://books/1\n\n<reader://books/2>",
+    );
+    expect(withAppAutolinks("Para\n    reader://books/3")).toBe("Para\n    <reader://books/3>");
+    expect(withAppAutolinks("- item\n\n    reader://books/4")).toBe(
+      "- item\n\n    <reader://books/4>",
+    );
+  });
+
+  it("lets inline code span lines, but not a blank line", () => {
+    expect(withAppAutolinks("`reader://books/1\nreader://books/2` then reader://books/3")).toBe(
+      "`reader://books/1\nreader://books/2` then <reader://books/3>",
+    );
+    expect(withAppAutolinks("`reader://books/4\n\nreader://books/5`")).toContain(
+      "\n\n<reader://books/5>",
+    );
+  });
+});
+
+describe("native markdown visuals", () => {
+  const visual = `<Visual summary="S"><Callout lead="a">x</Callout></Visual>`;
+  const fence = (source: string) => `\`\`\`ui\n${source}\n\`\`\``;
+  const drawFence = (source: string, props: { visuals?: boolean; streaming?: boolean } = {}) => {
+    renderToStaticMarkup(<ChatMarkdown {...props}>{fence(source)}</ChatMarkdown>);
+    return nativeProps().renderers?.code?.(codeBlock(source, "ui"));
+  };
+
+  it("draws a ui fence as a visual only for a Space's own bot text", () => {
+    expect(drawFence(visual, { visuals: true })).toBeDefined();
+    expect(drawFence(visual)).toBeUndefined();
+    expect(drawFence(visual, { visuals: false })).toBeUndefined();
+  });
+
+  it("keeps a ui fence that is not a visual as code", () => {
+    expect(drawFence(`<Callout lead="a">x</Callout>`, { visuals: true })).toBeUndefined();
+    expect(drawFence("just text", { visuals: true })).toBeUndefined();
+  });
+
+  it("fills a visual in while the reply streams", () => {
+    expect(
+      drawFence(`<Visual summary="S"><Callout lead="a">x</Callout><Callout lea`, {
+        visuals: true,
+        streaming: true,
+      }),
+    ).toBeDefined();
+    expect(drawFence(`<Visual summary="S">`, { visuals: true, streaming: true })).toBeDefined();
+  });
+
+  it("names a closed element that cannot be drawn", () => {
+    const drawn = drawFence(`<Visual summary="S"><Quote>q</Quote></Visual>`, { visuals: true });
+    expect(drawn?.props.unavailable).toBe("Couldn't draw this visual");
+    renderToStaticMarkup(
+      <MarkdownCopyProvider copy={{ ...defaultMarkdownCopy, visualUnavailable: "Not drawn" }}>
+        <ChatMarkdown visuals>{fence(visual)}</ChatMarkdown>
+      </MarkdownCopyProvider>,
+    );
+    expect(nativeProps().renderers?.code?.(codeBlock(visual, "ui"))?.props.unavailable).toBe(
+      "Not drawn",
+    );
+  });
+
+  it("leaves other fences to the native view next to a visual", () => {
+    renderToStaticMarkup(<ChatMarkdown visuals>{"```ts\nconst a = 1;\n```"}</ChatMarkdown>);
+    expect(nativeProps().renderers?.code?.(codeBlock("const a = 1;", "ts"))).toBeUndefined();
+  });
+});
+
+describe("native markdown embeds", () => {
+  const resolver = (embed: MarkdownEmbed) =>
+    createElement("embed-probe", {
+      "data-kind": embed.kind,
+      "data-id": embed.id,
+      "data-frame": embed.frame,
+    });
+
+  it("draws a visual or image embed from the host, and its title as text without one", () => {
+    const markdown = "![Revenue](visual:msg_1)";
+    const bare = renderToStaticMarkup(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(bare).toContain("Revenue");
+    expect(bare).not.toContain("embed-probe");
+    const drawn = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={resolver}>
+        <ChatMarkdown>{markdown}</ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(drawn).toContain('<embed-probe data-kind="visual" data-id="msg_1"');
+    expect(drawn).not.toContain("Revenue");
+    // An address that is not an embed still goes through the remote image path.
+    expect(
+      renderToStaticMarkup(
+        <MarkdownEmbedContext.Provider value={resolver}>
+          <ChatMarkdown>{"![x](https://example.test/a.png)"}</ChatMarkdown>
+        </MarkdownEmbedContext.Provider>,
+      ),
+    ).not.toContain("embed-probe");
+  });
+
+  it("opens a top-level list item that starts with an image embed as a media row", () => {
+    const markdown =
+      "- ![Cover](image:art_1) Title\n  Price $5\n- plain item\n- ![Two](image:art_2) Next";
+    expect(markdownSegments(markdown, true)).toEqual([
+      {
+        kind: "media",
+        embed: { kind: "image", id: "art_1", label: "Cover" },
+        alt: "Cover",
+        copy: "Title\nPrice $5",
+        divided: false,
+      },
+      { kind: "markdown", text: "- plain item" },
+      {
+        kind: "media",
+        embed: { kind: "image", id: "art_2", label: "Two" },
+        alt: "Two",
+        copy: "Next",
+        divided: false,
+      },
+    ]);
+    expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+  });
+
+  it("divides a media row from the one above it, and leaves an image with no words alone", () => {
+    const [, second] = markdownSegments("- ![A](image:a1) One\n- ![B](image:b1) Two", true);
+    expect(second).toMatchObject({ kind: "media", divided: true });
+    expect(markdownSegments("- ![A](image:a1)", true)).toEqual([
+      { kind: "markdown", text: "- ![A](image:a1)" },
+    ]);
+    expect(markdownSegments("- ![V](visual:v1) Words", true)).toEqual([
+      { kind: "markdown", text: "- ![V](visual:v1) Words" },
+    ]);
+    expect(markdownSegments("```\n- ![A](image:a1) One\n```", true)).toEqual([
+      { kind: "markdown", text: "```\n- ![A](image:a1) One\n```" },
+    ]);
+  });
+
+  it("lays a media row out as a thumbnail beside its text", () => {
+    const { runs, html } = (() => {
+      enriched.runs = [];
+      const out = renderToStaticMarkup(
+        <MarkdownEmbedContext.Provider value={resolver}>
+          <ChatMarkdown>{"- ![Cover](image:art_1) Title"}</ChatMarkdown>
+        </MarkdownEmbedContext.Provider>,
+      );
+      return { runs: [...enriched.runs], html: out };
+    })();
+    expect(html).toContain('data-kind="image" data-id="art_1" data-frame="thumbnail"');
+    expect(runs).toEqual(["Title"]);
+  });
+});
+
+describe("native citation pills", () => {
+  const sources = [
+    { url: "https://a.example.test/x", title: "A page", site: "A" },
+    { url: "https://b.example.test/y", title: "B page", site: "B" },
+  ];
+  const cited = "Claim. [A](https://a.example.test/x) [B](https://b.example.test/y)";
+
+  it("draws a citation as a link pill with its site, and a group as the first site and a count", async () => {
+    const view = await mount(<ChatMarkdown sources={sources}>{cited}</ChatMarkdown>);
+    expect(nativeProps().markdown).toContain("(rakazo-cite:0)");
+    expect(variantFor("rakazo-cite:0")).toMatchObject({
+      pill: expect.anything(),
+      underline: false,
+    });
+    await reportLinks([link("rakazo-cite:0", "A")]);
+    expect(nativeProps().linkPillContent?.["rakazo-cite:0"]).toMatchObject({ label: "A +1" });
+    await view.cleanup();
+  });
+
+  it("opens the list of sources behind a citation", async () => {
+    actionSheet.mockClear();
+    const view = await mount(<ChatMarkdown sources={sources}>{cited}</ChatMarkdown>);
+    await reportLinks([link("rakazo-cite:0", "A")]);
+    await pressLink("rakazo-cite:0");
+    expect(actionSheet).toHaveBeenCalledTimes(1);
+    expect(actionSheet.mock.calls[0]?.[0].options).toEqual(["A page", "B page", "Cancel"]);
+    await view.cleanup();
+  });
+
+  it("leaves links as written while a reply streams", async () => {
+    const view = await mount(
+      <ChatMarkdown sources={sources} streaming>
+        {cited}
+      </ChatMarkdown>,
+    );
+    expect(nativeProps().markdown).toBe(cited);
+    await view.cleanup();
+  });
+});
+
+describe("native table look", () => {
+  it("sets a table in the body type, divided by hairlines with no frame or banding", () => {
+    renderToStaticMarkup(<ChatMarkdown>{"| A | B |\n| - | - |\n| 1 | 2 |"}</ChatMarkdown>);
+    expect(nativeProps().markdownStyle?.table).toMatchObject({
+      color: darkTokens.foreground,
+      borderColor: darkTokens.input,
+      borderRadius: 0,
+      rowEvenBackgroundColor: "transparent",
+      rowOddBackgroundColor: "transparent",
+    });
   });
 });

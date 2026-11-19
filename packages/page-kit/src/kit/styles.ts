@@ -38,6 +38,9 @@ body{font-size:1rem}
 [data-inline] #root{display:flex;flex-direction:column;gap:.75rem;padding:1rem}
 [data-inline] .rk-page{max-width:none;padding:0}
 [data-inline="card"] .rk-diagram svg{min-width:0!important}
+[data-inline="card"],[data-still]{scrollbar-width:none}
+[data-inline="card"]::-webkit-scrollbar,[data-still]::-webkit-scrollbar{display:none}
+[data-still]{overflow:hidden}
 .rk-header{display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.75rem}
 .rk-title{margin:0;font-size:1.875rem;line-height:1.2;font-weight:600;letter-spacing:-0.012em;overflow-wrap:anywhere}
 .rk-summary{margin:0;font-size:1rem;line-height:1.5}
@@ -182,6 +185,7 @@ body{font-size:1rem}
 .rk-diagram{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .rk-diagram svg{display:block;width:100%;height:auto;overflow:visible}
 .rk-diagram-node{fill:var(--background);stroke:var(--rk-line);stroke-width:1.25}
+.rk-diagram-icon{color:var(--rk-secondary);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .rk-diagram-label{fill:var(--foreground);font-size:14px;font-weight:500}
 .rk-diagram-detail{fill:var(--rk-secondary);font-size:12.5px}
 .rk-diagram-edge{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5}

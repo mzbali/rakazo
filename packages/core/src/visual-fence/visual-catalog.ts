@@ -110,10 +110,10 @@ function list(
 const finiteNumber = (value: VisualValue | undefined) =>
   typeof value === "number" && Number.isFinite(value);
 
-/** Past this a chart's scale cannot tell a value from the next one, so it would draw no plot. */
-const CHART_NUMBER_MAX = 1e15;
-const chartNumber = (value: VisualValue | undefined) =>
-  finiteNumber(value) && Math.abs(value as number) <= CHART_NUMBER_MAX;
+/** Past this a line chart's axis cannot tell a value from the next one, so it would draw no plot. */
+const AXIS_NUMBER_MAX = 1e15;
+const axisNumber = (value: VisualValue | undefined) =>
+  finiteNumber(value) && Math.abs(value as number) <= AXIS_NUMBER_MAX;
 
 function steps(props: VisualObject): Checked {
   const items = list(props.steps, 20, (step) => {
@@ -200,18 +200,18 @@ function diagram(props: VisualObject): Checked {
 }
 
 const numberInRange = (value: VisualValue | undefined, low: number, high: number) =>
-  chartNumber(value) && (value as number) >= low && (value as number) <= high;
+  axisNumber(value) && (value as number) >= low && (value as number) <= high;
 
 /** Up to `max` finite numbers, at least one. */
 function numbers(value: VisualValue | undefined, max: number): number[] | undefined {
-  return Array.isArray(value) && value.length > 0 && value.length <= max && value.every(chartNumber)
+  return Array.isArray(value) && value.length > 0 && value.length <= max && value.every(axisNumber)
     ? (value as number[])
     : undefined;
 }
 
 function bars(props: VisualObject): Checked {
   const items = list(props.bars, 20, (bar) =>
-    text(bar.label, 120) && chartNumber(bar.value) && text(bar.display, 40) !== false
+    text(bar.label, 120) && finiteNumber(bar.value) && text(bar.display, 40) !== false
       ? pick(bar, ["label", "value", "display"])
       : undefined,
   );
@@ -228,7 +228,7 @@ function bars(props: VisualObject): Checked {
 
 function lineChart(props: VisualObject): Checked {
   const points = list(props.points, 120, (point) =>
-    text(point.label, 40) !== false && chartNumber(point.value)
+    text(point.label, 40) !== false && axisNumber(point.value)
       ? pick(point, ["label", "value"])
       : undefined,
   );
@@ -253,8 +253,8 @@ function lineChart(props: VisualObject): Checked {
   )
     return fail("labels is up to 5 series names");
   if (
-    (props.floor !== undefined && !chartNumber(props.floor)) ||
-    (props.ceiling !== undefined && !chartNumber(props.ceiling)) ||
+    (props.floor !== undefined && !axisNumber(props.floor)) ||
+    (props.ceiling !== undefined && !axisNumber(props.ceiling)) ||
     text(props.unit, 12) === false
   )
     return fail("floor and ceiling are numbers; unit is a short text");
@@ -270,7 +270,7 @@ function lineChart(props: VisualObject): Checked {
 function pie(props: VisualObject): Checked {
   const parts = list(props.parts, 12, (part) =>
     text(part.label, 80) &&
-    chartNumber(part.value) &&
+    finiteNumber(part.value) &&
     (part.value as number) >= 0 &&
     text(part.display, 40) !== false
       ? pick(part, ["label", "value", "display"])

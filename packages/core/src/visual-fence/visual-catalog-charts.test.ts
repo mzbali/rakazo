@@ -79,7 +79,6 @@ describe("the rest of the catalog", () => {
       "a floor too large for a scale to tell apart",
       `<LineChart points={[{value: 1e20}]} floor={1e20} />`,
     ],
-    ["a bar too large to draw", `<Bars bars={[{label: "A", value: 1e300}]} />`],
     ["an expression as a prop", `<Bars bars={items} />`],
   ])("shows %s as invalid", (_name, source) => {
     const element = only(source);
@@ -87,7 +86,11 @@ describe("the rest of the catalog", () => {
     expect(element.reason).toBeTruthy();
   });
 
-  it("keeps big figures in a table or a metric, which only show them as text", () => {
+  it("keeps big figures in bars, a pie, a table or a metric, which have no numeric axis", () => {
+    expect(only(`<Bars bars={[{label: "A", value: 1e16, display: "10 PB"}]} />`).state).toBe(
+      "complete",
+    );
+    expect(only(`<Pie parts={[{label: "A", value: 1e16}]} />`).state).toBe("complete");
     expect(only(`<Table columns={["A"]} rows={[[1e16]]} />`).state).toBe("complete");
     expect(only(`<Metrics metrics={[{value: 1e16, label: "x"}]} />`).state).toBe("complete");
   });

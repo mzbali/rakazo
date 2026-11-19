@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type {
   EnrichedMarkdownTextProps,
@@ -1457,6 +1457,8 @@ describe("native markdown scanning", () => {
 
 describe("native markdown visuals", () => {
   const visual = `<Visual summary="S"><Callout lead="a">x</Callout></Visual>`;
+  const drawnProps = (element: ReactElement | undefined) =>
+    element?.props as { unavailable: string } | undefined;
   const fence = (source: string) => `\`\`\`ui\n${source}\n\`\`\``;
   const drawFence = (source: string, props: { visuals?: boolean; streaming?: boolean } = {}) => {
     renderToStaticMarkup(<ChatMarkdown {...props}>{fence(source)}</ChatMarkdown>);
@@ -1486,13 +1488,13 @@ describe("native markdown visuals", () => {
 
   it("names a closed element that cannot be drawn", () => {
     const drawn = drawFence(`<Visual summary="S"><Quote>q</Quote></Visual>`, { visuals: true });
-    expect(drawn?.props.unavailable).toBe("Couldn't draw this visual");
+    expect(drawnProps(drawn)?.unavailable).toBe("Couldn't draw this visual");
     renderToStaticMarkup(
       <MarkdownCopyProvider copy={{ ...defaultMarkdownCopy, visualUnavailable: "Not drawn" }}>
         <ChatMarkdown visuals>{fence(visual)}</ChatMarkdown>
       </MarkdownCopyProvider>,
     );
-    expect(nativeProps().renderers?.code?.(codeBlock(visual, "ui"))?.props.unavailable).toBe(
+    expect(drawnProps(nativeProps().renderers?.code?.(codeBlock(visual, "ui")))?.unavailable).toBe(
       "Not drawn",
     );
   });

@@ -1,8 +1,6 @@
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Children, Fragment } from "react";
-
-/** The frame cannot open windows itself; the host opens web links it is asked to. */
-const OPEN_LINK_MESSAGE = "rakazo-page:open-link";
+import { useOpenViaHost } from "./host-bridge.js";
 
 export function webUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -14,14 +12,10 @@ export function webUrl(value: unknown): string | undefined {
   }
 }
 
-export function openViaHost(event: MouseEvent<HTMLAnchorElement>) {
-  event.preventDefault();
-  window.parent?.postMessage({ type: OPEN_LINK_MESSAGE, url: event.currentTarget.href }, "*");
-}
-
 export function Link({ href, children }: { href: string; children?: ReactNode }) {
+  const openLink = useOpenViaHost();
   return (
-    <a className="rk-link" href={href} rel="noopener noreferrer" onClick={openViaHost}>
+    <a className="rk-link" href={href} rel="noopener noreferrer" onClick={openLink}>
       {children ?? href}
     </a>
   );

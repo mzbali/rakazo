@@ -20,7 +20,10 @@ import {
   remoteMarkdownImage,
   sanitizeMarkdownUrl,
 } from "../markdown";
+import { mathRenderRules, splitAtDisplayMath } from "../math/math.native";
 import { isMermaidFence } from "../mermaid";
+import { VISUAL_FENCE_LANGUAGE } from "../visual/visual-draw";
+import { VisualFence } from "../visual/visual-fence.native";
 import { astText, cellPlainText, enclosingLink, soleRemoteImage } from "./ast";
 import { MarkdownMention, MarkdownPageChip } from "./chips";
 import { CitationPill } from "./citations";
@@ -57,6 +60,7 @@ function listRule(
 }
 
 export const renderRules: RenderRules = {
+  ...mathRenderRules,
   list_item: listItemRule,
   bullet_list: (node, children, _parent, styleMap) =>
     listRule(node, children, styleMap, "bullet_list"),
@@ -78,6 +82,9 @@ export const renderRules: RenderRules = {
         styleMap={styleMap}
       />
     );
+    if (language === VISUAL_FENCE_LANGUAGE) {
+      return <VisualFence key={node.key} source={source} fallback={codeBlock} />;
+    }
     if (!isMermaidFence(info)) return codeBlock;
     return <MermaidFence key={node.key} source={source} fallback={codeBlock} />;
   },
@@ -105,6 +112,19 @@ export const renderRules: RenderRules = {
     );
   },
   textgroup: (node, children, parents, styleMap) => {
+    // A display formula is a block, so the text around it becomes runs of its own.
+    const split = splitAtDisplayMath(node, children, (parts, key, nodes) => (
+      <Text
+        key={key}
+        style={[
+          styleMap.textgroup,
+          contraryDirection(nodes.map(cellPlainText).join("")) && layout.farSideBlock,
+        ]}
+      >
+        {parts}
+      </Text>
+    ));
+    if (split) return <Fragment key={node.key}>{split}</Fragment>;
     // The space between a row's image and its title would indent the title past the text below.
     // The image sits either in this group or just before it in a list item.
     const thumbed = Children.toArray(children).some(isMediaThumb);

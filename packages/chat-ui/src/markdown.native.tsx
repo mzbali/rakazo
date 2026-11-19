@@ -10,9 +10,15 @@ import Markdown, {
 import { memo, useMemo } from "react";
 import { Text, View } from "react-native";
 import type { ChatMarkdownProps } from "./markdown";
-import { CitationGroupsContext, LinkFaviconsPausedContext, linkifyExplicitUrls } from "./markdown";
+import {
+  CitationGroupsContext,
+  LinkFaviconsPausedContext,
+  linkifyExplicitUrls,
+  VisualsContext,
+} from "./markdown";
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy } from "./markdown-link-prompt";
+import { markMath } from "./math/markdown-it-math";
 import { InlineChipsContext } from "./native/chips";
 import { SourcesCount } from "./native/citations";
 import { DiagramSurfaceContext } from "./native/code";
@@ -31,6 +37,7 @@ const markdownParser = createMarkdownIt();
 markdownParser.validateLink = keepMarkdownLinkToken;
 linkifyExplicitUrls(markdownParser);
 markTaskListItems(markdownParser);
+markMath(markdownParser);
 markQuoteSources(markdownParser);
 
 /** A node's place in the tree, which stays the same when the same Markdown is parsed again. */
@@ -86,6 +93,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   onOpenPage,
   sources,
   sourcesRow = false,
+  visuals = false,
   palette = darkTokens,
   colorScheme = "dark",
 }: ChatMarkdownProps & { palette?: ColorTokens; colorScheme?: ResolvedAppearance }) {
@@ -124,13 +132,19 @@ export const ChatMarkdown = memo(function ChatMarkdown({
           <LinkFaviconsPausedContext.Provider value={streaming}>
             <DiagramSurfaceContext.Provider value={diagramSurface}>
               <CitationGroupsContext.Provider value={prepared.groups}>
-                {streaming ? (
-                  <MarkdownStream {...sharedProps} cursorColor={palette.mutedForeground} streaming>
-                    {prepared.markdown}
-                  </MarkdownStream>
-                ) : (
-                  <Markdown {...sharedProps}>{prepared.markdown}</Markdown>
-                )}
+                <VisualsContext.Provider value={visuals}>
+                  {streaming ? (
+                    <MarkdownStream
+                      {...sharedProps}
+                      cursorColor={palette.mutedForeground}
+                      streaming
+                    >
+                      {prepared.markdown}
+                    </MarkdownStream>
+                  ) : (
+                    <Markdown {...sharedProps}>{prepared.markdown}</Markdown>
+                  )}
+                </VisualsContext.Provider>
               </CitationGroupsContext.Provider>
               {showRow && sources ? (
                 <SourcesCount

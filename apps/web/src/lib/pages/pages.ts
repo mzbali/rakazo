@@ -72,6 +72,8 @@ export function usePageDocument(
   bottomInset = 0,
   /** A visual rather than a page, drawn in a chat card or opened whole. */
   inline?: "card" | "full",
+  /** A preview drawn scaled into a card, with no scrollbar. */
+  still = false,
 ): { document: string | null; failed: boolean; retry: () => void } {
   const { t, i18n } = useLingui();
   const theme = useAppTheme();
@@ -96,6 +98,7 @@ export function usePageDocument(
             bottomInset,
             lang: i18n.locale,
             inline,
+            still,
           }),
     [
       runtime.data,
@@ -108,6 +111,7 @@ export function usePageDocument(
       bottomInset,
       i18n.locale,
       inline,
+      still,
     ],
   );
   const { refetch } = runtime;

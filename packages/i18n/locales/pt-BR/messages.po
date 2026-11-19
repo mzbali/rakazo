@@ -4369,6 +4369,11 @@ msgstr "Não foi possível verificar a configuração dos computadores ({failure
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "Não foi possível copiar. Selecione o link e copie."
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "Não foi possível carregar as concessões"

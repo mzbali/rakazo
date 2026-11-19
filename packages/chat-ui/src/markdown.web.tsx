@@ -63,6 +63,7 @@ import {
   remoteImageRenders,
   remoteMarkdownImage,
   sanitizeMarkdownUrl,
+  VisualsContext,
 } from "./markdown";
 import { CitationPill, LinkFavicon, SourcesRow } from "./markdown-citations.web";
 import { useMarkdownCopy } from "./markdown-copy";
@@ -77,10 +78,14 @@ import {
   withClass,
 } from "./markdown-media-row.web";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
+import { MathSpan } from "./math/math.web";
+import { MATH_CLASS, remarkMath } from "./math/remark-math";
 import { openingMediaImage } from "./media-row";
 import { isMermaidFence, mermaidSvgImage } from "./mermaid";
 import { useMermaidSvg } from "./mermaid.web";
 import { PAGE_ICON } from "./page-icon";
+import { VISUAL_FENCE_LANGUAGE } from "./visual/visual-draw";
+import { VisualFence } from "./visual/visual-fence.web";
 
 function preserveSkippedTableText() {
   return (tree: HastNode) => {
@@ -196,11 +201,42 @@ function MermaidDiagram({ source, fallback }: { source: string; fallback: ReactN
   );
 }
 
+/** A ```ui fence: the visual the bot described, with the code block kept where it cannot draw. */
+function UiFence({
+  source,
+  streaming,
+  fallback,
+}: {
+  source: string;
+  streaming: boolean;
+  fallback: ReactNode;
+}) {
+  const { open, dialog } = useExternalLinkOpener();
+  const [, copy] = useCopyText();
+  const bridge = useMemo(
+    () => ({
+      openLink: (url: string) => {
+        const safe = sanitizeMarkdownUrl(url);
+        if (safe) open(safe);
+      },
+      copy,
+    }),
+    [open, copy],
+  );
+  return (
+    <>
+      <VisualFence source={source} streaming={streaming} bridge={bridge} fallback={fallback} />
+      {dialog}
+    </>
+  );
+}
+
 function MarkdownPre({
   node,
   ...props
 }: React.ComponentPropsWithoutRef<"pre"> & { node?: MarkdownHast }) {
   const streamingSource = useContext(StreamingSourceContext);
+  const visuals = useContext(VisualsContext);
   const diagram = mermaidFenceSource(node);
   // Prose an author wrote in a fence reads as prose; code keeps the monospaced font.
   const prose = diagram === undefined && isProseFence(fenceLanguage(node));
@@ -208,6 +244,16 @@ function MarkdownPre({
   const codeBlock = (
     <CodeBlock {...props} copyable={/\S/.test(codeText(codeElement(node)))} prose={prose} />
   );
+  // Unlike a diagram, a visual draws from the open fence, so it fills in while the reply streams.
+  if (visuals && fenceLanguage(node) === VISUAL_FENCE_LANGUAGE) {
+    return (
+      <UiFence
+        source={codeText(codeElement(node))}
+        streaming={streamingSource !== undefined}
+        fallback={codeBlock}
+      />
+    );
+  }
   if (diagram === undefined) return codeBlock;
   // Parser offsets identify the fence inside quotes and lists too. Inspect the original source,
   // since a display-only closing fence must never trigger a diagram render.
@@ -795,6 +841,15 @@ const components: Components = {
     );
   },
   pre: MarkdownPre,
+  span({ node: _node, className, children, ...props }) {
+    return className?.split(" ").includes(MATH_CLASS) && typeof children === "string" ? (
+      <MathSpan key={`${className}:${children}`} tex={children} className={className} />
+    ) : (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    );
+  },
   table({ node, children, ...props }) {
     return (
       <MarkdownTable node={node} tableProps={props}>
@@ -891,7 +946,7 @@ function remarkAppLinks() {
   };
 }
 
-const remarkPlugins = [remarkGfm, remarkAppLinks];
+const remarkPlugins = [remarkGfm, remarkMath, remarkAppLinks];
 const rehypePlugins = [preserveSkippedTableText];
 
 // MarkdownImage decides what an image source may do, so it receives the source as written.
@@ -1014,6 +1069,7 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   onOpenPage,
   sources,
   sourcesRow = false,
+  visuals = false,
 }: ChatMarkdownProps) {
   const { request, dialog } = useExternalLinkConfirm();
   const prepared = useMemo(
@@ -1036,32 +1092,34 @@ export const ChatMarkdown = memo(function ChatMarkdown({
     <ConfirmLinkContext.Provider value={request}>
       <CitationGroupsContext.Provider value={prepared.groups}>
         <InlineChipsContext.Provider value={inlineChips}>
-          <div
-            className={
-              streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"
-            }
-          >
-            <LinkFaviconsPausedContext.Provider value={streaming}>
-              <PlainTextOnFailure text={children}>
-                {blocks ? (
-                  blocks.map((block, index) => (
-                    <Fragment key={block.key}>
-                      {/* The line break react-markdown puts between blocks, so the DOM matches. */}
-                      {index > 0 ? "\n" : null}
-                      <MarkdownBlock
-                        source={block.source}
-                        streaming={streaming && index === blocks.length - 1}
-                      />
-                    </Fragment>
-                  ))
-                ) : (
-                  <MarkdownBlock source={prepared.markdown} streaming={streaming} />
-                )}
-              </PlainTextOnFailure>
-            </LinkFaviconsPausedContext.Provider>
-            {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
-            {showRow && sources ? <SourcesRow items={sources} onOpen={request} /> : null}
-          </div>
+          <VisualsContext.Provider value={visuals}>
+            <div
+              className={
+                streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"
+              }
+            >
+              <LinkFaviconsPausedContext.Provider value={streaming}>
+                <PlainTextOnFailure text={children}>
+                  {blocks ? (
+                    blocks.map((block, index) => (
+                      <Fragment key={block.key}>
+                        {/* The line break react-markdown puts between blocks, so the DOM matches. */}
+                        {index > 0 ? "\n" : null}
+                        <MarkdownBlock
+                          source={block.source}
+                          streaming={streaming && index === blocks.length - 1}
+                        />
+                      </Fragment>
+                    ))
+                  ) : (
+                    <MarkdownBlock source={prepared.markdown} streaming={streaming} />
+                  )}
+                </PlainTextOnFailure>
+              </LinkFaviconsPausedContext.Provider>
+              {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
+              {showRow && sources ? <SourcesRow items={sources} onOpen={request} /> : null}
+            </div>
+          </VisualsContext.Provider>
         </InlineChipsContext.Provider>
       </CitationGroupsContext.Provider>
       {dialog}

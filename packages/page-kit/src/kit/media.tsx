@@ -2,7 +2,7 @@ import { pageKitPalette } from "@rakazo/ui-tokens";
 import type { CSSProperties, ReactNode } from "react";
 import { Children, useEffect, useId, useRef, useState } from "react";
 import { LinkButton, linkUrl, ReplyButton } from "./controls.js";
-import { openViaHost } from "./inline.js";
+import { useOpenViaHost } from "./host-bridge.js";
 import type { Words } from "./labels.js";
 import { useWords } from "./labels.js";
 
@@ -578,6 +578,7 @@ export function ProductCard({
   viewLabel?: string;
   compact?: boolean;
 }) {
+  const openLink = useOpenViaHost();
   const words = useWords();
   const title = text(item.title);
   if (!title) return null;
@@ -625,7 +626,7 @@ export function ProductCard({
           href={href}
           title={title}
           rel="noopener noreferrer"
-          onClick={openViaHost}
+          onClick={openLink}
         >
           {media}
           {body}
@@ -649,6 +650,7 @@ function Chevron() {
 }
 
 export function ProductRows({ items }: { items?: ProductItem[] }) {
+  const openLink = useOpenViaHost();
   const rows = (Array.isArray(items) ? items : []).filter((item) => item && text(item.title));
   if (rows.length === 0) return null;
   return (
@@ -679,7 +681,7 @@ export function ProductRows({ items }: { items?: ProductItem[] }) {
                 href={href}
                 title={text(item.title)}
                 rel="noopener noreferrer"
-                onClick={openViaHost}
+                onClick={openLink}
               >
                 {inner}
               </a>

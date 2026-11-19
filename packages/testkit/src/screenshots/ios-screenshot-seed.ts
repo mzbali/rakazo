@@ -30,6 +30,47 @@ const DIAGRAM_REPLY = [
   "    I --> J[You test it]",
   "```",
 ].join("\n");
+// A visual the bot wrote as a ui fence in its reply, drawn with native views.
+const FENCE_REPLY = [
+  "Noise-contrastive estimation turns density estimation into classification.",
+  "",
+  "```ui",
+  '<Visual summary="NCE turns density estimation into real-vs-noise classification.">',
+  '  <Diagram direction="horizontal" nodes={[{id: "real", label: "Real samples"}, {id: "noise", label: "Noise samples"}, {id: "clf", label: "Binary classifier"}, {id: "out", label: "Learn θ and estimate Z"}]} edges={[{from: "real", to: "clf"}, {from: "noise", to: "clf"}, {from: "clf", to: "out"}]} />',
+  '  <Callout tone="info" lead="Why it works">The classifier only has to tell data from noise.</Callout>',
+  '  <Steps steps={[{title: "Sample noise"}, {title: "Train the classifier"}]} />',
+  "</Visual>",
+  "```",
+  "",
+  "That is the whole idea.",
+].join("\n");
+// More ui fences: charts and a table, then the smaller parts, drawn with native views.
+const CATALOG_CHARTS_REPLY = [
+  "Latency fell after the cache shipped.",
+  "",
+  "```ui",
+  '<Visual summary="Latency fell after the cache shipped.">',
+  "  <Tabs>",
+  '    <Tab label="Trend"><LineChart points={[{label: "Mon", value: 80}, {label: "Tue", value: 74}, {label: "Wed", value: 61}, {label: "Thu", value: 48}, {label: "Fri", value: 42}]} lines={[{label: "Target", values: [50, 50, 50, 50, 50]}]} labels={["p95"]} unit="ms" /></Tab>',
+  '    <Tab label="By region"><Bars bars={[{label: "Europe", value: 38, display: "38 ms"}, {label: "North America", value: 44, display: "44 ms"}, {label: "Asia", value: 71, display: "71 ms"}]} /></Tab>',
+  '    <Tab label="Share"><Pie parts={[{label: "Cached", value: 72}, {label: "Origin", value: 21}, {label: "Errors", value: 7}]} total="100%" label="Requests" /></Tab>',
+  "  </Tabs>",
+  '  <Table columns={["Plan", "Seats", "Price"]} rows={[["Starter", 3, "$9"], ["Team", 25, {text: "$49", tone: "success"}], ["Scale", 250, {text: "$399", tone: "warning"}]]} emphasis={0} />',
+  "</Visual>",
+  "```",
+].join("\n");
+const CATALOG_PARTS_REPLY = [
+  "And what it means for the rollout:",
+  "",
+  "```ui",
+  '<Visual summary="The rollout is done and the plan costs less.">',
+  '  <ProsCons pros={["Cheaper at every size", "No cold starts"]} cons={["Smaller edge network"]} />',
+  '  <Status tone="success">Rolled out</Status>',
+  '  <CopyButton label="Copy command" text="curl -fsS https://example.test/health | jq .status" />',
+  '  <Diagram direction="horizontal" nodes={[{id: "app", label: "App", icon: "globe"}, {id: "cache", label: "Cache", icon: "zap"}, {id: "db", label: "Database", icon: "database"}]} edges={[{from: "app", to: "cache"}, {from: "cache", to: "db", label: "miss", dashed: true}]} />',
+  "</Visual>",
+  "```",
+].join("\n");
 // A visual the bot drew in the chat with show_visual.
 const VISUAL_SUMMARY = "The launch moves from beta to general availability after the review.";
 const VISUAL_SOURCE = [
@@ -363,6 +404,9 @@ export async function seedIosScreenshotFixture(input: {
     });
     await ensureText(db.prisma, group.threadId, "bot", writer.id, GROUP_READY);
     await ensureText(db.prisma, group.threadId, "bot", writer.id, DIAGRAM_REPLY);
+    await ensureText(db.prisma, group.threadId, "bot", writer.id, FENCE_REPLY);
+    await ensureText(db.prisma, group.threadId, "bot", writer.id, CATALOG_CHARTS_REPLY);
+    await ensureText(db.prisma, group.threadId, "bot", writer.id, CATALOG_PARTS_REPLY);
     await ensureVisual(db.prisma, group.threadId, writer.id);
     await ensureInlineEmbeds(input.apiUrl, populated.headers, db.prisma, {
       threadId: group.threadId,

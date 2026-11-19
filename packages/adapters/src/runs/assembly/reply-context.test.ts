@@ -3,6 +3,7 @@ import type { PrismaClient } from "@rakazo/db";
 import { describe, expect, it, vi } from "vitest";
 import { toHistory } from "../../runtime/pi/pi-runtime-history.js";
 import {
+  latestOwnReplyId,
   loadReplyContext,
   messageToAgentHistorySegments,
   messageToAgentHistoryText,
@@ -295,5 +296,48 @@ describe("earlier turns' tool work", () => {
     expect(
       messageToAgentHistorySegments({ ...message, blocks: [{ kind: "text", text: "Hi." }] }),
     ).toBeUndefined();
+  });
+});
+
+describe("a visual fence in replayed history", () => {
+  const fence = '```ui\n<Visual summary="Flow of data">\n<Formula tex="x" />\n</Visual>\n```';
+  const reply = (id: string) => ({
+    id,
+    threadId: "thread-1",
+    role: "bot",
+    blocks: [{ kind: "text", text: `Here:\n${fence}` }],
+  });
+
+  it("folds to its summary by default and stays as written when asked", () => {
+    expect(messageToAgentHistoryText(reply("a"))).toBe("Here:\n[visual: Flow of data]");
+    expect(messageToAgentHistoryText(reply("a"), { foldVisuals: false })).toBe(`Here:\n${fence}`);
+  });
+
+  it("folds the segments of a reply with tool steps too", () => {
+    const message = {
+      ...reply("a"),
+      blocks: [
+        { kind: "steps", steps: [{ label: "Searched", count: 1 }] },
+        { kind: "text", text: `Here:\n${fence}` },
+      ],
+    };
+    expect(JSON.stringify(messageToAgentHistorySegments(message))).toContain(
+      "[visual: Flow of data]",
+    );
+    expect(
+      JSON.stringify(messageToAgentHistorySegments(message, { foldVisuals: false })),
+    ).not.toContain("[visual:");
+  });
+
+  it("picks the latest bot row nobody else speaks for, even after user messages", () => {
+    const rows = [
+      { id: "u2", role: "user" },
+      { id: "peer", role: "bot" },
+      { id: "u1", role: "user" },
+      { id: "own", role: "bot" },
+    ];
+    expect(latestOwnReplyId(rows, (row) => row.id === "peer")).toBe("own");
+    expect(latestOwnReplyId(rows, () => false)).toBe("peer");
+    expect(latestOwnReplyId([{ id: "u", role: "user" }], () => false)).toBeUndefined();
   });
 });

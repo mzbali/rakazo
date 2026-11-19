@@ -5,7 +5,7 @@ import { useContext } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { CodeCopyButtonContext } from "../native/code";
 import type { Surface } from "./visual-surface.native";
-import { subtle, toneColor, tones } from "./visual-surface.native";
+import { NARROW_WIDTH, subtle, toneColor, tones } from "./visual-surface.native";
 
 const words = nativeWords;
 const MONO = Platform.select({ ios: "ui-monospace", default: "monospace" });
@@ -38,7 +38,8 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
   });
   const textAlign = (index: number) =>
     align[index] === "center" ? "center" : ends[index] ? "right" : "left";
-  const wide = columns.length >= WIDE_COLUMNS && surface.narrow;
+  // A grid cell is narrower than the column, so the cell's own width decides.
+  const wide = columns.length >= WIDE_COLUMNS && surface.width < NARROW_WIDTH;
   const cell = () => [styles.cell, wide ? { width: WIDE_COLUMN_WIDTH } : null];
   const table = (
     <View style={styles.table}>

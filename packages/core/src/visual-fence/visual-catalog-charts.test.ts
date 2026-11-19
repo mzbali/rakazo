@@ -75,6 +75,11 @@ describe("the rest of the catalog", () => {
     ["a copy button with no text", `<CopyButton label="Copy" />`],
     ["a copy button with no label", `<CopyButton text="x" />`],
     ["a very long copy text", `<CopyButton label="Copy" text="${"x".repeat(2001)}" />`],
+    [
+      "a floor too large for a scale to tell apart",
+      `<LineChart points={[{value: 1e20}]} floor={1e20} />`,
+    ],
+    ["a bar too large to draw", `<Bars bars={[{label: "A", value: 1e300}]} />`],
     ["an expression as a prop", `<Bars bars={items} />`],
   ])("shows %s as invalid", (_name, source) => {
     const element = only(source);

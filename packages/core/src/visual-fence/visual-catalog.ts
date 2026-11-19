@@ -107,8 +107,11 @@ function list(
   return items;
 }
 
+/** Past this a scale cannot tell a value from the next one, so charts would draw no plot. */
+const NUMBER_MAX = 1e15;
+
 const finiteNumber = (value: VisualValue | undefined) =>
-  typeof value === "number" && Number.isFinite(value);
+  typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= NUMBER_MAX;
 
 function steps(props: VisualObject): Checked {
   const items = list(props.steps, 20, (step) => {

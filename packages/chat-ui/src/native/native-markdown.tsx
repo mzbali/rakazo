@@ -52,8 +52,9 @@ const MENTION_LINK = "^rakazo-mention:";
 const PAGE_LINK = "^page:";
 const CITE_LINK = `^${CITATION_URL_PREFIX}`;
 // Addresses the app will not open (any scheme but these) read as plain text, as they do on web.
+// The native view tries the longest pattern first, so the ones with a style of their own are left out.
 const UNOPENABLE_LINK =
-  "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|page:)";
+  "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|rakazo-cite:|page:)";
 
 /** How a mention link draws and opens: its bot's color, or nothing for a bot that is gone. */
 export type MentionLink = { color: string; open: () => void };
@@ -93,7 +94,17 @@ function nativeMarkdownStyle(
     };
   }
   // A citation is a pill too, with its site's icon and name.
-  linkVariants[CITE_LINK] = { color: palette.foreground, underline: false, pill: LINK_PILL };
+  linkVariants[CITE_LINK] = {
+    color: palette.mutedForeground,
+    underline: false,
+    pill: {
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: palette.border,
+    },
+  };
   Object.assign(linkVariants, {
     [UNOPENABLE_LINK]: { color: palette.foreground, underline: false },
     [WEBSITE_LINK]: {

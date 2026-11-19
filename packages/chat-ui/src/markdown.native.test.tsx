@@ -1597,6 +1597,11 @@ describe("native citation pills", () => {
   it("draws a citation as a link pill with its site, and a group as the first site and a count", async () => {
     const view = await mount(<ChatMarkdown sources={sources}>{cited}</ChatMarkdown>);
     expect(nativeProps().markdown).toContain("(rakazo-cite:0)");
+    // The native view tries the longest pattern first: no other may match a citation.
+    const matching = Object.keys(nativeProps().markdownStyle?.linkVariants ?? {}).filter(
+      (pattern) => new RegExp(pattern).test("rakazo-cite:0"),
+    );
+    expect(matching).toEqual(["^rakazo-cite:"]);
     expect(variantFor("rakazo-cite:0")).toMatchObject({
       pill: expect.anything(),
       underline: false,

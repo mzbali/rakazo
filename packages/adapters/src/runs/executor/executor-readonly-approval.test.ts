@@ -5223,6 +5223,27 @@ it("applies a saved Allow for cloud_agent_launch before posting a card", async (
   expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
 });
 
+it("asks before a routine launches a cloud agent, and Never ask refuses it", async () => {
+  const args = { prompt: "Fix it", title: "Fix it", requestKey: "example-request" };
+  const asks = fixture({ name: "cloud_agent_launch", builtin: true, trigger: "routine" });
+  asks.setCalls([{ args, executionId: "call-1" }]);
+  await asks.run();
+  expect(asks.pauseRunForInput).toHaveBeenCalledOnce();
+
+  const never = fixture({
+    name: "cloud_agent_launch",
+    builtin: true,
+    trigger: "routine",
+    skipApprovals: true,
+  });
+  never.setCalls([{ args, executionId: "call-1" }]);
+  await never.run();
+  expect(never.pauseRunForInput).not.toHaveBeenCalled();
+  expect(never.results[0]).toEqual(
+    expect.objectContaining({ error: expect.stringContaining("this space never asks") }),
+  );
+});
+
 it.each(["cloud_agent_launch", "respond_agent_connection"])(
   "keeps webhook Never ask guarded for %s despite a saved Allow",
   async (name) => {

@@ -41,19 +41,92 @@ const PAGE_LINK = "^page:";
 const UNOPENABLE_LINK =
   "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|page:)";
 
-// Code (a fence closes on a run of its own marker at least as long; inline code on a matching
-// backtick run) and explicit links, which stay as written.
-const AS_WRITTEN = /(`{3,}|~{3,})[\s\S]*?(?:\1|$)|(`+)[^\n]*?\2|\[[^\]\n]*\]\([^)\n]*\)/g;
-
 /** The parser autolinks only web addresses, so a bare app link is written as an autolink. */
 export function withAppAutolinks(markdown: string): string {
   let out = "";
   let from = 0;
-  for (const kept of markdown.matchAll(AS_WRITTEN)) {
-    out += autolinkProse(markdown.slice(from, kept.index)) + kept[0];
-    from = kept.index + kept[0].length;
+  for (const [start, end] of asWrittenSpans(markdown)) {
+    out += autolinkProse(markdown.slice(from, start)) + markdown.slice(start, end);
+    from = end;
   }
   return out + autolinkProse(markdown.slice(from));
+}
+
+/**
+ * Where code and explicit links sit, which stay as written: a fence closes on a run of its own
+ * marker at least as long, inline code on a backtick run of the same length on its line. A
+ * scanner rather than a pattern, so bot text full of backticks or brackets stays linear.
+ */
+function asWrittenSpans(text: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  const found = new Map<string, number>();
+  // The next index of `char` from `from`, remembered because `from` only moves forward.
+  const next = (char: string, from: number) => {
+    let at = found.get(char);
+    if (at === undefined || (at !== -1 && at < from)) {
+      at = text.indexOf(char, from);
+      found.set(char, at);
+    }
+    return at === -1 ? text.length : at;
+  };
+  // Backtick run lengths with no closer before this line end.
+  const unclosed = new Map<number, number>();
+  let i = 0;
+  while (i < text.length) {
+    const char = text[i];
+    if (char === "`" || char === "~") {
+      let end = i;
+      while (text[end] === char) end++;
+      const length = end - i;
+      if (length >= 3) {
+        const close = text.indexOf(char.repeat(length), end);
+        const stop = close === -1 ? text.length : close + length;
+        spans.push([i, stop]);
+        i = stop;
+        continue;
+      }
+      const lineEnd = next("\n", end);
+      if (char === "`" && (unclosed.get(length) ?? -1) < lineEnd) {
+        const close = backtickRun(text, end, lineEnd, length);
+        if (close !== -1) {
+          spans.push([i, close + length]);
+          i = close + length;
+          continue;
+        }
+        unclosed.set(length, lineEnd);
+      }
+      i = end;
+      continue;
+    }
+    if (char === "[") {
+      const lineEnd = next("\n", i);
+      const label = next("]", i);
+      const target = label < lineEnd && text[label + 1] === "(" ? next(")", label) : -1;
+      if (target !== -1 && target < lineEnd) {
+        spans.push([i, target + 1]);
+        i = target + 1;
+        continue;
+      }
+    }
+    i++;
+  }
+  return spans;
+}
+
+/** Where a run of exactly `length` backticks starts in [from, to), or -1. */
+function backtickRun(text: string, from: number, to: number, length: number): number {
+  let i = from;
+  while (i < to) {
+    if (text[i] !== "`") {
+      i++;
+      continue;
+    }
+    let end = i;
+    while (end < to && text[end] === "`") end++;
+    if (end - i === length) return i;
+    i = end;
+  }
+  return -1;
 }
 
 function autolinkProse(part: string): string {

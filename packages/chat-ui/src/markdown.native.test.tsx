@@ -256,6 +256,7 @@ vi.mock("react-native-enriched-markdown", async () => {
   return { EnrichedMarkdownText };
 });
 
+import { expectLinearTime } from "@rakazo/contracts/test-timing";
 import { darkTokens, lightTokens, MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import { themes } from "prism-react-renderer";
 import { act, createElement } from "react";
@@ -276,6 +277,7 @@ import {
 } from "./markdown.native";
 import { RemoteMarkdownImage } from "./native/images";
 import { textBlocks } from "./native/linkified-text";
+import { withAppAutolinks } from "./native/native-markdown";
 import { markdownStyles } from "./native/styles";
 
 // The data attributes of the innermost text element holding exactly `content`.
@@ -813,6 +815,13 @@ describe("native app links", () => {
       markdown.replace("then reader://books/5", "then <reader://books/5>"),
     );
     await view.cleanup();
+  });
+
+  it("scans text full of backticks and brackets in linear time", () => {
+    for (const unit of ["` ", "`` ", "[a](", "[", "~~ "]) {
+      const text = `${unit.repeat(40_000)}reader://books/1`;
+      expectLinearTime(() => expect(withAppAutolinks(text)).toContain("<reader://books/1>"));
+    }
   });
 
   it("draws an app link as a pill that reads Open in the app", async () => {

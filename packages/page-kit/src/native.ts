@@ -29,5 +29,5 @@ export {
   textCentre,
   wrapText,
 } from "./kit/diagram-layout.js";
-export { wordsFor } from "./kit/labels.js";
+export { nativeWords } from "./kit/native-words.js";
 export { TONE_PATHS } from "./kit/tone-icon.js";

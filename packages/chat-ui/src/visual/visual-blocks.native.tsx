@@ -1,5 +1,5 @@
 import type { VisualElement } from "@rakazo/core/visual-fence";
-import { wordsFor } from "@rakazo/page-kit/native";
+import { nativeWords } from "@rakazo/page-kit/native";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useContext } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -7,7 +7,7 @@ import { CodeCopyButtonContext } from "../native/code";
 import type { Surface } from "./visual-surface.native";
 import { subtle, toneColor, tones } from "./visual-surface.native";
 
-const words = wordsFor(undefined);
+const words = nativeWords;
 const MONO = Platform.select({ ios: "ui-monospace", default: "monospace" });
 /** A table of this many columns or more scrolls sideways on a phone. */
 const WIDE_COLUMNS = 5;
@@ -39,12 +39,12 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
   const textAlign = (index: number) =>
     align[index] === "center" ? "center" : ends[index] ? "right" : "left";
   const wide = columns.length >= WIDE_COLUMNS && surface.narrow;
-  const cell = (index: number) => [styles.cell, wide ? { width: WIDE_COLUMN_WIDTH } : null];
+  const cell = () => [styles.cell, wide ? { width: WIDE_COLUMN_WIDTH } : null];
   const table = (
     <View style={styles.table}>
       <View style={[styles.row, { borderBottomColor: palette.border }]}>
         {columns.map((column, index) => (
-          <View key={index} style={cell(index)}>
+          <View key={index} style={cell()}>
             <Text
               style={[
                 typeScale.footnote,
@@ -67,7 +67,7 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
                   palette.foreground)
                 : palette.foreground;
             return (
-              <View key={index} style={cell(index)}>
+              <View key={index} style={cell()}>
                 <Text
                   style={[
                     typeScale.secondary,
@@ -115,7 +115,14 @@ export function ProsCons({ element, surface }: { element: VisualElement; surface
   return (
     <View style={[styles.proscons, surface.narrow ? null : styles.prosconsWide]}>
       {columns.map((column) => (
-        <View key={column.mark} style={[styles.card, { backgroundColor: palette.muted }]}>
+        <View
+          key={column.mark}
+          style={[
+            styles.card,
+            surface.narrow ? null : styles.cardWide,
+            { backgroundColor: palette.muted },
+          ]}
+        >
           <Text style={[typeScale.cardTitle, { color: palette.foreground }]}>{column.heading}</Text>
           {column.items!.map((item, index) => (
             <View key={index} style={styles.point}>
@@ -187,7 +194,8 @@ const styles = StyleSheet.create({
   head: { fontWeight: "500" },
   proscons: { gap: 12 },
   prosconsWide: { flexDirection: "row" },
-  card: { flex: 1, borderRadius: 12, padding: 14, gap: 8 },
+  card: { borderRadius: 12, padding: 14, gap: 8 },
+  cardWide: { flex: 1 },
   point: { flexDirection: "row", gap: 8 },
   mark: { width: 14, fontWeight: "600" },
   pointText: { flex: 1 },

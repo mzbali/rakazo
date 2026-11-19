@@ -51,7 +51,7 @@ export function formatValue(
   value: number,
   unit?: string,
   format?: Formatter,
-  words: Words = wordsFor(undefined),
+  words: Pick<Words, "number"> = wordsFor(undefined),
 ): string {
   if (typeof format === "function") {
     try {

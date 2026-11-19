@@ -1,12 +1,12 @@
 import type { VisualElement } from "@rakazo/core/visual-fence";
-import { axisGutter, finite, formatValue, valueScale, wordsFor } from "@rakazo/page-kit/native";
+import { axisGutter, finite, formatValue, nativeWords, valueScale } from "@rakazo/page-kit/native";
 import { typeScale } from "@rakazo/ui-tokens";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
 import type { Surface } from "./visual-surface.native";
 import { tones } from "./visual-surface.native";
 
-const words = wordsFor(undefined);
+const words = nativeWords;
 
 /** Three named hues, then everything else in one neutral grey, as the web kit draws them. */
 function seriesColor(surface: Surface, index: number): string {

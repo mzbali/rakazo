@@ -56,7 +56,13 @@ function utf8Length(text: string): number {
   let bytes = 0;
   for (let at = 0; at < text.length; at++) {
     const code = text.charCodeAt(at);
-    bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : code >= 0xd800 && code < 0xdc00 ? 2 : 3;
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code < 0xdc00 && at + 1 < text.length) {
+      // A surrogate pair is one character of four bytes.
+      bytes += 4;
+      at++;
+    } else bytes += 3;
   }
   return bytes;
 }
@@ -236,7 +242,8 @@ function parse(source: string): VisualParse {
         break;
       }
       if (name && source[after] === ">") {
-        const found = stack.map((frame) => frame.element.tag).lastIndexOf(name);
+        let found = stack.length - 1;
+        while (found >= 0 && stack[found]!.element.tag !== name) found--;
         if (found >= 0) {
           while (stack.length - 1 > found) {
             const lost = stack.pop()!.element;

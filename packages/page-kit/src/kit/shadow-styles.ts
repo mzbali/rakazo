@@ -11,7 +11,7 @@ export function retargetForShadowRoot(css: string): string {
   return css
     .replace(/^(?:html(?:,body)?|body)\{[^}]*\}$/gm, "")
     .replace(/^\[data-inline\] #root\{[^}]*\}$/gm, "")
-    .replaceAll(":root,[data-theme]", ":host")
+    .replaceAll(":root,[data-theme]", ":host,:host([data-theme])")
     .replaceAll(":root", ":host")
     .replace(/\[data-theme="(light|dark)"\]/g, ':host([data-theme="$1"])')
     .replace(/@media \((min|max)-width:/g, "@container ($1-width:");

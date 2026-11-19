@@ -190,7 +190,8 @@ export type MarkdownSegment =
       copy: string;
       /** A media row sits right under another one. */
       divided: boolean;
-    };
+    }
+  | { kind: "embed"; embed: MarkdownEmbed; alt: string };
 
 // Lines that make a formula part of a list, quote, table or indented block rather than a block
 // of its own.
@@ -225,6 +226,26 @@ function splitAtMath(markdown: string): MarkdownSegment[] {
     if (text) segments.push({ kind: "markdown", text });
     current = "";
   };
+  // A line is a table row when it starts with a pipe or sits beside a delimiter row; prose that
+  // only mentions a pipe is not. Remembered per line, so a line full of formulas is read once.
+  const rows = new Map<number, boolean>();
+  const inTable = (start: number, row: string) => {
+    let known = rows.get(start);
+    if (known === undefined) {
+      const previousEnd = start - 1;
+      const previous = previousEnd > 0 ? markdown.lastIndexOf("\n", previousEnd - 1) + 1 : -1;
+      const nextStart = start + row.length + 1;
+      const nextEnd = markdown.indexOf("\n", nextStart);
+      known =
+        row.trimStart().startsWith("|") ||
+        (row.includes("|") &&
+          ((previous !== -1 && delimiterRow(markdown.slice(previous, previousEnd))) ||
+            (nextStart <= markdown.length &&
+              delimiterRow(markdown.slice(nextStart, nextEnd === -1 ? undefined : nextEnd)))));
+      rows.set(start, known);
+    }
+    return known;
+  };
   for (let i = 0; i < markdown.length; i++) {
     while (kept[span] && (kept[span]?.[1] as number) <= i) span++;
     const written = kept[span];
@@ -246,7 +267,7 @@ function splitAtMath(markdown: string): MarkdownSegment[] {
     if (!match) continue;
     const rowEnd = markdown.indexOf("\n", match.end);
     const row = markdown.slice(line, rowEnd === -1 ? markdown.length : rowEnd);
-    const nested = NESTED_LINE.test(markdown.slice(line, i + 1)) || row.includes("|");
+    const nested = NESTED_LINE.test(markdown.slice(line, i + 1)) || inTable(line, row);
     current += markdown.slice(from, i);
     if (nested) {
       current += codeSpan(markdown.slice(i, match.end));
@@ -262,6 +283,13 @@ function splitAtMath(markdown: string): MarkdownSegment[] {
   current += markdown.slice(from);
   flush();
   return segments;
+}
+
+/** A table's delimiter row, such as `| --- | :-: |`. */
+function delimiterRow(line: string): boolean {
+  if (!line.includes("-") || !line.includes("|")) return false;
+  for (const char of line) if (!"|-: \t".includes(char)) return false;
+  return true;
 }
 
 const MEDIA_ITEM = /^(?:[-+*]|\d{1,9}[.)])[ \t]+!\[([^\]\n]*)\]\(([^)\s]+)\)[ \t]*(.*)$/;
@@ -346,9 +374,67 @@ function splitMediaRows(markdown: string): MarkdownSegment[] {
  */
 export function markdownSegments(markdown: string, mediaRows: boolean): MarkdownSegment[] {
   const maybeMath = markdown.includes("$$") || markdown.includes("\\(") || markdown.includes("\\[");
-  const parts: MarkdownSegment[] = maybeMath
+  let parts: MarkdownSegment[] = maybeMath
     ? splitAtMath(markdown)
     : [{ kind: "markdown", text: markdown }];
-  if (!mediaRows) return parts;
-  return parts.flatMap((part) => (part.kind === "markdown" ? splitMediaRows(part.text) : [part]));
+  if (mediaRows) {
+    parts = parts.flatMap((part) =>
+      part.kind === "markdown" ? splitMediaRows(part.text) : [part],
+    );
+  }
+  return parts.flatMap((part) => (part.kind === "markdown" ? liftInlineEmbeds(part.text) : [part]));
+}
+
+/**
+ * The native text draws an embed only as an image alone in its paragraph. Anywhere else (in a
+ * sentence, list item, quote or table cell) it would keep a placeholder, and the card would be
+ * lost, since its own message hides once a reply places it. Such an embed reads as its title
+ * where it was written and draws as a block after the run.
+ */
+function liftInlineEmbeds(markdown: string): MarkdownSegment[] {
+  if (!markdown.includes("](visual:") && !markdown.includes("](image:")) {
+    return [{ kind: "markdown", text: markdown }];
+  }
+  const lifted: MarkdownSegment[] = [];
+  let text = "";
+  let from = 0;
+  for (const [start, end] of asWrittenSpans(markdown)) {
+    if (markdown[start] !== "[" || markdown[start - 1] !== "!") continue;
+    const labelEnd = markdown.indexOf("](", start);
+    const alt = markdown.slice(start + 1, labelEnd);
+    const embed = markdownEmbed(markdown.slice(labelEnd + 2, end - 1), alt);
+    if (!embed || paragraphOfItsOwn(markdown, start - 1, end)) continue;
+    text += markdown.slice(from, start - 1) + alt;
+    from = end;
+    lifted.push({ kind: "embed", embed, alt });
+  }
+  if (lifted.length === 0) return [{ kind: "markdown", text: markdown }];
+  const run = tidy(text + markdown.slice(from));
+  return run ? [{ kind: "markdown", text: run }, ...lifted] : lifted;
+}
+
+/** Whether [start, end) is the only thing in its paragraph, at the top level. */
+function paragraphOfItsOwn(markdown: string, start: number, end: number): boolean {
+  // Only the characters beside the embed are read, so a line full of embeds stays linear.
+  let lineStart = start;
+  while (lineStart > 0 && start - lineStart < 4 && markdown[lineStart - 1] === " ") lineStart--;
+  if (start - lineStart > 3 || (lineStart > 0 && markdown[lineStart - 1] !== "\n")) return false;
+  let lineEnd = end;
+  while (markdown[lineEnd] === " " || markdown[lineEnd] === "\t") lineEnd++;
+  if (lineEnd < markdown.length && markdown[lineEnd] !== "\n") return false;
+  return blankLineBefore(markdown, lineStart) && blankLineAfter(markdown, lineEnd);
+}
+
+function blankLineBefore(markdown: string, lineStart: number): boolean {
+  for (let i = lineStart - 2; i >= 0 && markdown[i] !== "\n"; i--) {
+    if (markdown[i] !== " " && markdown[i] !== "\t") return false;
+  }
+  return true;
+}
+
+function blankLineAfter(markdown: string, lineEnd: number): boolean {
+  for (let i = lineEnd + 1; i < markdown.length && markdown[i] !== "\n"; i++) {
+    if (markdown[i] !== " " && markdown[i] !== "\t") return false;
+  }
+  return true;
 }

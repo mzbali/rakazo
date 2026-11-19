@@ -1411,6 +1411,16 @@ describe("native markdown segments", () => {
     }
   });
 
+  it("draws a formula on a line that only mentions a pipe", () => {
+    expect(markdownSegments("Use a | b, so $$x$$", false)).toEqual([
+      { kind: "markdown", text: "Use a | b, so" },
+      { kind: "math", tex: "x", display: true },
+    ]);
+    expect(markdownSegments("a | \\(z\\)\n--- | ---", false)).toEqual([
+      { kind: "markdown", text: "a | ` \\(z\\) `\n--- | ---" },
+    ]);
+  });
+
   it("leaves an escaped opener as text", () => {
     for (const markdown of ["a \\\\(x\\) b", "a \\$$x$$ b"]) {
       expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
@@ -1420,7 +1430,7 @@ describe("native markdown segments", () => {
   });
 
   it("finds formulas in text full of delimiters in linear time", () => {
-    for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a]("]) {
+    for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a](", "| $$x$$\n", "![a](visual:v) "]) {
       expectLinearTime(() => markdownSegments(unit.repeat(40_000), true));
     }
   });
@@ -1569,22 +1579,44 @@ describe("native markdown embeds", () => {
         divided: false,
       },
     ]);
-    expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+    // Without media rows the embeds still draw, after the list, and read as their titles in it.
+    expect(markdownSegments(markdown, false)).toEqual([
+      { kind: "markdown", text: "- Cover Title\n  Price $5\n- plain item\n- Two Next" },
+      { kind: "embed", embed: { kind: "image", id: "art_1", label: "Cover" }, alt: "Cover" },
+      { kind: "embed", embed: { kind: "image", id: "art_2", label: "Two" }, alt: "Two" },
+    ]);
   });
 
-  it("leaves a nested list item in its list", () => {
-    const markdown = "- parent\n  - ![A](image:a1) Nested";
-    expect(markdownSegments(markdown, true)).toEqual([{ kind: "markdown", text: markdown }]);
+  it("leaves a nested list item in its list and draws its embed after it", () => {
+    expect(markdownSegments("- parent\n  - ![A](image:a1) Nested", true)).toEqual([
+      { kind: "markdown", text: "- parent\n  - A Nested" },
+      { kind: "embed", embed: { kind: "image", id: "a1", label: "A" }, alt: "A" },
+    ]);
+  });
+
+  it("draws an embed in a sentence or table after its run, and leaves one alone in its paragraph", () => {
+    expect(markdownSegments("See ![Chart](visual:v1) here.", false)).toEqual([
+      { kind: "markdown", text: "See Chart here." },
+      { kind: "embed", embed: { kind: "visual", id: "v1", label: "Chart" }, alt: "Chart" },
+    ]);
+    expect(markdownSegments("| a | ![B](image:b1) |\n| - | - |", false)).toEqual([
+      { kind: "markdown", text: "| a | B |\n| - | - |" },
+      { kind: "embed", embed: { kind: "image", id: "b1", label: "B" }, alt: "B" },
+    ]);
+    const alone = "Intro\n\n![Chart](visual:v1)\n\nAfter";
+    expect(markdownSegments(alone, false)).toEqual([{ kind: "markdown", text: alone }]);
   });
 
   it("divides a media row from the one above it, and leaves an image with no words alone", () => {
     const [, second] = markdownSegments("- ![A](image:a1) One\n- ![B](image:b1) Two", true);
     expect(second).toMatchObject({ kind: "media", divided: true });
     expect(markdownSegments("- ![A](image:a1)", true)).toEqual([
-      { kind: "markdown", text: "- ![A](image:a1)" },
+      { kind: "markdown", text: "- A" },
+      { kind: "embed", embed: { kind: "image", id: "a1", label: "A" }, alt: "A" },
     ]);
     expect(markdownSegments("- ![V](visual:v1) Words", true)).toEqual([
-      { kind: "markdown", text: "- ![V](visual:v1) Words" },
+      { kind: "markdown", text: "- V Words" },
+      { kind: "embed", embed: { kind: "visual", id: "v1", label: "V" }, alt: "V" },
     ]);
     expect(markdownSegments("```\n- ![A](image:a1) One\n```", true)).toEqual([
       { kind: "markdown", text: "```\n- ![A](image:a1) One\n```" },

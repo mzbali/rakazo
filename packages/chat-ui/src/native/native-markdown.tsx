@@ -224,8 +224,7 @@ export function NativeMarkdown({
       onOpenLink={onOpenLink}
     />
   );
-  const [only] = segments;
-  if (segments.length === 1 && only?.kind === "markdown") return run(only.text);
+  // Always the same wrapper, so the first formula of a streaming reply does not remount the text.
   return (
     <>
       {segments.map((segment, index) => (
@@ -270,6 +269,13 @@ function SegmentView({
             </Text>
           }
         />
+      </View>
+    );
+  }
+  if (segment.kind === "embed") {
+    return (
+      <View style={{ marginBottom: BLOCK_GAP }}>
+        <MarkdownEmbedBlock embed={segment.embed} alt={segment.alt} fenceStyles={fenceStyles} />
       </View>
     );
   }

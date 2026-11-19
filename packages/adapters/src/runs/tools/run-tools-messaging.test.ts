@@ -353,6 +353,7 @@ describe("posting into a group from outside it", () => {
       "site.zip",
       expect.any(Uint8Array),
       { botId: "bot-coder", groupId: "group-launch" },
+      { produced: true },
     );
     expect(mocks.postToGroup).toHaveBeenCalledWith(
       ctx.deps,

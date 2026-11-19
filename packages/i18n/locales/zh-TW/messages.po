@@ -3311,7 +3311,6 @@ msgstr "已複製"
 #: apps/mobile/app/(settings)/model-connection.tsx
 #: apps/mobile/app/(settings)/vault.tsx
 #: apps/mobile/components/cards/run-error-sheet.tsx
-#: apps/mobile/components/quote-copy-menu.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/selection-bar.tsx
 #: apps/mobile/components/vault/vault-item-sheet.tsx
@@ -3341,10 +3340,6 @@ msgstr "複製 {label}"
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
 msgid "Copy {name}"
 msgstr "複製{name}"
-
-#: apps/mobile/components/quote-copy-menu.tsx
-msgid "Copy as Markdown"
-msgstr ""
 
 #: apps/mobile/components/messages/code-copy-button.tsx
 #: apps/mobile/components/thread/message-row.tsx

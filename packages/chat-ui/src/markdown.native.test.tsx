@@ -262,6 +262,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import type { TextProps } from "react-native";
 import { Pressable } from "react-native";
+import { allowAppLinks } from "./markdown";
 import type { LinkFavicons, MentionLink, MermaidDiagramProps } from "./markdown.native";
 import {
   ChatMarkdown,
@@ -777,6 +778,44 @@ const globe = createElement("rn-globe");
 function withFavicons(favicons: LinkFavicons, node: ReactNode) {
   return <LinkFaviconsContext.Provider value={favicons}>{node}</LinkFaviconsContext.Provider>;
 }
+
+describe("native app links", () => {
+  allowAppLinks([
+    {
+      scheme: "reader",
+      host: "books",
+      name: "Reader",
+      icon: "https://reader.example.test/icon.png",
+    },
+  ]);
+
+  it("writes a bare app link as an autolink, outside code", async () => {
+    const view = await mount(
+      <ChatMarkdown>
+        {"Open reader://books/42 or `reader://books/43` or [x](reader://books/44)"}
+      </ChatMarkdown>,
+    );
+    expect(nativeProps().markdown).toBe(
+      "Open <reader://books/42> or `reader://books/43` or [x](reader://books/44)",
+    );
+    await view.cleanup();
+  });
+
+  it("draws an app link as a pill that reads Open in the app", async () => {
+    const view = await mount(
+      withFavicons(
+        { load: async () => ({ icon: null }), globe },
+        <ChatMarkdown>{"Open reader://books/42"}</ChatMarkdown>,
+      ),
+    );
+    await reportLinks([link("reader://books/42")]);
+    expect(nativeProps().linkPillContent?.["reader://books/42"]?.label).toMatch(/Reader/);
+    expect(variantFor("reader://books/42")).toEqual(
+      expect.objectContaining({ pill: expect.any(Object) }),
+    );
+    await view.cleanup();
+  });
+});
 
 describe("native website links", () => {
   it("keeps a link's own text and shortens a bare URL to host and path", async () => {

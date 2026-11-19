@@ -2377,7 +2377,12 @@ describe("answerRunInput approvals", () => {
     await expect(answer("deny")).resolves.toBe(true);
     expect(tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: { status: "denied", result: APPROVAL_EXPIRED_RESULT },
+      data: {
+        status: "denied",
+        approvedByUserId: null,
+        approvedAt: null,
+        result: APPROVAL_EXPIRED_RESULT,
+      },
     });
     expect(tx.message.update).toHaveBeenCalledWith({
       where: { id: "message-1" },

@@ -327,7 +327,7 @@ it("keeps my own message unnamed on the right", () => {
   expect(row.className).toContain("justify-end");
   expect(bubble.className).toContain("bg-chat-user");
   expect(bubble.className).toContain("rounded-2xl");
-  expect(bubble.className).toContain("px-[18px]");
+  expect(bubble.className).toContain("px-4");
 });
 
 it("names the person a reply quotes instead of saying You", () => {

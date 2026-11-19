@@ -13,6 +13,7 @@ import type {
 } from "react-native-enriched-markdown";
 import { EnrichedMarkdownText } from "react-native-enriched-markdown";
 import {
+  appLinkMatches,
   inlineMarkdownImageSrc,
   isProseFence,
   linkFaviconOrigin,
@@ -39,6 +40,28 @@ const PAGE_LINK = "^page:";
 // Addresses the app will not open (any scheme but these) read as plain text, as they do on web.
 const UNOPENABLE_LINK =
   "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|page:)";
+
+const CODE_SPAN = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/;
+
+/** The parser autolinks only web addresses, so a bare app link is written as an autolink. */
+export function withAppAutolinks(markdown: string): string {
+  return markdown
+    .split(CODE_SPAN)
+    .map((part, index) => {
+      // Odd parts are code, which stays as written.
+      if (index % 2 === 1) return part;
+      let out = "";
+      let from = 0;
+      for (const match of appLinkMatches(part)) {
+        const before = part.slice(Math.max(0, match.index - 2), match.index);
+        if (match.index < from || before.endsWith("](") || before.endsWith("<")) continue;
+        out += `${part.slice(from, match.index)}<${match.url}>`;
+        from = match.lastIndex;
+      }
+      return out + part.slice(from);
+    })
+    .join("");
+}
 
 /** How a mention link draws and opens: its bot's color, or nothing for a bot that is gone. */
 export type MentionLink = { color: string; open: () => void };
@@ -167,6 +190,7 @@ export function NativeMarkdown({
   onOpenPage?: (pageId: string) => void;
   onOpenLink: (url: string) => void;
 }) {
+  const text = useMemo(() => withAppAutolinks(markdown), [markdown]);
   const [links, setLinks] = useState<readonly MarkdownLinkOccurrence[]>([]);
   const websiteLinks = useMemo(
     () => links.filter((link) => linkFaviconOrigin(link.url) !== undefined),
@@ -291,7 +315,7 @@ export function NativeMarkdown({
       // A new resolver only applies to a fresh view, so allowing remote images remounts it.
       key={loadRemote ? "remote" : "local"}
       flavor="github"
-      markdown={markdown}
+      markdown={text}
       markdownStyle={style}
       linkPillContent={pillContent}
       onLinksChange={setLinks}

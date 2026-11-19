@@ -53,7 +53,7 @@ let cssLoaded: string | undefined;
 export function useKatexCss(): string | undefined {
   const [css, setCss] = useState(cssLoaded);
   useEffect(() => {
-    if (css) return;
+    if (css !== undefined) return;
     let current = true;
     cssLoad ??= import("katex/dist/katex.min.css?inline").then((module) => {
       cssLoaded = module.default;

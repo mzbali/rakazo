@@ -160,15 +160,17 @@ export function FormulaView({
 export function splitAtDisplayMath(
   node: ASTNode,
   children: readonly ReactNode[],
-  run: (parts: ReactNode[], key: string) => ReactNode,
+  run: (parts: ReactNode[], key: string, nodes: ASTNode[]) => ReactNode,
 ): ReactNode[] | undefined {
   if (!node.children.some((child) => child.type === MATH_DISPLAY)) return undefined;
   const blocks: ReactNode[] = [];
   let parts: ReactNode[] = [];
+  let nodes: ASTNode[] = [];
   let blank = true;
   const flush = (key: string) => {
-    if (parts.length > 0 && !blank) blocks.push(run(parts, key));
+    if (parts.length > 0 && !blank) blocks.push(run(parts, key, nodes));
     parts = [];
+    nodes = [];
     blank = true;
   };
   node.children.forEach((child, index) => {
@@ -178,6 +180,7 @@ export function splitAtDisplayMath(
       return;
     }
     parts.push(children[index]);
+    nodes.push(child);
     if (child.type !== "text" || child.content.trim() !== "") blank = false;
   });
   flush(`${node.key}-run-end`);

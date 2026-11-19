@@ -27,4 +27,9 @@ describe("texToSvg macros", () => {
     expect(() => texToSvg("\\x", false)).toThrow();
     expect(() => texToSvg("\\newcommand{\\z}{q}\\z", false)).toThrow();
   });
+
+  it("does not let one formula's declared operator reach the next", () => {
+    expect(texToSvg("\\DeclareMathOperator{\\foo}{foo}\\foo x", false).xml).toContain("<svg");
+    expect(() => texToSvg("\\foo x", false)).toThrow();
+  });
 });

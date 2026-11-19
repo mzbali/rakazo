@@ -10,21 +10,25 @@ import { SVG } from "mathjax-full/js/output/svg.js";
 /** A formula drawn by MathJax: the markup of an `<svg>` that takes its colour from `currentColor`. */
 export type MathSvg = { xml: string; width: number; height: number; baseline: number };
 
-// One document for the app: building the input and output jax is the slow part, converting is not.
-// Without the newcommand package a reply cannot define macros (`\def`, `\newcommand`), so one
-// reply's formulas never change how another's draw.
+// The output jax and adaptor are built once; the input jax is built for each formula. A formula can
+// define things (`\\DeclareMathOperator`), and a fresh input jax keeps them from reaching the next
+// one, whichever reply it is in. The newcommand package is left out, so `\\def` is an error.
 const adaptor = liteAdaptor();
 RegisterHTMLHandler(adaptor);
-const document = mathjax.document("", {
-  InputJax: new TeX({
-    packages: ["base", "ams"],
-    // A parse error throws, so the caller shows the source instead of MathJax's error box.
-    formatError: (_jax: unknown, error: Error) => {
-      throw error;
-    },
-  }),
-  OutputJax: new SVG({ fontCache: "none" }),
-});
+const output = new SVG({ fontCache: "none" });
+
+function newDocument() {
+  return mathjax.document("", {
+    InputJax: new TeX({
+      packages: ["base", "ams"],
+      // A parse error throws, so the caller shows the source instead of MathJax's error box.
+      formatError: (_jax: unknown, error: Error) => {
+        throw error;
+      },
+    }),
+    OutputJax: output,
+  });
+}
 
 function exLength(value: string | null | undefined): number {
   const length = Number.parseFloat(value ?? "");
@@ -33,7 +37,7 @@ function exLength(value: string | null | undefined): number {
 
 /** The formula as SVG, sized in `ex` (the height of an x in the text around it). Throws on bad TeX. */
 export function texToSvg(tex: string, display: boolean): MathSvg {
-  const container = document.convert(tex, { display });
+  const container = newDocument().convert(tex, { display });
   const svg = adaptor.firstChild(container) as LiteElement | null;
   if (!svg) throw new Error("MathJax drew nothing");
   const xml = adaptor.outerHTML(svg);

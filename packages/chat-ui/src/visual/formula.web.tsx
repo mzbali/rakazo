@@ -14,8 +14,16 @@ export function FormulaText({ tex }: { tex: string }) {
   const css = useKatexCss();
   return (
     <div className="rkv-formula-block" role="math" aria-label={tex}>
-      {css ? <style>{css}</style> : null}
-      <MathFormula tex={tex} display classes={CLASSES} />
+      {css !== undefined ? (
+        <>
+          <style>{css}</style>
+          {/* Keyed by its TeX, so a formula that becomes valid draws instead of staying code. */}
+          <MathFormula key={tex} tex={tex} display classes={CLASSES} />
+        </>
+      ) : (
+        // Until KaTeX's rules are in the shadow root a drawing would show its TeX twice.
+        <span className={CLASSES.pending}>{tex}</span>
+      )}
     </div>
   );
 }

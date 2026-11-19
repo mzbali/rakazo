@@ -2746,6 +2746,20 @@ describe("native markdown maths layout", () => {
     ).toBeTruthy();
   });
 
+  it("aligns the text around a display formula by its own first letter", () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown>{"שלום עולם $$x^2$$ and then English text"}</ChatMarkdown>,
+    );
+    const document = new DOMParser().parseFromString(html, "text/html");
+    const run = (start: string) =>
+      [...document.querySelectorAll("rn-text")].find((text) =>
+        text.textContent?.trim().startsWith(start),
+      );
+    expect(run("שלום")?.getAttribute("data-text-align")).toBe("right");
+    expect(run("שלום")?.getAttribute("data-width")).toBe("100%");
+    expect(run("and then")?.getAttribute("data-text-align")).toBeNull();
+  });
+
   it("keeps an inline formula inside its line of text", () => {
     const html = renderToStaticMarkup(<ChatMarkdown>{"before \\(x^2\\) after"}</ChatMarkdown>);
     const document = new DOMParser().parseFromString(html, "text/html");

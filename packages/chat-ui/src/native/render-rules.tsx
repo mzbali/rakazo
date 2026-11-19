@@ -113,8 +113,14 @@ export const renderRules: RenderRules = {
   },
   textgroup: (node, children, parents, styleMap) => {
     // A display formula is a block, so the text around it becomes runs of its own.
-    const split = splitAtDisplayMath(node, children, (parts, key) => (
-      <Text key={key} style={styleMap.textgroup}>
+    const split = splitAtDisplayMath(node, children, (parts, key, nodes) => (
+      <Text
+        key={key}
+        style={[
+          styleMap.textgroup,
+          contraryDirection(nodes.map(cellPlainText).join("")) && layout.farSideBlock,
+        ]}
+      >
         {parts}
       </Text>
     ));

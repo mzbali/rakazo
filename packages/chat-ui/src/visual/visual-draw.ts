@@ -1,10 +1,8 @@
 import type { VisualElement, VisualParse } from "@rakazo/core/visual-fence";
+import { holdsVisualElements } from "@rakazo/core/visual-fence";
 
 /** The language of a fence a bot draws as a visual. */
 export const VISUAL_FENCE_LANGUAGE = "ui";
-
-/** Tags that hold elements: their complete children draw while they are still open. */
-const HOLDS_ELEMENTS = new Set(["Visual", "Grid"]);
 
 export type DrawPlan = "draw" | "skip" | "unavailable";
 
@@ -14,12 +12,12 @@ export type DrawPlan = "draw" | "skip" | "unavailable";
  */
 export function drawPlan(element: VisualElement): DrawPlan {
   if (element.state === "invalid") return "unavailable";
-  if (element.state === "open" && !HOLDS_ELEMENTS.has(element.tag)) return "skip";
+  if (element.state === "open" && !holdsVisualElements(element.tag)) return "skip";
   return "draw";
 }
 
 function anyUnfinished(element: VisualElement): boolean {
-  if (element.state === "open" && !HOLDS_ELEMENTS.has(element.tag)) return true;
+  if (element.state === "open" && !holdsVisualElements(element.tag)) return true;
   return element.state !== "invalid" && element.children.some(anyUnfinished);
 }
 

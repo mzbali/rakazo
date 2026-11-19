@@ -128,4 +128,91 @@ describe("a ```ui fence", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(document.body.textContent).toContain("https://example.test/a");
   });
+
+  describe("the rest of the catalog", () => {
+    const shadow = () => host()?.shadowRoot;
+
+    it("draws bars, a line chart, a pie, a table, pros and cons and a status", async () => {
+      await render(
+        ui(`<Visual summary="S">
+<Bars bars={[{label: "Alpha", value: 3}, {label: "Beta", value: 1}]} />
+<LineChart points={[{label: "Mon", value: 2}, {label: "Tue", value: 4}]} />
+<Pie parts={[{label: "Used", value: 3}, {label: "Free", value: 1}]} total="4 GB" />
+<Table columns={["Plan", "Price"]} rows={[["Free", 0], ["Pro", {text: "$9", tone: "success"}]]} />
+<ProsCons pros={["Fast"]} cons={["Small"]} />
+<Status tone="success">Shipped</Status>
+</Visual>`),
+        { visuals: true },
+      );
+      expect(shadow()?.querySelectorAll(".rk-bar")).toHaveLength(2);
+      expect(shadow()?.querySelector("svg.rk-focus-ring")).not.toBeNull();
+      expect(shadow()?.querySelector(".rk-pie-total")?.textContent).toBe("4 GB");
+      expect(shadow()?.querySelectorAll(".rk-table tbody tr")).toHaveLength(2);
+      expect(shadowText()).toContain("Fast");
+      expect(shadowText()).toContain("Small");
+      expect(shadow()?.querySelector(".rk-status")?.textContent).toBe("Shipped");
+      expect(shadow()?.querySelector(".rkv-note")).toBeNull();
+    });
+
+    it("draws a diagram node's icon", async () => {
+      await render(
+        ui(
+          `<Visual summary="S"><Diagram nodes={[{id: "a", label: "Store", icon: "database"}]} /></Visual>`,
+        ),
+        { visuals: true },
+      );
+      expect(shadow()?.querySelector(".rk-diagram-icon")).not.toBeNull();
+    });
+
+    it("switches between tabs with its own state, and keeps the others unmounted", async () => {
+      await render(
+        ui(`<Visual summary="S"><Tabs>
+<Tab label="One"><Callout lead="First view">a</Callout></Tab>
+<Tab label="Two"><Callout lead="Second view">b</Callout></Tab>
+</Tabs></Visual>`),
+        { visuals: true },
+      );
+      expect(shadowText()).toContain("First view");
+      expect(shadowText()).not.toContain("Second view");
+      const second = [...(shadow()?.querySelectorAll("button") ?? [])].find(
+        (button) => button.textContent === "Two",
+      );
+      await act(async () => second?.click());
+      expect(shadowText()).toContain("Second view");
+      expect(shadowText()).not.toContain("First view");
+    });
+
+    it("shows a copy button's text and copies it through the app clipboard", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      await render(
+        ui(`<Visual summary="S"><CopyButton label="Copy command" text="pnpm install" /></Visual>`),
+        { visuals: true },
+      );
+      expect(shadow()?.querySelector(".rkv-copy-text")?.textContent).toBe("pnpm install");
+      const button = shadow()?.querySelector<HTMLButtonElement>("button.rk-button");
+      expect(button?.textContent).toBe("Copy command");
+      await act(async () => button?.click());
+      await act(async () => {
+        await flush();
+      });
+      expect(writeText).toHaveBeenCalledWith("pnpm install");
+    });
+
+    it("draws the tabs that are done while the reply streams, with the placeholder after", async () => {
+      const source = `<Visual summary="S"><Tabs><Tab label="One"><Callout lead="First view">a</Callout></Tab><Tab label="Two"><Callout lead="Sec`;
+      await render(ui(source, false), { visuals: true, streaming: true });
+      expect(shadowText()).toContain("First view");
+      expect(shadowText()).toContain("Two");
+      expect(shadow()?.querySelector(".rkv-pending")).not.toBeNull();
+    });
+
+    it("shows the line for an invalid tag and keeps the others", async () => {
+      await render(ui(`<Visual summary="S"><Pie parts={[]} /><Status>Ok</Status></Visual>`), {
+        visuals: true,
+      });
+      expect(shadowText()).toContain("Couldn't draw this visual");
+      expect(shadow()?.querySelector(".rk-status")?.textContent).toBe("Ok");
+    });
+  });
 });

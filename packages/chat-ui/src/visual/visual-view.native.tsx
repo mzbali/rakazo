@@ -4,49 +4,31 @@ import {
   curveMid,
   DETAIL_LINE,
   edgePoints,
+  ICON_SIZE,
+  iconOrigin,
+  iconShapes,
   LABEL_LINE,
   layoutDiagram,
   PAD_Y,
   SERIES_COLORS,
   TONE_PATHS,
+  textCentre,
 } from "@rakazo/page-kit/native";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
-import { pageKitPalette, typeScale } from "@rakazo/ui-tokens";
+import { typeScale } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
-import { Platform, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, G, Path, Rect, Text as SvgText } from "react-native-svg";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Ellipse, G, Line, Path, Rect, Text as SvgText } from "react-native-svg";
 import { FormulaView } from "../math/math.native";
+import { CopyButton, ProsCons, Status, Table } from "./visual-blocks.native";
+import { Bars, LineChart, Pie } from "./visual-charts.native";
 import { drawPlan, hasUnfinishedPart } from "./visual-draw";
+import type { Surface } from "./visual-surface.native";
+import { NARROW_WIDTH, subtle, toneColor, tones } from "./visual-surface.native";
 
-/** Below this width a wide figure lays out as a narrow one. */
-const NARROW_WIDTH = 480;
 const MONO = Platform.select({ ios: "ui-monospace", default: "monospace" });
-const SUBTLE_ALPHA = { dark: "2c", light: "17" };
-
-type Surface = {
-  palette: ColorTokens;
-  colorScheme: ResolvedAppearance;
-  narrow: boolean;
-  width: number;
-  unavailable: string;
-};
-
-const tones = (surface: Surface) =>
-  pageKitPalette[surface.colorScheme === "light" ? "light" : "dark"];
-
-function toneColor(surface: Surface, tone: string | undefined): string | undefined {
-  const palette = tones(surface);
-  if (tone === "info" || tone === "accent") return palette.accent;
-  if (tone === "success") return palette.success;
-  if (tone === "warning") return palette.warning;
-  if (tone === "danger") return palette.danger;
-  return undefined;
-}
-
-const subtle = (color: string, surface: Surface) =>
-  `${color.slice(0, 7)}${SUBTLE_ALPHA[surface.colorScheme === "light" ? "light" : "dark"]}`;
 
 function Note({ surface, children }: { surface: Surface; children: ReactNode }) {
   return <Text style={[styles.note, { color: surface.palette.mutedForeground }]}>{children}</Text>;
@@ -301,10 +283,11 @@ function Diagram({ element, surface }: { element: VisualElement; surface: Surfac
               stroke={accent ?? palette.border}
               strokeWidth={1.25}
             />
+            <NodeIcon node={node} color={palette.mutedForeground} />
             {node.labelLines.map((text, index) => (
               <SvgText
                 key={`l${index}`}
-                x={node.x + node.width / 2}
+                x={textCentre(node)}
                 y={node.y + PAD_Y + LABEL_LINE * (index + 0.5) + 5}
                 fontSize={14}
                 fontWeight="500"
@@ -317,7 +300,7 @@ function Diagram({ element, surface }: { element: VisualElement; surface: Surfac
             {node.detailLines.map((text, index) => (
               <SvgText
                 key={`d${index}`}
-                x={node.x + node.width / 2}
+                x={textCentre(node)}
                 y={
                   node.y +
                   PAD_Y +
@@ -339,6 +322,32 @@ function Diagram({ element, surface }: { element: VisualElement; surface: Surfac
   );
 }
 
+/** The icon a node names, in the same Lucide shapes the web draws, on the first label line. */
+function NodeIcon({ node, color }: { node: Placed; color: string }) {
+  const shapes = iconShapes(node.icon);
+  if (!shapes) return null;
+  const [x, y] = iconOrigin(node);
+  return (
+    <G
+      transform={`translate(${x} ${y}) scale(${ICON_SIZE / 24})`}
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    >
+      {shapes.map(([tag, attrs], index) => {
+        const props = { ...attrs, ...(attrs.fill === "currentColor" ? { fill: color } : {}) };
+        if (tag === "path") return <Path key={index} {...props} />;
+        if (tag === "circle") return <Circle key={index} {...props} />;
+        if (tag === "rect") return <Rect key={index} {...props} />;
+        if (tag === "line") return <Line key={index} {...props} />;
+        return <Ellipse key={index} {...props} />;
+      })}
+    </G>
+  );
+}
+
 /** A formula in a visual, drawn by the same maths renderer as the chat's text. */
 function Formula({ tex, surface }: { tex: string; surface: Surface }) {
   return (
@@ -356,6 +365,48 @@ function Formula({ tex, surface }: { tex: string; surface: Surface }) {
         </Text>
       }
     />
+  );
+}
+
+/** The tabs that can show, a switch between them, and the chosen tab's own elements. */
+function Tabs({ element, surface }: { element: VisualElement; surface: Surface }) {
+  const [chosen, setChosen] = useState<string>();
+  const tabs = element.children.filter((tab) => tab.state !== "invalid");
+  const shown = tabs.find((tab) => tab.key === chosen) ?? tabs[0];
+  const palette = surface.palette;
+  return (
+    <View style={styles.root}>
+      {tabs.length > 0 ? (
+        <View style={[styles.tabs, { backgroundColor: palette.muted }]} accessibilityRole="tablist">
+          {tabs.map((tab) => {
+            const on = tab === shown;
+            return (
+              <Pressable
+                key={tab.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                onPress={() => setChosen(tab.key)}
+                style={[styles.tab, on ? { backgroundColor: palette.background } : null]}
+              >
+                <Text
+                  style={[
+                    typeScale.caption,
+                    styles.tabText,
+                    { color: on ? palette.foreground : palette.mutedForeground },
+                  ]}
+                >
+                  {String(tab.props.label)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {shown ? <Draw key={shown.key} element={shown} surface={surface} /> : null}
+      {element.children.some((tab) => tab.state === "invalid") ? (
+        <Note surface={surface}>{surface.unavailable}</Note>
+      ) : null}
+    </View>
   );
 }
 
@@ -407,6 +458,24 @@ function Draw({ element, surface }: { element: VisualElement; surface: Surface }
       return <Diagram element={element} surface={surface} />;
     case "Formula":
       return <Formula tex={element.props.tex as string} surface={surface} />;
+    case "Bars":
+      return <Bars element={element} surface={surface} />;
+    case "LineChart":
+      return <LineChart element={element} surface={surface} />;
+    case "Pie":
+      return <Pie element={element} surface={surface} />;
+    case "Table":
+      return <Table element={element} surface={surface} />;
+    case "ProsCons":
+      return <ProsCons element={element} surface={surface} />;
+    case "Status":
+      return <Status element={element} surface={surface} />;
+    case "CopyButton":
+      return <CopyButton element={element} surface={surface} />;
+    case "Tabs":
+      return <Tabs element={element} surface={surface} />;
+    case "Tab":
+      return <View style={styles.root}>{drawn}</View>;
     default:
       return null;
   }
@@ -482,4 +551,14 @@ const styles = StyleSheet.create({
   gridRow: { flexDirection: "row", gap: GRID_GAP },
   gridCell: { flex: 1, minWidth: 0 },
   formula: { fontSize: 15, lineHeight: 24 },
+  tabs: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    padding: 2,
+    gap: 2,
+  },
+  tab: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  tabText: { fontWeight: "500" },
 });

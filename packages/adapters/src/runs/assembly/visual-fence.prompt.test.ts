@@ -1,4 +1,4 @@
-import { parseVisualFence } from "@rakazo/core/visual-fence";
+import { DIAGRAM_ICON_NAMES, parseVisualFence, VISUAL_TAGS } from "@rakazo/core/visual-fence";
 import { describe, expect, it } from "vitest";
 import { userTurnInstructions } from "./run-instructions.prompt.js";
 import { VISUAL_FENCE_INSTRUCTION, visualFencesAllowed } from "./visual-fence.prompt.js";
@@ -53,7 +53,13 @@ describe("the ui fence instructions", () => {
     expect(tail).toBe(false);
   });
 
+  it("name every tag and diagram icon once, and keep links out of tags", () => {
+    for (const tag of VISUAL_TAGS) expect(VISUAL_FENCE_INSTRUCTION).toContain(`<${tag}`);
+    for (const icon of DIAGRAM_ICON_NAMES) expect(VISUAL_FENCE_INSTRUCTION).toContain(icon);
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("no markdown and no links");
+  });
+
   it("stay short", () => {
-    expect(VISUAL_FENCE_INSTRUCTION.length).toBeLessThan(2600);
+    expect(VISUAL_FENCE_INSTRUCTION.length).toBeLessThan(4300);
   });
 });

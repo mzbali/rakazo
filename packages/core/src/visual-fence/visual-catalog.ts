@@ -286,7 +286,7 @@ function pie(props: VisualObject): Checked {
 
 /** A cell as the table draws it, or undefined when it is not usable. */
 function tableCell(cell: VisualValue | undefined): VisualValue | undefined {
-  if ((typeof cell === "string" && cell.length <= 200) || chartNumber(cell)) return cell;
+  if ((typeof cell === "string" && cell.length <= 200) || finiteNumber(cell)) return cell;
   if (!isObject(cell) || typeof cell.text !== "string" || cell.text.length > 200) return undefined;
   return oneOf(cell.tone, PILL_TONES) === false ? undefined : pick(cell, ["text", "tone"]);
 }

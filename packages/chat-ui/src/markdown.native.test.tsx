@@ -801,6 +801,20 @@ describe("native app links", () => {
     await view.cleanup();
   });
 
+  it("leaves link labels, long fences and double-backtick code as written", async () => {
+    const markdown = [
+      "[see reader://books/1](https://example.com)",
+      "````\nreader://books/2\n```\nreader://books/3\n````",
+      "``a ` reader://books/4``",
+      "then reader://books/5",
+    ].join("\n\n");
+    const view = await mount(<ChatMarkdown>{markdown}</ChatMarkdown>);
+    expect(nativeProps().markdown).toBe(
+      markdown.replace("then reader://books/5", "then <reader://books/5>"),
+    );
+    await view.cleanup();
+  });
+
   it("draws an app link as a pill that reads Open in the app", async () => {
     const view = await mount(
       withFavicons(

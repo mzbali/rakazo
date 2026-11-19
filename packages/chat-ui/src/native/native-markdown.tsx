@@ -41,26 +41,32 @@ const PAGE_LINK = "^page:";
 const UNOPENABLE_LINK =
   "^(?![Hh][Tt][Tt][Pp][Ss]?:|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|rakazo-mention:|page:)";
 
-const CODE_SPAN = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/;
+// Code (a fence closes on a run of its own marker at least as long; inline code on a matching
+// backtick run) and explicit links, which stay as written.
+const AS_WRITTEN = /(`{3,}|~{3,})[\s\S]*?(?:\1|$)|(`+)[^\n]*?\2|\[[^\]\n]*\]\([^)\n]*\)/g;
 
 /** The parser autolinks only web addresses, so a bare app link is written as an autolink. */
 export function withAppAutolinks(markdown: string): string {
-  return markdown
-    .split(CODE_SPAN)
-    .map((part, index) => {
-      // Odd parts are code, which stays as written.
-      if (index % 2 === 1) return part;
-      let out = "";
-      let from = 0;
-      for (const match of appLinkMatches(part)) {
-        const before = part.slice(Math.max(0, match.index - 2), match.index);
-        if (match.index < from || before.endsWith("](") || before.endsWith("<")) continue;
-        out += `${part.slice(from, match.index)}<${match.url}>`;
-        from = match.lastIndex;
-      }
-      return out + part.slice(from);
-    })
-    .join("");
+  let out = "";
+  let from = 0;
+  for (const kept of markdown.matchAll(AS_WRITTEN)) {
+    out += autolinkProse(markdown.slice(from, kept.index)) + kept[0];
+    from = kept.index + kept[0].length;
+  }
+  return out + autolinkProse(markdown.slice(from));
+}
+
+function autolinkProse(part: string): string {
+  let out = "";
+  let from = 0;
+  for (const match of appLinkMatches(part)) {
+    if (match.index < from || part.slice(Math.max(0, match.index - 1), match.index) === "<") {
+      continue;
+    }
+    out += `${part.slice(from, match.index)}<${match.url}>`;
+    from = match.lastIndex;
+  }
+  return out + part.slice(from);
 }
 
 /** How a mention link draws and opens: its bot's color, or nothing for a bot that is gone. */

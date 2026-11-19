@@ -1,6 +1,6 @@
 name: Review bot
 
-# Qodo reviews every PR on open and on each push (.pr_agent.toml). When Qodo
+# Qodo reviews when asked with `/agentic_review` (.pr_agent.toml). When Qodo
 # says it is blocked, the PR is labeled review:cr and CodeRabbit reviews it
 # (.coderabbit.yaml reviews only that label). When CodeRabbit is rate limited,
 # the label becomes review:greptile and Greptile reviews it from the next push

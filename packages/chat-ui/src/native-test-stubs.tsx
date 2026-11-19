@@ -13,5 +13,6 @@ export const Circle = StubComponent;
 export const G = StubComponent;
 export const Path = StubComponent;
 export const Rect = StubComponent;
+export const SvgXml = StubComponent;
 export const Text = StubComponent;
 export default StubComponent;

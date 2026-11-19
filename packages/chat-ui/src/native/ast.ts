@@ -34,6 +34,8 @@ export function enclosingLink(parents: readonly ASTNode[]) {
 
 export function cellPlainText(node: ASTNode): string {
   if (node.type === "text" || node.type === "code_inline") return node.content;
+  // A formula takes about the room its TeX does as text, which sizes a table column for it.
+  if (node.type === "math_inline" || node.type === "math_display") return node.content;
   if (node.type === "softbreak" || node.type === "hardbreak") return " ";
   return node.children.map(cellPlainText).join("");
 }

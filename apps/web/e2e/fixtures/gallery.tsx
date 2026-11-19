@@ -1,8 +1,6 @@
 import { I18nProvider } from "@lingui/react";
-import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
 import { BOT_COLOR_LIST } from "@rakazo/contracts";
 import { instructionUpdateDiff } from "@rakazo/core";
-import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -13,6 +11,8 @@ import { applyResolvedAppearance } from "../../src/lib/preferences/ui-appearance
 import { queryClient } from "../../src/lib/query/query";
 import "../../src/styles.css";
 import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
+import type { Scenario } from "./gallery-messages";
+import { bot, maths, message, say, user } from "./gallery-messages";
 import { VISUAL_SCENARIOS } from "./gallery-visuals";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
@@ -23,40 +23,6 @@ const LEDGER = { botId: "bot-3", name: "Ledger", color: botColor("red") };
 function botColor(id: string) {
   return BOT_COLOR_LIST.find((color) => color.id === id)!.hex;
 }
-
-let seq = 0;
-function message(
-  role: ThreadMessage["role"],
-  blocks: MessageBlock[],
-  extra: Partial<ThreadMessage> = {},
-): ThreadMessage {
-  seq += 1;
-  return {
-    id: `message-${seq}`,
-    threadId: "thread-1",
-    seq,
-    role,
-    blocks,
-    ...(role === "bot" ? { botId: BOT.botId } : {}),
-    createdAt: new Date(Date.UTC(2026, 9, 26, 9, seq)).toISOString(),
-    ...extra,
-  };
-}
-const user = (text: string, extra?: Partial<ThreadMessage>) =>
-  message("user", [{ kind: "text", text }], extra);
-const bot = (blocks: MessageBlock[], extra?: Partial<ThreadMessage>) =>
-  message("bot", blocks, extra);
-const say = (text: string, extra?: Partial<ThreadMessage>) => bot([{ kind: "text", text }], extra);
-
-type Scenario = {
-  id: string;
-  label: string;
-  messages: ThreadMessage[];
-  running?: boolean;
-  bots?: GroupAvatarMember[];
-  /** Asks that render as no longer active instead of taking an answer. */
-  inactiveAsks?: string[];
-};
 
 const greeting = user("Can you get the Q3 report ready for Monday?");
 const reply = say(
@@ -863,6 +829,7 @@ const SCENARIOS: Scenario[] = [
   mediaRows,
   calls,
   research,
+  maths,
   ...VISUAL_SCENARIOS,
 ];
 

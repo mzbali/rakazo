@@ -6,7 +6,10 @@ const VISUAL_CSS = `
 .rkv-root>*{min-width:0}
 .rkv-note{margin:0;font-size:.875rem;line-height:1.25rem;color:var(--rk-secondary)}
 .rkv-pending{height:1.5rem;border-radius:6px;background:var(--rk-fill)}
-.rkv-formula{margin:0;padding:.25rem 0;font:.9375rem/1.5rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.rkv-formula-block{padding:.25rem 0;overflow-x:auto;overflow-y:hidden;text-align:center}
+.rkv-formula-display{display:block}
+.rkv-formula-display .katex-display{margin:0}
+.rkv-formula-source{font:.9375rem/1.5rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--rk-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
 @media (prefers-reduced-motion:no-preference){.rkv-pending{animation:rkv-pulse 1.4s ease-in-out infinite}}
 @keyframes rkv-pulse{50%{opacity:.45}}
 `;

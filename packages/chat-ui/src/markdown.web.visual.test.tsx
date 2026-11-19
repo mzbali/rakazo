@@ -54,6 +54,25 @@ describe("a ```ui fence", () => {
     expect(container.querySelector("pre")).toBeNull();
   });
 
+  it("draws a Formula with KaTeX inside the shadow root, with its rules beside it", async () => {
+    await render(ui(FENCE), { visuals: true });
+    await vi.waitFor(() => expect(host()?.shadowRoot?.querySelector(".katex")).not.toBeNull());
+    expect(host()?.shadowRoot?.querySelector(".rkv-formula-source")).toBeNull();
+  });
+
+  it("draws a Formula once its TeX becomes valid", async () => {
+    const fence = (tex: string) => ui(`<Visual summary="S">\n<Formula tex="${tex}" />\n</Visual>`);
+    await render(fence("\\frac{a}{"), { visuals: true });
+    await vi.waitFor(() =>
+      expect(host()?.shadowRoot?.querySelector(".rkv-formula-source")?.textContent).toBe(
+        "\\frac{a}{",
+      ),
+    );
+    await render(fence("\\frac{a}{b}"), { visuals: true });
+    await vi.waitFor(() => expect(host()?.shadowRoot?.querySelector(".katex")).not.toBeNull());
+    expect(host()?.shadowRoot?.querySelector(".rkv-formula-source")).toBeNull();
+  });
+
   it("stays a code block for anyone else's text", async () => {
     await render(ui(FENCE), {});
     expect(host()).toBeNull();

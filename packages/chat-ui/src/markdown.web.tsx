@@ -78,6 +78,8 @@ import {
   withClass,
 } from "./markdown-media-row.web";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
+import { MathSpan } from "./math/math.web";
+import { MATH_CLASS, remarkMath } from "./math/remark-math";
 import { openingMediaImage } from "./media-row";
 import { isMermaidFence, mermaidSvgImage } from "./mermaid";
 import { useMermaidSvg } from "./mermaid.web";
@@ -839,6 +841,15 @@ const components: Components = {
     );
   },
   pre: MarkdownPre,
+  span({ node: _node, className, children, ...props }) {
+    return className?.split(" ").includes(MATH_CLASS) && typeof children === "string" ? (
+      <MathSpan key={`${className}:${children}`} tex={children} className={className} />
+    ) : (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    );
+  },
   table({ node, children, ...props }) {
     return (
       <MarkdownTable node={node} tableProps={props}>
@@ -935,7 +946,7 @@ function remarkAppLinks() {
   };
 }
 
-const remarkPlugins = [remarkGfm, remarkAppLinks];
+const remarkPlugins = [remarkGfm, remarkMath, remarkAppLinks];
 const rehypePlugins = [preserveSkippedTableText];
 
 // MarkdownImage decides what an image source may do, so it receives the source as written.

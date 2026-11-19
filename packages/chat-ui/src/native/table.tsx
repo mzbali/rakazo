@@ -14,6 +14,9 @@ const TABLE_MAX_COLUMN_WIDTH = 220;
 
 const TableColumnWidthsContext = createContext<readonly number[]>([]);
 
+/** The room inside the table cell being drawn, or undefined outside a table. */
+export const TableCellWidthContext = createContext<number | undefined>(undefined);
+
 function glyphEm(char: string) {
   if (char === " " || char === "\n" || char === "\t") return 0.33;
   if ("ilj.,'|:;!".includes(char)) return 0.35;
@@ -110,7 +113,11 @@ export function TableCell({
 }) {
   const widths = useContext(TableColumnWidthsContext);
   const width = widths[columnIndex] ?? TABLE_MIN_COLUMN_WIDTH;
-  return <View style={[baseStyle, columnStyle(width)]}>{children}</View>;
+  return (
+    <TableCellWidthContext.Provider value={Math.max(0, width - TABLE_CELL_GUTTER)}>
+      <View style={[baseStyle, columnStyle(width)]}>{children}</View>
+    </TableCellWidthContext.Provider>
+  );
 }
 
 export function TableRow({

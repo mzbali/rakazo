@@ -17,6 +17,7 @@ import { useState } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, G, Path, Rect, Text as SvgText } from "react-native-svg";
+import { FormulaView } from "../math/math.native";
 import { drawPlan, hasUnfinishedPart } from "./visual-draw";
 
 /** Below this width a wide figure lays out as a narrow one. */
@@ -338,15 +339,23 @@ function Diagram({ element, surface }: { element: VisualElement; surface: Surfac
   );
 }
 
-/** A formula as written, in monospace, until the shared maths renderer draws it. */
+/** A formula in a visual, drawn by the same maths renderer as the chat's text. */
 function Formula({ tex, surface }: { tex: string; surface: Surface }) {
   return (
-    <Text
-      accessibilityLabel={tex}
-      style={[styles.formula, { color: surface.palette.foreground, fontFamily: MONO }]}
-    >
-      {tex}
-    </Text>
+    <FormulaView
+      tex={tex}
+      display
+      color={surface.palette.foreground}
+      fontSize={styles.formula.fontSize}
+      source={
+        <Text
+          accessibilityLabel={tex}
+          style={[styles.formula, { color: surface.palette.foreground, fontFamily: MONO }]}
+        >
+          {tex}
+        </Text>
+      }
+    />
   );
 }
 

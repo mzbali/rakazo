@@ -27,6 +27,9 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const live = useLiveNearView(box);
   const viewer = usePageDocument(block.code, "background", false, 0, "card");
   const [open, setOpen] = useState(false);
+  // The opened view is its own document, so it scrolls with a scrollbar; built only once opened.
+  const whole = usePageDocument(open ? block.code : undefined, "background", false, 0, "full");
+  const frameDocument = open ? whole.document : viewer.document;
   // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
   // of the page inert.
   const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
@@ -89,7 +92,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               </Button>
             </header>
           ) : null}
-          {(live || open) && viewer.document !== null ? (
+          {(live || open) && frameDocument !== null ? (
             // Never taller than the card shows: the reported height is the content's, not the frame's.
             <div
               inert={!inline && !open}
@@ -98,10 +101,10 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             >
               <PageFrame
                 portalContainer={dialog}
-                document={viewer.document}
+                document={frameDocument}
                 title={block.title}
                 interactive={inline || open}
-                onHeight={onHeight}
+                onHeight={open ? undefined : onHeight}
               />
             </div>
           ) : null}

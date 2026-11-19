@@ -37,6 +37,11 @@ function visualFrame(scope: Locator, title: string) {
     .contentFrame();
 }
 
+/** The scrollbar rule the frame's document gets; headless browsers draw overlay bars, so a width is no proof. */
+function scrollbarWidthRule(frame: ReturnType<typeof visualFrame>) {
+  return frame.locator("html").evaluate((root) => getComputedStyle(root).scrollbarWidth);
+}
+
 async function showVisual(page: Page, title: string, summary: string, source: string) {
   const composer = page.getByRole("combobox", { name: /^Message/ });
   await composer.fill(
@@ -91,11 +96,20 @@ test("a visual that fits works in the chat; a tall one opens full screen", async
     .toBeGreaterThan(600);
   expect((await report.boundingBox())!.height).toBeLessThanOrEqual(640);
   await expect(report.getByRole("button")).toHaveCount(1);
+  // Inline it shows no scrollbar.
+  expect(await scrollbarWidthRule(visualFrame(report, tall))).toBe("none");
   await report.getByRole("button", { name: `Expand ${tall}` }).click();
   const opened = page.getByRole("dialog", { name: tall });
   await expect(visualFrame(opened, tall).getByText("Every team, week by week.")).toBeVisible();
   await visualFrame(opened, tall).getByRole("button", { name: "Add one" }).click();
   await expect(visualFrame(opened, tall).getByText("Count: 1")).toBeVisible();
+  // Opened whole, it is its own document and scrolls with a scrollbar.
+  expect(await scrollbarWidthRule(visualFrame(opened, tall))).toBe("auto");
+  expect(
+    await visualFrame(opened, tall)
+      .locator("html")
+      .evaluate((root) => root.scrollHeight > root.clientHeight),
+  ).toBe(true);
   await captureScreenshot(page, testInfo, "visual-open");
   // Its link prompt shows above the full-screen visual and takes clicks; Cancel leaves it open.
   await visualFrame(opened, tall).getByRole("link", { name: "https://example.com/report" }).click();
@@ -106,6 +120,6 @@ test("a visual that fits works in the chat; a tall one opens full screen", async
   await expect(opened).toBeVisible();
   await opened.getByRole("button", { name: "Close preview" }).click();
   await expect(opened).toBeHidden();
-  // The same document returns to the chat.
-  await expect(visualFrame(report, tall).getByText("Count: 1")).toBeVisible();
+  // The chat draws its own copy again, from the start.
+  await expect(visualFrame(report, tall).getByText("Count: 0")).toBeVisible();
 });

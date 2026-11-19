@@ -18,6 +18,7 @@ import {
   GROUP_UNADDRESSED_REPLY_GUIDANCE,
   runReplyGuidance,
 } from "../assembly/run-replies.prompt.js";
+import { visualFencesAllowed } from "../assembly/visual-fence.prompt.js";
 import type { RunExecutorServices, RunHold } from "../lifecycle/run-attempt.js";
 import { completeRun } from "../lifecycle/run-complete.js";
 import { failRun, handoffEndedTurn, requeueRunAfterDatabaseOutage } from "../lifecycle/run-fail.js";
@@ -100,7 +101,7 @@ function modelTurnRequest(
   const { deps, run, runId, workerId, fence, secrets: runSecrets } = hold;
   const { takeoverResume } = hold.takeover;
   const { checkpointModelResolver } = turn.saved;
-  const { agentEnvironmentInstruction, bot, thread } = turn.records;
+  const { agentEnvironmentInstruction, bot, conversationRun, thread } = turn.records;
   const { context } = turn.connected;
   const { people, speakers } = turn.thread;
   const {
@@ -130,6 +131,7 @@ function modelTurnRequest(
     replyMode,
     sourceMessage,
     userComputer,
+    voiceCall,
   } = turn.capabilities;
   const { strategicBuiltins, taskCatalogInstruction, tools } = turn.tools;
   const { computerInstruction, workspaceInstruction } = turn.computerInstructions;
@@ -208,6 +210,11 @@ function modelTurnRequest(
       // A background helper is not offered the history tools, so it gets no guidance on them.
       historyRetrievalEnabled:
         contextStrategy !== "current" && tools.some((tool) => tool.name === "search_history"),
+      visualFences: visualFencesAllowed({
+        trigger: conversationRun.trigger,
+        voiceCall,
+        helper: run.trigger === BACKGROUND_HELPER_TRIGGER,
+      }),
       computerInstruction,
       pageBrowserAllowed,
       taskCatalogInstruction,

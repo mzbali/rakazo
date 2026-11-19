@@ -8,6 +8,8 @@ export type MarkdownCopy = {
   copied: string;
   copyCode: string;
   copyDiagramSource: string;
+  /** A visual in a reply that did not draw. */
+  visualUnavailable: string;
   /** Scrollable regions and the expanded dialog's title. */
   table: string;
   markdownTable: string;
@@ -37,6 +39,7 @@ export const defaultMarkdownCopy: MarkdownCopy = {
   copied: "Copied",
   copyCode: "Copy code",
   copyDiagramSource: "Copy diagram source",
+  visualUnavailable: "Couldn't draw this visual",
   table: "Table",
   markdownTable: "Markdown table",
   row: "Row",

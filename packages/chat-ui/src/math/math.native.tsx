@@ -86,13 +86,40 @@ function Formula({
   styleMap: MarkdownStyleMap;
 }) {
   const { palette } = useContext(DiagramSurfaceContext);
+  const style = StyleSheet.flatten(textStyle as TextStyle | undefined);
+  return (
+    <FormulaView
+      tex={tex}
+      display={display}
+      color={typeof style?.color === "string" ? style.color : palette.foreground}
+      fontSize={style?.fontSize ?? 16}
+      source={<Text style={[textStyle, styleMap.code_inline]}>{tex}</Text>}
+    />
+  );
+}
+
+/**
+ * A formula drawn at a font size, in a colour. Until MathJax loads, and for TeX it rejects, it
+ * shows `source` instead.
+ */
+export function FormulaView({
+  tex,
+  display,
+  color,
+  fontSize,
+  source,
+}: {
+  tex: string;
+  display: boolean;
+  color: string;
+  fontSize: number;
+  source: ReactNode;
+}) {
   const svg = useMathSvg(tex, display);
   const cellWidth = useContext(TableCellWidthContext);
   const inCell = cellWidth !== undefined;
-  // Until MathJax loads, and for TeX it rejects, the source shows as code.
-  if (!svg) return <Text style={[textStyle, styleMap.code_inline]}>{tex}</Text>;
-  const style = StyleSheet.flatten(textStyle as TextStyle | undefined);
-  const ex = (style?.fontSize ?? 16) * EX_PER_EM;
+  if (!svg) return source;
+  const ex = fontSize * EX_PER_EM;
   const width = svg.width * ex;
   const height = svg.height * ex;
   const drawing = (
@@ -107,12 +134,7 @@ function Formula({
         transform: display || inCell ? undefined : [{ translateY: -svg.baseline * ex }],
       }}
     >
-      <SvgXml
-        xml={svg.xml}
-        width={width}
-        height={height}
-        color={style?.color ?? palette.foreground}
-      />
+      <SvgXml xml={svg.xml} width={width} height={height} color={color} />
     </View>
   );
   // A table cell is only as wide as its column; a wider formula scrolls inside it.

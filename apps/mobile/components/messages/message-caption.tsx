@@ -27,6 +27,7 @@ export function MessageCaption({
   streaming,
   sources,
   sourcesRow = false,
+  visuals = false,
 }: {
   role: MobileMessage["role"];
   /** Another person's message sits on the received surface. */
@@ -37,12 +38,15 @@ export function MessageCaption({
   streaming: boolean;
   sources?: readonly SourceItem[];
   sourcesRow?: boolean;
+  /** Draw ```ui fences as visuals: set only for text the Space's own bot wrote. */
+  visuals?: boolean;
 }) {
   const { t } = useLingui();
   const markdownCopy = useMemo(
     () => ({
       ...defaultMarkdownCopy,
       sourcesCount: (count: number) => t`${plural(count, { one: "# source", other: "# sources" })}`,
+      visualUnavailable: t`Couldn't draw this visual`,
     }),
     [t],
   );
@@ -88,6 +92,7 @@ export function MessageCaption({
         onOpenPage={openPage}
         sources={sources}
         sourcesRow={sourcesRow}
+        visuals={visuals}
       >
         {text}
       </ChatMarkdown>

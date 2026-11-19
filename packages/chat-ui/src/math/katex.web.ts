@@ -41,3 +41,35 @@ export function useKatex(): Katex | undefined {
   }, [katex]);
   return katex;
 }
+
+let cssLoad: Promise<string> | undefined;
+let cssLoaded: string | undefined;
+
+/**
+ * KaTeX's rules as text, for a shadow root: the page's own stylesheet does not reach into one.
+ * Its fonts still come from the page's sheet, loaded with KaTeX, since a shadow root cannot
+ * declare fonts. Undefined until loaded.
+ */
+export function useKatexCss(): string | undefined {
+  const [css, setCss] = useState(cssLoaded);
+  useEffect(() => {
+    if (css) return;
+    let current = true;
+    cssLoad ??= import("katex/dist/katex.min.css?inline").then((module) => {
+      cssLoaded = module.default;
+      return module.default;
+    });
+    cssLoad.then(
+      (text) => {
+        if (current) setCss(text);
+      },
+      () => {
+        cssLoad = undefined;
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [css]);
+  return css;
+}

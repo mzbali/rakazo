@@ -8,6 +8,7 @@ import {
   isAttachmentImageMimeType,
 } from "@rakazo/contracts";
 import { isApprovalAskBlock, isSecretAskBlock } from "../runs/action-approval.js";
+import { foldVisualFences } from "./visual-summary.js";
 
 export class AttachmentValidationError extends Error {
   constructor(message: string) {
@@ -218,8 +219,21 @@ export function toolStepOutcomeText(step: { count: number; outcomes?: unknown })
   return counts.map(({ outcome, count }) => `${count} ${outcome}`).join(", ");
 }
 
-export function blocksToAgentHistoryText(blocks: MessageBlock[]): string {
-  return blocks.map(blockHistoryText).filter(Boolean).join("\n");
+/**
+ * How a reply is replayed to the model. A ```ui fence folds to `[visual: summary]` unless
+ * `foldVisuals` is false: the latest reply keeps its fence as written, so "change the third
+ * box" still has something to change.
+ */
+export type HistoryTextOptions = { foldVisuals?: boolean };
+
+export function blocksToAgentHistoryText(
+  blocks: MessageBlock[],
+  options: HistoryTextOptions = {},
+): string {
+  return blocks
+    .map((block) => blockHistoryText(block, options))
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** A reply in order, with its tool steps apart from the text around them. */
@@ -229,7 +243,10 @@ export type AgentHistorySegment = { text: string } | { steps: HistoryToolStep[] 
  * The same reply as blocksToAgentHistoryText, split at its tool steps so a runtime can replay
  * them as tool calls. Text between steps is joined as blocksToAgentHistoryText joins it.
  */
-export function blocksToAgentHistorySegments(blocks: MessageBlock[]): AgentHistorySegment[] {
+export function blocksToAgentHistorySegments(
+  blocks: MessageBlock[],
+  options: HistoryTextOptions = {},
+): AgentHistorySegment[] {
   const segments: AgentHistorySegment[] = [];
   let text: string[] = [];
   const flush = () => {
@@ -247,15 +264,15 @@ export function blocksToAgentHistorySegments(blocks: MessageBlock[]): AgentHisto
       segments.push({ steps });
       continue;
     }
-    const rendered = blockHistoryText(block);
+    const rendered = blockHistoryText(block, options);
     if (rendered) text.push(rendered);
   }
   flush();
   return segments;
 }
 
-function blockHistoryText(block: MessageBlock): string {
-  if (block.kind === "text") return block.text;
+function blockHistoryText(block: MessageBlock, { foldVisuals = true }: HistoryTextOptions): string {
+  if (block.kind === "text") return foldVisuals ? foldVisualFences(block.text) : block.text;
   // The tools a reply used, and what the bot wrote before each, are kept out of its text;
   // without them a later turn cannot tell what it already did.
   if (block.kind === "steps") return toolStepsHistoryText(block.steps);
@@ -316,7 +333,9 @@ function blockHistoryText(block: MessageBlock): string {
     }[block.status];
     return `[${block.question.source} asked the user a question during a tool call; ${outcome}]`;
   }
-  if ("text" in block && typeof block.text === "string") return block.text;
+  if ("text" in block && typeof block.text === "string") {
+    return foldVisuals && block.kind === "progress" ? foldVisualFences(block.text) : block.text;
+  }
   return "";
 }
 

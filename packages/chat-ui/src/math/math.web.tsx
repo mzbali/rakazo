@@ -7,7 +7,34 @@ import { DISPLAY_CLASS } from "./remark-math";
  * the room the formula will take; TeX KaTeX rejects stays as code instead of an error box.
  */
 export function MathSpan({ tex, className }: { tex: string; className?: string }) {
-  const display = className?.split(" ").includes(DISPLAY_CLASS) ?? false;
+  return (
+    <MathFormula
+      tex={tex}
+      display={className?.split(" ").includes(DISPLAY_CLASS) ?? false}
+      classes={PROSE_CLASSES}
+    />
+  );
+}
+
+const PROSE_CLASSES = {
+  formula: "rk-math",
+  display: "rk-math-display",
+  pending: "rk-math-pending",
+  source: "rk-math-source",
+};
+
+/** The class names a formula wears, which each place that draws one styles for itself. */
+type FormulaClasses = typeof PROSE_CLASSES;
+
+export function MathFormula({
+  tex,
+  display,
+  classes,
+}: {
+  tex: string;
+  display: boolean;
+  classes: FormulaClasses;
+}) {
   const katex = useKatex();
   const target = useRef<HTMLSpanElement>(null);
   const [state, setState] = useState<"pending" | "drawn" | "invalid">("pending");
@@ -26,14 +53,16 @@ export function MathSpan({ tex, className }: { tex: string; className?: string }
   }, [katex, tex, display]);
   if (state === "invalid") {
     return (
-      <code className={display ? "rk-math-source rk-math-display" : "rk-math-source"}>{tex}</code>
+      <code className={display ? `${classes.source} ${classes.display}` : classes.source}>
+        {tex}
+      </code>
     );
   }
   return (
-    <span className={display ? "rk-math rk-math-display" : "rk-math"}>
+    <span className={display ? `${classes.formula} ${classes.display}` : classes.formula}>
       {/* A span, since a formula sits inside a paragraph. KaTeX fills this span itself; React never gives it children. */}
       <span ref={target} />
-      {state === "pending" ? <span className="rk-math-pending">{tex}</span> : null}
+      {state === "pending" ? <span className={classes.pending}>{tex}</span> : null}
     </span>
   );
 }

@@ -32,7 +32,7 @@ describe("the ui fence instructions", () => {
     expect(userTurnInstructions(parts)).not.toContain(VISUAL_FENCE_INSTRUCTION);
   });
 
-  it("are absent on a live voice call, a chat-app channel and a background helper, present otherwise", () => {
+  it("are absent on a live voice call, a chat-app channel, a background helper and ticket work, present otherwise", () => {
     const send = (trigger: string, voiceCall: boolean, helper = false) =>
       userTurnInstructions({
         ...parts,
@@ -43,6 +43,8 @@ describe("the ui fence instructions", () => {
     expect(send("user", true)).not.toContain(VISUAL_FENCE_INSTRUCTION);
     expect(send("messaging", false)).not.toContain(VISUAL_FENCE_INSTRUCTION);
     expect(send("user", false, true)).not.toContain(VISUAL_FENCE_INSTRUCTION);
+    expect(send("tickets", false)).not.toContain(VISUAL_FENCE_INSTRUCTION);
+    expect(send("helper_result", false)).toContain(VISUAL_FENCE_INSTRUCTION);
   });
 
   it("teach an example the parser draws whole", () => {

@@ -151,6 +151,8 @@ function readAttrs(raw: string): { props: VisualObject } | { error: string } {
         at += value ? 4 : 5;
       } else return { error: `${name} needs a "string", a number, true, false or {literal}` };
     }
+    if (at < raw.length && !/\s/.test(raw[at]!))
+      return { error: `${name} must be followed by a space before the next prop` };
     if (Object.hasOwn(props, name) || name === "__proto__") return { error: `${name} is repeated` };
     props[name] = value;
   }

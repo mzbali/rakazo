@@ -58,8 +58,8 @@ function utf8Length(text: string): number {
     const code = text.charCodeAt(at);
     if (code < 0x80) bytes += 1;
     else if (code < 0x800) bytes += 2;
-    else if (code >= 0xd800 && code < 0xdc00 && at + 1 < text.length) {
-      // A surrogate pair is one character of four bytes.
+    else if (code >= 0xd800 && code < 0xdc00 && (text.charCodeAt(at + 1) & 0xfc00) === 0xdc00) {
+      // A surrogate pair is one character of four bytes; a lone surrogate encodes as three.
       bytes += 4;
       at++;
     } else bytes += 3;

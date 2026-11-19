@@ -1411,6 +1411,14 @@ describe("native markdown segments", () => {
     }
   });
 
+  it("leaves an escaped opener as text", () => {
+    for (const markdown of ["a \\\\(x\\) b", "a \\$$x$$ b"]) {
+      expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+    }
+    // An escaped backslash does not escape what follows it.
+    expect(markdownSegments("a \\\\\\(x\\) b", false)).toHaveLength(3);
+  });
+
   it("finds formulas in text full of delimiters in linear time", () => {
     for (const unit of ["$$ ", "\\( ", "\\[ ", "` ", "[a]("]) {
       expectLinearTime(() => markdownSegments(unit.repeat(40_000), true));
@@ -1442,6 +1450,12 @@ describe("native markdown scanning", () => {
     expect(withAppAutolinks("Para\n    reader://books/3")).toBe("Para\n    <reader://books/3>");
     expect(withAppAutolinks("- item\n\n    reader://books/4")).toBe(
       "- item\n\n    <reader://books/4>",
+    );
+  });
+
+  it("closes a fence on a line ending in a carriage return", () => {
+    expect(withAppAutolinks("```\r\nreader://books/1\r\n```\r\nreader://books/2")).toBe(
+      "```\r\nreader://books/1\r\n```\r\n<reader://books/2>",
     );
   });
 
@@ -1556,6 +1570,11 @@ describe("native markdown embeds", () => {
       },
     ]);
     expect(markdownSegments(markdown, false)).toEqual([{ kind: "markdown", text: markdown }]);
+  });
+
+  it("leaves a nested list item in its list", () => {
+    const markdown = "- parent\n  - ![A](image:a1) Nested";
+    expect(markdownSegments(markdown, true)).toEqual([{ kind: "markdown", text: markdown }]);
   });
 
   it("divides a media row from the one above it, and leaves an image with no words alone", () => {

@@ -51,7 +51,9 @@ function blockCodeSpans(text: string): Array<[number, number]> {
     // A backtick fence's info string has no backtick, or the run is inline code.
     if (open?.[1] && !(open[1][0] === "`" && line.slice(open[0].length).includes("`"))) {
       const marker = open[1][0] as string;
-      const closer = new RegExp(`^ {0,3}${marker === "`" ? "`" : "~"}{${open[1].length},}[ \\t]*$`);
+      const closer = new RegExp(
+        `^ {0,3}${marker === "`" ? "`" : "~"}{${open[1].length},}[ \\t\\r]*$`,
+      );
       let end = text.length;
       for (let next = eol + 1; next <= text.length; ) {
         const lineEnd = text.indexOf("\n", next);
@@ -236,6 +238,10 @@ function splitAtMath(markdown: string): MarkdownSegment[] {
     }
     const char = markdown.charCodeAt(i);
     if (char !== 0x5c && char !== 0x24) continue;
+    // A backslash that is itself escaped, or an escaped `$`, does not open a formula.
+    let slashes = 0;
+    while (markdown.charCodeAt(i - 1 - slashes) === 0x5c) slashes++;
+    if (slashes % 2 === 1) continue;
     const match = scan(i);
     if (!match) continue;
     const rowEnd = markdown.indexOf("\n", match.end);
@@ -258,10 +264,10 @@ function splitAtMath(markdown: string): MarkdownSegment[] {
   return segments;
 }
 
-const MEDIA_ITEM = /^ {0,3}(?:[-+*]|\d{1,9}[.)])[ \t]+!\[([^\]\n]*)\]\(([^)\s]+)\)[ \t]*(.*)$/;
+const MEDIA_ITEM = /^(?:[-+*]|\d{1,9}[.)])[ \t]+!\[([^\]\n]*)\]\(([^)\s]+)\)[ \t]*(.*)$/;
 
 /**
- * A top-level list item that opens with an `image:` embed and goes on with text is a media row.
+ * A top-level list item (no indent, so not a nested one) that opens with an `image:` embed and goes on with text is a media row.
  * Those items become segments of their own; the rest of the Markdown, other list items
  * included, stays as written.
  */

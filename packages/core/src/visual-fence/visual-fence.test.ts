@@ -225,8 +225,13 @@ describe("parseVisualFence", () => {
   });
 
   it("counts an emoji as four bytes, not five", () => {
-    const body = `<Visual summary="S"><Callout lead="a">${"😀".repeat(6000)}</Callout></Visual>`;
+    const body = `<Visual summary="S"><Callout lead="a">${"😀".repeat(7000)}</Callout></Visual>`;
     expect(parseVisualFence(body).truncated).toBe(false);
+  });
+
+  it("counts a lone high surrogate as three bytes without skipping the next character", () => {
+    const body = `<Visual summary="S"><Callout lead="a">${"\ud800界".repeat(6000)}</Callout></Visual>`;
+    expect(parseVisualFence(body).truncated).toBe(true);
   });
 
   it("rejects a diagram edge from a node to itself", () => {

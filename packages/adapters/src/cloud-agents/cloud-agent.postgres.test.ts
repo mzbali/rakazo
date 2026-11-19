@@ -644,7 +644,8 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
         { body: { prompt: { text: "Add tests" } } },
       ]);
       await h.finish(id);
-      expect(await h.wakes()).toHaveLength(2);
+      // The second finish folds into the wake still waiting from the first, keeping both nonces.
+      expect(await h.wakeNonces()).toHaveLength(2);
     },
   );
 

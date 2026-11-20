@@ -20,6 +20,7 @@ import type { CloudAgentConnection } from "../cloud-agent-factory.js";
 import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "../cloud-agent-poll.js";
 import {
   executeCloudAgentTool,
+  queueCloudAgentFollowupInTransaction,
   reconcileCloudAgents,
   trackDirectCloudAgent,
 } from "../cloud-agent-service.js";
@@ -1327,6 +1328,8 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
   });
 
   describe("a rejection with a correction", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
     async function finished(t: Awaited<ReturnType<typeof setup>>, n: number) {
       const id = await t.launch(n);
       await t.poll(id);
@@ -1366,12 +1369,47 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
         generation: before.generation + 1,
         followup: { prompt: "Fix the pill and reshoot." },
       });
-      // A replay finds the work running again and queues nothing more.
-      expect(await reject(t, id, { correction: "Fix the pill and reshoot." })).toEqual({
-        error: "Report once the cloud agent has finished.",
+      // A replay finds the work running again, queues nothing more and only retries the delivery.
+      expect(await reject(t, id, { correction: "Fix the pill and reshoot." })).toMatchObject({
+        sentBack: true,
       });
       expect((await t.state(id)).generation).toBe(before.generation + 1);
       expect((await t.state(id)).corrections).toBe(1);
+      // A different correction on running work is not a replay.
+      expect(await reject(t, id, { correction: "Something else." })).toEqual({
+        error: "Report once the cloud agent has finished.",
+      });
+    });
+
+    it("keeps the request being corrected in the brief, and tells the asking bot it was sent back", async () => {
+      vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+      const t = await setup();
+      const id = await t.launch(1, { botId: t.asker.id, messageId: "message:ask" });
+      await t.poll(id);
+      (await t.remote(id)).status = "finished";
+      await t.poll(id);
+      const launchBrief = "Build the status pill.";
+      await prisma.cloudAgent.update({ where: { id }, data: { launchBrief } });
+      await reject(t, id, { correction: "Fix the pill." });
+      expect((await t.state(id)).followupBrief).toBe(`${launchBrief}\n\nCorrection: Fix the pill.`);
+      const received = await asSystem(prisma).message.findMany({
+        where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
+      });
+      const text = JSON.stringify(received.map((message) => message.blocks));
+      expect(text).toContain("sent back");
+      expect(text).toContain("status");
+      expect(text).not.toContain('"intent":"result"');
+    });
+
+    it("starts the count again after an owner answer to a blocked agent", async () => {
+      const t = await setup();
+      const id = await finished(t, 1);
+      await prisma.cloudAgent.update({ where: { id }, data: { corrections: 2 } });
+      const agent = await prisma.cloudAgent.findUniqueOrThrow({ where: { id } });
+      await prisma.$transaction((tx) =>
+        queueCloudAgentFollowupInTransaction(tx, agent, { prompt: "Use blue." }, true),
+      );
+      expect(await t.state(id)).toMatchObject({ corrections: 0, generation: agent.generation });
     });
 
     it("refuses a third correction in a row, and starts the count again after other new work", async () => {

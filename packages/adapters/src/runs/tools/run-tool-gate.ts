@@ -142,7 +142,14 @@ export async function gateToolCall(
   // check look at each action, never the batch tool. An entry naming no action asks.
   const batch = connectorTool?.batch ? batchActions(connectorTool.batch, args) : undefined;
   const unidentifiedAction = Boolean(batch && !batch.complete);
-  const approvalName = connectorCall.route?.connectionId ? connectorCall.route.toolName : name;
+  // A report that sends the work back is a follow-up message, so it asks and is allowed like a reply.
+  const sendsCorrection =
+    name === "cloud_agent_report" && args.verdict === "rejected" && Boolean(args.correction);
+  const approvalName = sendsCorrection
+    ? "cloud_agent_reply"
+    : connectorCall.route?.connectionId
+      ? connectorCall.route.toolName
+      : name;
   const approvalToolNames = batch?.actions.length ? batch.actions : [approvalName];
   // Search and load return a list or a schema. They never call the connector.
   const catalogControlRead =

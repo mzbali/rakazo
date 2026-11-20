@@ -315,6 +315,15 @@ function followupBriefOf(text: unknown) {
     : null;
 }
 
+/** The request being corrected with the correction after it, so the next judgement sees both. */
+export function correctedBrief(agent: CloudAgent, correction: string) {
+  const suffix = `\n\nCorrection: ${correction}`.slice(0, MAX_LAUNCH_BRIEF);
+  const previous = agent.followupBrief ?? agent.launchBrief ?? "";
+  return followupBriefOf(
+    `${previous.slice(0, MAX_LAUNCH_BRIEF - suffix.length)}${suffix}`.trimStart(),
+  );
+}
+
 /** The same, inside a transaction that records something else with it. */
 export async function queueCloudAgentFollowupInTransaction(
   tx: Prisma.TransactionClient,
@@ -323,6 +332,8 @@ export async function queueCloudAgentFollowupInTransaction(
   answer = false,
   /** The corrections in a row this follow-up makes; any other follow-up starts the count again. */
   corrections = 0,
+  /** What the next judgement is made against, when it is not just this follow-up's text. */
+  brief?: string | null,
 ) {
   await lockBotSlots(tx, agent.botId);
   const queued =
@@ -334,16 +345,20 @@ export async function queueCloudAgentFollowupInTransaction(
       followup,
       followupDispatchedAt: null,
       status: "running",
+      // Any follow-up, an answer too, ends a run of corrections.
+      corrections,
       // An answer continues the same piece of work; a follow-up starts the next one.
       ...(answer
         ? {}
         : {
             generation: { increment: 1 },
             wakeAttempts: 0,
-            corrections,
             verdict: null,
             ownerQuestion: null,
-            followupBrief: followupBriefOf((followup as { prompt?: unknown } | null)?.prompt),
+            followupBrief:
+              brief === undefined
+                ? followupBriefOf((followup as { prompt?: unknown } | null)?.prompt)
+                : brief,
             waitingRunId: null,
           }),
       version: { increment: 1 },

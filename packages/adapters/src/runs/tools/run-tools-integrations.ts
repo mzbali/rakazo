@@ -6,9 +6,9 @@ import { getLogger } from "@rakazo/logging";
 import {
   executeCloudAgentTool,
   markCloudAgentWaiting,
-  reportCloudAgent,
   trackDirectCloudAgent,
 } from "../../cloud-agents/cloud-agent-service.js";
+import { reportCloudAgent } from "../../cloud-agents/jobs/cloud-agent-report.js";
 import { connectApp } from "../../integrations/connect-app.js";
 import {
   redactConnectorPayload,

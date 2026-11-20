@@ -13,6 +13,7 @@ import { runLeaseFor } from "../runs/assembly/run-messages.js";
 import type { ExecutorDeps } from "../runs/executor/executor-deps.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
 import { goalDrivesAgent, missingGoalEvidence, SCOPED_GOAL_NONCE } from "../scoped-goal-service.js";
+import { keepsBotIdentity } from "./cloud-agent-correction.js";
 import type {
   CloudAgentActor,
   CloudAgentConnection,
@@ -259,18 +260,7 @@ export async function executeCloudAgentTool(
     if (!owned) return { error: "Unknown cloud agent." };
     agent = owned;
     if (name === "cloud_agent_reply") {
-      if (agent.providerKey.startsWith(USER_CLOUD_AGENT_KEY_PREFIX)) {
-        // A follow-up stays with the bot whose identity the worker will reauthorize.
-        if (
-          agent.botId !== context.botId ||
-          !(await deps.userCloudAgents?.forKey(agent.providerKey, {
-            spaceId: context.spaceId,
-            userId: context.userId,
-            botIds: [context.botId],
-          }))
-        )
-          return { error: "Unknown cloud agent." };
-      }
+      if (!(await keepsBotIdentity(deps, agent, context))) return { error: "Unknown cloud agent." };
       // A blocked agent is still running; answering its question is the way forward.
       const blocked = openQuestion(agent) !== undefined;
       if (
@@ -331,6 +321,8 @@ export async function queueCloudAgentFollowupInTransaction(
   agent: CloudAgent,
   followup: Prisma.InputJsonValue,
   answer = false,
+  /** The corrections in a row this follow-up makes; any other follow-up starts the count again. */
+  corrections = 0,
 ) {
   await lockBotSlots(tx, agent.botId);
   const queued =
@@ -348,6 +340,7 @@ export async function queueCloudAgentFollowupInTransaction(
         : {
             generation: { increment: 1 },
             wakeAttempts: 0,
+            corrections,
             verdict: null,
             ownerQuestion: null,
             followupBrief: followupBriefOf((followup as { prompt?: unknown } | null)?.prompt),
@@ -450,6 +443,7 @@ export async function trackDirectCloudAgent(
                 : {
                     generation: { increment: 1 },
                     wakeAttempts: 0,
+                    corrections: 0,
                     verdict: null,
                     ownerQuestion: null,
                   }),
@@ -864,122 +858,4 @@ export async function promoteQueuedCloudAgent(tx: Tx, providerKey: string, botId
     data: { queuedAt: null, nextPollAt: new Date(), version: { increment: 1 } },
   });
   return next.id;
-}
-
-/**
- * The bot's verdict on a finished request. Finishing is not acceptance: only this records it,
- * and a request another bot asked for sends that bot the verdict once per piece of work.
- */
-export async function reportCloudAgent(
-  deps: Pick<ExecutorDeps, "prisma" | "events" | "jobs" | "runLease"> &
-    Pick<CloudAgentDeps, "cloudAgent"> &
-    Partial<Pick<CloudAgentDeps, "userCloudAgents">> & { deployment?: CloudAgentConnection | null },
-  context: AdapterContext & { botId: string; botName?: string },
-  run: { id: string; threadId: string },
-  args: Record<string, unknown>,
-) {
-  const connection = cloudAgentsEnabled(deps.cloudAgent, context.spaceId) ? deps.cloudAgent : null;
-  if (!connection) return { error: "Cloud agents are not configured for this space." };
-  const parsed = cloudAgentReportSchema.safeParse(args);
-  if (!parsed.success) return { error: CLOUD_AGENT_REPORT_USAGE };
-  const report = parsed.data;
-  const agent = await deps.prisma.cloudAgent.findFirst({
-    where: {
-      id: report.id,
-      // Agents launched on any environment the actor connected report like the current one's.
-      OR: [
-        { providerKey: connection.key },
-        { providerKey: { startsWith: USER_CLOUD_AGENT_KEY_PREFIX } },
-        ...(deps.deployment && cloudAgentsEnabled(deps.deployment, context.spaceId)
-          ? [{ providerKey: deps.deployment.key }]
-          : []),
-      ],
-      spaceId: context.spaceId,
-      userId: context.userId,
-      botId: context.botId,
-    },
-  });
-  if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
-  if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
-  // Done means the evidence says so, not the agent's or the bot's word.
-  const missing =
-    report.verdict === "accepted" && (await missingGoalEvidence(deps.prisma, agent.id));
-  if (missing)
-    return {
-      error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
-    };
-  // One verdict per piece of work, so the asking bot never holds a different one than the record.
-  // A follow-up accepted meanwhile starts new work, which this verdict is not about.
-  const recorded = await deps.prisma.cloudAgent.updateMany({
-    where: {
-      id: agent.id,
-      generation: agent.generation,
-      status: { not: "running" },
-      verdict: null,
-    },
-    data: {
-      verdict: report.verdict,
-      verdictSummary: report.summary,
-      ownerQuestion: report.ownerQuestion ?? null,
-    },
-  });
-  if (!recorded.count) {
-    const current = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
-    if (current.generation !== agent.generation || current.status === "running")
-      return { error: "The cloud agent changed; check its status and report again." };
-    if (current.verdict !== report.verdict || current.verdictSummary !== report.summary)
-      return { error: `Already reported ${current.verdict} for this work.` };
-  }
-  // The question belongs on the job's card too, whatever the helper's own result says.
-  if (recorded.count) await repaintCloudAgentCard(deps, agent.id);
-  // Only the call that recorded the verdict settles, so a replay never does it twice.
-  if (recorded.count && report.verdict === "accepted" && agent.status === "finished") {
-    const owner =
-      (await bestEffort("load cloud agent connection", cloudAgentFor(deps, agent))) ?? null;
-    if (owner)
-      await settleAcceptedCloudAgent(owner, agent.remoteId, {
-        operationId: agent.id,
-        traceId: agent.id,
-        spaceId: agent.spaceId,
-        userId: agent.userId,
-        botId: agent.botId,
-        signal: AbortSignal.timeout(60_000),
-      });
-  }
-  let delivered: boolean | undefined;
-  if (agent.originBotId && agent.originBotId !== agent.botId) {
-    const sent = await messageBot(
-      deps,
-      {
-        id: run.id,
-        spaceId: agent.spaceId,
-        threadId: run.threadId,
-        botId: agent.botId,
-        userId: agent.userId,
-        // The asking bot's message, so the verdict reads as the reply to its request.
-        sourceMessageId: agent.originMessageId,
-      },
-      { id: agent.botId, name: context.botName ?? "" },
-      {
-        bot_id: agent.originBotId,
-        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}${report.ownerQuestion ? `\nQuestion for the owner: ${report.ownerQuestion}` : ""}`,
-        intent: "result",
-        deliveryKey: `cloud-agent-report:${agent.id}:${agent.generation}`,
-      },
-    );
-    delivered = sent.ok;
-    if (!sent.ok) return { error: `Recorded, but not delivered: ${sent.error}` };
-  }
-  return {
-    id: agent.id,
-    verdict: report.verdict,
-    ...(delivered ? { delivered } : {}),
-    // The owner reads the result, so it ends with the decision they are asked to make.
-    ...(report.ownerQuestion
-      ? {
-          ownerQuestion: report.ownerQuestion,
-          note: "End your result with this question for the owner, word for word.",
-        }
-      : {}),
-  };
 }

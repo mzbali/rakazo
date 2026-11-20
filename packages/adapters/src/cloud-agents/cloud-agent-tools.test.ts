@@ -1,7 +1,11 @@
 import { toolRequiresApproval } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { builtinAgentTools } from "../tools/builtin.tool-definition.js";
-import { storedCloudAgentLaunchSchema, validCloudAgentArgs } from "./cloud-agent-tools.js";
+import {
+  cloudAgentReportSchema,
+  storedCloudAgentLaunchSchema,
+  validCloudAgentArgs,
+} from "./cloud-agent-tools.js";
 import { CLOUD_AGENT_TOOL_NAMES, selectCloudAgentTools } from "./cloud-agent-tools-select.js";
 
 describe("cloud agent tool boundary", () => {
@@ -83,5 +87,24 @@ describe("cloud agent tool boundary", () => {
     expect(validCloudAgentArgs("cloud_agent_launch", { prompt: "Go", title })).toBe(false);
     expect(storedCloudAgentLaunchSchema.safeParse({ prompt: "Go", title }).success).toBe(true);
     expect(storedCloudAgentLaunchSchema.safeParse({ prompt: "Go" }).success).toBe(true);
+  });
+  it("takes an owner question only with needs_owner and a correction only with rejected", () => {
+    const base = { id: "a", summary: "Checked it" };
+    const valid = (extra: Record<string, unknown>) =>
+      cloudAgentReportSchema.safeParse({ ...base, ...extra }).success;
+    expect(valid({ verdict: "accepted" })).toBe(true);
+    expect(valid({ verdict: "rejected" })).toBe(true);
+    expect(valid({ verdict: "rejected", correction: "Reshoot both screenshots." })).toBe(true);
+    expect(
+      valid({ verdict: "needs_owner", ownerQuestion: "Provide the login? (recommended)" }),
+    ).toBe(true);
+    expect(valid({ verdict: "needs_owner" })).toBe(false);
+    expect(valid({ verdict: "accepted", ownerQuestion: "Deploy it?" })).toBe(false);
+    expect(valid({ verdict: "rejected", ownerQuestion: "Send it back?" })).toBe(false);
+    expect(valid({ verdict: "accepted", correction: "Fix it." })).toBe(false);
+    expect(valid({ verdict: "needs_owner", ownerQuestion: "Login?", correction: "Fix it." })).toBe(
+      false,
+    );
+    expect(valid({ verdict: "rejected", correction: "   " })).toBe(false);
   });
 });

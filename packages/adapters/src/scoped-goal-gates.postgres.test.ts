@@ -6,7 +6,8 @@ import { createDb, runAsSystem } from "@rakazo/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { CloudAgentConnection } from "./cloud-agents/cloud-agent-factory.js";
 import { pollCloudAgent } from "./cloud-agents/cloud-agent-poll.js";
-import { executeCloudAgentTool, reportCloudAgent } from "./cloud-agents/cloud-agent-service.js";
+import { executeCloudAgentTool } from "./cloud-agents/cloud-agent-service.js";
+import { reportCloudAgent } from "./cloud-agents/jobs/cloud-agent-report.js";
 import {
   T3ThreadEventsEmulator,
   t3EmulatedProvider,
@@ -624,7 +625,6 @@ suite("scoped goal gates advance in code", () => {
               id: t.agentId,
               verdict,
               summary: "All shipped",
-              ...(verdict === "accepted" ? {} : { ownerQuestion: "Retry the deploy?" }),
             },
           ),
         );

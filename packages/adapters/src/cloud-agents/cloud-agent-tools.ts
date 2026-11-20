@@ -104,16 +104,28 @@ export const cloudAgentReportSchema = z
     id: z.string().trim().min(1),
     verdict: z.enum(["accepted", "rejected", "needs_owner"]),
     summary: z.string().trim().min(1).max(4_000),
-    /** What the owner has to decide, whenever the work was not accepted. */
+    /** The decision only the owner can make, with the recommendation; only for needs_owner. */
     ownerQuestion: z.string().trim().min(1).max(1_000).optional(),
+    /** What is wrong and what to do about it; sent back to the agent as its next request. */
+    correction: z.string().trim().min(1).max(100_000).optional(),
   })
   .strict()
-  .refine((report) => report.verdict === "accepted" || report.ownerQuestion, {
-    path: ["ownerQuestion"],
-    message: "A verdict other than accepted needs an ownerQuestion.",
+  .superRefine((report, ctx) => {
+    if ((report.verdict === "needs_owner") !== (report.ownerQuestion !== undefined))
+      ctx.addIssue({
+        code: "custom",
+        path: ["ownerQuestion"],
+        message: "Only needs_owner takes an ownerQuestion, and it needs one.",
+      });
+    if (report.correction !== undefined && report.verdict !== "rejected")
+      ctx.addIssue({
+        code: "custom",
+        path: ["correction"],
+        message: "Only rejected takes a correction.",
+      });
   });
 export const CLOUD_AGENT_REPORT_USAGE =
-  "Invalid cloud agent report. Send id, verdict and summary; a verdict other than accepted also needs ownerQuestion: a short decision for the owner, with your recommendation and the options where sensible.";
+  "Invalid cloud agent report. Send id, verdict and summary. rejected may add a correction to send the work back; needs_owner needs an ownerQuestion; accepted takes neither.";
 export const cloudAgentReplySchema = cloudAgentPromptSchema.extend({
   id: z.string().trim().min(1),
 });

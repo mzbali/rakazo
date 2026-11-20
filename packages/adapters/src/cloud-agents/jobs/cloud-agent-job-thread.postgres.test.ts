@@ -20,9 +20,9 @@ import {
 import {
   executeCloudAgentTool,
   markCloudAgentWaiting,
-  reportCloudAgent,
   trackDirectCloudAgent,
 } from "../cloud-agent-service.js";
+import { reportCloudAgent } from "./cloud-agent-report.js";
 import { cancelStaleCloudAgentWake } from "./cloud-agent-wake-start.js";
 
 const describePostgres =
@@ -290,8 +290,8 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(task.prompt).toContain("is finished");
     // The brief points at the result in the status, not at a thread read the helper may not make.
     expect(task.prompt).toContain("untrustedResult");
-    expect(task.prompt).toContain("needs an ownerQuestion");
-    expect(task.prompt).toContain("install LinearMouse with default settings? (recommended)");
+    expect(task.prompt).toContain("rejected with a correction");
+    expect(task.prompt).toContain("Use needs_owner only when");
     expect(task.prompt).not.toContain("OWNER-CHAT-LINE");
     expect(await h.messagesIn(agent.jobThreadId!)).toHaveLength(0);
 
@@ -359,7 +359,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     expect(prompt).toContain("judge it against the current request");
   });
 
-  it("puts a rejected job's owner question on the card and the helper's result, even when the helper left it out", async () => {
+  it("puts a needs-owner job's question on the card and the helper's result, even when the helper left it out", async () => {
     vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
     const h = await setup();
     const agentId = await h.launch("Install LinearMouse");
@@ -373,12 +373,12 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
       await runAsSystem("helper report", () =>
         reportCloudAgent(h.deps as never, h.context, h.run, {
           id: agentId,
-          verdict: "rejected",
+          verdict: "needs_owner",
           summary: "The app is already gone",
           ownerQuestion: question,
         }),
       ),
-    ).toMatchObject({ verdict: "rejected" });
+    ).toMatchObject({ verdict: "needs_owner" });
     // Sealed at rest like the result.
     const stored = await prisma.$queryRaw<Array<{ question: string }>>`
       SELECT "ownerQuestion" AS question FROM cloud_agents WHERE id = ${agentId}`;
@@ -399,7 +399,7 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
     // The job's card carries the question and the verdict; no helper card is added.
     expect(blocks.find((block) => block.kind === "subagent")).toBeUndefined();
     expect(blocks.filter((block) => block.kind === "cloud_agent")).toMatchObject([
-      { ownerQuestion: question, review: "rejected" },
+      { ownerQuestion: question, review: "needs_owner" },
     ]);
     // The owner hears it once, in the bot's reply to the card, with the decision last.
     const replies = (await h.messagesIn(h.thread.id)).filter((message) => message.replyToMessageId);
@@ -790,7 +790,6 @@ describePostgres("cloud agent job threads (PostgreSQL + Cursor emulator)", () =>
         id: agentId,
         verdict: "rejected",
         summary: "The version was not read back",
-        ownerQuestion: "Send it back to read the version?",
       }),
     );
     await runAsSystem("agent run tool call", () =>

@@ -114,6 +114,11 @@ export function createInboxStyles() {
       paddingHorizontal: 20,
       paddingTop: 28,
     },
+    newBot: {
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingTop: 28,
+    },
     row: {
       flexDirection: "row",
       alignItems: "center",

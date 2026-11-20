@@ -172,7 +172,14 @@ export function InlineImageAttachment({
         />
       </Pressable>
     ) : (
-      <Pressable {...pressableProps} onPress={state.status === "error" ? onOpen : undefined}>
+      <Pressable
+        {...pressableProps}
+        accessibilityRole={state.status === "error" ? "button" : pressableProps?.accessibilityRole}
+        accessibilityLabel={
+          state.status === "error" ? t`Open image ${name}` : pressableProps?.accessibilityLabel
+        }
+        onPress={state.status === "error" ? onOpen : undefined}
+      >
         <View style={[styles.placeholder, { backgroundColor: tokens.muted }]}>
           <Text style={[styles.label, { color: labelColor }]}>🖼 {name}</Text>
           {state.status === "loading" ? (

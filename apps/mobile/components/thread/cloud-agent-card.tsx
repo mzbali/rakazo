@@ -6,7 +6,7 @@ import { typeScale } from "@rakazo/ui-tokens";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -22,6 +22,7 @@ import { jobLinks } from "../../lib/job-links";
 import type { UserBubble } from "../../lib/messages/user-bubble";
 import { withUserBubble } from "../../lib/messages/user-bubble";
 import { hapticSelection } from "../../lib/native/haptics";
+import { openExternalUrl } from "../../lib/platform/open-url";
 import { JobProofImages } from "../job-proof";
 import { JobRow } from "../job-row";
 import { JobStatusDot, jobToneColor, useJobPhaseLabel } from "../job-status";
@@ -227,7 +228,7 @@ export function CloudAgentCards({
                             prominence="secondary"
                             size="compact"
                             onPress={() => {
-                              Linking.openURL(links.t3!).catch(() => undefined);
+                              void openExternalUrl(links.t3!);
                             }}
                           />
                         ) : null}
@@ -237,7 +238,7 @@ export function CloudAgentCards({
                             prominence="secondary"
                             size="compact"
                             onPress={() => {
-                              Linking.openURL(links.pr!).catch(() => undefined);
+                              void openExternalUrl(links.pr!);
                             }}
                           />
                         ) : null}

@@ -122,6 +122,7 @@ export async function createRunContext(
     connectorTools,
     initiallyTainted,
     pageImageUrls,
+    initialOutsideText,
     searchResultUrls,
     sources,
     strategicBuiltins,
@@ -154,6 +155,7 @@ export async function createRunContext(
     overLimitActionCalls: 0,
     toolResults: new Map(),
     tainted: initiallyTainted,
+    outsideText: initialOutsideText,
     // A resumed turn replaces this with the baseline its saved prompt was built from.
     ownInstructionsBaseline: bot.instructions ?? "",
     earlierAttempt: undefined,

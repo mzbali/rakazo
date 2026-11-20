@@ -13,6 +13,7 @@ import type { CloudAgentDeps } from "../cloud-agent-service.js";
 import {
   cloudAgentFor,
   correctedBrief,
+  correctionLead,
   enqueueCloudAgent,
   lockBotSlots,
   queueCloudAgentFollowupInTransaction,
@@ -62,7 +63,7 @@ export async function reportCloudAgent(
       agent.status === "running" &&
       agent.corrections > 0 &&
       agent.verdictSummary === report.summary &&
-      (agent.followupBrief?.endsWith(`Correction: ${correction}`) ??
+      (agent.followupBrief?.startsWith(correctionLead(correction)) ||
         [undefined, correction].includes(readCloudAgentFollowup(agent)?.prompt)),
   );
   if (agent.status === "running" && !sentBack)

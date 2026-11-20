@@ -1391,7 +1391,9 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       const launchBrief = "Build the status pill.";
       await prisma.cloudAgent.update({ where: { id }, data: { launchBrief } });
       await reject(t, id, { correction: "Fix the pill." });
-      expect((await t.state(id)).followupBrief).toBe(`${launchBrief}\n\nCorrection: Fix the pill.`);
+      expect((await t.state(id)).followupBrief).toBe(
+        `Correction: Fix the pill.\n\nCorrected request: ${launchBrief}`,
+      );
       const received = await asSystem(prisma).message.findMany({
         where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
       });
@@ -1399,6 +1401,18 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
       expect(text).toContain("sent back");
       expect(text).toContain("status");
       expect(text).not.toContain('"intent":"result"');
+    });
+
+    it("leads a long brief with the correction, and still knows a long correction on replay", async () => {
+      vi.stubEnv("CLOUD_AGENT_JOB_THREADS", "1");
+      const t = await setup();
+      const id = await finished(t, 1);
+      await prisma.cloudAgent.update({ where: { id }, data: { launchBrief: "x".repeat(1_500) } });
+      const correction = `Fix the pill. ${"y".repeat(2_500)}`;
+      expect(await reject(t, id, { correction })).toMatchObject({ sentBack: true });
+      expect((await t.state(id)).followupBrief?.startsWith("Correction: Fix the pill.")).toBe(true);
+      expect(await reject(t, id, { correction })).toMatchObject({ sentBack: true });
+      expect((await t.state(id)).corrections).toBe(1);
     });
 
     it("starts the count again after an owner answer to a blocked agent", async () => {

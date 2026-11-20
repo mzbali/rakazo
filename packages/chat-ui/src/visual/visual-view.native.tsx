@@ -194,7 +194,7 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
 const ARROW = 7;
 const GRID_GAP = 16;
 
-function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
+export function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
   const nodes = element.props.nodes as DiagramNode[];
   const edges = (element.props.edges ?? []) as DiagramEdge[];
   // A flow written left to right reads top to bottom in a narrow column.
@@ -248,20 +248,31 @@ function Diagram({ element, surface }: { element: VisualElement; surface: Surfac
               fill="none"
             />
             {edge.label ? (
-              <SvgText
-                x={label[0]}
-                y={label[1] + 4}
-                fontSize={12}
-                fill={palette.mutedForeground}
-                textAnchor="middle"
-                stroke={palette.background}
-                strokeWidth={5}
-                strokeLinejoin="round"
-                // The halo keeps the label readable where it crosses a curve.
-                fillOpacity={1}
-              >
-                {edge.label}
-              </SvgText>
+              <G>
+                {/* Native SVG paints strokes over fills: draw the halo before the ink. */}
+                <SvgText
+                  x={label[0]}
+                  y={label[1] + 4}
+                  fontSize={12}
+                  fill="none"
+                  textAnchor="middle"
+                  stroke={palette.background}
+                  strokeWidth={5}
+                  strokeLinejoin="round"
+                  accessible={false}
+                >
+                  {edge.label}
+                </SvgText>
+                <SvgText
+                  x={label[0]}
+                  y={label[1] + 4}
+                  fontSize={12}
+                  fill={palette.mutedForeground}
+                  textAnchor="middle"
+                >
+                  {edge.label}
+                </SvgText>
+              </G>
             ) : null}
           </G>
         );

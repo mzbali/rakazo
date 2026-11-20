@@ -23,6 +23,11 @@ vi.mock("react-native", () => ({
   StyleSheet: { create: <T,>(styles: T) => styles },
   useWindowDimensions: () => ({ width: 390 }),
 }));
+vi.mock("@rakazo/chat-ui/native", () => ({
+  FaviconTile: () => null,
+  MEDIA_ROW_NATIVE_PT: 44,
+  useNativeLinkConfirm: () => vi.fn(),
+}));
 vi.mock("../../lib/appearance/appearance", () => ({
   mobileTokens: () => ({ muted: "token-muted", mutedForeground: "token-muted-foreground" }),
 }));

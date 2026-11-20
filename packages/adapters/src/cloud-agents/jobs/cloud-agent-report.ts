@@ -7,11 +7,14 @@ import { missingGoalEvidence } from "../../scoped-goal-service.js";
 import { CorrectionNotQueued, correctionRefusal } from "../cloud-agent-correction.js";
 import type { CloudAgentConnection } from "../cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "../cloud-agent-factory.js";
+import { readCloudAgentFollowup } from "../cloud-agent-followup.js";
 import { repaintCloudAgentCard } from "../cloud-agent-poll.js";
 import type { CloudAgentDeps } from "../cloud-agent-service.js";
 import {
   cloudAgentFor,
+  correctedBrief,
   enqueueCloudAgent,
+  lockBotSlots,
   queueCloudAgentFollowupInTransaction,
 } from "../cloud-agent-service.js";
 import { CLOUD_AGENT_REPORT_USAGE, cloudAgentReportSchema } from "../cloud-agent-tools.js";
@@ -51,7 +54,19 @@ export async function reportCloudAgent(
     },
   });
   if (!agent) return { error: "Unknown cloud agent, or another bot launched it." };
-  if (agent.status === "running") return { error: "Report once the cloud agent has finished." };
+  const correction = report.verdict === "rejected" ? report.correction : undefined;
+  // A replay of a correction that already went back: the work is running again and still holds
+  // this report's summary. Only the message to the asking bot may be left to send.
+  const sentBack = Boolean(
+    correction &&
+      agent.status === "running" &&
+      agent.corrections > 0 &&
+      agent.verdictSummary === report.summary &&
+      (agent.followupBrief?.endsWith(`Correction: ${correction}`) ??
+        [undefined, correction].includes(readCloudAgentFollowup(agent)?.prompt)),
+  );
+  if (agent.status === "running" && !sentBack)
+    return { error: "Report once the cloud agent has finished." };
   // Done means the evidence says so, not the agent's or the bot's word.
   const missing =
     report.verdict === "accepted" && (await missingGoalEvidence(deps.prisma, agent.id));
@@ -59,8 +74,7 @@ export async function reportCloudAgent(
     return {
       error: `This agent's release goal is not complete. Missing evidence: ${missing.join(", ")}.`,
     };
-  const correction = report.verdict === "rejected" ? report.correction : undefined;
-  if (correction) {
+  if (correction && !sentBack) {
     const refusal = await correctionRefusal(deps, agent, context);
     if (refusal) return { error: refusal };
   }
@@ -83,28 +97,33 @@ export async function reportCloudAgent(
     });
   let recorded: { count: number };
   try {
-    recorded = correction
-      ? await deps.prisma.$transaction(async (tx) => {
-          const result = await record(tx);
-          if (!result.count) return result;
-          const queued = await queueCloudAgentFollowupInTransaction(
-            tx,
-            agent,
-            { prompt: correction },
-            false,
-            agent.corrections + 1,
-          );
-          if (!queued.count) throw new CorrectionNotQueued();
-          return result;
-        })
-      : await record(deps.prisma);
+    recorded = sentBack
+      ? { count: 0 }
+      : correction
+        ? await deps.prisma.$transaction(async (tx) => {
+            // The slot lock comes first, as in the queue helper and direct tracking.
+            await lockBotSlots(tx, agent.botId);
+            const result = await record(tx);
+            if (!result.count) return result;
+            const queued = await queueCloudAgentFollowupInTransaction(
+              tx,
+              agent,
+              { prompt: correction },
+              false,
+              agent.corrections + 1,
+              correctedBrief(agent, correction),
+            );
+            if (!queued.count) throw new CorrectionNotQueued();
+            return result;
+          })
+        : await record(deps.prisma);
   } catch (error) {
     if (error instanceof CorrectionNotQueued)
       return { error: "The cloud agent changed; check its status and report again." };
     throw error;
   }
   if (recorded.count && correction) await enqueueCloudAgent(deps, agent.id);
-  if (!recorded.count) {
+  if (!recorded.count && !sentBack) {
     const current = await deps.prisma.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
     if (current.generation !== agent.generation || current.status === "running")
       return { error: "The cloud agent changed; check its status and report again." };
@@ -143,9 +162,12 @@ export async function reportCloudAgent(
       { id: agent.botId, name: context.botName ?? "" },
       {
         bot_id: agent.originBotId,
-        message: `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}${report.ownerQuestion ? `\nQuestion for the owner: ${report.ownerQuestion}` : ""}`,
-        intent: "result",
-        deliveryKey: `cloud-agent-report:${agent.id}:${agent.generation}`,
+        message: correction
+          ? `Request "${agent.title}" (${agent.id}) was not accepted and has been sent back to the agent: ${report.summary}\nIt is working again; its final verdict will follow.`
+          : `Request "${agent.title}" (${agent.id}) ${report.verdict.replace("_", " ")}: ${report.summary}${report.ownerQuestion ? `\nQuestion for the owner: ${report.ownerQuestion}` : ""}`,
+        // Sent back work is not finished, so the asking bot has nothing to relay yet.
+        intent: correction ? "status" : "result",
+        deliveryKey: `cloud-agent-report:${agent.id}:${sentBack ? agent.generation - 1 : agent.generation}`,
       },
     );
     delivered = sent.ok;

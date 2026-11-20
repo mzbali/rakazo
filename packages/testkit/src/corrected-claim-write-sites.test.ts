@@ -59,6 +59,7 @@ const CALLERS: Record<string, string> = {
   "apps/api/src/routes/bots.ts": "checked: app create; duplicate copies saved text (exempt)",
   "packages/db/src/messaging/messaging.ts":
     "exempt: a fixed built-in instruction for the first messaging bot",
+  "apps/api/src/account/first-bot.ts": "exempt: the first-run Chief, created with no instructions",
   "apps/api/src/bots/agent-import-services.ts":
     "checked in createImportedBot for imports; templates are scanned below",
 };

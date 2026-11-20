@@ -8,11 +8,10 @@ import {
   THREAD_LOCK_TRANSACTION_OPTIONS,
 } from "@rakazo/db";
 import { bestEffort, getLogger } from "@rakazo/logging";
-import { messageBot } from "../messaging/bot-messages.js";
 import { runLeaseFor } from "../runs/assembly/run-messages.js";
 import type { ExecutorDeps } from "../runs/executor/executor-deps.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
-import { goalDrivesAgent, missingGoalEvidence, SCOPED_GOAL_NONCE } from "../scoped-goal-service.js";
+import { goalDrivesAgent, SCOPED_GOAL_NONCE } from "../scoped-goal-service.js";
 import { keepsBotIdentity } from "./cloud-agent-correction.js";
 import type {
   CloudAgentActor,
@@ -21,13 +20,8 @@ import type {
 } from "./cloud-agent-factory.js";
 import { cloudAgentsEnabled, USER_CLOUD_AGENT_KEY_PREFIX } from "./cloud-agent-factory.js";
 import { attentionRecords } from "./cloud-agent-followup.js";
-import { attentionIds, createCloudAgentWake, repaintCloudAgentCard } from "./cloud-agent-poll.js";
-import {
-  CLOUD_AGENT_REPORT_USAGE,
-  cloudAgentLaunchSchema,
-  cloudAgentReplySchema,
-  cloudAgentReportSchema,
-} from "./cloud-agent-tools.js";
+import { attentionIds, createCloudAgentWake } from "./cloud-agent-poll.js";
+import { cloudAgentLaunchSchema, cloudAgentReplySchema } from "./cloud-agent-tools.js";
 import { cloudAgentWakeNonceWhere, lockCloudAgentWakeThread } from "./cloud-agent-wake-lock.js";
 import { cloudAgentBlock } from "./jobs/cloud-agent-card.js";
 import {
@@ -39,7 +33,6 @@ import type { CloudAgentProofDeps } from "./jobs/cloud-agent-proof.js";
 import { failedStartRecovery } from "./jobs/cloud-agent-recovery.prompt.js";
 import type { RejectedLaunch } from "./jobs/cloud-agent-replacement.js";
 import { replacedAttempt, takeOverCloudAgentCard } from "./jobs/cloud-agent-replacement.js";
-import { settleAcceptedCloudAgent } from "./jobs/cloud-agent-settle.js";
 import {
   attentionWakePrompt,
   cloudAgentWakeNonces,
@@ -315,13 +308,20 @@ function followupBriefOf(text: unknown) {
     : null;
 }
 
-/** The request being corrected with the correction after it, so the next judgement sees both. */
+/** The correction first, so a helper that sees only the start still judges by it, then the request it corrects. */
 export function correctedBrief(agent: CloudAgent, correction: string) {
-  const suffix = `\n\nCorrection: ${correction}`.slice(0, MAX_LAUNCH_BRIEF);
-  const previous = agent.followupBrief ?? agent.launchBrief ?? "";
+  const previous = agent.followupBrief ?? agent.launchBrief;
   return followupBriefOf(
-    `${previous.slice(0, MAX_LAUNCH_BRIEF - suffix.length)}${suffix}`.trimStart(),
+    `${correctionLead(correction)}${previous ? `\n\nCorrected request: ${previous}` : ""}`.slice(
+      0,
+      MAX_LAUNCH_BRIEF,
+    ),
   );
+}
+
+/** How a corrected brief starts, bounded like the brief, so a replay can find its correction. */
+export function correctionLead(correction: string) {
+  return `Correction: ${correction}`.slice(0, MAX_LAUNCH_BRIEF);
 }
 
 /** The same, inside a transaction that records something else with it. */

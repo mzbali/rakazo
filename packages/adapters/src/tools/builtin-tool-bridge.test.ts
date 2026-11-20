@@ -3,7 +3,7 @@ import {
   BUILTIN_AGENT_TOOL_NAMES,
   selectBuiltinToolsForRun,
 } from "../runs/tools/run-tool-selection.js";
-import { describeToolActivity } from "../runtime/pi/tools/pi-runtime-tools.js";
+import { describeToolActivity } from "../runtime/pi/tools/pi-tool-activity.js";
 import { builtinAgentTools, FIND_TOOL, USE_TOOL } from "./builtin.tool-definition.js";
 import { CORE_BUILTIN_TOOL_NAMES, findTools, partitionTools } from "./builtin-tool-bridge.js";
 

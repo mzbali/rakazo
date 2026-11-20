@@ -1,11 +1,7 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import {
-  agentToolDefinitions,
-  connectorStepNames,
-  describeToolActivity,
-  redactAskUserDetailInMessage,
-} from "./tools/pi-runtime-tools.js";
+import { agentToolDefinitions, redactAskUserDetailInMessage } from "./tools/pi-runtime-tools.js";
+import { connectorStepNames, describeToolActivity } from "./tools/pi-tool-activity.js";
 
 describe("connector tool labels", () => {
   const search: ConnectorTool = {

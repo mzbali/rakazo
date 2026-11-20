@@ -41,6 +41,14 @@ export function plainTextFromMarkdown(
   const source = boundedPreviewSource(markdown, maxSource);
   let text = plainEmbedReferences(source.text).replaceAll(PAYLOAD_MARK, markToken);
   text = takeFencedCode(text, stash, source.truncated);
+  // Recognize the closing marker before inline formatting changes the line.
+  text = text.replace(
+    /(^|\n)( {0,3}#{1,6}(?=[ \t])[^\n]*?)[ \t]#+[ \t]*(?=\n|$)/g,
+    (marker, lineStart: string, heading: string, index: number) =>
+      source.truncated && index + marker.length === text.length
+        ? marker
+        : `${lineStart}${heading} `,
+  );
   text = takeInlineCode(text, stash);
   text = takeMath(text, stash);
   text = takeEscapes(text, stash);

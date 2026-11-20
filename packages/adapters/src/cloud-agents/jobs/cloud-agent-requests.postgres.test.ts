@@ -21,13 +21,13 @@ import { createCloudAgentWake, pollCloudAgent, UNREACHABLE_AFTER_MS } from "../c
 import {
   executeCloudAgentTool,
   reconcileCloudAgents,
-  reportCloudAgent,
   trackDirectCloudAgent,
 } from "../cloud-agent-service.js";
 import { CLOUD_AGENT_REPORT_USAGE } from "../cloud-agent-tools.js";
 import { T3CloudAgentProvider } from "../t3/t3-cloud-agent.js";
 import { T3ThreadEventsEmulator, t3EmulatedProvider } from "../t3/t3-cloud-agent.test-support.js";
 import { QUOTA_POLL_MARGIN_MS } from "./cloud-agent-quota.js";
+import { reportCloudAgent } from "./cloud-agent-report.js";
 import { cancelStaleCloudAgentWake, cloudAgentWakeNonces } from "./cloud-agent-wake-start.js";
 
 const describePostgres =
@@ -1229,7 +1229,6 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
           id,
           verdict: "rejected",
           summary: "Changed my mind",
-          ownerQuestion: "Try again?",
         }),
       ),
     ).toEqual({ error: "Already reported accepted for this work." });
@@ -1252,7 +1251,7 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
             id,
             verdict,
             summary: "Looked at it",
-            ...(verdict === "accepted" ? {} : { ownerQuestion: "Try again?" }),
+            ...(verdict === "needs_owner" ? { ownerQuestion: "Provide the login?" } : {}),
           }),
         );
       return { t, id, report };
@@ -1292,34 +1291,137 @@ describePostgres("tracked cloud agent requests (PostgreSQL)", () => {
     });
   });
 
-  it("refuses a verdict other than accepted without an owner question, and passes it on with one", async () => {
+  it("takes an owner question only for needs_owner, and passes it on", async () => {
     const t = await setup();
     const id = await t.launch(1, { botId: t.asker.id, messageId: "message:ask" });
     await t.poll(id);
     (await t.remote(id)).status = "finished";
     await t.poll(id);
-    const report = (extra: Record<string, unknown>) =>
+    const report = (verdict: string, extra: Record<string, unknown>) =>
       runAsSystem("tool", () =>
         reportCloudAgent(t.deps as never, t.context, t.run, {
           id,
-          verdict: "rejected",
+          verdict,
           summary: "The app is already gone",
           ...extra,
         }),
       );
-    for (const extra of [{}, { ownerQuestion: "  " }])
-      expect(await report(extra)).toEqual({ error: CLOUD_AGENT_REPORT_USAGE });
+    for (const [verdict, extra] of [
+      ["needs_owner", {}],
+      ["needs_owner", { ownerQuestion: "  " }],
+      ["rejected", { ownerQuestion: "Send it back?" }],
+      ["accepted", { ownerQuestion: "Deploy it?" }],
+    ] as const)
+      expect(await report(verdict, extra)).toEqual({ error: CLOUD_AGENT_REPORT_USAGE });
     expect((await t.state(id)).verdict).toBeNull();
-    const question = "Clear Homebrew's record and install it with default settings? (recommended)";
-    expect(await report({ ownerQuestion: question })).toMatchObject({
-      verdict: "rejected",
+    const question = "Provide the login it needs? (recommended)";
+    expect(await report("needs_owner", { ownerQuestion: question })).toMatchObject({
+      verdict: "needs_owner",
       ownerQuestion: question,
     });
-    expect((await t.state(id)).verdict).toBe("rejected");
+    expect((await t.state(id)).verdict).toBe("needs_owner");
     const received = await asSystem(prisma).message.findMany({
       where: { thread: { botId: t.asker.id }, clientNonce: { startsWith: "bot-message:" } },
     });
     expect(JSON.stringify(received.map((message) => message.blocks))).toContain(question);
+  });
+
+  describe("a rejection with a correction", () => {
+    async function finished(t: Awaited<ReturnType<typeof setup>>, n: number) {
+      const id = await t.launch(n);
+      await t.poll(id);
+      (await t.remote(id)).status = "finished";
+      await t.poll(id);
+      return id;
+    }
+    const reject = (
+      t: Awaited<ReturnType<typeof setup>>,
+      id: string,
+      extra: Record<string, unknown> = {},
+    ) =>
+      runAsSystem("tool", () =>
+        reportCloudAgent(t.deps as never, t.context, t.run, {
+          id,
+          verdict: "rejected",
+          summary: "The pill is cut off",
+          ...extra,
+        }),
+      );
+
+    it("sends the work back once and shows no owner question", async () => {
+      const t = await setup();
+      const id = await finished(t, 1);
+      const before = await t.state(id);
+      expect(await reject(t, id, { correction: "Fix the pill and reshoot." })).toMatchObject({
+        verdict: "rejected",
+        sentBack: true,
+      });
+      const sent = await t.state(id);
+      expect(sent).toMatchObject({
+        status: "running",
+        verdict: null,
+        ownerQuestion: null,
+        verdictSummary: "The pill is cut off",
+        corrections: 1,
+        generation: before.generation + 1,
+        followup: { prompt: "Fix the pill and reshoot." },
+      });
+      // A replay finds the work running again and queues nothing more.
+      expect(await reject(t, id, { correction: "Fix the pill and reshoot." })).toEqual({
+        error: "Report once the cloud agent has finished.",
+      });
+      expect((await t.state(id)).generation).toBe(before.generation + 1);
+      expect((await t.state(id)).corrections).toBe(1);
+    });
+
+    it("refuses a third correction in a row, and starts the count again after other new work", async () => {
+      const t = await setup();
+      const id = await finished(t, 1);
+      for (const round of [1, 2]) {
+        expect(await reject(t, id, { correction: `Round ${round}` })).toMatchObject({
+          sentBack: true,
+        });
+        await t.poll(id);
+        (await t.remote(id)).status = "finished";
+        await t.poll(id);
+      }
+      expect((await t.state(id)).corrections).toBe(2);
+      const refused = await reject(t, id, { correction: "Round 3" });
+      expect(refused).toMatchObject({ error: expect.stringContaining("sent back 2 times") });
+      expect(await t.state(id)).toMatchObject({ verdict: null, status: "finished" });
+      // Stopping is still possible, and leaves no owner question.
+      expect(await reject(t, id)).toMatchObject({ verdict: "rejected" });
+      expect(await t.state(id)).toMatchObject({ verdict: "rejected", ownerQuestion: null });
+      // Another follow-up is new work and starts the count from nothing.
+      await runAsSystem("tool", () =>
+        executeCloudAgentTool(
+          t.deps as never,
+          { ...t.context, operationId: randomUUID() },
+          t.run,
+          "cloud_agent_reply",
+          { id, prompt: "Try something else." },
+        ),
+      );
+      expect((await t.state(id)).corrections).toBe(0);
+    });
+
+    it("refuses a correction the work cannot take, and a plain rejection stops there", async () => {
+      const t = await setup();
+      const id = await finished(t, 1);
+      await prisma.cloudAgent.update({ where: { id }, data: { cancelRequested: true } });
+      expect(await reject(t, id, { correction: "Fix it." })).toMatchObject({
+        error: expect.stringContaining("cannot be sent back"),
+      });
+      expect((await t.state(id)).verdict).toBeNull();
+      await prisma.cloudAgent.update({ where: { id }, data: { cancelRequested: false } });
+      expect(await reject(t, id)).toMatchObject({ verdict: "rejected" });
+      expect(await t.state(id)).toMatchObject({
+        status: "finished",
+        verdict: "rejected",
+        ownerQuestion: null,
+        corrections: 0,
+      });
+    });
   });
 
   describe("a usage-limit pause", () => {

@@ -11,11 +11,8 @@ import { returnHelperOutcome } from "../../tasks/background-helpers.js";
 import { CursorCloudAgentEmulator } from "../cloud-agent-emulator.js";
 import type { CloudAgentConnection } from "../cloud-agent-factory.js";
 import { pollCloudAgent } from "../cloud-agent-poll.js";
-import {
-  cloudAgentStatusResult,
-  executeCloudAgentTool,
-  reportCloudAgent,
-} from "../cloud-agent-service.js";
+import { cloudAgentStatusResult, executeCloudAgentTool } from "../cloud-agent-service.js";
+import { reportCloudAgent } from "./cloud-agent-report.js";
 
 const describePostgres =
   process.env.VERIFY_DATABASE && process.env.DATABASE_URL ? describe : describe.skip;

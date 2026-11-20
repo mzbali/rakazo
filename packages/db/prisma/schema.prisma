@@ -1488,8 +1488,10 @@ model CloudAgent {
   quotaContinuedFor   DateTime?
   /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
   followupBrief       String?
-  /// What the owner has to decide after a verdict other than accepted; cleared when new work starts.
+  /// What only the owner can decide, after a needs_owner verdict; cleared when new work starts.
   ownerQuestion       String?
+  /// Rejections sent back with a correction in a row; any other follow-up starts again from 0.
+  corrections         Int      @default(0)
   /// The provider's open question as JSON ({ requestId, text?, options }), for the card's answer buttons; cleared once it closes.
   questionPrompt      String?
   /// What the owner answered from the card, shown once while the job goes on.

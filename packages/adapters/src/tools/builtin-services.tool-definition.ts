@@ -282,7 +282,7 @@ export const serviceTools: ConnectorTool[] = [
   {
     name: "cloud_agent_report",
     description:
-      "Record your verdict on a finished cloud agent against its acceptance; finishing is not acceptance. Tells the bot that asked for it.",
+      "Record your verdict on a finished cloud agent against its acceptance. rejected with a correction sends the work back; without one it stops. needs_owner only for what the owner alone can supply or decide.",
     inputSchema: {
       type: "object",
       properties: {
@@ -291,8 +291,11 @@ export const serviceTools: ConnectorTool[] = [
         summary: { type: "string", description: "What was checked and the result." },
         ownerQuestion: {
           type: "string",
-          description:
-            "Required unless accepted: a short decision for the owner, with your recommendation and the options where sensible.",
+          description: "needs_owner only: the decision, with your recommendation.",
+        },
+        correction: {
+          type: "string",
+          description: "rejected only: what is wrong and what to do; sent back to the agent.",
         },
       },
       required: ["id", "verdict", "summary"],

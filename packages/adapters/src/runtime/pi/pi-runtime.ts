@@ -109,13 +109,13 @@ import type { ToolCallBudget, ToolHost } from "./tools/pi-runtime-tools.js";
 import {
   agentToolDefinitions,
   createQueue,
-  describeToolActivity,
   redactAskUserDetailInMessage,
   releaseToolCallBudget,
   toAgentTools,
   toolCallBudgetExceededMessage,
   toolCallBudgetFor,
 } from "./tools/pi-runtime-tools.js";
+import { describeToolActivity } from "./tools/pi-tool-activity.js";
 import { withPiTelemetry } from "./usage/pi-telemetry.js";
 import { observedPiStream } from "./usage/pi-usage.js";
 

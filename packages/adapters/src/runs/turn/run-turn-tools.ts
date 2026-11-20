@@ -4,7 +4,7 @@ import { getLogger } from "@rakazo/logging";
 import { isToolPauseResult } from "../../approvals/approval-effect.js";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
 import { clearRoutineBackoff } from "../../routines/routine-backoff.js";
-import { connectorStepNames } from "../../runtime/pi/tools/pi-runtime-tools.js";
+import { connectorStepNames } from "../../runtime/pi/tools/pi-tool-activity.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { publishMessage, redactBlocks } from "../assembly/run-messages.js";
 import {

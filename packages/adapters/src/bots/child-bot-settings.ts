@@ -157,6 +157,8 @@ export async function prepareChildBotUpdate(
     lines.push(`Notify when done: ${onOff(patch.notifyOnFinish)}`);
   if (patch.dailyCheckIns !== undefined)
     lines.push(`Daily check-ins: ${onOff(patch.dailyCheckIns)}`);
+  if (patch.pinnedTools !== undefined)
+    lines.push(`Pinned tools: ${patch.pinnedTools.join(", ") || "none"}`);
   if (color !== undefined) lines.push(`Avatar: ${color}`);
   if (settings.autoSpeak !== undefined) lines.push(`Read aloud: ${onOff(settings.autoSpeak)}`);
   if (settings.voiceId !== undefined) {
@@ -197,6 +199,7 @@ export async function prepareChildBotUpdate(
       ...(patch.description !== undefined ? { description: patch.description } : {}),
       ...(patch.notifyOnFinish !== undefined ? { notifyOnFinish: patch.notifyOnFinish } : {}),
       ...(patch.dailyCheckIns !== undefined ? { dailyCheckIns: patch.dailyCheckIns } : {}),
+      ...(patch.pinnedTools !== undefined ? { pinnedTools: patch.pinnedTools } : {}),
       ...(color !== undefined ? { color } : {}),
       ...(changesSettings ? { settings } : {}),
     },

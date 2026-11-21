@@ -116,6 +116,21 @@ describe("prepareChildBotUpdate", () => {
     });
   });
 
+  it("keeps pinned tools sent beside a setting in the approved request", async () => {
+    expect(await prepare({ pinnedTools: ["web_search"], replyMode: "messages" })).toEqual({
+      ok: true,
+      canonical: {
+        bot_id: "bot-child",
+        pinnedTools: ["web_search"],
+        settings: { replyMode: "messages" },
+      },
+      summary: {
+        title: "Change Child’s settings?",
+        lines: ["Pinned tools: web_search", "Replies: only messages it sends"],
+      },
+    });
+  });
+
   it("shows team chat rules last, under their own heading", async () => {
     expect(
       await prepare({ teamChatRules: "Be brief\nTurn off: web_fetch", replyMode: "messages" }),

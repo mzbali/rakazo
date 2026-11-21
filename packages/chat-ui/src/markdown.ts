@@ -347,6 +347,14 @@ export function appLinkMatches(text: string): { index: number; lastIndex: number
   );
 }
 
+function decodedUrl(value: string): string {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * The app a link opens, when its label is just its address: it then reads "Open in {name}"
  * instead, so a long app address never shows, or wraps, as text. An author's label stays.

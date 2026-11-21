@@ -1,3 +1,4 @@
+import { linkLabel } from "@rakazo/contracts";
 import type { ColorTokens } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useCallback, useContext } from "react";
@@ -6,7 +7,6 @@ import { Alert, Image, Linking, Text, View } from "react-native";
 import {
   bareAppLinkName,
   LinkFaviconsContext,
-  linkLabel,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
   sanitizeMarkdownUrl,

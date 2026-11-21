@@ -9,8 +9,8 @@ const SURFACES = [
   "apps/mobile/components/job-status.tsx",
   "apps/mobile/components/job-row.tsx",
   "apps/mobile/components/thread/cloud-agent-card.tsx",
-  "apps/mobile/app/job.tsx",
-  "apps/mobile/app/jobs.tsx",
+  "apps/mobile/app/(jobs)/job.tsx",
+  "apps/mobile/app/(jobs)/jobs.tsx",
   "apps/web/src/components/messages/CloudAgentCard.tsx",
 ];
 

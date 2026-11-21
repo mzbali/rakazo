@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import type { MessageBlock } from "@rakazo/contracts";
+import type { MessageBlock, PageSectionAnchor } from "@rakazo/contracts";
 import { PAGE_RUNTIME_PATH, pageReply, pageReplyText, pageViewerDocument } from "@rakazo/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -74,6 +74,8 @@ export function usePageDocument(
   inline?: "card" | "full",
   /** A preview drawn scaled into a card, with no scrollbar. */
   still = false,
+  review = false,
+  reviewAnchor?: PageSectionAnchor,
 ): { document: string | null; failed: boolean; retry: () => void } {
   const { t, i18n } = useLingui();
   const theme = useAppTheme();
@@ -96,6 +98,9 @@ export function usePageDocument(
             touch,
             reply,
             bottomInset,
+            review,
+            reviewAnchor: reviewAnchor?.section,
+            reviewAnchorOccurrence: reviewAnchor?.sectionOccurrence,
             lang: i18n.locale,
             inline,
             still,
@@ -112,6 +117,9 @@ export function usePageDocument(
       i18n.locale,
       inline,
       still,
+      review,
+      reviewAnchor,
+      i18n.locale,
     ],
   );
   const { refetch } = runtime;

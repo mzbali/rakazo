@@ -1,5 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import type { LoginFieldInput, MessageReaction } from "@rakazo/contracts";
+import { messageTextFits, THREAD_MESSAGE_TEXT_MAX_LENGTH } from "@rakazo/contracts";
 import type { SlashActionId } from "@rakazo/core";
 import {
   applyThreadSendReceipt,
@@ -20,6 +21,7 @@ import { errorText } from "../../api/user-error";
 import { findSwitchTarget } from "../../calls/bot-switch";
 import { subscribeComposerOffer } from "../../composer/composer-offer";
 import { jobReplyTarget } from "../../job-reply";
+import { dateLocaleForUi } from "../../i18n/i18n";
 import { hapticImpact, hapticSuccess } from "../../native/haptics";
 import { chatSettingsRoute } from "../../navigation/chat-settings-route";
 import { cancelFocusPrompt } from "../../notifications/focus-prompt";
@@ -224,6 +226,11 @@ export function useThreadSend({
       plan.shouldSend && !reroutedToGroup
         ? pageReply(plan.trimmed, messages, replyPage.current, replyTarget?.id)
         : { text: plan.trimmed };
+    if (plan.shouldSend && !messageTextFits(fromPage.text)) {
+      const limit = new Intl.NumberFormat(dateLocaleForUi()).format(THREAD_MESSAGE_TEXT_MAX_LENGTH);
+      Alert.alert(t`Failed to send message`, t`Messages can be up to ${limit} characters.`);
+      return;
+    }
     const pageCard = messages.find((message) => message.id === fromPage.replyToMessageId);
     let attempt: SendAttempt;
     try {

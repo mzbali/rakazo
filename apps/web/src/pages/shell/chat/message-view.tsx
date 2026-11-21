@@ -106,6 +106,7 @@ export const MessageView = memo(function MessageView({
   onOpenBot,
   onOpenPeerMessages,
   peerExchange,
+  hideSenderLabel,
   speakerName,
   memberName,
   peerBot,
@@ -152,6 +153,7 @@ export const MessageView = memo(function MessageView({
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   /** The adjacent receipts represented by this peer line. */
   peerExchange?: PeerExchange;
+  hideSenderLabel?: boolean;
   speakerName?: string;
   memberName?: (botId: string | undefined) => string | undefined;
   peerBot: (
@@ -241,7 +243,7 @@ export const MessageView = memo(function MessageView({
   );
   const messageContext = (
     <>
-      {speakerName ? (
+      {hideSenderLabel ? null : speakerName ? (
         <div
           className="mb-1.5 flex items-center gap-2 text-body-sm font-semibold tracking-tight"
           dir="auto"
@@ -290,6 +292,7 @@ export const MessageView = memo(function MessageView({
     <MessageHoverActions
       message={message}
       side={message.role === "user" ? "start" : "end"}
+      speakerName={speakerName ?? author?.name}
       onReply={onReply}
       onMarkUnread={onMarkUnread}
       markedUnread={markedUnread}

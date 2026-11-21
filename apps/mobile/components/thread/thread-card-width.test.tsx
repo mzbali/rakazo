@@ -105,12 +105,15 @@ vi.mock("../../lib/native/native", () => ({
   useResolvedAppearance: () => "light",
 }));
 
+const linkConfirm = vi.hoisted(() => vi.fn());
+
 vi.mock("@rakazo/chat-ui/native", () => ({
   allowedAppLink: (url: string) => (url.startsWith("t3code://threads/") ? url : undefined),
   AppLinkPill: ({ href }: { href: string }) => <a href={href}>app link pill</a>,
   MarkdownLongPressContext: createContext(undefined),
   ChatMarkdown: ({ children }: { children: string }) => <p>{children}</p>,
   withBlockMentions: <T,>(blocks: T) => blocks,
+  useNativeLinkConfirm: () => linkConfirm,
 }));
 
 vi.mock("../messages/message-caption", () => ({

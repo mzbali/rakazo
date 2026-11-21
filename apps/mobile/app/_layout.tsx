@@ -560,6 +560,8 @@ function LayoutContent() {
                       <Stack.Screen name="artifacts" options={glassHeaderOptions(t`Artifacts`)} />
                       <Stack.Screen name="artifact" options={{ title: t`Artifact` }} />
                       <Stack.Screen name="pages" options={glassHeaderOptions(t`Pages`)} />
+                      <Stack.Screen name="shared-pages" />
+                      <Stack.Screen name="page-review" options={glassHeaderOptions(t`Page`)} />
                       <Stack.Screen
                         name="page"
                         options={{
@@ -574,7 +576,7 @@ function LayoutContent() {
                       <Stack.Screen
                         name="page-share"
                         options={{
-                          headerShown: false,
+                          title: t`Share`,
                           presentation: "formSheet",
                           sheetAllowedDetents: [0.6, 1],
                           sheetGrabberVisible: true,
@@ -641,9 +643,9 @@ function LayoutContent() {
                         name="routine-runs"
                         options={glassHeaderOptions(t`Run history`)}
                       />
-                      <Stack.Screen name="jobs" options={glassHeaderOptions(t`Jobs`)} />
+                      <Stack.Screen name="(jobs)/jobs" options={glassHeaderOptions(t`Jobs`)} />
                       <Stack.Screen
-                        name="job"
+                        name="(jobs)/job"
                         options={{
                           headerShown: false,
                           presentation: Platform.OS === "ios" ? "formSheet" : "card",
@@ -653,7 +655,7 @@ function LayoutContent() {
                         }}
                       />
                       <Stack.Screen
-                        name="thread-jobs"
+                        name="(jobs)/thread-jobs"
                         options={{
                           headerShown: false,
                           presentation: Platform.OS === "ios" ? "formSheet" : "card",

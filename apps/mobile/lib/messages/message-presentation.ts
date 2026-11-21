@@ -51,6 +51,38 @@ export function messagePresentationSegments(
   return content.length > 0 ? [{ kind: "content", blocks: content }] : [];
 }
 
+/**
+ * Keep standalone cards between the contiguous bubble content around them. `joinsPrevious` lets
+ * a standalone card share a piece with the standalone card before it.
+ */
+export function splitMessageBlocks(
+  blocks: MessageBlock[],
+  isStandalone: (block: MessageBlock) => boolean,
+  joinsPrevious?: (block: MessageBlock, previous: MessageBlock) => boolean,
+): MessageBlock[][] {
+  if (!blocks.some(isStandalone)) return [blocks];
+  const pieces: MessageBlock[][] = [];
+  for (const block of blocks) {
+    const previous = pieces.at(-1);
+    if (previous && joinsPrevious?.(block, previous[0]!)) {
+      previous.push(block);
+    } else if (isStandalone(block) || !previous || isStandalone(previous[0]!)) {
+      pieces.push([block]);
+    } else {
+      previous.push(block);
+    }
+  }
+  return pieces;
+}
+
+export function hasMessageSenderContent(blocks: readonly MessageBlock[]): boolean {
+  if (blocks.some((block) => block.kind === "ask") || isCenteredAgentEvent(blocks)) return false;
+  if (blocks.every((block) => block.kind === "app_connect" || block.kind === "mcp_approval")) {
+    return false;
+  }
+  return messagePresentationSegments(blocks).length > 0;
+}
+
 export function hasVisibleMessagePresentation(blocks: readonly MessageBlock[]): boolean {
   return blocks.some(
     (block) =>

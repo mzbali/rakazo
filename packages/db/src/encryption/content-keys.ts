@@ -163,7 +163,8 @@ export type SpaceSource =
   | "cloud_agents"
   | "scoped_goals"
   | "scoped_goal_transitions"
-  | "meeting_sessions";
+  | "meeting_sessions"
+  | "native_calendar_requests";
 
 export interface SpaceKeyStore {
   forSpace(spaceId: string): Promise<SpaceKeyRecord[]>;
@@ -197,6 +198,7 @@ export const ROW_OWNER: Record<SpaceSource, string> = {
   scoped_goals: "userId",
   scoped_goal_transitions: "userId",
   meeting_sessions: "userId",
+  native_calendar_requests: "userId",
 };
 
 export interface Queryable {
@@ -221,6 +223,7 @@ const ROW_CONTEXT: Record<SpaceSource, string> = {
   memory_documents: `SELECT "spaceId", "userId" AS owner FROM memory_documents WHERE id = $1`,
   messages: `SELECT t."spaceId", m."threadId" AS owner FROM messages m JOIN threads t ON t.id = m."threadId" WHERE m.id = $1`,
   memory_revisions: `SELECT d."spaceId", r."documentId" AS owner FROM memory_revisions r JOIN memory_documents d ON d.id = r."documentId" WHERE r.id = $1`,
+  native_calendar_requests: `SELECT "spaceId", "userId" AS owner FROM native_calendar_requests WHERE id = $1`,
   meeting_sessions: `SELECT "spaceId", "userId" AS owner FROM meeting_sessions WHERE id = $1`,
   bot_email_messages: `SELECT "spaceId", "botId" AS owner FROM bot_email_messages WHERE id = $1`,
 };
@@ -302,10 +305,11 @@ class TtlCache<V> {
     private readonly ttlMs: number,
     private readonly max: number,
   ) {}
-  get(key: string): V | undefined {
+  /** The value, unless it expires within `freshForMs`. */
+  get(key: string, freshForMs = 0): V | undefined {
     const entry = this.entries.get(key);
     if (!entry) return;
-    if (entry.expires <= Date.now()) {
+    if (entry.expires <= Date.now() + freshForMs) {
       this.entries.delete(key);
       return;
     }
@@ -367,8 +371,8 @@ export class ContentKeyRing {
     return promise;
   }
 
-  private async unwrap(record: SpaceKeyRecord): Promise<DataKey> {
-    const cached = this.keys.get(record.id);
+  private async unwrap(record: SpaceKeyRecord, freshForMs = 0): Promise<DataKey> {
+    const cached = this.keys.get(record.id, freshForMs);
     if (cached) return cached;
     const key: DataKey = {
       id: record.id,
@@ -378,6 +382,22 @@ export class ContentKeyRing {
     };
     this.keys.set(record.id, key);
     return key;
+  }
+
+  /**
+   * Loads a space's keys so they stay in memory at least `freshForMs` longer, reloading them when
+   * they would expire sooner. The keys in memory stay usable until their replacements are in.
+   */
+  async preload(spaceId: string, freshForMs: number): Promise<void> {
+    const cached = this.versions.get(spaceId, freshForMs);
+    if (cached?.every((key) => this.keys.get(key.id, freshForMs))) return;
+    await this.once(`preload:${spaceId}`, async () => {
+      const records = await this.store.forSpace(spaceId);
+      const keys = await Promise.all(records.map((record) => this.unwrap(record, freshForMs)));
+      // A rotation that finished meanwhile cached a newer version; keep it.
+      const newest = this.versions.get(spaceId)?.at(-1)?.version ?? 0;
+      if (keys.length && keys.at(-1)!.version >= newest) this.versions.set(spaceId, keys);
+    });
   }
 
   /** Every key version of a space, oldest first. Empty when the space has none yet. */

@@ -105,12 +105,15 @@ vi.mock("../../lib/native/native", () => ({
   useResolvedAppearance: () => "light",
 }));
 
+const linkConfirm = vi.hoisted(() => vi.fn());
+
 vi.mock("@rakazo/chat-ui/native", () => ({
   allowedAppLink: (url: string) => (url.startsWith("t3code://threads/") ? url : undefined),
   AppLinkPill: ({ href }: { href: string }) => <a href={href}>app link pill</a>,
   MarkdownLongPressContext: createContext(undefined),
   ChatMarkdown: ({ children }: { children: string }) => <p>{children}</p>,
   withBlockMentions: <T,>(blocks: T) => blocks,
+  useNativeLinkConfirm: () => linkConfirm,
 }));
 
 vi.mock("../messages/message-caption", () => ({
@@ -458,7 +461,7 @@ describe("thread cards", () => {
     act(() => buttons[0]!.click());
     expect(Linking.openURL).toHaveBeenCalledWith("https://example.test/task");
     act(() => buttons[1]!.click());
-    expect(Linking.openURL).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
+    expect(linkConfirm).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
     expect(container.textContent).toContain("PR #12");
     expect(container.textContent).not.toContain("Checks unknown");
   });

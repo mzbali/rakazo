@@ -1,5 +1,6 @@
 import { useExternalLinkOpener } from "@rakazo/chat-ui/web";
-import { pageCopyRequest, pageCopyResult, pageLinkRequest } from "@rakazo/core";
+import type { PageSectionAnchor } from "@rakazo/contracts";
+import { pageCopyRequest, pageCopyResult, pageLinkRequest, pageReviewSections } from "@rakazo/core";
 import type { CSSProperties } from "react";
 import { useCallback, useRef, useState } from "react";
 import { writeClipboard } from "../../lib/copy-text";
@@ -21,6 +22,7 @@ export function PageFrame({
   onHeight,
   onReply,
   portalContainer,
+  onSections,
 }: {
   portalContainer?: HTMLElement | null;
   document: string;
@@ -29,6 +31,7 @@ export function PageFrame({
   onHeight?: (height: number) => void;
   /** Where a page's reply button puts its text; without it the page offers no replies. */
   onReply?: (text: unknown) => void;
+  onSections?: (sections: PageSectionAnchor[]) => void;
 }) {
   const { open, dialog } = useExternalLinkOpener(portalContainer);
   const box = useRef<HTMLDivElement>(null);
@@ -54,6 +57,8 @@ export function PageFrame({
         onHeight?.(height);
         return;
       }
+      const sections = onSections && pageReviewSections(data);
+      if (sections) onSections(sections);
       const { gesture } = message;
       if (!interactive || !focused || typeof gesture !== "string") return;
       if (gesture === usedGesture.current) return;
@@ -66,7 +71,7 @@ export function PageFrame({
       else if (url) open(url);
       else if (reply) reply(message.text);
     },
-    [interactive, onHeight, onReply, open],
+    [interactive, onHeight, onReply, onSections, open],
   );
   return (
     <>

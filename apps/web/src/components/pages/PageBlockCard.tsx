@@ -39,7 +39,7 @@ export function PageBlockCard({
     }
   }, [updated, currentVersion, block.version, block.pageId, queries, queryClient]);
   const shown = updated ? saved.data : current.data;
-  const viewer = usePageDocument(shown?.code, "card", false, 0, undefined, true);
+  const viewer = usePageDocument(shown?.code, "card", false, 0, { still: true });
   const deleted = errorCode(current.error) === "NOT_FOUND";
   const unread = shown === undefined && (updated ? saved.isError : current.isError);
   return (
@@ -49,7 +49,7 @@ export function PageBlockCard({
       failed={viewer.failed || unread}
       updated={updated}
       updatedAt={current.data?.updatedAt}
-      shared={current.data?.visibility === "link"}
+      visibility={current.data?.visibility}
       onOpen={
         deleted
           ? undefined

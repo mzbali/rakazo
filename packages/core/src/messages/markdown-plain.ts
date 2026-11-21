@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@rakazo/contracts";
 import { plainEmbedReferences } from "./embed-references.js";
 import { createMathScanner } from "./math-delimiters.js";
 
@@ -64,10 +65,19 @@ export function plainTextFromMarkdown(
   // it can see them: a marked line interrupts the table instead of becoming a
   // phantom row, while its stripped text still previews. Runs before the
   // emphasis strips so "| **a** |" still reads "a".
+  // Emphasis needs CommonMark flanking: the opener is followed by a non-space
+  // and the closer is preceded by one, so `2 * y * 3` and `2 ** 3 ** 4` keep
+  // their operators. A preview that is only an empty marker pair stays empty.
   text = flattenTableRows(text)
-    .replace(/(\*\*)(.*?)\1/g, "$2")
-    .replace(/(\*)([^*\n]+)\1/g, "$2")
+    .replace(/^\s*(?:\*\*[ \t]*\*\*|\*[ \t]+\*)\s*$/, "")
+    .replace(/(\*\*)(?=\S)(.*?\S)\1/g, "$2")
+    .replace(/(\*)(?=\S)([^*\n]*[^*\s])\1/g, "$2")
     .replace(/~~(.*?)~~/g, "$1");
+  // Entities decode last, outside stashed code, so `&amp;` in code stays literal.
+  // A decoded private-use mark becomes a literal-mark payload, never a token.
+  text = text.replace(/[^\uE000]+/g, (part) =>
+    decodeHtmlEntities(part).replaceAll(PAYLOAD_MARK, markToken),
+  );
   return restore(text).replace(/\s+/g, " ").trim();
 }
 
@@ -90,8 +100,8 @@ function stripLineMarker(line: string): string {
   const stripped = line
     .replace(/^\s{0,3}#{1,6}\s+/, "")
     .replace(/^\s*>\s?/, "")
-    .replace(/^\s*[-*+]\s+/, "")
-    .replace(/^\s*\d+[.)]\s+/, "");
+    .replace(/^\s*[-*+]\s+(?:\[[ xX]\](?:\s+|$))?/, "")
+    .replace(/^\s*\d+[.)]\s+(?:\[[ xX]\](?:\s+|$))?/, "");
   return /^\s*[-*_]{3,}\s*$/.test(stripped) ? "" : stripped;
 }
 

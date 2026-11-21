@@ -38,6 +38,7 @@ import { useSplitView } from "../../lib/layout/split-view";
 import { useThemedStyles } from "../../lib/native/native";
 import { NewestPageCards } from "../../lib/pages/page-card";
 import { useChatOnScreen } from "../../lib/pages/page-card-detail";
+import { useDeviceCalendar } from "../../lib/personal-calendar/use-device-calendar";
 import { useAppForeground } from "../../lib/platform/app-foreground";
 import { rpcQuery } from "../../lib/query/query";
 import { useScreenQuery } from "../../lib/query/screen-query";
@@ -49,6 +50,7 @@ import {
   threadHeaderClearance,
   threadHeaderFloats,
 } from "../../lib/thread/scroll/thread-edges";
+import { useThreadKeyboard } from "../../lib/thread/scroll/thread-keyboard";
 import { threadKeyboardAvoidance } from "../../lib/thread/scroll/thread-keyboard-offset";
 import { useThreadListScroll } from "../../lib/thread/scroll/thread-list-scroll";
 import {
@@ -154,9 +156,11 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   const rootAvoidsKeyboard = useContext(CallKeyboardContext);
   const contentBottomInset = useContentBottomInset();
   const onCall = Boolean(botId) && call?.botId === botId;
+  useDeviceCalendar(botId, focused && !readOnly && !inGroup && !onCall);
   // The composer floats over the list, which scrolls underneath; this keeps the newest message
   // clear of it. A read-only chat has no composer.
   const [dockHeight, setDockHeight] = useState(0);
+  const keyboard = useThreadKeyboard();
   const bottomInset = Math.max(dockHeight, readOnly ? contentBottomInset : 0);
   const activeBotId = useRef(botId);
   activeBotId.current = botId;
@@ -616,7 +620,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   return (
     <View style={{ flex: 1 }}>
       <KeyboardAvoidingView
-        enabled={!rootAvoidsKeyboard}
+        enabled={!rootAvoidsKeyboard && keyboard.avoiding}
         // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
         // move frames, such as when a pushed screen closes with its own keyboard up.
         behavior="padding"
@@ -676,6 +680,7 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           {/* Shrinks (the suggestion lists scroll) so the input and Send stay above the keyboard. */}
           <ThreadComposerDock
             hidden={readOnly}
+            keyboardProgress={keyboard.progress}
             columnPadding={columnPadding}
             notice={
               <>

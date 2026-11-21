@@ -28,8 +28,17 @@ import { openMobileArtifact } from "../../lib/artifacts/artifact-open";
 import { allowsSpace } from "../../lib/cards/ask-action-label";
 import { plainAskTitle } from "../../lib/cards/ask-title";
 import { isInlineImageBlock } from "../../lib/messages/inline-image";
-import { UserMentionsContext, userMentionTargets } from "../../lib/messages/message-mentions";
-import { messagePresentationSegments } from "../../lib/messages/message-presentation";
+import {
+  mentionedBots,
+  textWithMentions,
+  UserMentionsContext,
+  userMentionTargets,
+} from "../../lib/messages/message-mentions";
+import {
+  hasMessageSenderContent,
+  messagePresentationSegments,
+  splitMessageBlocks,
+} from "../../lib/messages/message-presentation";
 import type { RoutineEventBlock } from "../../lib/messages/routine-event-label";
 import { routineEventLabel } from "../../lib/messages/routine-event-label";
 import type { UserBubble } from "../../lib/messages/user-bubble";
@@ -152,31 +161,34 @@ function isOwnCardBlock(block: MessageBlock): boolean {
   );
 }
 
+function pieceShowsSender(blocks: readonly MessageBlock[]): boolean {
+  return !blocks.some(isOwnCardBlock) && hasMessageSenderContent(blocks);
+}
+
+export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): boolean {
+  return splitMessageBlocks(message.blocks, isOwnCardBlock).some(pieceShowsSender);
+}
+
 function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   const { message } = props;
-  if (!message.blocks.some(isOwnCardBlock)) return <MessageBubbleContent {...props} />;
-
-  const pieces: MessageBlock[][] = [];
-  for (const block of message.blocks) {
-    const previous = pieces.at(-1);
-    // Jobs launched together sit in one group, as T3 groups its subagents.
-    if (block.kind === "cloud_agent" && previous?.[0]?.kind === "cloud_agent") {
-      previous.push(block);
-    } else if (isOwnCardBlock(block) || !previous || isOwnCardBlock(previous[0]!)) {
-      pieces.push([block]);
-    } else {
-      previous.push(block);
-    }
-  }
+  // Jobs launched together sit in one group, as T3 groups its subagents.
+  const pieces = splitMessageBlocks(
+    message.blocks,
+    isOwnCardBlock,
+    (block, previous) => block.kind === "cloud_agent" && previous.kind === "cloud_agent",
+  );
+  if (pieces[0] === message.blocks) return <MessageBubbleContent {...props} />;
+  const firstContent = pieces.findIndex(pieceShowsSender);
   // A bot's lead-in text sits inside the job card that follows it, so the two read as one bubble.
   const leadsCard = (index: number) =>
     message.role !== "user" &&
     !isOwnCardBlock(pieces[index]![0]!) &&
     pieces[index + 1]?.[0]?.kind === "cloud_agent";
-  const renderText = (blocks: MessageBlock[], key: string) => (
+  const renderText = (blocks: MessageBlock[], key: string, index: number) => (
     <MessageBubbleContent
       {...props}
       key={key}
+      hideSenderLabel={props.hideSenderLabel || index !== firstContent}
       message={{ ...message, blocks }}
       onAnswer={(_, ...answer) => props.onAnswer(message, ...answer)}
     />
@@ -210,7 +222,9 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
         <CloudAgentCards
           key={`cloud-${index}`}
           lead={
-            index > 0 && leadsCard(index - 1) ? renderText(pieces[index - 1]!, "lead") : undefined
+            index > 0 && leadsCard(index - 1)
+              ? renderText(pieces[index - 1]!, "lead", index - 1)
+              : undefined
           }
           jobs={blocks.filter((block) => block.kind === "cloud_agent")}
           actionProps={props.actionProps}
@@ -236,7 +250,7 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
         }
       />
     ) : (
-      renderText(blocks, `content-${index}`)
+      renderText(blocks, `content-${index}`, index)
     );
   });
   const shown = content.filter(Boolean);
@@ -247,6 +261,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   botId,
   authorName,
   botName,
+  hideSenderLabel,
   showBotSenderName,
   bots,
   groupId,
@@ -271,6 +286,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   /** Someone else in a shared space wrote this message: named and set apart. */
   authorName?: string;
   botName?: string;
+  hideSenderLabel?: boolean;
   showBotSenderName: boolean;
   bots: MobileBot[];
   groupId?: string;
@@ -303,6 +319,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
   const { t } = useLingui();
   const [peerExpanded, setPeerExpanded] = useState(false);
   const outgoing = message.role === "user" && !authorName;
+  const showSpeaker = !hideSenderLabel && (showBotSenderName || Boolean(authorName));
   const artifactTarget: MobileArtifactTarget = groupId ? { groupId } : { botId };
   const cardBotId = message.botId ?? botId;
   const computerBotId = message.botId ?? (groupId ? undefined : botId);
@@ -654,9 +671,9 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     const imageWidth = message.role === "user" ? undefined : "100%";
     return (
       <View style={hasInlineImages ? { width: imageWidth, maxWidth: "100%", gap: 8 } : bubbleStyle}>
-        {((showBotSenderName || authorName) && speaker) || caption ? (
+        {(showSpeaker && speaker) || caption ? (
           <View style={hasInlineImages ? bubbleStyle : undefined}>
-            {(showBotSenderName || authorName) && speaker ? (
+            {showSpeaker && speaker ? (
               <Text
                 style={{ color: speakerColor ?? tokens.mutedForeground, ...typeScale.footnote }}
               >
@@ -811,7 +828,6 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
     message.role === "bot" ? (botDisplayName(members, bots, message.botId) ?? botName) : authorName;
   const speakerColor =
     message.role === "bot" ? speakerColorFor(bots, members, message.botId) : undefined;
-  const showSpeaker = showBotSenderName || Boolean(authorName);
   const firstContent = segments.findIndex((segment) => segment.kind === "content");
   const choiceBlocks = message.blocks.filter(
     (block): block is Extract<MessageBlock, { kind: "choice" }> => block.kind === "choice",

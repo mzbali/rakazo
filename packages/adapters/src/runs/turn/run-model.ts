@@ -2,6 +2,7 @@ import type {
   AgentModelOAuthCredential,
   AgentRunRequest,
   AgentRuntime,
+  ModelBilling,
   ModelCredentialFailedState,
   ModelCredentialRetireReason,
 } from "@rakazo/adapter-kit";
@@ -46,7 +47,7 @@ import {
 } from "../../models/model-provider-allowlist.js";
 import { resolveMemberMainModel, selectConfiguredModel } from "../../models/model-roles.js";
 import type { StoredModelSecret } from "../../models/model-secret.js";
-import { parseModelSecret, secretValuesToRedact } from "../../models/model-secret.js";
+import { modelBilling, parseModelSecret, secretValuesToRedact } from "../../models/model-secret.js";
 import {
   enabledOpenAiCompatibleModelIds,
   findConnectedModelCredential,
@@ -234,6 +235,8 @@ export async function resolveModelKey(...args: Parameters<typeof resolveModelKey
     (!operatorFunded && !credential
       ? approvedModelCreditOffering(provider, args[5])?.id
       : undefined);
+  if (callObserver || fundingOfferingId) material.billing = modelBilling({ credits: true });
+  material.billing ??= modelBilling({});
   return {
     ...material,
     apiKey,
@@ -292,6 +295,7 @@ export async function resolveModelKeyMaterial(
   ) => Promise<boolean | undefined>;
   /** The key is the user's own stored connection, not the deployment's. */
   ownCredential?: true;
+  billing?: ModelBilling;
   redact: string[];
 }> {
   if (credential) {
@@ -427,6 +431,7 @@ export async function resolveModelKeyMaterial(
           : undefined,
         retireOAuth: retire,
         ownCredential: true,
+        billing: modelBilling({ secret: resolved.secret }),
         redact: [...secretValuesToRedact(resolved.secret), resolved.apiKey].filter(
           (value): value is string => Boolean(value),
         ),
@@ -460,6 +465,7 @@ export function resolvedModelRunFields(
 ): Omit<AgentRunRequest["model"], "provider" | "id" | "thinkingLevel"> {
   return {
     connectionId: resolved.connectionId,
+    billing: resolved.billing,
     apiKey: resolved.oauth ? undefined : resolved.apiKey,
     callObserver: resolved.callObserver,
     ...(resolved.accountId ? { accountId: resolved.accountId } : {}),

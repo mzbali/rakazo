@@ -73,6 +73,7 @@ function handlers(overrides: Partial<BackgroundJobHandlers> = {}): BackgroundJob
     "cloud_agent.relay_pointer": vi.fn(async () => undefined),
     "scoped_goal.advance": vi.fn(async () => undefined),
     "meeting.calendar-sync": vi.fn(async () => undefined),
+    "page.revise": vi.fn(async () => undefined),
     "meeting.work": vi.fn(async () => undefined),
     "purchase.poll": vi.fn(async () => undefined),
     "media.poll": vi.fn(async () => undefined),

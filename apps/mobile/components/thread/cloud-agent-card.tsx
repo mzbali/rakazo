@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { AppLinkPill, allowedAppLink } from "@rakazo/chat-ui/native";
+import { AppLinkPill, allowedAppLink, useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import { cloudAgentJobTone, cloudAgentPhase } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
@@ -97,6 +97,7 @@ export function CloudAgentCards({
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useLingui();
   const router = useRouter();
+  const openLink = useNativeLinkConfirm();
   const phaseLabel = useJobPhaseLabel();
   const [open, setOpen] = useState(false);
   const grouped = jobs.length > 1;
@@ -238,7 +239,7 @@ export function CloudAgentCards({
                             prominence="secondary"
                             size="compact"
                             onPress={() => {
-                              void openExternalUrl(links.pr!);
+                              openLink(links.pr!);
                             }}
                           />
                         ) : null}

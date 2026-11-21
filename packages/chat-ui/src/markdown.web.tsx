@@ -19,7 +19,7 @@ import { unified } from "unified";
 import type { HastNode } from "./table-utils";
 import "./markdown.web.css";
 import "./markdown-table.css";
-import { droppedTableHtmlText } from "@rakazo/contracts";
+import { droppedTableHtmlText, linkLabel } from "@rakazo/contracts";
 import {
   citationGroupIndex,
   preparedCitationMarkdown,
@@ -49,12 +49,12 @@ import {
   isProseFence,
   LinkFaviconsPausedContext,
   linkFaviconOrigin,
-  linkLabel,
   MarkdownEmbedContext,
   markdownEmbed,
   markdownLinkDisplayParts,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
+  markdownMentionAdded,
   markdownMentionId,
   markdownPageId,
   markRemoteImageLoaded,
@@ -681,7 +681,10 @@ function MarkdownAnchor({
   const mentionId = markdownMentionId(href);
   if (mentionId) {
     const name = hastText(node) ?? "";
-    return renderMention?.(mentionId, name) ?? <span>{props.children}</span>;
+    const chip = renderMention?.(mentionId, name);
+    // An added name isn't in the message text, so a selection must not carry it into a quote.
+    if (chip && markdownMentionAdded(href)) return <span className="select-none">{chip}</span>;
+    return chip ?? <span>{props.children}</span>;
   }
   const image = href ? soleRemoteImage(node) : undefined;
   if (image && !remoteImageRenders(image.href, loadRemote, false)) {

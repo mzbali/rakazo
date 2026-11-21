@@ -1,5 +1,9 @@
 import { ORPCError } from "@orpc/server";
-import { BUILTIN_AGENT_SKILLS } from "@rakazo/adapters";
+import {
+  BUILTIN_AGENT_SKILLS,
+  renameSkillInRoutines,
+  signalRenamedRoutines,
+} from "@rakazo/adapters";
 import type { Actor, AgentSkill, AgentSkillSource } from "@rakazo/contracts";
 import type { SkillSource } from "@rakazo/core";
 import {
@@ -10,16 +14,18 @@ import {
   mergeBuiltinSkills,
   parseSkillMd,
 } from "@rakazo/core";
-import type { PrismaClient } from "@rakazo/db";
+import type { PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   AVAILABILITY_SELECT,
+  assertNameFreeWhereAvailable,
   availableInSpace,
   IsolationError,
   isUniqueViolation,
+  runAsSystemInTransaction,
   spaceAvailability,
 } from "@rakazo/db";
 import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
-import { assertNameFreeWhereAvailable, userAddedAvailability } from "../spaces/name-claims.js";
+import { userAddedAvailability } from "../spaces/name-claims.js";
 
 type AgentSkillRow = {
   id: string;
@@ -125,7 +131,10 @@ export function resolveSkillContent(input: {
   };
 }
 
-export function createAgentSkillsService(prisma: PrismaClient) {
+export function createAgentSkillsService(
+  prisma: PrismaClient,
+  events?: Pick<ThreadEvents, "publishSpaceChange">,
+) {
   async function owned(actor: Actor, skillId: string) {
     const row = await prisma.agentSkill.findFirst({
       where: { id: skillId, ...availableInSpace(actor) },
@@ -235,6 +244,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       }
       const resolved = resolveSkillContent({ ...input, prior: existing });
       const renamed = !findSkillByName([existing], resolved.name);
+      const previousName = existing.name;
       if (
         renamed &&
         builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())
@@ -243,7 +253,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       }
       await assertNoAddedClaimsOrBadRequest(existing.content, resolved.content);
       // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
-      // The content just read is part of the match, so a stale read cannot revive a removed phrase.
+      let renamedRoutineSpaces: string[] = [];
       try {
         const updated = await prisma.$transaction(async (tx) => {
           if (renamed)
@@ -255,12 +265,15 @@ export function createAgentSkillsService(prisma: PrismaClient) {
               spaceAvailability(existing),
               existing.id,
             );
-          return tx.agentSkill.updateMany({
+          const result = await tx.agentSkill.updateMany({
             where: {
               id: existing.id,
               ...availableInSpace(actor),
               source: "user",
+              // The content just read is part of the match, so a stale read cannot revive a removed phrase.
               content: existing.content,
+              // A rename that lost a race must not leave routines pointing at a stale name.
+              ...(renamed ? { name: previousName } : {}),
             },
             data: {
               name: resolved.name,
@@ -268,6 +281,26 @@ export function createAgentSkillsService(prisma: PrismaClient) {
               content: resolved.content,
             },
           });
+          if (result.count === 0 && renamed) {
+            throw new ClientError("CONFLICT", "This skill changed. Reload and try again.");
+          }
+          if (result.count === 1 && renamed) {
+            const { allSpaces, spaceIds } = spaceAvailability(existing);
+            // The owner's routines in the other spaces the skill is available in sit outside
+            // this request's Space, so read them by owner as the name checks do.
+            renamedRoutineSpaces = await runAsSystemInTransaction(
+              tx,
+              "owner's routines in the spaces a renamed skill is available in",
+              () =>
+                renameSkillInRoutines(
+                  tx,
+                  { userId: existing.userId, spaceIds: allSpaces ? null : spaceIds },
+                  previousName,
+                  resolved.name,
+                ),
+            );
+          }
+          return result;
         });
         if (updated.count !== 1) {
           // The row is still here, so another edit changed its content since it was read.
@@ -287,6 +320,7 @@ export function createAgentSkillsService(prisma: PrismaClient) {
         }
         throw error;
       }
+      await signalRenamedRoutines(events, renamedRoutineSpaces);
       return mapAgentSkill(await owned(actor, existing.id));
     },
 

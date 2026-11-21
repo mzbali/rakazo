@@ -1,6 +1,6 @@
 import { Plural, Trans } from "@lingui/react/macro";
 import { useNow as useTickingNow } from "@rakazo/chat-ui/hooks";
-import { AppLinkPill, allowedAppLink } from "@rakazo/chat-ui/web";
+import { AppLinkPill, allowedAppLink, useExternalLinkOpener } from "@rakazo/chat-ui/web";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { CloudAgentPhase, CloudAgentPullRequestPart, CloudAgentWorkPart } from "@rakazo/core";
 import {
@@ -17,6 +17,7 @@ import {
 import { Badge } from "@rakazo/ui-web/components/ui/badge";
 import { buttonVariants } from "@rakazo/ui-web/components/ui/button";
 import { Card, CardContent } from "@rakazo/ui-web/components/ui/card";
+import type { MouseEvent } from "react";
 
 /** The clock for a running job: each second in its first minute, then every 15. */
 function useNow(live: boolean, startedAt: string | undefined) {
@@ -102,6 +103,13 @@ export function CloudAgentCard({
   const href = block.launchFailed
     ? undefined
     : (cloudAgentHttpsUrl(block.url) ?? allowedAppLink(block.url));
+  const { open, dialog } = useExternalLinkOpener();
+  // An address off this site asks before it opens, as a link in a reply does.
+  const hold = (url: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 && event.button !== 1) return;
+    event.preventDefault();
+    open(url);
+  };
   const live = phase === "starting" || phase === "working" || phase === "checking";
   return (
     <Card size="sm" className="w-full" data-testid="cloud-agent-card">
@@ -177,6 +185,8 @@ export function CloudAgentCard({
                 href={href}
                 target="_blank"
                 rel="noreferrer"
+                onClick={hold(href)}
+                onAuxClick={hold(href)}
               >
                 <Trans>Open in T3</Trans>
               </a>
@@ -187,12 +197,15 @@ export function CloudAgentCard({
                 href={prHref}
                 target="_blank"
                 rel="noreferrer"
+                onClick={hold(prHref)}
+                onAuxClick={hold(prHref)}
               >
                 <Trans>View PR</Trans>
               </a>
             ) : null}
           </div>
         ) : null}
+        {dialog}
       </CardContent>
     </Card>
   );

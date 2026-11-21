@@ -10,6 +10,7 @@ import type {
 } from "@rakazo/contracts";
 import type { ChildBotBlock, FoldedTranscript } from "@rakazo/core";
 import {
+  continuedSenderMessageIds,
   expandPeerReplies,
   groupVoiceChats,
   isPeerReceiptBlocks,
@@ -63,6 +64,7 @@ import { TranscriptEmbeds } from "../transcript-embeds";
 import { TimeSeparator, UnreadDivider } from "./chat-context";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
+import { useReplyAnnouncement } from "./use-reply-announcement";
 
 /** User bubbles stay a chat width. Bot answers use the shared reading column. */
 export function bubbleFrameWidth(role: ThreadMessage["role"]) {
@@ -205,6 +207,12 @@ export const Transcript = memo(function Transcript({
     () => expandPeerReplies(transcript, expandedPeerMarkers),
     [transcript, expandedPeerMarkers],
   );
+  const announcement = useReplyAnnouncement(
+    messages,
+    (message) =>
+      (message.botId ? (peerBot(message.botId)?.name ?? memberName?.(message.botId)) : undefined) ??
+      t`Bot`,
+  );
   const messageById = useMemo(
     () => new Map(messages.map((message) => [message.id, message])),
     [messages],
@@ -290,6 +298,7 @@ export const Transcript = memo(function Transcript({
       item.kind === "voiceChat" || messageHasVisibleBlocks(item.message.blocks, showToolActivity),
   );
   const shownItems = showTail ? items.slice(-FIRST_FRAME_ROWS) : items;
+  const continuedSenderIds = continuedSenderMessageIds(shownItems, separatorIds, unreadDividerId);
   const workingLabel =
     liveActivityLine(messages) ?? (workingRoutine ? t`Running ${workingRoutine}…` : t`Working…`);
   const [quoteDraft, setQuoteDraft] = useState<{
@@ -425,8 +434,9 @@ export const Transcript = memo(function Transcript({
   useEventListener(document, "selectionchange", () => {
     if (!selectingWithMouse.current) evaluateSelection();
   });
-  useEventListener(document, "keydown", (event) => {
-    if (event.key === "Escape") setQuoteDraft(null);
+  // On window, so a handler on document (the phone drawer closing) consumes the key first.
+  useEventListener(window, "keydown", (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented) setQuoteDraft(null);
   });
   // A drag that ends outside the window never fires document mouseup; reset
   // the flag on blur so keyboard selections keep working afterwards.
@@ -742,6 +752,7 @@ export const Transcript = memo(function Transcript({
                         onOpenBot={onOpenBot}
                         onOpenPeerMessages={onOpenPeerMessages}
                         peerExchange={exchanges.lines.get(message.id)}
+                        hideSenderLabel={continuedSenderIds.has(message.id)}
                         onAnswer={onAnswer}
                         speakerName={
                           peerReceipt
@@ -806,6 +817,9 @@ export const Transcript = memo(function Transcript({
             <ActiveBotGlyph bots={workingBots} label={workingLabel} />
           ) : null}
         </div>
+        <span role="status" data-testid="reply-announcement" className="sr-only">
+          {announcement}
+        </span>
         {quoteDraft ? <QuoteSelectionButton range={quoteDraft.range} onQuote={applyQuote} /> : null}
         <Button
           ref={jumpButtonRef}

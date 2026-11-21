@@ -1,4 +1,5 @@
 import type { MessageBlock } from "@rakazo/contracts";
+import { canonicalPiProviderId } from "@rakazo/contracts";
 import {
   ACTIVE_RUN_STATUSES,
   BACKGROUND_HELPER_TRIGGER,
@@ -23,11 +24,18 @@ import { getLogger } from "@rakazo/logging";
 import { paintCloudAgentCard } from "../cloud-agents/jobs/cloud-agent-card.js";
 import { CLOUD_AGENT_WAKE_ATTEMPTS } from "../cloud-agents/jobs/cloud-agent-job-thread.js";
 import { failedStartRecoveryPrompt } from "../cloud-agents/jobs/cloud-agent-recovery.prompt.js";
+import { resolveModelChoice } from "../models/model-choice.js";
+import {
+  PINNED_PROVIDER_NOT_CONNECTED,
+  validateBotModelChange,
+} from "../models/model-selection.js";
 import type { RunContext } from "../runs/assembly/run-context.js";
 import { runLeaseFor } from "../runs/assembly/run-messages.js";
 import type { ExecutorDeps } from "../runs/executor/executor-deps.js";
 import { completionNotificationPreview, notifyRun } from "../runs/lifecycle/run-notifications.js";
+import { fleetPrepareDeps } from "../runs/turn/run-model.js";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
+import { listPiCatalog } from "../runtime/pi/models/pi-models.js";
 import {
   helperResultText,
   MAX_PARALLEL_SUBAGENTS,
@@ -55,6 +63,43 @@ export function backgroundHelpersAllowed(turn: { trigger: string }): boolean {
   return turn.trigger !== HELPER_RESULT_TRIGGER && isConversationalRun(turn.trigger);
 }
 
+/** A catalog provider id, including the stored Azure alias. Display labels are not ids. */
+function isCatalogProviderId(provider: string): boolean {
+  const canonical = canonicalPiProviderId(provider);
+  return listPiCatalog().some((entry) => entry.provider === canonical);
+}
+
+/**
+ * Resolve a caller-supplied pair before a helper exists. The model id is the query, and a
+ * `provider/id` string matches the catalog. The provider filter is only a catalog id: a display
+ * label would match no connection and then be returned unchanged.
+ */
+async function resolveHelperModelPin(
+  ctx: RunContext,
+  modelProvider: string,
+  modelId: string,
+): Promise<{ provider: string; model: string } | { error: string }> {
+  const prepared = await fleetPrepareDeps(ctx.deps, {
+    userId: ctx.run.userId,
+    spaceId: ctx.run.spaceId,
+  });
+  const deps = { prisma: prepared.prisma, ...prepared.modelChange };
+  const scope = { userId: ctx.run.userId, spaceId: ctx.run.spaceId };
+  const chosen = await resolveModelChoice(deps, scope, {
+    model: modelId,
+    ...(isCatalogProviderId(modelProvider) ? { provider: modelProvider } : {}),
+  });
+  if (!chosen.ok) return { error: chosen.error };
+  const validated = await validateBotModelChange(deps, {
+    ...scope,
+    provider: chosen.provider,
+    model: chosen.model,
+  });
+  if (!validated.ok) return { error: validated.error };
+  if (!validated.provider || !validated.model) return { error: PINNED_PROVIDER_NOT_CONNECTED };
+  return { provider: validated.provider, model: validated.model };
+}
+
 export async function startBackgroundHelper(
   ctx: RunContext,
   input: {
@@ -76,8 +121,15 @@ export async function startBackgroundHelper(
   if (Boolean(input.modelProvider) !== Boolean(input.modelId)) {
     return { error: "model_provider and model_id must both be set" };
   }
-  const modelProvider = input.modelProvider || (run.modelPinned ? run.modelProvider : "");
-  const modelId = input.modelId || (run.modelPinned ? run.modelId : "");
+  // An inherited parent pin is already stored and is not checked again.
+  let modelProvider = input.modelProvider || (run.modelPinned ? run.modelProvider : "");
+  let modelId = input.modelId || (run.modelPinned ? run.modelId : "");
+  if (input.modelProvider && input.modelId) {
+    const resolved = await resolveHelperModelPin(ctx, input.modelProvider, input.modelId);
+    if ("error" in resolved) return resolved;
+    modelProvider = resolved.provider;
+    modelId = resolved.model;
+  }
   const clientNonce = `background-helper:${input.effectKey}`;
   const started = { ok: true as const, name: input.name, note: startedNote(input.name) };
   const card: HelperBlock = {

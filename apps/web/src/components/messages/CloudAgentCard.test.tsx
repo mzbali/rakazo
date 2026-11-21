@@ -36,6 +36,7 @@ const block = {
   kind: "cloud_agent",
   title: "Fix the build",
   status: "finished",
+  url: "",
   prUrl: "https://git.example.test/org/repo/pull/7",
 } as unknown as Extract<MessageBlock, { kind: "cloud_agent" }>;
 

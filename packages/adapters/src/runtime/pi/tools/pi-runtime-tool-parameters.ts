@@ -557,9 +557,10 @@ export function jsonField(spec: unknown): ReturnType<typeof Type.String> {
   }
   // No `type` means any JSON value (a gateway's pass-through `input`, say). A string default
   // would make validation reject the object the remote tool expects and steer the model to
-  // send it serialized, which the remote tool then rejects.
-  if (!("type" in definition)) return Type.Unknown(options) as never;
-  const type = String(definition.type);
+  // send it serialized, which the remote tool then rejects. A reference that could not be
+  // resolved keeps the string it has always been.
+  if (!("type" in definition) && !("$ref" in definition)) return Type.Unknown(options) as never;
+  const type = "type" in definition ? String(definition.type) : "string";
   if (type === "null") return Type.Null(options) as never;
   if (type === "integer" || type === "number") {
     const numericOptions = {

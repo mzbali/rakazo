@@ -461,7 +461,7 @@ describe("thread cards", () => {
     act(() => buttons[0]!.click());
     expect(Linking.openURL).toHaveBeenCalledWith("https://example.test/task");
     act(() => buttons[1]!.click());
-    expect(Linking.openURL).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
+    expect(linkConfirm).toHaveBeenCalledWith("https://github.com/acme/app/pull/12");
     expect(container.textContent).toContain("PR #12");
     expect(container.textContent).not.toContain("Checks unknown");
   });

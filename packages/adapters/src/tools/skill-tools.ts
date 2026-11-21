@@ -146,6 +146,8 @@ export async function signalRenamedRoutines(
   for (const spaceId of spaceIds) await events?.publishSpaceChange?.(spaceId, "routines");
 }
 
+const SKILL_CHANGED_ERROR = "This skill changed since it was read; read it again before updating.";
+
 export async function listAgentSkillRecords(
   prisma: PrismaClient,
   owner: SkillOwner,
@@ -370,7 +372,8 @@ export async function skillUpdateFromTool(
           content: nextContent,
         },
       });
-      if (updated.count !== 1) return null;
+      // The row is still here, so what moved is its content or name since it was read.
+      if (updated.count !== 1) return "stale";
       if (!renamed) return [];
       // The owner's routines in the other spaces the skill is available in sit outside this run's
       // space, so read them by owner as the settings screen does.
@@ -389,6 +392,7 @@ export async function skillUpdateFromTool(
           ),
       );
     });
+    if (changed === "stale") return { error: SKILL_CHANGED_ERROR };
     if (!changed)
       return { error: "Could not update skill. It may have changed; read it and try again." };
     await signalRenamedRoutines(events, changed);

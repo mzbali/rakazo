@@ -1,6 +1,6 @@
+import { decodeHtmlEntities } from "@rakazo/contracts";
 import { plainEmbedReferences } from "./embed-references.js";
 import { createMathScanner } from "./math-delimiters.js";
-import { decodeHtmlEntities } from "@rakazo/contracts";
 
 const PAYLOAD_MARK = "\uE000";
 /**

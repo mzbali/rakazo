@@ -29,7 +29,7 @@ function OpenedVisual({
   title: string;
   dialog: HTMLDialogElement | null;
 }) {
-  const viewer = usePageDocument(code, "background", false, 0, "full");
+  const viewer = usePageDocument(code, "background", false, 0, { inline: "full" });
   if (viewer.document === null) return null;
   return (
     <div className="absolute inset-x-0" style={{ top: 56, bottom: 0 }}>
@@ -47,7 +47,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const box = useRef<HTMLDivElement>(null);
   const live = useLiveNearView(box);
-  const viewer = usePageDocument(block.code, "background", false, 0, "card");
+  const viewer = usePageDocument(block.code, "background", false, 0, { inline: "card" });
   const [open, setOpen] = useState(false);
   // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
   // of the page inert.

@@ -77,7 +77,10 @@ function ReviewPage({ pageId, onClose }: { pageId: string; onClose: () => void }
     draftCode: draft.isError ? undefined : draft.data?.code,
     reported: anchors,
   });
-  const preview = usePageDocument(code, "card", false, 0, !draftId, revision?.anchor);
+  const preview = usePageDocument(code, "card", false, 0, {
+    review: !draftId,
+    reviewAnchor: revision?.anchor,
+  });
   const publish = useSave({
     save: (requestId: string, rpc) => rpc.pageReviews.publish({ pageId, requestId }),
     stale: [

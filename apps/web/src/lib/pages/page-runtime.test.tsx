@@ -65,9 +65,9 @@ it("rebuilds the review document when only its section changes", async () => {
   vi.stubGlobal("fetch", async () => new Response("/*kit*/"));
   let shown: string | null = null;
   function Page({ occurrence }: { occurrence: number }) {
-    shown = usePageDocument("export default () => null;", "card", false, 0, true, {
-      section: "Summary",
-      sectionOccurrence: occurrence,
+    shown = usePageDocument("export default () => null;", "card", false, 0, {
+      review: true,
+      reviewAnchor: { section: "Summary", sectionOccurrence: occurrence },
     }).document;
     return null;
   }

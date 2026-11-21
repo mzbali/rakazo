@@ -113,6 +113,7 @@ describe("current-turn thread files", () => {
         filePath: "report.pdf",
         bytes: new Uint8Array([1]),
         operationId: "op",
+        produced: false,
       },
     );
     expect(publishSpaceChange).toHaveBeenCalledExactlyOnceWith("space", "artifacts");

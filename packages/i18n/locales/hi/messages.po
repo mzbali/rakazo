@@ -2266,7 +2266,7 @@ msgstr "बॉट्स से जुड़ा"
 msgid "Brain label"
 msgstr "ब्रेन लेबल"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Brief"
 msgstr ""
 
@@ -2802,7 +2802,7 @@ msgstr "फ़िल्टर {label} हटाएँ"
 msgid "Clear filters"
 msgstr "फ़िल्टर हटाएँ"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Clear from list"
 msgstr ""
 
@@ -3604,8 +3604,8 @@ msgstr "बातचीत साफ़ नहीं की जा सकी"
 msgid "Could not clear the custom server URL"
 msgstr "कस्टम सर्वर URL हटाया नहीं जा सका"
 
-#: apps/mobile/app/job.tsx
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not clear the job"
 msgstr ""
 
@@ -3990,11 +3990,11 @@ msgstr "इमेज लोड नहीं हो सकी"
 msgid "Could not load integrations"
 msgstr "इंटीग्रेशन लोड नहीं हो सके"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Could not load job"
 msgstr ""
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not load jobs"
 msgstr ""
 
@@ -5256,7 +5256,7 @@ msgstr "डेस्कटॉप ID"
 msgid "Desktop update"
 msgstr "डेस्कटॉप अपडेट"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5540,11 +5540,11 @@ msgstr "डुप्लिकेट"
 msgid "Each name can be used once."
 msgstr "हर नाम का उपयोग केवल एक बार किया जा सकता है।"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Earlier"
 msgstr ""
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Earlier attempts"
 msgstr ""
 
@@ -6751,7 +6751,7 @@ msgstr "इसका शेयर किया गया लिंक काम 
 msgid "Jobs"
 msgstr ""
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Jobs in this chat"
 msgstr ""
 
@@ -7813,7 +7813,7 @@ msgstr "साइन इन ज़रूरी है"
 msgid "Needs takeover"
 msgstr "नियंत्रण लेना ज़रूरी"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/thread-jobs-pill.tsx
@@ -8036,7 +8036,7 @@ msgstr "अभी तक कोई टिप्पणी नहीं।"
 msgid "No computer hours used yet"
 msgstr "अभी तक कोई कंप्यूटर घंटा इस्तेमाल नहीं हुआ"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "No jobs yet"
 msgstr ""
 
@@ -8332,7 +8332,7 @@ msgstr "काम नहीं कर रहा"
 msgid "Nothing remembered yet"
 msgstr "अभी तक कुछ याद नहीं किया गया"
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Nothing running"
 msgstr ""
 
@@ -8517,7 +8517,7 @@ msgstr "{title} खोलें"
 msgid "Open call"
 msgstr "कॉल खोलें"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Open chat"
 msgstr ""
 
@@ -8562,7 +8562,7 @@ msgstr "ब्राउज़र में खोलें"
 msgid "Open in full window"
 msgstr "पूरी विंडो में खोलें"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "Open in T3"
@@ -12067,7 +12067,7 @@ msgstr "इस सप्ताह"
 msgid "Thread"
 msgstr "थ्रेड"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Thread's report"
 msgstr ""
 
@@ -12128,7 +12128,7 @@ msgstr "इसे बंद करने के लिए, खाता → AI �
 msgid "To:"
 msgstr "प्रति:"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12794,7 +12794,7 @@ msgstr "सभी देखें"
 msgid "View page"
 msgstr "पेज देखें"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "View PR"
@@ -13080,7 +13080,7 @@ msgstr "नहीं करेंगे"
 msgid "Work"
 msgstr "काम"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
 #: apps/mobile/components/job-status.tsx

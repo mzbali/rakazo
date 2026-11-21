@@ -2266,7 +2266,7 @@ msgstr "An Bots gebunden"
 msgid "Brain label"
 msgstr "Brain-Bezeichnung"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Brief"
 msgstr ""
 
@@ -2802,7 +2802,7 @@ msgstr "Filter {label} entfernen"
 msgid "Clear filters"
 msgstr "Filter zurücksetzen"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Clear from list"
 msgstr ""
 
@@ -3604,8 +3604,8 @@ msgstr "Unterhaltung konnte nicht geleert werden"
 msgid "Could not clear the custom server URL"
 msgstr "Die eigene Server-URL konnte nicht gelöscht werden"
 
-#: apps/mobile/app/job.tsx
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not clear the job"
 msgstr ""
 
@@ -3990,11 +3990,11 @@ msgstr "Bild konnte nicht geladen werden"
 msgid "Could not load integrations"
 msgstr "Integrationen konnten nicht geladen werden"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Could not load job"
 msgstr ""
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not load jobs"
 msgstr ""
 
@@ -5256,7 +5256,7 @@ msgstr "Desktop-ID"
 msgid "Desktop update"
 msgstr "Desktop-Update"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5540,11 +5540,11 @@ msgstr "Duplizieren"
 msgid "Each name can be used once."
 msgstr "Jeder Name kann nur einmal verwendet werden."
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Earlier"
 msgstr ""
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Earlier attempts"
 msgstr ""
 
@@ -6751,7 +6751,7 @@ msgstr "Der geteilte Link funktioniert dann nicht mehr und die Karten im Chat ze
 msgid "Jobs"
 msgstr ""
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Jobs in this chat"
 msgstr ""
 
@@ -7813,7 +7813,7 @@ msgstr "Anmeldung erforderlich"
 msgid "Needs takeover"
 msgstr "Übernahme erforderlich"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/thread-jobs-pill.tsx
@@ -8036,7 +8036,7 @@ msgstr "Noch keine Kommentare."
 msgid "No computer hours used yet"
 msgstr "Noch keine Computerstunden genutzt"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "No jobs yet"
 msgstr ""
 
@@ -8332,7 +8332,7 @@ msgstr "Funktioniert nicht"
 msgid "Nothing remembered yet"
 msgstr "Noch nichts gemerkt"
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Nothing running"
 msgstr ""
 
@@ -8517,7 +8517,7 @@ msgstr "{title} öffnen"
 msgid "Open call"
 msgstr "Anruf öffnen"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Open chat"
 msgstr ""
 
@@ -8562,7 +8562,7 @@ msgstr "Im Browser öffnen"
 msgid "Open in full window"
 msgstr "In vollständigem Fenster öffnen"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "Open in T3"
@@ -12067,7 +12067,7 @@ msgstr "Diese Woche"
 msgid "Thread"
 msgstr "Thread"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Thread's report"
 msgstr ""
 
@@ -12128,7 +12128,7 @@ msgstr "Um das zu deaktivieren, verwende „Alle Berechtigungen widerrufen“ un
 msgid "To:"
 msgstr "An:"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12794,7 +12794,7 @@ msgstr "Alle ansehen"
 msgid "View page"
 msgstr "Seite ansehen"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "View PR"
@@ -13080,7 +13080,7 @@ msgstr "Wird nicht erledigt"
 msgid "Work"
 msgstr "Arbeit"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
 #: apps/mobile/components/job-status.tsx

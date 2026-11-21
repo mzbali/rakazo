@@ -2266,7 +2266,7 @@ msgstr "מקושר לבוטים"
 msgid "Brain label"
 msgstr "תווית Brain"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Brief"
 msgstr ""
 
@@ -2802,7 +2802,7 @@ msgstr "ניקוי המסנן {label}"
 msgid "Clear filters"
 msgstr "ניקוי מסננים"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Clear from list"
 msgstr ""
 
@@ -3604,8 +3604,8 @@ msgstr "לא ניתן לנקות את השיחה"
 msgid "Could not clear the custom server URL"
 msgstr "לא ניתן לנקות את כתובת השרת המותאם"
 
-#: apps/mobile/app/job.tsx
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not clear the job"
 msgstr ""
 
@@ -3990,11 +3990,11 @@ msgstr "לא ניתן לטעון את התמונה"
 msgid "Could not load integrations"
 msgstr "לא ניתן לטעון את האינטגרציות"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Could not load job"
 msgstr ""
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not load jobs"
 msgstr ""
 
@@ -5256,7 +5256,7 @@ msgstr "מזהה דסקטופ"
 msgid "Desktop update"
 msgstr "עדכון לאפליקציית הדסקטופ"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5540,11 +5540,11 @@ msgstr "שכפול"
 msgid "Each name can be used once."
 msgstr "ניתן להשתמש בכל שם פעם אחת בלבד."
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Earlier"
 msgstr ""
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Earlier attempts"
 msgstr ""
 
@@ -6751,7 +6751,7 @@ msgstr "הקישור המשותף יפסיק לעבוד והכרטיסים של�
 msgid "Jobs"
 msgstr ""
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Jobs in this chat"
 msgstr ""
 
@@ -7813,7 +7813,7 @@ msgstr "נדרשת התחברות"
 msgid "Needs takeover"
 msgstr "נדרשת השתלטות"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/thread-jobs-pill.tsx
@@ -8036,7 +8036,7 @@ msgstr "עדיין אין תגובות."
 msgid "No computer hours used yet"
 msgstr "עדיין לא נוצלו שעות מחשב"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "No jobs yet"
 msgstr ""
 
@@ -8332,7 +8332,7 @@ msgstr "לא עובד"
 msgid "Nothing remembered yet"
 msgstr "עדיין אין זיכרונות"
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Nothing running"
 msgstr ""
 
@@ -8517,7 +8517,7 @@ msgstr "פתיחת {title}"
 msgid "Open call"
 msgstr "פתיחת השיחה"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Open chat"
 msgstr ""
 
@@ -8562,7 +8562,7 @@ msgstr "פתיחה בדפדפן"
 msgid "Open in full window"
 msgstr "פתיחה בחלון מלא"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "Open in T3"
@@ -12067,7 +12067,7 @@ msgstr "השבוע"
 msgid "Thread"
 msgstr "שרשור"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Thread's report"
 msgstr ""
 
@@ -12128,7 +12128,7 @@ msgstr "כדי לכבות את זה, יש להשתמש ב„ביטול כל הה
 msgid "To:"
 msgstr "אל:"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12794,7 +12794,7 @@ msgstr "הצגת הכול"
 msgid "View page"
 msgstr "צפייה בדף"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "View PR"
@@ -13080,7 +13080,7 @@ msgstr "לא יבוצע"
 msgid "Work"
 msgstr "עבודה"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
 #: apps/mobile/components/job-status.tsx

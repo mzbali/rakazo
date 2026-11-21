@@ -2266,7 +2266,7 @@ msgstr "已绑定 Bot"
 msgid "Brain label"
 msgstr "Brain 标签"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Brief"
 msgstr ""
 
@@ -2802,7 +2802,7 @@ msgstr "清除筛选 {label}"
 msgid "Clear filters"
 msgstr "清除筛选"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Clear from list"
 msgstr ""
 
@@ -3604,8 +3604,8 @@ msgstr "无法清空对话"
 msgid "Could not clear the custom server URL"
 msgstr "无法清除自定义服务器地址"
 
-#: apps/mobile/app/job.tsx
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not clear the job"
 msgstr ""
 
@@ -3990,11 +3990,11 @@ msgstr "无法加载图片"
 msgid "Could not load integrations"
 msgstr "无法加载集成"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Could not load job"
 msgstr ""
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not load jobs"
 msgstr ""
 
@@ -5256,7 +5256,7 @@ msgstr "桌面 ID"
 msgid "Desktop update"
 msgstr "桌面更新"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5540,11 +5540,11 @@ msgstr "复制"
 msgid "Each name can be used once."
 msgstr "每个名称只能使用一次。"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Earlier"
 msgstr ""
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Earlier attempts"
 msgstr ""
 
@@ -6751,7 +6751,7 @@ msgstr "其共享链接将失效，聊天中的卡片会显示为已删除。此
 msgid "Jobs"
 msgstr ""
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Jobs in this chat"
 msgstr ""
 
@@ -7813,7 +7813,7 @@ msgstr "需要登录"
 msgid "Needs takeover"
 msgstr "需要接管"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/thread-jobs-pill.tsx
@@ -8036,7 +8036,7 @@ msgstr "暂无评论。"
 msgid "No computer hours used yet"
 msgstr "尚未使用电脑时长"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "No jobs yet"
 msgstr ""
 
@@ -8332,7 +8332,7 @@ msgstr "无法正常工作"
 msgid "Nothing remembered yet"
 msgstr "暂无记忆"
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Nothing running"
 msgstr ""
 
@@ -8517,7 +8517,7 @@ msgstr "打开 {title}"
 msgid "Open call"
 msgstr "打开通话"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Open chat"
 msgstr ""
 
@@ -8562,7 +8562,7 @@ msgstr "在浏览器中打开"
 msgid "Open in full window"
 msgstr "在完整窗口中打开"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "Open in T3"
@@ -12067,7 +12067,7 @@ msgstr "本周"
 msgid "Thread"
 msgstr "对话"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Thread's report"
 msgstr ""
 
@@ -12128,7 +12128,7 @@ msgstr "如需关闭，请前往“账户 → AI 数据共享”，使用“撤�
 msgid "To:"
 msgstr "至:"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12794,7 +12794,7 @@ msgstr "查看全部"
 msgid "View page"
 msgstr "查看页面"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "View PR"
@@ -13080,7 +13080,7 @@ msgstr "不做"
 msgid "Work"
 msgstr "工作"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
 #: apps/mobile/components/job-status.tsx

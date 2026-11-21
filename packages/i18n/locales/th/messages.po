@@ -2260,7 +2260,7 @@ msgstr "ผูกกับบอท"
 msgid "Brain label"
 msgstr "ป้ายกำกับ Brain"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Brief"
 msgstr ""
 
@@ -2796,7 +2796,7 @@ msgstr "ล้างตัวกรอง {label}"
 msgid "Clear filters"
 msgstr "ล้างตัวกรอง"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Clear from list"
 msgstr ""
 
@@ -3598,8 +3598,8 @@ msgstr "ล้างบทสนทนาไม่สำเร็จ"
 msgid "Could not clear the custom server URL"
 msgstr "ล้าง URL ของเซิร์ฟเวอร์แบบกำหนดเองไม่สำเร็จ"
 
-#: apps/mobile/app/job.tsx
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not clear the job"
 msgstr ""
 
@@ -3984,11 +3984,11 @@ msgstr "โหลดรูปภาพไม่สำเร็จ"
 msgid "Could not load integrations"
 msgstr "โหลดการผสานรวมไม่สำเร็จ"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Could not load job"
 msgstr ""
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Could not load jobs"
 msgstr ""
 
@@ -5250,7 +5250,7 @@ msgstr "ID เดสก์ท็อป"
 msgid "Desktop update"
 msgstr "อัปเดตเดสก์ท็อป"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5534,11 +5534,11 @@ msgstr "ทำสำเนา"
 msgid "Each name can be used once."
 msgstr "แต่ละชื่อใช้ได้ครั้งเดียว"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "Earlier"
 msgstr ""
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Earlier attempts"
 msgstr ""
 
@@ -6745,7 +6745,7 @@ msgstr "ลิงก์ที่แชร์จะใช้งานไม่ไ
 msgid "Jobs"
 msgstr ""
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Jobs in this chat"
 msgstr ""
 
@@ -7807,7 +7807,7 @@ msgstr "ต้องเข้าสู่ระบบ"
 msgid "Needs takeover"
 msgstr "ต้องรับช่วงต่อ"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/thread-jobs-pill.tsx
@@ -8030,7 +8030,7 @@ msgstr "ยังไม่มีความคิดเห็น"
 msgid "No computer hours used yet"
 msgstr "ยังไม่มีการใช้ชั่วโมงคอมพิวเตอร์"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 msgid "No jobs yet"
 msgstr ""
 
@@ -8326,7 +8326,7 @@ msgstr "ไม่ทำงาน"
 msgid "Nothing remembered yet"
 msgstr "ยังไม่มีความจำ"
 
-#: apps/mobile/app/thread-jobs.tsx
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
 msgid "Nothing running"
 msgstr ""
 
@@ -8511,7 +8511,7 @@ msgstr "เปิด {title}"
 msgid "Open call"
 msgstr "เปิดการโทร"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Open chat"
 msgstr ""
 
@@ -8556,7 +8556,7 @@ msgstr "เปิดในเบราว์เซอร์"
 msgid "Open in full window"
 msgstr "เปิดแบบเต็มหน้าต่าง"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "Open in T3"
@@ -12061,7 +12061,7 @@ msgstr "สัปดาห์นี้"
 msgid "Thread"
 msgstr "เธรด"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 msgid "Thread's report"
 msgstr ""
 
@@ -12122,7 +12122,7 @@ msgstr "หากต้องการปิด ให้ใช้ ถอนก�
 msgid "To:"
 msgstr "ถึง:"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12788,7 +12788,7 @@ msgstr "ดูทั้งหมด"
 msgid "View page"
 msgstr "ดูเพจ"
 
-#: apps/mobile/app/job.tsx
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/cloud-agent-card.tsx
 #: apps/web/src/components/messages/CloudAgentCard.tsx
 msgid "View PR"
@@ -13074,7 +13074,7 @@ msgstr "จะไม่ทำ"
 msgid "Work"
 msgstr "งาน"
 
-#: apps/mobile/app/jobs.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
 #: apps/mobile/components/job-status.tsx

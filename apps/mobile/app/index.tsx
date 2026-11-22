@@ -63,8 +63,6 @@ import { hasSignedInBefore, rememberSignedIn } from "../lib/auth/returning-user"
 import { offerSelfHostedSupportOnce } from "../lib/billing/self-hosted-support";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/bots/avatar-life";
 import { mobileLogoAvatarActivity } from "../lib/bots/logo-avatar-activity";
-import { useCloudJobs } from "../lib/cloud-jobs";
-import { needsYouCount } from "../lib/cloud-jobs-store";
 import { useUiLocale } from "../lib/i18n/i18n";
 import { useArchivedCount } from "../lib/inbox/archived/use-archived-count";
 import { chatRpc } from "../lib/inbox/chat-rpc";
@@ -673,11 +671,6 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     [hasOrganizationMenu, organizations],
   );
 
-  const { jobs: cloudJobs } = useCloudJobs(
-    Boolean(userId) && hasSession && !onShareSelect && inboxShown,
-  );
-  const jobsEntry = onShareSelect ? undefined : { needsYou: needsYouCount(cloudJobs) };
-
   useInboxHeader({
     nativeHeader,
     ready,
@@ -687,7 +680,6 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
     toggleActivityMode,
     runCreateAction,
     headerTitle,
-    jobs: jobsEntry,
   });
 
   const openBot = useCallback(
@@ -814,7 +806,6 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
       {showActivity ? (
         <ActivitySection
           activity={activity}
-          jobs={cloudJobs}
           status={activityStatus}
           bots={visible}
           groups={visibleGroups}
@@ -874,7 +865,6 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
           runCreateAction={runCreateAction}
           columnInsets={columnInsets}
           title={headerTitle?.()}
-          jobs={jobsEntry}
         />
       )}
 

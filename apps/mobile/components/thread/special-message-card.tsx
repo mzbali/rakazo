@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
-import { ChatMarkdown } from "@rakazo/chat-ui/native";
+import { ChatMarkdown, useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
-import { helperCardState, displayName as safeDisplayName } from "@rakazo/core";
+import { cloudAgentHttpsUrl, helperCardState, displayName as safeDisplayName } from "@rakazo/core";
 import { typeScale } from "@rakazo/ui-tokens";
 import { useEffect, useRef, useState } from "react";
 import type { ViewInstance } from "react-native";
@@ -21,7 +21,6 @@ import { useSave } from "../../lib/query/query";
 import { BotMention } from "../messages/bot-mention";
 import { NativeActionButton } from "../native/native-action-button";
 import { NativeSymbol } from "../native/native-symbol";
-import { CloudAgentCards } from "./cloud-agent-card";
 import type { MessageActionProps } from "./message-bubble";
 import type { MessageRowActions } from "./message-row";
 
@@ -206,9 +205,67 @@ export function SpecialMessageCard(props: SpecialMessageCardProps) {
   const { special, actionProps, bots, members, onOpenBot, userBubble } = props;
   const tokens = withUserBubble(mobileTokens(), userBubble);
   const { t } = useLingui();
+  const openLink = useNativeLinkConfirm();
   if (special.kind === "subagent") return <HelperMessageCard {...props} special={special} />;
-  if (special.kind === "cloud_agent")
-    return <CloudAgentCards jobs={[special]} actionProps={actionProps} userBubble={userBubble} />;
+  if (special.kind === "cloud_agent") {
+    const title = special.title || t`Cloud agent`;
+    const statusLabel =
+      special.status === "running"
+        ? t`running`
+        : special.status === "finished"
+          ? t`finished`
+          : special.status === "cancelled"
+            ? t`cancelled`
+            : special.status === "expired"
+              ? t`expired`
+              : t`failed`;
+    const running = special.status === "running";
+    const failed = special.status !== "running" && special.status !== "finished";
+    const prHref = cloudAgentHttpsUrl(special.prUrl);
+    const href = prHref ?? cloudAgentHttpsUrl(special.url);
+    return (
+      <Pressable
+        {...actionProps}
+        onPress={() => {
+          if (href) openLink(href);
+        }}
+        testID="cloud-agent-card"
+        accessibilityRole={href ? "link" : "text"}
+        accessibilityLabel={`${title}: ${statusLabel}`}
+        disabled={!href}
+        style={{
+          width: "100%",
+          borderRadius: 18,
+          backgroundColor: tokens.card,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+          <Text style={{ flexShrink: 1, color: tokens.cardForeground, ...typeScale.cardTitle }}>
+            {title}
+          </Text>
+          <Text
+            style={{
+              color: failed ? tokens.destructive : running ? tokens.warning : tokens.success,
+              ...typeScale.caption,
+            }}
+          >
+            {statusLabel}
+          </Text>
+        </View>
+        {prHref ? (
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
+            {t`Pull request`}
+          </Text>
+        ) : special.branch ? (
+          <Text style={{ color: tokens.mutedForeground, marginTop: 8, ...typeScale.secondary }}>
+            {special.branch}
+          </Text>
+        ) : null}
+      </Pressable>
+    );
+  }
   if (special.kind === "child_bot") {
     return (
       <Text

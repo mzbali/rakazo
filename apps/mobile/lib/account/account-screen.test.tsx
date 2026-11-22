@@ -859,7 +859,6 @@ it.each([false, true])(
         "Integrations",
         "Skills",
         "Artifacts",
-        "Jobs",
         "Pages shared with you",
         "General",
         "Models",

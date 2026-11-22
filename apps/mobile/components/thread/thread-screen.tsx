@@ -18,7 +18,7 @@ import {
 import { cronLabels } from "@rakazo/i18n/cron";
 import { useFocusEffect, useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useHeaderHeight } from "expo-router/react-navigation";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useMemo, useRef, useState } from "react";
 import { I18nManager, Platform, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,13 +26,9 @@ import { mobileTokens } from "../../lib/appearance/appearance";
 import type { MobileArtifactTarget } from "../../lib/artifacts/artifact-open";
 import { CallKeyboardContext } from "../../lib/calls/call-keyboard-context";
 import { useCallSession } from "../../lib/calls/call-session";
-import { useCloudJobs } from "../../lib/cloud-jobs";
-import { refreshCloudJobs } from "../../lib/cloud-jobs-store";
 import { composerDraftScope } from "../../lib/composer/composer-draft";
 import { useComposerModel } from "../../lib/composer/composer-model";
 import { useUiLocale } from "../../lib/i18n/i18n";
-import { jobPill } from "../../lib/job-pill";
-import { jobReplyTarget } from "../../lib/job-reply";
 import { readableGutters } from "../../lib/layout/adaptive-layout";
 import { useContentBottomInset } from "../../lib/layout/content-bottom-inset";
 import { useSplitView } from "../../lib/layout/split-view";
@@ -93,7 +89,6 @@ import { ThreadEdgeFade } from "./thread-edge-fade";
 import { ThreadEmbeds } from "./thread-embeds";
 import { ThreadErrorNotice, ThreadFetchErrorNotice } from "./thread-error-notice";
 import { useThreadHeader } from "./thread-header";
-import { ThreadJobsPill } from "./thread-jobs-pill";
 import { LoadEarlierButton, ThreadWorkingFooter } from "./thread-list-controls";
 import { ThreadMessageList } from "./thread-message-list";
 import { useLatestRowActions, useThreadRows } from "./thread-rows";
@@ -549,30 +544,6 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             status: bot.status,
           }))
         : [];
-  // One bar above the composer: the bot's own live turn shows in the transcript footer, and the
-  // chat's T3 jobs take over once that turn is done.
-  const { jobs: cloudJobs } = useCloudJobs(!readOnly);
-  const pill =
-    workingBots.length > 0 || hasLiveProgress ? null : jobPill(cloudJobs, { botId, groupId });
-  // The cards come from the chat's own messages and the pill from the jobs list; read the list
-  // again whenever a card changes so the two never say different things.
-  const cardStates = (snap?.messages ?? [])
-    .flatMap((message) => message.blocks)
-    .flatMap((block) =>
-      block.kind === "cloud_agent"
-        ? [`${block.agentId}:${block.status}:${block.review ?? ""}:${block.needsInput ?? ""}`]
-        : [],
-    )
-    .join();
-  useEffect(() => {
-    if (cardStates) void refreshCloudJobs();
-  }, [cardStates]);
-  const openPill = () => {
-    router.push({
-      pathname: "/thread-jobs",
-      params: groupId ? { groupId } : { botId },
-    });
-  };
   const workingFooter = (
     <ThreadWorkingFooter
       bots={workingBots.map((bot) => ({
@@ -682,24 +653,17 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
             hidden={readOnly}
             keyboardProgress={keyboard.progress}
             columnPadding={columnPadding}
-            notice={
-              <>
-                {pill ? <ThreadJobsPill pill={pill} onPress={openPill} /> : null}
-                <ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />
-              </>
-            }
+            notice={<ThreadFetchErrorNotice error={error} showingSaved={showingSaved} />}
             onHeight={setDockHeight}
             replyTarget={replyTarget}
             replyAuthor={
-              jobReplyTarget(replyTarget)
-                ? t`Sends to the job`
-                : replyTarget?.role === "user"
-                  ? (otherAuthor(replyTarget.author, userId)?.name ??
-                    channelMessageSender(replyTarget.blocks) ??
-                    t`You`)
-                  : (botDisplayName(snap?.members, mentionBots, replyTarget?.botId) ??
-                    displayName ??
-                    t`Bot`)
+              replyTarget?.role === "user"
+                ? (otherAuthor(replyTarget.author, userId)?.name ??
+                  channelMessageSender(replyTarget.blocks) ??
+                  t`You`)
+                : (botDisplayName(snap?.members, mentionBots, replyTarget?.botId) ??
+                  displayName ??
+                  t`Bot`)
             }
             replyQuote={replyQuote}
             threadTarget={artifactTarget}

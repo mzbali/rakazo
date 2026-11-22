@@ -254,9 +254,7 @@ export async function startBackgroundHelper(
     };
   }
   if (!committed) return started;
-  await deps.events.notify(thread.id, committed.eventSeq).catch((error) => {
-    getLogger().error("background helper card notification", error);
-  });
+  await deps.events.notify(thread.id, committed.eventSeq);
   await wakeRun(deps.jobs, committed.helperRunId);
   return started;
 }

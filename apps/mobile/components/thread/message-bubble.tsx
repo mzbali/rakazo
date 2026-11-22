@@ -35,6 +35,7 @@ import {
   userMentionTargets,
 } from "../../lib/messages/message-mentions";
 import {
+  askOptions,
   hasMessageSenderContent,
   messagePresentationSegments,
   splitMessageBlocks,
@@ -316,7 +317,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
 }) {
   const colorScheme = useResolvedAppearance();
   const tokens = withUserBubble(mobileTokens(), userBubble);
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const [peerExpanded, setPeerExpanded] = useState(false);
   const outgoing = message.role === "user" && !authorName;
   const showSpeaker = !hideSenderLabel && (showBotSenderName || Boolean(authorName));
@@ -557,7 +558,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
               ) : null}
               {question && (answered || canAnswer) ? (
                 <AskActions
-                  actions={askBlock.actions}
+                  actions={askOptions(askBlock)}
                   approval={false}
                   disabled={answered}
                   selectedAnswer={answered ? askBlock.answer : undefined}
@@ -784,7 +785,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                 >
                   📎 {attachment.name ?? t`File`}
                 </Text>
-                {formatFileSize(attachment.size) ? (
+                {formatFileSize(attachment.size, i18n.locale) ? (
                   <Text
                     style={{
                       color: outgoing ? tokens.chatUserForeground : tokens.mutedForeground,
@@ -792,7 +793,7 @@ const MessageBubbleContent = memo(function MessageBubbleContent({
                       fontSize: 13,
                     }}
                   >
-                    {formatFileSize(attachment.size)}
+                    {formatFileSize(attachment.size, i18n.locale)}
                   </Text>
                 ) : null}
               </Pressable>

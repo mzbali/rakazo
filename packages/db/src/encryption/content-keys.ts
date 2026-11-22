@@ -164,7 +164,8 @@ export type SpaceSource =
   | "scoped_goals"
   | "scoped_goal_transitions"
   | "meeting_sessions"
-  | "native_calendar_requests";
+  | "native_calendar_requests"
+  | "tasks";
 
 export interface SpaceKeyStore {
   forSpace(spaceId: string): Promise<SpaceKeyRecord[]>;
@@ -199,6 +200,7 @@ export const ROW_OWNER: Record<SpaceSource, string> = {
   scoped_goal_transitions: "userId",
   meeting_sessions: "userId",
   native_calendar_requests: "userId",
+  tasks: "threadId",
 };
 
 export interface Queryable {
@@ -226,6 +228,7 @@ const ROW_CONTEXT: Record<SpaceSource, string> = {
   native_calendar_requests: `SELECT "spaceId", "userId" AS owner FROM native_calendar_requests WHERE id = $1`,
   meeting_sessions: `SELECT "spaceId", "userId" AS owner FROM meeting_sessions WHERE id = $1`,
   bot_email_messages: `SELECT "spaceId", "botId" AS owner FROM bot_email_messages WHERE id = $1`,
+  tasks: `SELECT "spaceId", "threadId" AS owner FROM tasks WHERE id = $1`,
 };
 
 /**

@@ -122,6 +122,7 @@ export const MessageView = memo(function MessageView({
   onOpenComputer,
   onReleaseComputer,
   onOpenImportSetup,
+  onOpenAgentImport,
   rpc,
   showToolActivity,
   onReply,
@@ -177,6 +178,8 @@ export const MessageView = memo(function MessageView({
   ) => Promise<void>;
   /** Opens where an imported item's setup is finished. */
   onOpenImportSetup?: (target: ImportSetupTarget) => void;
+  /** Opens the agent import, for the option a first bot's opening question offers. */
+  onOpenAgentImport?: () => void;
   rpc: ReturnType<typeof createSpaceRpc>;
   showToolActivity: boolean;
   onReply: (message: ThreadMessage) => void;
@@ -710,6 +713,7 @@ export const MessageView = memo(function MessageView({
                     }
                     onDismiss={() => onAnswer(message, "", undefined, true)}
                     rpc={rpc}
+                    onOpenAgentImport={onOpenAgentImport}
                   />
                 )}
                 {i === hoverAnchorIndex ? hoverActions : null}

@@ -44,20 +44,23 @@ function gate(options: {
   neverAsk?: boolean;
   rule?: "always_allow" | "deny";
   asks?: boolean;
+  tool?: string;
+  ownerStartedRun?: boolean;
 }) {
+  const name = options.tool ?? "browser_act";
   const args = { actions: [{ kind: "fill_secret", ref: "e1", secret: "work", field: "Password" }] };
   const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
   const request: ToolRequest = {
-    name: "browser_act",
+    name,
     args,
     executionId,
-    connectorCall: { tool: "browser_act", args, executionId, route: undefined },
+    connectorCall: { tool: name, args, executionId, route: undefined },
     effectRequest: args,
     resolvedTool: undefined,
     catalogRemapped: false,
     nextApprovedTool: undefined,
     approvedEffectKey: undefined,
-    replayEffectToolName: "browser_act",
+    replayEffectToolName: name,
     fleetSummary: undefined,
     heldForApproval: false,
     settingsChange: false,
@@ -67,13 +70,13 @@ function gate(options: {
     loginUse: options.asks === false ? undefined : loginUse,
   };
   const ctx = {
-    deps: { prisma: {} },
+    deps: { prisma: { attempt: { count: async () => 1 } } },
     run: { id: "run-1", userId: "user-1", spaceId: "space-1", trigger: options.trigger ?? "user" },
     runId: "run-1",
     bot: { id: "bot-1", name: "Helper" },
     thread: { id: "thread-1" },
     context: { signal: new AbortController().signal },
-    source: { ownerStartedRun: true },
+    source: { ownerStartedRun: options.ownerStartedRun ?? true },
     tools: { connector: new Map(), connectedPlugins: [] },
     state: {
       tainted: false,
@@ -81,13 +84,12 @@ function gate(options: {
     },
     trust: {
       loadApprovalRules: async () =>
-        options.rule
-          ? [{ effect: options.rule, matchKind: "tool", matchValue: "browser_act" }]
-          : [],
+        options.rule ? [{ effect: options.rule, matchKind: "tool", matchValue: name }] : [],
       loadAutoReviewPreference: async () => ({
         enabled: false,
         skipApprovals: Boolean(options.neverAsk),
       }),
+      receivedOutsideMessage: async () => false,
     },
   };
   return gateToolCall(ctx as never, request, undefined).then(
@@ -125,6 +127,39 @@ describe("gateToolCall: a login that asks first", () => {
     expect(await gate({ rule: "deny" })).toEqual({
       result: { error: expect.stringContaining("is blocked in this space") },
     });
+  });
+});
+
+// Retiring the job pipeline (#124) first dropped this guard with it; a review caught it.
+describe("gateToolCall: starting coding work the owner did not ask for", () => {
+  const launch = (options: Parameters<typeof gate>[0]) =>
+    gate({ asks: false, tool: "cloud_agent_launch", ...options });
+
+  beforeEach(() => {
+    plans.length = 0;
+  });
+
+  it("is refused in Never ask when another bot's message started the run", async () => {
+    await launch({ neverAsk: true, ownerStartedRun: false, trigger: "bot_message" });
+    expect(plans).toEqual(["deny"]);
+  });
+
+  it("is refused in Never ask from a routine or a webhook", async () => {
+    for (const trigger of ["routine", "webhook"]) {
+      plans.length = 0;
+      await launch({ neverAsk: true, trigger });
+      expect(plans).toEqual(["deny"]);
+    }
+  });
+
+  it("runs in Never ask when the owner started the run", async () => {
+    await launch({ neverAsk: true });
+    expect(plans).toEqual(["allow"]);
+  });
+
+  it("follows a saved Allow even from another bot's message", async () => {
+    await launch({ neverAsk: true, ownerStartedRun: false, rule: "always_allow" });
+    expect(plans).toEqual(["allow"]);
   });
 });
 

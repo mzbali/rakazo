@@ -71,7 +71,7 @@ export function memoryRoutes(ctx: RouterContext) {
         const updated = await deps.memory
           .commit(
             {
-              scope: doc.scope as "bot" | "user",
+              scope: memoryScope(doc.scope),
               botId: doc.botId ?? undefined,
               path: doc.path,
               content: input.content,

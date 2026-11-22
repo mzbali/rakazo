@@ -230,6 +230,16 @@ export function toolRequiresExplicitApproval(toolName: string): boolean {
 }
 
 /**
+ * Tools that ask when the owner did not start the run, a routine started it, or outside content
+ * entered it, and that Never ask refuses in those runs. A saved Allow for a launch applies first.
+ * Another owner's connection, and starting coding work, which a bot's message or an email must
+ * not agree to on the owner's behalf unless they allowed the tool.
+ */
+export function toolGuardedInNeverAsk(toolName: string): boolean {
+  return toolName === "respond_agent_connection" || toolName === "cloud_agent_launch";
+}
+
+/**
  * A run the owner started: their own message in the app or a chat app they linked, a follow-up
  * they wrote, the close of their call, or a routine, whose prompt they wrote. A chat-app message
  * from anyone else (`otherPersonChat`), bot messages, spawns, tickets and webhooks are not, nor is

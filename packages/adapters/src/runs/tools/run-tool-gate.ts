@@ -17,6 +17,7 @@ import {
   resolveActionApprovalForTools,
   SITE_SENDING_TOOLS,
   savedContextWriteNeedsReview,
+  toolGuardedInNeverAsk,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
 } from "@rakazo/core";
@@ -310,8 +311,6 @@ export async function gateToolCall(
       ));
   // A reviewed call still fails closed when its review errors, and keeps its approval key.
   const gated = requiresApprovalByDefault || reviewOnly;
-  // In Ask and Auto these ask a person every time, whatever started the run.
-  const mandatoryInAnyRun = paying || unattendedWatch || toolRequiresExplicitApproval(name);
   // Outside text may have asked for these, so an Always allow rule saved for calls the owner asked
   // for does not skip them; they still go through the approval mode.
   const ignoresAllowRules = routineWrittenAfterOutside || request.ignoresAllowRules;
@@ -320,8 +319,6 @@ export async function gateToolCall(
   const asksEveryTime =
     (unattendedWatch || scheduleNamesNewSite || routineAddsEvents || ignoresAllowRules) &&
     !toolRequiresApproval(name, viaConnector);
-  // Never ask runs everything else: only another owner's connection could have been steered into it.
-  const guardedInNeverAsk = name === "respond_agent_connection";
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,
@@ -342,6 +339,23 @@ export async function gateToolCall(
       : ignoresAllowRules && resolvedRules.source === "always_allow"
         ? { ...resolvedRules, source: "default" as const }
         : resolvedRules;
+  // Guarded tools ask when the owner did not start the run, a routine started it (nobody is
+  // watching it run), or outside content entered it, and Never ask refuses them (see
+  // toolGuardedInNeverAsk). A saved Allow for a launch is applied first: it is the owner's own
+  // standing answer for that tool.
+  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
+  const steered =
+    guardedInNeverAsk &&
+    !(name === "cloud_agent_launch" && approvalResolved.source === "always_allow")
+      ? !ctx.source.ownerStartedRun || run.trigger === "routine" || (await isRunTainted(ctx))
+      : false;
+  // These ask in every run, whatever started it.
+  const mandatoryInAnyRun =
+    paying ||
+    unattendedWatch ||
+    toolRequiresExplicitApproval(name) ||
+    (guardedInNeverAsk && run.trigger === "webhook") ||
+    steered;
   const reviewable = mode === "auto" && !mandatoryInAnyRun;
   const injectedReview = reviewable ? deps.autoReview : undefined;
   const reviewSettings = !reviewable || injectedReview ? null : await ctx.trust.loadApprovalModel();
@@ -382,9 +396,7 @@ export async function gateToolCall(
         mode,
         mandatory: mandatoryInAnyRun,
         steerable:
-          guardedInNeverAsk && mode === "never"
-            ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
-            : undefined,
+          guardedInNeverAsk && mode === "never" ? steered || run.trigger === "webhook" : undefined,
         consequential: requiresApprovalByDefault,
         reviewOnly,
         checkerConfigured,

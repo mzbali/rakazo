@@ -359,7 +359,7 @@ export function createJobReconciler(
                   ? { status: "failed" as const, text: run.error ?? "unknown error" }
                   : { status: "stopped" as const, text: "" };
             await returnHelperOutcome(
-              { prisma: deps.prisma, jobs: deps.jobs, events, notifications: deps.notifications },
+              { prisma: deps.prisma, jobs: deps.jobs, events },
               run,
               outcome,
             );

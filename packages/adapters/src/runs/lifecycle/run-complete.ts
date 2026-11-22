@@ -14,7 +14,6 @@ import {
 } from "@rakazo/core";
 import { withCitedSourceBlock } from "@rakazo/core/answer-sources";
 import { getLogger } from "@rakazo/logging";
-import { postCloudAgentRelayPointers } from "../../cloud-agents/cloud-agent-poll.js";
 import { resolveBotWorkspacePath } from "../../computers/screens/computer-support.js";
 import {
   answeredSteeringMessageIds,
@@ -179,12 +178,6 @@ export async function completeRun(ctx: RunContext) {
       botMessageOutcome.text,
       botMessageOutcome.intent,
     ).catch((error) => getLogger().error("bot message result return", error));
-  }
-  if (run.trigger === "cloud_agent" || run.trigger === BACKGROUND_HELPER_TRIGGER) {
-    // The report on work another bot asked for; its asking chat gets a pointer to it.
-    await postCloudAgentRelayPointers(deps, run, { id: bot.id, name: bot.name }).catch((error) =>
-      getLogger().error("cloud agent relay pointer", error),
-    );
   }
   if (run.trigger === BACKGROUND_HELPER_TRIGGER) {
     await returnHelperOutcome(deps, run, { status: "completed", text }).catch((error) =>

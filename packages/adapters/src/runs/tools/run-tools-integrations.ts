@@ -3,12 +3,7 @@ import { isBackgroundRunTrigger, outboundSiteGate, redactSecrets } from "@rakazo
 import { recordRunSource } from "@rakazo/core/answer-sources";
 import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { getLogger } from "@rakazo/logging";
-import {
-  executeCloudAgentTool,
-  markCloudAgentWaiting,
-  trackDirectCloudAgent,
-} from "../../cloud-agents/cloud-agent-service.js";
-import { reportCloudAgent } from "../../cloud-agents/jobs/cloud-agent-report.js";
+import { executeCloudAgentTool } from "../../cloud-agents/cloud-agent-service.js";
 import { connectApp } from "../../integrations/connect-app.js";
 import {
   redactConnectorPayload,
@@ -40,22 +35,15 @@ import { toolAskFor } from "./run-tool-questions.js";
 export async function cloudAgentTool(ctx: RunContext, call: ToolCall) {
   const { deps, run, bot, context } = ctx;
   const { name, args, effectKey } = call;
-  const scoped = { ...context, operationId: effectKey, botId: bot.id, botName: bot.name };
-  const cloudDeps = {
-    ...deps,
-    cloudAgent: ctx.providers.cloudAgent,
-    deployment: deps.cloudAgent,
-  };
-  if (name === "cloud_agent_report") {
-    return call.finish(await reportCloudAgent(cloudDeps, scoped, run, args));
-  }
-  // Only a request or question from another bot makes it that bot's request.
-  const peer = ctx.source.peerMessage;
-  const origin =
-    peer && run.sourceMessageId && (peer.intent === "request" || peer.intent === "question")
-      ? { botId: peer.fromBotId, messageId: run.sourceMessageId }
-      : undefined;
-  return call.finish(await executeCloudAgentTool(cloudDeps, scoped, run, name, args, origin));
+  return call.finish(
+    await executeCloudAgentTool(
+      { ...deps, cloudAgent: ctx.providers.cloudAgent, deployment: deps.cloudAgent },
+      { ...context, operationId: effectKey, botId: bot.id },
+      run,
+      name,
+      args,
+    ),
+  );
 }
 
 export async function connectorTool(ctx: RunContext, call: ToolCall) {
@@ -99,37 +87,6 @@ export async function connectorTool(ctx: RunContext, call: ToolCall) {
             payload: { tool: name, logId },
           });
         }
-      }
-    }
-    // A run that just received a thread's finished result reports it itself; no wake needs to.
-    const watched = ctx.providers.cloudAgent?.watchedThread?.(name, args, result);
-    if (watched) {
-      await markCloudAgentWaiting(
-        { ...deps, cloudAgent: ctx.providers.cloudAgent },
-        { ...context, operationId: effectKey, botId: bot.id },
-        run,
-        watched,
-      ).catch(() => getLogger().warn("cloud_agent.waiting_mark_failed"));
-    }
-    const direct = ctx.providers.cloudAgent?.directThread?.(name, args, result);
-    if (direct) {
-      const scoped = { ...context, operationId: effectKey, botId: bot.id };
-      try {
-        await trackDirectCloudAgent(
-          { ...deps, cloudAgent: ctx.providers.cloudAgent },
-          scoped,
-          run,
-          direct,
-        );
-      } catch (error) {
-        getLogger().warn("cloud_agent.direct_track_failed", {
-          error: sanitizeConnectorError(error),
-        });
-        // The remote call happened, so the result stands; the bot learns no wake will follow.
-        return call.finish({
-          result,
-          notice: "This thread is not tracked, so its result will not wake you.",
-        });
       }
     }
     return call.finish(result);

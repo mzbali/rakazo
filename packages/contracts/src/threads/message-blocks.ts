@@ -91,130 +91,6 @@ export const AskReceipt = z.object({
 });
 export type AskReceipt = z.infer<typeof AskReceipt>;
 
-/** What a cloud-agent job shows: the chat card, and a row in the jobs list. */
-const CloudAgentFields = z.object({
-  agentId: z.string(),
-  title: z.string(),
-  status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
-  url: z.string(),
-  branch: z.string().optional(),
-  prUrl: z.string().optional(),
-  latestRunId: z.string().optional(),
-  /** Waiting for a free slot; still "running" for clients that predate it. */
-  queued: z.boolean().optional(),
-  /** An open question or approval; still "running" for clients that predate it. */
-  needsInput: z.boolean().optional(),
-  /** ISO time since the agent's provider could not be reached; polling resumes when it can. */
-  unreachableSince: z.string().optional(),
-  /** What was picked to run it and why, as the provider reported starting it. */
-  note: z.string().optional(),
-  /** The model that runs it, ready to show: a readable name, its effort, and an opaque key for the mark beside it. */
-  model: z
-    .object({ name: z.string(), effort: z.string().optional(), mark: z.string().optional() })
-    .optional(),
-  /** ISO time the job was created. */
-  startedAt: z.string().optional(),
-  /** ISO time the work ended; the elapsed clock stops here. */
-  endedAt: z.string().optional(),
-  /** ISO time a usage-limit pause ends and the work continues. The job stays running. */
-  quotaResetsAt: z.string().optional(),
-  /** The latest thing the agent said while it works, clipped. */
-  progress: z.string().optional(),
-  /** The repository or project the work is for. */
-  projectName: z.string().optional(),
-  /** A decision the owner has to make before the job can go on. */
-  ownerQuestion: z.string().optional(),
-  /** The provider's open question with the answers it offers, the recommended one first; the card turns them into buttons. */
-  question: z
-    .object({
-      requestId: z.string(),
-      text: z.string().optional(),
-      options: z.array(z.object({ label: z.string(), recommended: z.boolean().optional() })),
-      /** False when only the offered options may be chosen. */
-      allowCustomAnswer: z.boolean().optional(),
-    })
-    .optional(),
-  /** What the owner answered from the card; shown while the job goes on. */
-  answered: z.string().optional(),
-  /** ISO time the owner last sent the job an instruction from its card. */
-  steeredAt: z.string().optional(),
-  /** The launch itself was refused, so no remote work ever started and nothing waits on the owner. */
-  launchFailed: z.boolean().optional(),
-  /** Why the provider refused the launch or ended the work, when it said. */
-  failureReason: z.string().optional(),
-  /** The pull request's check result; absent when it is not known. */
-  checks: z.enum(["passing", "failing", "running"]).optional(),
-  /** The pull request's state when it is not open, so the card can say merged or closed. */
-  prState: z.enum(["merged", "closed"]).optional(),
-  /** The agent is watching its open pull request, so the job is waiting on it, not finished. */
-  watching: z.boolean().optional(),
-  /** What the job's own thread has going besides its run: subagents, commands, monitors and background tasks. */
-  work: z
-    .array(
-      z.object({
-        kind: z.enum(["subagent", "command", "monitor", "background_task"]),
-        label: z.string().max(120),
-        /** Where a child thread opens in its provider. */
-        url: z.string().optional(),
-      }),
-    )
-    .max(20)
-    .optional(),
-  /** The pull requests on the job's thread, each watched or not. */
-  pullRequests: z
-    .array(
-      z.object({
-        url: z.string(),
-        number: z.number().int(),
-        state: z.enum(["open", "merged", "closed"]),
-        watching: z.boolean(),
-      }),
-    )
-    .max(10)
-    .optional(),
-  /** Screenshots the job's pull request showed, copied to the app's own storage; at most three. */
-  proofImages: z
-    .array(z.object({ artifactId: z.string(), name: z.string(), mimeType: z.string() }))
-    .max(3)
-    .optional(),
-  /** The job's hidden review: under way, or the verdict it reached. */
-  review: z.enum(["checking", "accepted", "rejected", "needs_owner"]).optional(),
-  /** Earlier attempts at the same request, oldest first; the card shows only the current one. */
-  attempts: z
-    .array(
-      z.object({
-        agentId: z.string(),
-        status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
-        failureReason: z.string().optional(),
-        startedAt: z.string().optional(),
-      }),
-    )
-    .optional(),
-});
-
-/** One job in the jobs list: the card's fields and the chat that holds it. */
-export const CloudAgentJobSchema = CloudAgentFields.extend({
-  botId: z.string(),
-  botName: z.string(),
-  threadId: z.string(),
-  /** The chat message that holds the job's card, so a link can scroll to it. */
-  messageId: z.string().optional(),
-  groupId: z.string().optional(),
-  groupName: z.string().optional(),
-});
-export type CloudAgentJob = z.infer<typeof CloudAgentJobSchema>;
-
-/** What opening a job shows beyond its card: the brief it was given and what it reported. */
-export const CloudAgentDetailSchema = z.object({
-  job: CloudAgentJobSchema,
-  brief: z.string().optional(),
-  result: z.string().optional(),
-});
-/** The outcome of an owner's action on a job; `duplicate` means this tap was already accepted. */
-export const CloudAgentOwnerActionSchema = z.object({ duplicate: z.boolean() });
-
-export type CloudAgentDetail = z.infer<typeof CloudAgentDetailSchema>;
-
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({
@@ -394,7 +270,17 @@ export const MessageBlock = z.discriminatedUnion("kind", [
     name: z.string(),
     status: z.enum(["created", "archived", "deleted"]),
   }),
-  CloudAgentFields.extend({ kind: z.literal("cloud_agent") }),
+  z.object({
+    /** Compact card for a remote cloud coding agent (not the bot computer). */
+    kind: z.literal("cloud_agent"),
+    agentId: z.string(),
+    title: z.string(),
+    status: z.enum(["running", "finished", "failed", "cancelled", "expired"]),
+    url: z.string(),
+    branch: z.string().optional(),
+    prUrl: z.string().optional(),
+    latestRunId: z.string().optional(),
+  }),
   z.object({
     kind: z.literal("skill_draft"),
     skillId: Id,

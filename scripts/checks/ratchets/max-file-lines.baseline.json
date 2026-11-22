@@ -28,7 +28,6 @@
   "packages/adapters/src/runtime/pi/models/pi-oauth.ts": 1,
   "packages/adapters/src/runtime/pi/pi-runtime.ts": 1,
   "packages/adapters/src/runtime/scripted-runtime.ts": 1,
-  "packages/adapters/src/scoped-goal-service.ts": 1,
   "packages/adapters/src/tools/fleet-tools.ts": 1,
   "packages/adapters/src/tools/schedule-tools.ts": 1,
   "packages/auth/src/index.ts": 1,

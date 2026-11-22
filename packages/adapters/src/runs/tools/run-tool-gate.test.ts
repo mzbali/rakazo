@@ -44,26 +44,20 @@ function gate(options: {
   neverAsk?: boolean;
   rule?: "always_allow" | "deny";
   asks?: boolean;
-  tool?: string;
-  ruleTool?: string;
-  args?: Record<string, unknown>;
 }) {
-  const name = options.tool ?? "browser_act";
-  const args = options.args ?? {
-    actions: [{ kind: "fill_secret", ref: "e1", secret: "work", field: "Password" }],
-  };
+  const args = { actions: [{ kind: "fill_secret", ref: "e1", secret: "work", field: "Password" }] };
   const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
   const request: ToolRequest = {
-    name,
+    name: "browser_act",
     args,
     executionId,
-    connectorCall: { tool: name, args, executionId, route: undefined },
+    connectorCall: { tool: "browser_act", args, executionId, route: undefined },
     effectRequest: args,
     resolvedTool: undefined,
     catalogRemapped: false,
     nextApprovedTool: undefined,
     approvedEffectKey: undefined,
-    replayEffectToolName: name,
+    replayEffectToolName: "browser_act",
     fleetSummary: undefined,
     heldForApproval: false,
     settingsChange: false,
@@ -88,13 +82,7 @@ function gate(options: {
     trust: {
       loadApprovalRules: async () =>
         options.rule
-          ? [
-              {
-                effect: options.rule,
-                matchKind: "tool",
-                matchValue: options.ruleTool ?? "browser_act",
-              },
-            ]
+          ? [{ effect: options.rule, matchKind: "tool", matchValue: "browser_act" }]
           : [],
       loadAutoReviewPreference: async () => ({
         enabled: false,
@@ -137,43 +125,6 @@ describe("gateToolCall: a login that asks first", () => {
     expect(await gate({ rule: "deny" })).toEqual({
       result: { error: expect.stringContaining("is blocked in this space") },
     });
-  });
-});
-
-describe("gateToolCall: a cloud agent report", () => {
-  const report = (extra: Record<string, unknown>, options: Parameters<typeof gate>[0] = {}) =>
-    gate({
-      asks: false,
-      tool: "cloud_agent_report",
-      args: { id: "a1", verdict: "rejected", summary: "Cut off", ...extra },
-      ...options,
-    });
-
-  beforeEach(() => {
-    plans.length = 0;
-  });
-
-  it("asks like a reply when it sends the work back", async () => {
-    expect(await report({ correction: "Reshoot it." })).toBe("asks the user");
-    expect(plans).toEqual(["ask"]);
-  });
-
-  it("follows the owner's rules for replies", async () => {
-    plans.length = 0;
-    await report(
-      { correction: "Reshoot it." },
-      { rule: "always_allow", ruleTool: "cloud_agent_reply" },
-    );
-    expect(plans).toEqual(["allow"]);
-    expect(
-      await report({ correction: "Reshoot it." }, { rule: "deny", ruleTool: "cloud_agent_reply" }),
-    ).toEqual({ result: { error: expect.stringContaining("is blocked in this space") } });
-  });
-
-  it("needs no approval for a verdict alone", async () => {
-    plans.length = 0;
-    await report({});
-    expect(plans).toEqual(["allow"]);
   });
 });
 

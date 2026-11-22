@@ -24,7 +24,6 @@ import {
 import { USER_COMPUTER_SCREEN_TOOLS } from "./run-tools-user-computer.js";
 
 export const READ_ONLY_AGENT_TOOLS = new Set([
-  "scoped_goal_status",
   "computer_observe",
   "list_files",
   "list_fleet",
@@ -100,35 +99,6 @@ export const SUBAGENT_HIDDEN_TOOLS: ReadonlySet<string> = new Set([
   "feedback",
 ]);
 
-/** A plain helper stays on this set. Upstream also offers every non-hidden tool that the run listed. */
-const BACKGROUND_HELPER_TOOL_NAMES: ReadonlySet<string> = new Set([
-  "web_search",
-  "web_fetch",
-  "recall_memory",
-  "reflect_memory",
-  "skill_read",
-  "task_catalog",
-  "scratchpad_list",
-  "board_tickets",
-  "ticket_get",
-  "cloud_agent_status",
-]);
-
-/** What a cloud agent's job helper adds: it may answer, judge and stop that agent's work. */
-const JOB_HELPER_EXTRA_TOOL_NAMES = [
-  "cloud_agent_reply",
-  "cloud_agent_report",
-  "cloud_agent_cancel",
-];
-
-/** The tools a background helper may use, and a job helper's cloud-agent ones besides. */
-export function helperToolAllowed(name: string, jobHelper: boolean): boolean {
-  return (
-    BACKGROUND_HELPER_TOOL_NAMES.has(name) ||
-    (jobHelper && JOB_HELPER_EXTRA_TOOL_NAMES.includes(name))
-  );
-}
-
 /** Cross-owner agent connections only exist for chat-linked bots, in turns that can talk. */
 export function offersAgentConnectionTools(options: {
   hasMessagingIdentity: boolean;
@@ -161,8 +131,6 @@ export function selectBuiltinToolsForRun(options: {
   semanticMemoryReflects?: boolean;
   cloudAgentEnabled?: boolean;
   cloudAgentCleanupEnabled?: boolean;
-  /** The run is a cloud agent's job helper (see isJobHelperRun). */
-  jobHelper?: boolean;
   /** The run's user connected a payment wallet. */
   paymentWalletEnabled?: boolean;
   mediaImagesEnabled?: boolean;
@@ -230,9 +198,7 @@ export function selectBuiltinToolsForRun(options: {
     (tool) =>
       !disabled.has(tool.name) &&
       (options.trigger !== "created" || CREATED_RUN_TOOL_NAMES.has(tool.name)) &&
-      (options.trigger !== BACKGROUND_HELPER_TRIGGER ||
-        !SUBAGENT_HIDDEN_TOOLS.has(tool.name) ||
-        helperToolAllowed(tool.name, Boolean(options.jobHelper))) &&
+      (options.trigger !== BACKGROUND_HELPER_TRIGGER || !SUBAGENT_HIDDEN_TOOLS.has(tool.name)) &&
       (!FLEET_TOOL_NAMES_SET.has(tool.name) ||
         (Boolean(options.fleetManagement) && ownerStartedRun)) &&
       (ownerStartedRun || (tool.name !== "update_preferences" && tool.name !== "feedback")) &&

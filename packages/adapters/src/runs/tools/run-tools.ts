@@ -1,5 +1,5 @@
 import type { AgentToolExecutionObserver } from "@rakazo/adapter-kit";
-import { BACKGROUND_HELPER_TRIGGER, isJobHelperRun, toolResultTaintsRun } from "@rakazo/core";
+import { BACKGROUND_HELPER_TRIGGER, toolResultTaintsRun } from "@rakazo/core";
 import {
   isInternalTermination,
   isTerminatingReplyResult,
@@ -16,7 +16,6 @@ import { personalCalendarTools } from "../../personal-calendar/personal-calendar
 import { calendarTool } from "../../personal-calendar/run-calendar-tool.js";
 import { strategicInitiativeToolAllowed } from "../../routines/strategic-initiative.js";
 import { visualTools } from "../../run-tools-visuals.js";
-import { scopedGoalTool } from "../../scoped-goal-service.js";
 import type { RunContext } from "../assembly/run-context.js";
 import { markReadOutsideContent } from "../assembly/run-context.js";
 import { noteComputerTaskStep } from "../lifecycle/run-progress.js";
@@ -28,7 +27,6 @@ import { gateToolCall } from "./run-tool-gate.js";
 import { prepareToolRequest, resolveToolRequest } from "./run-tool-request.js";
 import {
   BUILTIN_AGENT_TOOL_NAMES,
-  helperToolAllowed,
   PAGE_BROWSER_TOOL_NAMES,
   SUBAGENT_HIDDEN_TOOLS,
 } from "./run-tool-selection.js";
@@ -93,22 +91,6 @@ const TOOL_HANDLERS = new Map<string, ToolHandler>([
 ]);
 
 function toolHandler(name: string): ToolHandler {
-  if (name.startsWith("scoped_goal_"))
-    return async (ctx, call) =>
-      call.finish(
-        await scopedGoalTool(
-          ctx.deps,
-          {
-            spaceId: ctx.run.spaceId,
-            userId: ctx.run.userId,
-            botId: ctx.bot.id,
-            threadId: ctx.thread.id,
-          },
-          call.name,
-          call.args,
-          call.effectKey,
-        ),
-      );
   return (
     TOOL_HANDLERS.get(name) ?? (name.startsWith("cloud_agent_") ? cloudAgentTool : connectorTool)
   );
@@ -264,10 +246,7 @@ async function dispatchTool(
   if (
     ctx.run.trigger === BACKGROUND_HELPER_TRIGGER &&
     (BUILTIN_AGENT_TOOL_NAMES.has(name) || TOOL_HANDLERS.has(name)) &&
-    !(
-      helperToolAllowed(name, isJobHelperRun(ctx.run)) ||
-      (!SUBAGENT_HIDDEN_TOOLS.has(name) && ctx.tools.builtins.some((tool) => tool.name === name))
-    )
+    (SUBAGENT_HIDDEN_TOOLS.has(name) || !ctx.tools.builtins.some((tool) => tool.name === name))
   ) {
     return refuse(
       refusal(

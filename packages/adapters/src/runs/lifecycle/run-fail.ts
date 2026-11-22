@@ -18,7 +18,6 @@ import {
 import { isDatabaseUnavailable, retryWhileDatabaseUnavailable } from "@rakazo/db";
 import { bestEffort, getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
-import { expediteCloudAgentReporterCheck } from "../../cloud-agents/cloud-agent-poll.js";
 import { returnBotMessageOutcome } from "../../messaging/bot-messages.js";
 import {
   backOffRoutineAfterAccountError,
@@ -167,10 +166,6 @@ export async function failRun(
     ...(partialReply.length > 0 ? { partialReply } : {}),
   });
   if (!failed) return;
-  await bestEffort(
-    "expedite cloud agent reporter check",
-    expediteCloudAgentReporterCheck(deps, runId),
-  );
   if (
     (computerFailed && !(error instanceof SandboxProviderAccountError)) ||
     error instanceof TransientModelError ||

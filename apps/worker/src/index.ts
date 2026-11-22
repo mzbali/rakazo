@@ -186,7 +186,7 @@ async function main() {
     deploymentLabs: env.deploymentLabs,
   });
   // One provider instance so emulator launches and polls share the same Map.
-  const cloudAgent = createCloudAgentConnection(process.env, connectors.stack.connector);
+  const cloudAgent = createCloudAgentConnection();
   const paymentWallet = await createPaymentWalletProvider();
   // One instance: the executor submits videos and background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();

@@ -81,7 +81,7 @@ export function createRunExecutor(executorDeps: ExecutorDeps) {
     async continueRun(runId: string, workerId: string, onRunStarted?: () => void) {
       const run = await findContinuableRun(baseDeps, endRunConnectorState, runId);
       if (!run) return;
-      const claim = await claimRunAttempt(baseDeps, run, workerId, endRunConnectorState);
+      const claim = await claimRunAttempt(baseDeps, run, workerId);
       if (!claim) {
         await holdRunForChat(baseDeps, run);
         return;

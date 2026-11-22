@@ -75,7 +75,6 @@ export * from "./routines/routine.js";
 export * from "./routines/routine-watch.js";
 export * from "./rpc/app-contract.js";
 export * from "./runs/runs.js";
-export * from "./scoped-goals.js";
 export * from "./settings-scope.js";
 export * from "./skills/agent-skills.js";
 export * from "./skills/taught-skills.js";

@@ -13,7 +13,6 @@ import {
   withTransactionRetry,
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { cloudAgentFor } from "../../cloud-agents/cloud-agent-service.js";
 import { redactConnectorPayload } from "../../integrations/connector-safety.js";
 import type { ExecutorDeps } from "../executor/executor-deps.js";
 
@@ -126,73 +125,6 @@ export async function publishMessage(
   if (isBackgroundRunTrigger(run.trigger)) {
     blocks = blocks.filter((block) => block.kind === "ask" || block.kind === "computer");
     if (blocks.length === 0 && !stoppedHelper) return null;
-  }
-  if (role === "bot" && (deps.cloudAgent || deps.userCloudAgents)) {
-    // App links have custom schemes. Web links are not recognized by the adapters that
-    // canonicalize thread links, so they do not need a cloud-agent lookup.
-    const candidates = new Set<string>();
-    for (const block of blocks) {
-      if (block.kind !== "text") continue;
-      for (const match of block.text.matchAll(/[a-z][a-z0-9+.-]*:\/\/[^\s<>()]+/gi)) {
-        try {
-          const url = new URL(match[0].replace(/[.,!?;]+$/, ""));
-          if (url.protocol === "http:" || url.protocol === "https:") continue;
-          const id = decodeURIComponent(url.pathname.split("/").at(-1) ?? "");
-          if (id) candidates.add(id);
-        } catch {
-          // Malformed links remain unchanged.
-        }
-      }
-    }
-    if (candidates.size) {
-      try {
-        const owner = await deps.prisma.run.findUnique({
-          where: { id: run.id },
-          select: { userId: true },
-        });
-        if (owner) {
-          const agents = await deps.prisma.cloudAgent.findMany({
-            where: {
-              spaceId: run.spaceId,
-              userId: owner.userId,
-              botId: run.botId,
-              remoteId: { in: [...candidates] },
-            },
-            select: { remoteId: true, url: true, providerKey: true },
-          });
-          const connections = new Map<string, Awaited<ReturnType<typeof cloudAgentFor>>>();
-          let rewritten = blocks;
-          for (const agent of agents) {
-            if (!agent.remoteId || !agent.url) continue;
-            if (!connections.has(agent.providerKey)) {
-              connections.set(
-                agent.providerKey,
-                await cloudAgentFor(deps, {
-                  providerKey: agent.providerKey,
-                  spaceId: run.spaceId,
-                  userId: owner.userId,
-                }),
-              );
-            }
-            const connection = connections.get(agent.providerKey);
-            const rewrite = connection?.provider.canonicalizeLinks;
-            if (!rewrite) continue;
-            rewritten = rewritten.map((block) =>
-              block.kind === "text"
-                ? {
-                    ...block,
-                    text: rewrite.call(connection.provider, block.text, agent.remoteId!, agent.url),
-                  }
-                : block,
-            );
-          }
-          blocks = rewritten;
-        }
-      } catch {
-        // A link is optional; never lose a reply because its provider could not be reached.
-        getLogger().warn("cloud_agent.link_canonicalization_failed");
-      }
-    }
   }
   const lease = runLeaseFor(deps, run.id);
   // Concurrent runs in one thread contend for its sequence counters; Postgres aborts a

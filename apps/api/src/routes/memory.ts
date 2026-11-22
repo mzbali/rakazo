@@ -11,7 +11,6 @@ import {
 import { isDeletableMemoryDocument } from "@rakazo/contracts";
 import { ClientError } from "@rakazo/core";
 import { findSpaceMemoryConfig, IsolationError } from "@rakazo/db";
-import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import {
   disconnectMemoryProvider,
   persistMemoryProviderConfig,
@@ -69,18 +68,14 @@ export function memoryRoutes(ctx: RouterContext) {
           },
         });
         if (!doc) throw new IsolationError();
-        if (input.expectedRevision !== undefined && input.expectedRevision !== doc.revision) {
-          throw new ORPCError("CONFLICT", { message: MEMORY_REVISION_CONFLICT_ERROR });
-        }
-        await assertNoAddedClaimsOrBadRequest(doc.content, input.content);
         const updated = await deps.memory
           .commit(
             {
-              scope: memoryScope(doc.scope),
+              scope: doc.scope as "bot" | "user",
               botId: doc.botId ?? undefined,
               path: doc.path,
               content: input.content,
-              expectedRevision: doc.revision,
+              expectedRevision: input.expectedRevision,
             },
             {
               operationId: "mem",

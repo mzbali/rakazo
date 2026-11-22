@@ -27,7 +27,6 @@ import {
   BillingEmulator,
   CodexCatalogCache,
   closeServerFoundation,
-  configureCorrectedClaimsConnections,
   configuredMessaging,
   contentKeyProviderFromEnv,
   createAgentHomeStore,
@@ -285,13 +284,6 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     encryptionKey: env.encryptionKey,
   });
   const { prisma, realtime, secrets, analytics, events } = foundation;
-  const codexCatalog = new CodexCatalogCache();
-  configureCorrectedClaimsConnections({
-    codexCatalog,
-    prisma,
-    secretStore: secrets,
-    mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
-  });
   const partnerProgram = env.dubApiKey ? createDubPartnerProgram(env.dubApiKey) : undefined;
   const boardEvents = createBoardEvents(realtime);
 
@@ -534,6 +526,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   });
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
+  const codexCatalog = new CodexCatalogCache();
   // One instance: chat runs submit videos and, in single-process mode, background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();
   const { runtime, executor, jobHandlers, messagingDelivery, teamChat, pageRevisions } =

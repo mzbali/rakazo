@@ -12,8 +12,6 @@ import {
   apnsVoipConfig,
   CodexCatalogCache,
   closeServerFoundation,
-  configureCorrectedClaimsConnections,
-  configureCorrectedClaimsFromEnv,
   configuredBotEmailProvider,
   configuredEmailProvider,
   configuredMessaging,
@@ -84,8 +82,6 @@ import { createRootLogger } from "@rakazo/logging/axiom";
 import { watchEventLoopStalls } from "@rakazo/logging/event-loop";
 import { MarkdownMemoryStore } from "@rakazo/memory";
 
-configureCorrectedClaimsFromEnv();
-
 const logger = await createRootLogger(SERVICE_NAMES.worker);
 
 async function main() {
@@ -119,13 +115,6 @@ async function main() {
     encryptionKey: resolveEncryptionKey(process.env),
   });
   const { prisma, realtime, secrets, analytics, events } = foundation;
-  const codexCatalog = new CodexCatalogCache();
-  configureCorrectedClaimsConnections({
-    codexCatalog,
-    prisma,
-    secretStore: secrets,
-    mcpAllowPrivateEndpoint: process.env.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
-  });
   // Fail at boot rather than on the first catalog read, which would fail a run.
   liveModelCatalogEnabled(process.env);
   const env = runRuntimeEnvFromProcess(process.env);
@@ -239,7 +228,7 @@ async function main() {
     prisma,
     runtime,
     // Live per-account Codex catalog; never refreshes or writes credentials.
-    codexCatalog,
+    codexCatalog: new CodexCatalogCache(),
     sandbox,
     memory: new MarkdownMemoryStore(prisma),
     memoryProviders,

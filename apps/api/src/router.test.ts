@@ -13,12 +13,8 @@ import {
 import * as adapters from "@rakazo/adapters";
 import { LocalAgentHomeStore, serializeModelSecret } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
-import { configureCorrectedClaimJudge } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-afterEach(() => configureCorrectedClaimJudge(undefined));
-
 import type { RouterDeps } from "./router.js";
 import { createRouter as createRouterWith } from "./router.js";
 import { appHandler, createRouter, handle } from "./router-test-support.js";
@@ -1016,12 +1012,7 @@ describe("adapter refusals answered by type", () => {
         {
           prisma: {
             memoryDocument: {
-              findFirst: vi.fn().mockResolvedValue({
-                id: "doc-1",
-                scope: "user",
-                path: "a.md",
-                revision: 1,
-              }),
+              findFirst: vi.fn().mockResolvedValue({ id: "doc-1", scope: "user", path: "a.md" }),
             },
           },
           memory: { commit: vi.fn().mockRejectedValue(failure) },
@@ -1325,80 +1316,5 @@ describe("memory documents", () => {
     const foreign = memoryClient(null);
     await expect(foreign.client.memory.remove({ documentId: "doc-2" })).rejects.toBeTruthy();
     expect(foreign.memory.remove).not.toHaveBeenCalled();
-  });
-});
-
-describe("manual memory edits", () => {
-  const actor = {
-    spaceId: "workspace-1",
-    userId: "user-1",
-    email: "user@rakazo.test",
-    isDeploymentOwner: true,
-  } satisfies Actor;
-
-  function memoryClient() {
-    const doc = {
-      id: "doc-1",
-      scope: "bot",
-      botId: "bot-1",
-      path: "notes.md",
-      content: "Old",
-      revision: 1,
-    };
-    const commit = vi.fn(async (input: { content: string }) => ({
-      id: doc.id,
-      path: doc.path,
-      content: input.content,
-      revision: 2,
-    }));
-    const deps = {
-      prisma: { memoryDocument: { findFirst: vi.fn(async () => doc) } },
-      memory: { commit },
-    } as unknown as RouterDeps;
-    const client = createRouterClient(createRouter(deps), { context: { actor } as never });
-    return { client, commit, doc };
-  }
-
-  it("refuses an edit the fact checker rejects and saves nothing", async () => {
-    const judge = vi.fn(async () => ({ status: "rejected" as const, reason: "Scripted" }));
-    configureCorrectedClaimJudge(judge);
-    const { client, commit } = memoryClient();
-
-    await expect(
-      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 1 }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST", message: expect.stringContaining("Nothing") });
-    expect(judge).toHaveBeenCalledWith({ before: "Old", after: "New" });
-    expect(commit).not.toHaveBeenCalled();
-  });
-
-  it("saves an edit the fact checker accepts", async () => {
-    configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Scripted" }));
-    const { client, commit } = memoryClient();
-
-    await expect(
-      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 1 }),
-    ).resolves.toMatchObject({ content: "New" });
-    expect(commit).toHaveBeenCalledOnce();
-  });
-
-  it("binds omitted revisions to the assessed snapshot", async () => {
-    configureCorrectedClaimJudge(async () => ({ status: "accepted", reason: "Scripted" }));
-    const { client, commit } = memoryClient();
-    await client.memory.update({ documentId: "doc-1", content: "New" });
-    expect(commit).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedRevision: 1 }),
-      expect.anything(),
-    );
-  });
-
-  it("refuses a caller revision that differs from the assessed snapshot", async () => {
-    const judge = vi.fn(async () => ({ status: "accepted" as const, reason: "Scripted" }));
-    configureCorrectedClaimJudge(judge);
-    const { client, commit } = memoryClient();
-    await expect(
-      client.memory.update({ documentId: "doc-1", content: "New", expectedRevision: 2 }),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
-    expect(judge).not.toHaveBeenCalled();
-    expect(commit).not.toHaveBeenCalled();
   });
 });

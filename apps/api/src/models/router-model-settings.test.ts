@@ -3,12 +3,9 @@ import { SecretStoreUnavailableError } from "@rakazo/adapter-kit";
 import { listPiCatalog } from "@rakazo/adapters";
 import type { Actor, BillingStatus } from "@rakazo/contracts";
 import { MAX_MODEL_SETTINGS_PER_CONNECTION, REPLY_QUOTE_MAX_LENGTH } from "@rakazo/contracts";
-import { configureCorrectedClaimJudge, MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
+import { MODEL_REQUIRED_SEND_ERROR } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-afterEach(() => configureCorrectedClaimJudge(undefined));
-
+import { describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
 import type { RouterHandler } from "../router-test-support.js";
 import { appHandler, createRouter, handle } from "../router-test-support.js";
@@ -1089,22 +1086,13 @@ describe("bot model auth on save", () => {
     }));
     const tx = {
       $queryRaw: vi.fn(async () => []),
-      bot: {
-        update: botUpdate,
-        // What writeBotInstructions reads under its lock before an instruction change.
-        findUniqueOrThrow: vi.fn(async () => ({
-          ...bot,
-          instructions: "",
-          instructionHistory: [],
-        })),
-      },
+      bot: { update: botUpdate },
       thread: { update: vi.fn(async () => ({ nextEventSeq: 2 })) },
       event: { create: vi.fn(async () => ({ seq: 1 })) },
     };
     const prisma = {
       $queryRaw: vi.fn(async () => []),
       bot: {
-        findUniqueOrThrow: vi.fn(async () => ({ ...bot, instructions: "" })),
         findFirst: vi.fn(async () => bot),
         findMany: vi.fn(async () => [{ ...bot, name: "Ada renamed" }]),
         update: botUpdate,
@@ -1135,28 +1123,6 @@ describe("bot model auth on save", () => {
       handler: appHandler(deps),
     };
   }
-
-  it("answers instructions that add a corrected claim with 400 and the reason", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const { botUpdate, handler } = saveDeps({ modelId: spark, preferences: () => null });
-
-    const response = await call(handler, "bots/update", {
-      botId: "bot-1",
-      instructions: "A continuation does not wake on completion.",
-    });
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      json: expect.objectContaining({
-        code: "BAD_REQUEST",
-        message: expect.stringContaining("Nothing was saved"),
-      }),
-    });
-    expect(botUpdate).not.toHaveBeenCalled();
-  });
 
   it("persists the daily check-in preference through the bot update route", async () => {
     const { botUpdate, handler } = saveDeps({ modelId: spark, preferences: () => null });

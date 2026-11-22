@@ -1,5 +1,4 @@
-import { configureCorrectedClaimJudge } from "@rakazo/core";
-import { describe, expect, it, afterEach as resetClaimJudge, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildApprovalAskBlock } from "../../approvals/approval-ask.js";
 import { relabelVaultItem, resolveLoginFill, storeBotSecret } from "../../secrets/bot-secrets.js";
 import { fakeDatabase } from "../../secrets/bot-secrets.test-support.js";
@@ -7,8 +6,6 @@ import { EncryptedSecretStore } from "../../secrets/secrets.js";
 import { LOGIN_CODE_FIELD, vaultLoginUseOf } from "../../secrets/vault/vault-card-use.js";
 import type { ToolRequest } from "./run-tool-request.js";
 import { prepareToolRequest } from "./run-tool-request.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 // RFC 6238's test key, written in pieces so it never reads as a saved secret.
 const TEST_KEY = ("GEZDGNBV" + "GY3TQOJQ").repeat(2);
@@ -78,38 +75,6 @@ describe("prepareToolRequest: update_bot owner settings after outside content", 
     for (let index = 0; index < 3; index += 1) {
       await expect(prepareToolRequest(ctx as never, request())).resolves.toBeUndefined();
     }
-  });
-});
-
-describe("prepareToolRequest: update_bot instructions that add a corrected claim", () => {
-  const stale = "A continuation does not wake on completion.";
-
-  function call(args: Record<string, unknown>, current = "Be brief.") {
-    const { ctx, request } = ownBotUpdateCall();
-    ctx.state.tainted = false;
-    ctx.deps.prisma.bot.findUnique = async () =>
-      ({ name: "Old", instructions: current, modelProvider: "openrouter", modelId: "m" }) as never;
-    const req = request();
-    req.args = args;
-    return { ctx, req };
-  }
-
-  it("refuses the whole call, so a name change in it saves nothing", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const { ctx, req } = call({ name: "New", instructions: stale });
-    await expect(prepareToolRequest(ctx as never, req)).resolves.toEqual({
-      error: expect.stringContaining("Nothing was saved"),
-    });
-    expect(req.heldForApproval).toBe(false);
-  });
-
-  it("accepts text that only keeps a claim the bot already had", async () => {
-    const { ctx, req } = call({ instructions: `${stale}\nBe brief.` }, stale);
-    const result = await prepareToolRequest(ctx as never, req);
-    expect(result).not.toEqual({ error: expect.stringContaining("Nothing was saved") });
   });
 });
 

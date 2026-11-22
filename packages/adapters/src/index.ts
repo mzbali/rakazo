@@ -73,10 +73,6 @@ export * from "./computers/screens/computer-screens.js";
 export * from "./computers/screens/computer-support.js";
 export { teamWorkspaceInstruction } from "./computers/screens/computer-support.prompt.js";
 export * from "./computers/screens/computer-tools.js";
-export {
-  configureCorrectedClaimsConnections,
-  configureCorrectedClaimsFromEnv,
-} from "./corrected-claims.js";
 export * from "./email/email-emulator.js";
 export * from "./email/email-provider.js";
 export * from "./email/inbound-email.js";

@@ -70,7 +70,6 @@ import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../bots/age
 import { loadBotForRemoval } from "../bots/bot-removal.js";
 import { createBotFromTemplate, listBotTemplates } from "../bots/bot-templates.js";
 import { botIntroPrompt } from "../bots/hidden-turns.prompt.js";
-import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import {
   botEmailAddress,
   botEmailAddresses,
@@ -345,7 +344,6 @@ export function botsRoutes(ctx: RouterContext) {
         return { ...found, meetingsEnabled: await deps.meetings?.visible(context.actor, found.id) };
       }),
       create: authed.bots.create.handler(async ({ context, input }) => {
-        await assertNoAddedClaimsOrBadRequest("", input.instructions ?? "");
         // Older apps always send Original, which would pin every new bot to it.
         const { avatarSet: _ignored, ...request } = input;
         const bot = await repos.createBot(context.actor, request);

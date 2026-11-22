@@ -9,19 +9,11 @@ import { MEMORY_REVISION_CONFLICT_ERROR, MemoryRevisionConflictError } from "@ra
 import type { ModelRoleSettings, SpendingLimit } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import type { ActionApprovalRule } from "@rakazo/core";
-import { configureCorrectedClaimJudge, inboundRoutineBlock } from "@rakazo/core";
+import { inboundRoutineBlock } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import type { PrismaClient } from "@rakazo/db";
 import { createPendingSteeringRun, sendUserMessage } from "@rakazo/db";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  afterEach as resetClaimJudge,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DENIED_ACTION_ERROR, isApprovalPausedResult } from "../../approvals/approval-effect.js";
 import { fakeSpendingPrisma } from "../../billing/fake-spending.js";
 import type * as ComputerLifecycleModule from "../../computers/computer-lifecycle.js";
@@ -40,8 +32,6 @@ import {
 import type { TurnCheckpoint } from "../turn/turn-checkpoint.js";
 import { serializeTurnCheckpoint } from "../turn/turn-checkpoint.js";
 import { createRunExecutor } from "./executor.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 vi.mock("../../computers/computer-lifecycle.js", async (importOriginal) => ({
   ...(await importOriginal<typeof ComputerLifecycleModule>()),
@@ -899,37 +889,6 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect.anything(),
     );
     expect(f.results.at(-1)).toEqual({ ok: true, path: "MEMORY.md", revision: 2 });
-  });
-
-  it("refuses shared memory that adds a corrected claim, which every bot would read", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const f = fixture({
-      name: "save_shared_memory",
-      builtin: true,
-      existingSharedMemory: "Old rule",
-    });
-    f.setCalls([
-      {
-        args: { path: "MEMORY.md", content: "Old rule\nContinuations don't wake this bot." },
-        executionId: "call-1",
-      },
-    ]);
-    await f.run();
-    expect(f.commit).not.toHaveBeenCalled();
-    expect(f.results.at(-1)).toEqual({ error: expect.stringContaining("Nothing was saved") });
-  });
-
-  it("lets shared memory that already holds a corrected claim take an unrelated edit", async () => {
-    const stale = "Continuations don't wake this bot.";
-    const f = fixture({ name: "save_shared_memory", builtin: true, existingSharedMemory: stale });
-    f.setCalls([
-      { args: { path: "MEMORY.md", content: `${stale}\nNew rule` }, executionId: "call-1" },
-    ]);
-    await f.run();
-    expect(f.commit).toHaveBeenCalledOnce();
   });
 
   it("does not overwrite shared memory that changed after it was read", async () => {

@@ -17,6 +17,16 @@ msgstr ""
 msgid " (unread)"
 msgstr "（未読）"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -37,6 +47,11 @@ msgstr "{0, plural, one {#か月分の無料期間を獲得} other {#か月分�
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, other {#か月分の無料期間}}"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -54,6 +69,11 @@ msgstr "{0, plural, other {#個のスキル}}"
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, other {#個のスペース}}"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0, plural, one {# tool} other {# tools}}"
@@ -63,6 +83,11 @@ msgstr "{0, plural, other {#個のツール}}"
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "{0, plural, one {The code expires in about # minute.} other {The code expires in about # minutes.}}"
 msgstr "{0, plural, other {コードの有効期限は約#分です。}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: bot.name
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -79,6 +104,11 @@ msgstr "{0}（添付ファイルは最大{ATTACHMENT_MAX_COUNT}個）"
 #: apps/web/src/pages/shell/composer/use-composer-actions.ts
 msgid "{0} (over {1})"
 msgstr "{0}（{1}を超えています）"
+
+#. placeholder {0}: choice.label
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "{0} (recommended)"
+msgstr ""
 
 #. placeholder {0}: block.name
 #: apps/web/src/pages/shell/chat/message-cards.tsx
@@ -115,6 +145,11 @@ msgstr "{0}が動作していません"
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0} is running"
 msgstr "{0}は実行中です"
+
+#. placeholder {0}: pill.count
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "{0} jobs working"
+msgstr ""
 
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
@@ -254,14 +289,26 @@ msgstr "{connectedCount, plural, other {#件接続済み}}"
 msgid "{count, plural, one {{names} keeps its own model} other {{names} keep their own model}}"
 msgstr "{count, plural, other {{names}は独自のモデルを使用します}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {# bot has its own model: {names}} other {# bots have their own model: {names}}}"
 msgstr "{count, plural, other {#個のボットが独自のモデルを使用しています: {names}}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
 
 #: apps/mobile/components/thread/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/chat/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, other {{peer}とのメッセージ#件}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
 
 #: apps/web/src/components/messages/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
@@ -275,9 +322,22 @@ msgstr "{count, plural, other {#件を選択中}}"
 msgid "{count, plural, one {# skill} other {# skills}}"
 msgstr "{count, plural, other {#個のスキル}}"
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "{count, plural, one {# source} other {# sources}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
 msgstr "{count, plural, other {#個のボットをスペースのデフォルトに切り替えますか？}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -299,6 +359,10 @@ msgstr "{count}個のファイル"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "{count}か月分の無料期間を獲得"
+
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+msgid "{count} jobs"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/billing.ts
@@ -868,6 +932,10 @@ msgstr "1か月分の無料期間を獲得"
 #: apps/web/src/pages/shell/chat/bot-context-menu.tsx
 msgid "1 hour"
 msgstr "1時間"
+
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "1 job working"
+msgstr ""
 
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "1 space"
@@ -1571,6 +1639,11 @@ msgstr "応答"
 msgid "Answered"
 msgstr "回答済み"
 
+#. placeholder {0}: job.answered
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Answered: {0}"
+msgstr ""
+
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -1944,6 +2017,10 @@ msgstr "会議に戻る"
 msgid "Back to sign in"
 msgstr "ログインに戻る"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Base URL"
 msgstr "ベースURL"
@@ -2156,6 +2233,10 @@ msgstr "ボットに割り当て済み"
 msgid "Brain label"
 msgstr "Brainラベル"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Brief"
+msgstr ""
+
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
 msgid "Browse"
@@ -2299,6 +2380,7 @@ msgstr "画像を読み取れません"
 #: apps/mobile/components/settings/account-deletion.tsx
 #: apps/mobile/components/settings/space-bots-model.tsx
 #: apps/mobile/components/thread/failed-send-bubble.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/thread/selection-bar.tsx
@@ -2360,11 +2442,6 @@ msgstr "返信をキャンセル"
 
 #: apps/web/src/pages/settings/BillingSettingsPanel.tsx
 msgid "Canceled"
-msgstr "キャンセル済み"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "cancelled"
 msgstr "キャンセル済み"
 
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -2466,6 +2543,10 @@ msgstr "チャットの詳細"
 msgid "Chat from {name}"
 msgstr "{name}からのチャット"
 
+#: apps/web/src/pages/shell/sidebar/archived-chats.tsx
+msgid "Chat restored, but the list could not refresh."
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/bot-settings.tsx
 msgid "Chat settings"
@@ -2532,6 +2613,11 @@ msgstr "接続を確認して、もう一度お試しください。"
 msgid "Check your email"
 msgstr "メールを確認してください"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Checking"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "コンピューターの設定を確認中…"
@@ -2546,6 +2632,21 @@ msgstr "接続を確認中…"
 #: apps/web/src/pages/shell/host-computer-prompt.tsx
 msgid "Checking…"
 msgstr "確認中…"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks running"
+msgstr ""
 
 #: apps/web/src/pages/shell/meetings/meeting-calendar.tsx
 msgid "Choose"
@@ -2642,6 +2743,7 @@ msgid "Clean up"
 msgstr "整理する"
 
 #: apps/mobile/app/search.tsx
+#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/web/src/components/messages/SecretAskCard.tsx
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
@@ -2672,6 +2774,10 @@ msgstr "フィルター{label}を解除"
 msgid "Clear filters"
 msgstr "フィルターをクリア"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Clear from list"
+msgstr ""
+
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "Clearing…"
 msgstr "クリア中…"
@@ -2684,6 +2790,7 @@ msgstr "クリア中…"
 #: apps/mobile/app/space-members.tsx
 #: apps/mobile/components/native/sheet-close-button.ios.tsx
 #: apps/mobile/components/native/sheet-close-button.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/components/ErrorBoundary.tsx
 #: apps/web/src/components/I18nBootstrap.tsx
 #: apps/web/src/components/WindowChrome.tsx
@@ -2756,6 +2863,7 @@ msgid "Close panel"
 msgstr "パネルを閉じる"
 
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 msgid "Close preview"
 msgstr "プレビューを閉じる"
 
@@ -2776,11 +2884,17 @@ msgstr "ユーザー設定を閉じる"
 msgid "Close voice settings"
 msgstr "音声設定を閉じる"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "closed"
+msgstr ""
+
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Cloud"
 msgstr "クラウド"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-row.tsx
 msgid "Cloud agent"
 msgstr "クラウドエージェント"
 
@@ -2837,6 +2951,7 @@ msgstr "列 {index}"
 msgid "Comfortable"
 msgstr "ゆったり"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -3463,6 +3578,11 @@ msgstr "会話をクリアできませんでした"
 msgid "Could not clear the custom server URL"
 msgstr "カスタムサーバーURLをクリアできませんでした"
 
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Could not clear the job"
+msgstr ""
+
 #: apps/mobile/lib/auth/api-auth.ts
 msgid "Could not clear the local session"
 msgstr "ローカルセッションをクリアできませんでした"
@@ -3848,6 +3968,14 @@ msgstr "画像を読み込めませんでした"
 msgid "Could not load integrations"
 msgstr "連携を読み込めませんでした"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Could not load job"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Could not load jobs"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
@@ -3993,6 +4121,7 @@ msgstr "コンピューターを開けませんでした"
 
 #: apps/mobile/app/peer-chat.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 msgid "Could not open file"
 msgstr "ファイルを開けませんでした"
 
@@ -4174,6 +4303,10 @@ msgstr "パスワードをリセットできませんでした"
 msgid "Could not restore bot"
 msgstr "ボットを復元できませんでした"
 
+#: apps/web/src/pages/shell/sidebar/archived-chats.tsx
+msgid "Could not restore chat. Try again."
+msgstr ""
+
 #: apps/mobile/components/computers/computer-home-versions.tsx
 #: apps/web/src/components/computers/ComputerHomeVersions.tsx
 msgid "Could not restore files"
@@ -4334,6 +4467,14 @@ msgstr "リセット用メールを送信できませんでした"
 msgid "Could not send that"
 msgstr "送信できませんでした"
 
+#: apps/mobile/lib/thread/send/thread-send.ts
+msgid "Could not send to the job"
+msgstr ""
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not send your answer"
+msgstr ""
+
 #: apps/mobile/components/media/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "ファイルを共有できませんでした"
@@ -4402,6 +4543,10 @@ msgstr "ログインを開始できませんでした"
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "ティーチングを開始できませんでした"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not stop the job"
+msgstr ""
 
 #: apps/mobile/components/cards/AskActions.tsx
 msgid "Could not submit answer"
@@ -4523,6 +4668,11 @@ msgstr "コンピューターのセットアップを確認できませんでし
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "コピーできませんでした。リンクを選択してコピーしてください。"
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "付与を読み込めませんでした"
@@ -4550,6 +4700,11 @@ msgstr "ウォレットを読み込めませんでした"
 #: apps/mobile/components/thread/thread-error-notice.tsx
 msgid "Couldn't refresh. Showing the last loaded messages."
 msgstr "更新できませんでした。最後に読み込んだメッセージを表示しています。"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Couldn't start"
+msgstr ""
 
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
@@ -5102,6 +5257,7 @@ msgstr "デスクトップID"
 msgid "Desktop update"
 msgstr "デスクトップの更新"
 
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5309,11 +5465,13 @@ msgstr "アカウントをお持ちでないですか？"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/cards/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/messages/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault/vault-item-sheet.tsx
 #: apps/mobile/lib/board/board.ts
 #: apps/web/src/components/computers/ComputerCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/ToolActivityDisclosure.tsx
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 #: apps/web/src/components/settings/AccountDataSettings.tsx
@@ -5383,6 +5541,14 @@ msgstr "複製"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "各名前は一度だけ使用できます。"
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Earlier"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Earlier attempts"
+msgstr ""
 
 #: packages/i18n/src/page-review.ts
 msgid "Earlier revision"
@@ -5646,7 +5812,10 @@ msgstr "exact-model-id"
 msgid "Expand"
 msgstr "展開"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar/sidebar-roster.tsx
 msgid "Expand {0}"
 msgstr "{0}を展開"
@@ -5659,15 +5828,12 @@ msgstr "{name}を展開"
 msgid "Expand table"
 msgstr "テーブルを拡大"
 
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "expired"
-msgstr "期限切れ"
-
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
@@ -5730,11 +5896,6 @@ msgstr "特大"
 #: packages/i18n/src/computer-usage.ts
 msgid "Extra large (uses {rate}× hours)"
 msgstr "特大（{rate}倍の時間を消費）"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "failed"
-msgstr "失敗"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
@@ -5839,11 +6000,6 @@ msgstr "WebアプリでMCPの認可を完了してください。"
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Finish setting up"
 msgstr "セットアップを完了"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "finished"
-msgstr "完了"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/platform/browser-notifications.ts
@@ -6153,7 +6309,7 @@ msgstr "非表示"
 msgid "Hide {field}"
 msgstr "{field}を非表示"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Hide {label}"
 msgstr "{label}を非表示"
 
@@ -6528,6 +6684,10 @@ msgstr "開けませんでした。サイドバーからもう一度お試しく
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "削除されたか、別のユーザーのページの可能性があります。"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "It stops working now. What it has done so far is kept."
+msgstr ""
+
 #: apps/mobile/lib/inbox/sections/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6548,6 +6708,17 @@ msgstr "リンクは使えなくなります。この操作は元に戻せませ
 #: apps/web/src/components/pages/PagesList.tsx
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "共有リンクは使えなくなり、チャット内のカードは削除済みと表示されます。元に戻すことはできません。"
+
+#: apps/mobile/app/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/components/inbox/inbox-header.tsx
+#: apps/mobile/lib/inbox/use-inbox-header.ts
+msgid "Jobs"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
 
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
@@ -6621,6 +6792,10 @@ msgstr "メモリを保持"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "ツールの結果をそのまま保持"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Keep working"
+msgstr ""
 
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -7186,6 +7361,12 @@ msgstr "OpenClawの機能に言及しています"
 msgid "Mentions: {mentions}"
 msgstr "言及: {mentions}"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "merged"
+msgstr ""
+
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/lib/thread/thread-message-text.ts
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -7386,6 +7567,10 @@ msgstr "サーバーのモデル"
 msgid "Monday"
 msgstr "月曜日"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
+
 #: packages/i18n/src/billing.ts
 msgid "month"
 msgstr "月"
@@ -7434,6 +7619,10 @@ msgstr "その他の操作"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "その他のアプリ"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "More options"
+msgstr ""
 
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -7577,8 +7766,12 @@ msgstr "ログインが必要"
 msgid "Needs takeover"
 msgstr "引き継ぎが必要"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/computers/ComputerCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/lib/chat/roster-status.ts
 msgid "Needs you"
 msgstr "対応が必要"
@@ -7795,6 +7988,10 @@ msgstr "コメントはまだありません。"
 #: packages/i18n/src/computer-usage.ts
 msgid "No computer hours used yet"
 msgstr "まだコンピューター時間を使用していません"
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "No jobs yet"
+msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -8087,6 +8284,10 @@ msgstr "動作していません"
 msgid "Nothing remembered yet"
 msgstr "記憶はまだありません"
 
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
+
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."
 msgstr "まだ何も保存されていません。"
@@ -8217,6 +8418,10 @@ msgstr "このボットのみ"
 msgid "Only you"
 msgstr "自分のみ"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8243,7 +8448,7 @@ msgid "Open {host}"
 msgstr "{host}を開く"
 
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Open {name}"
 msgstr "{name}を開く"
@@ -8256,6 +8461,10 @@ msgstr "{title} を開く"
 #: apps/web/src/pages/shell/chat/chat-header.tsx
 msgid "Open call"
 msgstr "通話を開く"
+
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Open chat"
+msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8284,6 +8493,11 @@ msgstr "外部リンクを開きますか？"
 msgid "Open image {name}"
 msgstr "画像{name}を開く"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/web/src/components/messages/markdown-link-prompt.tsx
+msgid "Open in {app}"
+msgstr ""
+
 #: apps/mobile/app/page-share.tsx
 msgid "Open in browser"
 msgstr "ブラウザで開く"
@@ -8292,6 +8506,12 @@ msgstr "ブラウザで開く"
 #: apps/web/src/pages/shell/computers/computer-panel.tsx
 msgid "Open in full window"
 msgstr "フルウィンドウで開く"
+
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8307,6 +8527,10 @@ msgstr "ナビゲーションを開く"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "Rakazo を開く"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Open screenshot"
+msgstr ""
 
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "Open settings"
@@ -8758,6 +8982,16 @@ msgstr "確認で変更が見つからなかったときにチャットメッセ
 msgid "Post comment"
 msgstr "コメントを投稿"
 
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8903,11 +9137,6 @@ msgstr "改訂版を公開"
 #: packages/i18n/src/page-review.ts
 msgid "Published in revision {version}"
 msgstr "改訂版 {version} で公開済み"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "プルリクエスト"
 
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
@@ -9449,6 +9678,7 @@ msgstr "返信と完了した作業"
 msgid "Replies to"
 msgstr "返信対象"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
 #: apps/web/src/pages/shell/chat/quote-selection-button.tsx
@@ -9626,6 +9856,15 @@ msgstr "復元中…"
 msgid "Resume notifications"
 msgstr "通知を再開"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Resumes when it's back · since {since}"
+msgstr ""
+
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/bot-templates.tsx
@@ -9793,11 +10032,6 @@ msgstr "今すぐ実行"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "実行日時は未来の日時を指定してください。"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "running"
-msgstr "実行中"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10185,6 +10419,7 @@ msgstr "セルフホスト"
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/composer/thread-composer.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/pages/shell/composer/composer-parts.tsx
 msgid "Send"
@@ -10251,6 +10486,10 @@ msgstr "Enterで送信"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "送信中…"
+
+#: apps/mobile/components/thread/thread-screen.tsx
+msgid "Sends to the job"
+msgstr ""
 
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
@@ -10421,7 +10660,7 @@ msgstr "表示"
 msgid "Show {field}"
 msgstr "{field}を表示"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Show {label}"
 msgstr "{label}を表示"
 
@@ -10931,6 +11170,8 @@ msgstr "{count}時間遅れて開始"
 msgid "Started {count}m late"
 msgstr "{count}分遅れて開始"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: packages/i18n/src/activity.ts
 msgid "Starting"
 msgstr "開始中"
@@ -10972,6 +11213,10 @@ msgstr "停止"
 msgid "Stop dictating"
 msgstr "音声入力を停止"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop job"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/meeting.ts
 msgid "Stop joining this series"
@@ -10989,7 +11234,13 @@ msgstr "ティーチングを停止"
 msgid "Stop the computer first."
 msgstr "先にコンピューターを停止してください。"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop this job?"
+msgstr ""
+
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
 msgid "Stopped"
 msgstr "停止済み"
@@ -10998,6 +11249,10 @@ msgstr "停止済み"
 #: apps/web/src/lib/platform/browser-notifications.ts
 msgid "Stopped."
 msgstr "停止しました。"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11012,6 +11267,10 @@ msgstr "返信をストリーミング"
 #: packages/i18n/src/identity-display.ts
 msgid "subagent"
 msgstr "サブエージェント"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -11621,6 +11880,7 @@ msgstr "このメモはもう存在しません"
 
 #: apps/mobile/app/page-review.tsx
 #: apps/mobile/app/page.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/mobile/lib/pages/page-card.tsx
 #: apps/web/src/lib/pages/pages.ts
 msgid "This page couldn't be shown."
@@ -11734,6 +11994,10 @@ msgstr "今週"
 msgid "Thread"
 msgstr "スレッド"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Thread's report"
+msgstr ""
+
 #: packages/i18n/src/cron.ts
 msgid "Thursday"
 msgstr "木曜日"
@@ -11790,6 +12054,7 @@ msgstr "オフにするには、アカウント → AIデータ共有 で「す�
 msgid "To:"
 msgstr "宛先:"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -11978,6 +12243,7 @@ msgstr "再試行"
 #: apps/mobile/components/media/audio-attachment.tsx
 #: apps/mobile/components/media/image-artifact-viewer.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 #: apps/mobile/components/thread/thread-header.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/mobile/lib/composer/composer-dictation.ts
@@ -12447,6 +12713,12 @@ msgstr "すべて表示"
 msgid "View page"
 msgstr "ページを表示"
 
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -12525,6 +12797,10 @@ msgstr "起動"
 #: apps/web/src/pages/settings/settings-nav.ts
 msgid "Wallet"
 msgstr "ウォレット"
+
+#: apps/mobile/components/job-work.tsx
+msgid "watching"
+msgstr ""
 
 #: apps/web/src/components/billing/CreditChoice.tsx
 msgid "Web, desktop and mobile"
@@ -12721,8 +12997,11 @@ msgstr "対応しない"
 msgid "Work"
 msgstr "仕事"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/pages/space/ActivityList.tsx
 msgid "Working"
 msgstr "作業中"
@@ -12730,6 +13009,10 @@ msgstr "作業中"
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "作業の指示"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx
@@ -12825,6 +13108,10 @@ msgstr "準備が整いました"
 msgid "Your account"
 msgstr "あなたのアカウント"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your answer"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -12892,6 +13179,10 @@ msgstr "メールアドレス"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "無料トライアルが始まりました"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your instruction was delivered"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

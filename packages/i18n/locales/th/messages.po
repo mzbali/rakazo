@@ -11,6 +11,16 @@ msgstr ""
 msgid " (unread)"
 msgstr " (ยังไม่อ่าน)"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# command} other {# commands}}"
+msgstr ""
+
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -31,6 +41,11 @@ msgstr "{0, plural, other {ได้รับฟรี # เดือน}}"
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, other {ฟรี # เดือน}}"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# monitor} other {# monitors}}"
+msgstr ""
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -48,6 +63,11 @@ msgstr "{0, plural, other {# สกิล}}"
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, other {# สเปซ}}"
 
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0, plural, one {# tool} other {# tools}}"
@@ -57,6 +77,11 @@ msgstr "{0, plural, other {# เครื่องมือ}}"
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "{0, plural, one {The code expires in about # minute.} other {The code expires in about # minutes.}}"
 msgstr "{0, plural, other {รหัสจะหมดอายุในอีกประมาณ # นาที}}"
+
+#. placeholder {0}: part.count
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "{0, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #. placeholder {0}: bot.name
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -73,6 +98,11 @@ msgstr "{0} (แนบได้สูงสุด {ATTACHMENT_MAX_COUNT} ไฟ�
 #: apps/web/src/pages/shell/composer/use-composer-actions.ts
 msgid "{0} (over {1})"
 msgstr "{0} (เกิน {1})"
+
+#. placeholder {0}: choice.label
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "{0} (recommended)"
+msgstr ""
 
 #. placeholder {0}: block.name
 #: apps/web/src/pages/shell/chat/message-cards.tsx
@@ -109,6 +139,11 @@ msgstr "{0} ใช้งานไม่ได้"
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0} is running"
 msgstr "{0} กำลังทำงาน"
+
+#. placeholder {0}: pill.count
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "{0} jobs working"
+msgstr ""
 
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
@@ -248,14 +283,26 @@ msgstr "{connectedCount, plural, other {เชื่อมต่อแล้ว 
 msgid "{count, plural, one {{names} keeps its own model} other {{names} keep their own model}}"
 msgstr "{count, plural, other {{names} ใช้โมเดลของตัวเอง}}"
 
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# background task} other {# background tasks}}"
+msgstr ""
+
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {# bot has its own model: {names}} other {# bots have their own model: {names}}}"
 msgstr "{count, plural, other {บอท # ตัวมีโมเดลของตัวเอง: {names}}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# command} other {# commands}}"
+msgstr ""
 
 #: apps/mobile/components/thread/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/chat/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, other {# ข้อความกับ {peer}}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# monitor} other {# monitors}}"
+msgstr ""
 
 #: apps/web/src/components/messages/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
@@ -269,9 +316,22 @@ msgstr "{count, plural, one {เลือกแล้ว # รายการ} o
 msgid "{count, plural, one {# skill} other {# skills}}"
 msgstr "{count, plural, other {# สกิล}}"
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "{count, plural, one {# source} other {# sources}}"
+msgstr ""
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {# subagent} other {# subagents}}"
+msgstr ""
+
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
 msgstr "{count, plural, other {สลับบอท # ตัวไปใช้ค่าเริ่มต้นของสเปซไหม}}"
+
+#: apps/mobile/components/job-work.tsx
+msgid "{count, plural, one {watching PR} other {watching # PRs}}"
+msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -293,6 +353,10 @@ msgstr "{count} ไฟล์"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "ได้รับฟรี {count} เดือน"
+
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+msgid "{count} jobs"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/billing.ts
@@ -862,6 +926,10 @@ msgstr "ได้รับ 1 เดือนฟรี"
 #: apps/web/src/pages/shell/chat/bot-context-menu.tsx
 msgid "1 hour"
 msgstr "1 ชั่วโมง"
+
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
+msgid "1 job working"
+msgstr ""
 
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "1 space"
@@ -1565,6 +1633,11 @@ msgstr "รับสาย"
 msgid "Answered"
 msgstr "ตอบแล้ว"
 
+#. placeholder {0}: job.answered
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Answered: {0}"
+msgstr ""
+
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -1938,6 +2011,10 @@ msgstr "กลับไปที่การประชุม"
 msgid "Back to sign in"
 msgstr "กลับไปเข้าสู่ระบบ"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Background task"
+msgstr ""
+
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -2150,6 +2227,10 @@ msgstr "ผูกกับบอท"
 msgid "Brain label"
 msgstr "ป้ายกำกับ Brain"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Brief"
+msgstr ""
+
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
 msgid "Browse"
@@ -2293,6 +2374,7 @@ msgstr "อ่านรูปภาพไม่ได้"
 #: apps/mobile/components/settings/account-deletion.tsx
 #: apps/mobile/components/settings/space-bots-model.tsx
 #: apps/mobile/components/thread/failed-send-bubble.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/thread/selection-bar.tsx
@@ -2354,11 +2436,6 @@ msgstr "ยกเลิกการตอบกลับ"
 
 #: apps/web/src/pages/settings/BillingSettingsPanel.tsx
 msgid "Canceled"
-msgstr "ยกเลิกแล้ว"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "cancelled"
 msgstr "ยกเลิกแล้ว"
 
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -2460,6 +2537,10 @@ msgstr "รายละเอียดแชท"
 msgid "Chat from {name}"
 msgstr "แชทจาก {name}"
 
+#: apps/web/src/pages/shell/sidebar/archived-chats.tsx
+msgid "Chat restored, but the list could not refresh."
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/bot-settings.tsx
 msgid "Chat settings"
@@ -2526,6 +2607,11 @@ msgstr "ตรวจสอบการเชื่อมต่อ แล้ว�
 msgid "Check your email"
 msgstr "ตรวจสอบอีเมล"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Checking"
+msgstr ""
+
 #: apps/web/src/components/computers/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "กำลังตรวจสอบการตั้งค่าคอมพิวเตอร์…"
@@ -2540,6 +2626,21 @@ msgstr "กำลังตรวจสอบการเชื่อมต่อ
 #: apps/web/src/pages/shell/host-computer-prompt.tsx
 msgid "Checking…"
 msgstr "กำลังตรวจสอบ…"
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks failing"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks passing"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "checks running"
+msgstr ""
 
 #: apps/web/src/pages/shell/meetings/meeting-calendar.tsx
 msgid "Choose"
@@ -2636,6 +2737,7 @@ msgid "Clean up"
 msgstr "ทำความสะอาด"
 
 #: apps/mobile/app/search.tsx
+#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/web/src/components/messages/SecretAskCard.tsx
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
@@ -2666,6 +2768,10 @@ msgstr "ล้างตัวกรอง {label}"
 msgid "Clear filters"
 msgstr "ล้างตัวกรอง"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Clear from list"
+msgstr ""
+
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "Clearing…"
 msgstr "กำลังล้าง…"
@@ -2678,6 +2784,7 @@ msgstr "กำลังล้าง…"
 #: apps/mobile/app/space-members.tsx
 #: apps/mobile/components/native/sheet-close-button.ios.tsx
 #: apps/mobile/components/native/sheet-close-button.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/web/src/components/ErrorBoundary.tsx
 #: apps/web/src/components/I18nBootstrap.tsx
 #: apps/web/src/components/WindowChrome.tsx
@@ -2750,6 +2857,7 @@ msgid "Close panel"
 msgstr "ปิดแผง"
 
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 msgid "Close preview"
 msgstr "ปิดตัวอย่าง"
 
@@ -2770,11 +2878,17 @@ msgstr "ปิดการตั้งค่าผู้ใช้"
 msgid "Close voice settings"
 msgstr "ปิดการตั้งค่าเสียง"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "closed"
+msgstr ""
+
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Cloud"
 msgstr "คลาวด์"
 
-#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/mobile/components/job-row.tsx
 msgid "Cloud agent"
 msgstr "เอเจนต์คลาวด์"
 
@@ -2831,6 +2945,7 @@ msgstr "คอลัมน์ {index}"
 msgid "Comfortable"
 msgstr "สบายตา"
 
+#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -3457,6 +3572,11 @@ msgstr "ล้างบทสนทนาไม่สำเร็จ"
 msgid "Could not clear the custom server URL"
 msgstr "ล้าง URL ของเซิร์ฟเวอร์แบบกำหนดเองไม่สำเร็จ"
 
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Could not clear the job"
+msgstr ""
+
 #: apps/mobile/lib/auth/api-auth.ts
 msgid "Could not clear the local session"
 msgstr "ล้างเซสชันในเครื่องไม่สำเร็จ"
@@ -3842,6 +3962,14 @@ msgstr "โหลดรูปภาพไม่สำเร็จ"
 msgid "Could not load integrations"
 msgstr "โหลดการผสานรวมไม่สำเร็จ"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Could not load job"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Could not load jobs"
+msgstr ""
+
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
@@ -3987,6 +4115,7 @@ msgstr "เปิดคอมพิวเตอร์ไม่สำเร็จ
 
 #: apps/mobile/app/peer-chat.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 msgid "Could not open file"
 msgstr "เปิดไฟล์ไม่สำเร็จ"
 
@@ -4168,6 +4297,10 @@ msgstr "รีเซ็ตรหัสผ่านไม่สำเร็จ"
 msgid "Could not restore bot"
 msgstr "กู้คืนบอทไม่สำเร็จ"
 
+#: apps/web/src/pages/shell/sidebar/archived-chats.tsx
+msgid "Could not restore chat. Try again."
+msgstr ""
+
 #: apps/mobile/components/computers/computer-home-versions.tsx
 #: apps/web/src/components/computers/ComputerHomeVersions.tsx
 msgid "Could not restore files"
@@ -4328,6 +4461,14 @@ msgstr "ส่งอีเมลรีเซ็ตรหัสผ่านไม
 msgid "Could not send that"
 msgstr "ส่งไม่สำเร็จ"
 
+#: apps/mobile/lib/thread/send/thread-send.ts
+msgid "Could not send to the job"
+msgstr ""
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not send your answer"
+msgstr ""
+
 #: apps/mobile/components/media/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "แชร์ไฟล์ไม่สำเร็จ"
@@ -4396,6 +4537,10 @@ msgstr "เริ่มการเข้าสู่ระบบไม่สำ
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "เริ่มการสอนไม่สำเร็จ"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Could not stop the job"
+msgstr ""
 
 #: apps/mobile/components/cards/AskActions.tsx
 msgid "Could not submit answer"
@@ -4517,6 +4662,11 @@ msgstr "ตรวจสอบการตั้งค่าคอมพิวเ
 msgid "Couldn't copy. Select the link and copy it."
 msgstr "คัดลอกไม่สำเร็จ เลือกลิงก์แล้วคัดลอก"
 
+#: apps/mobile/components/messages/message-caption.tsx
+#: apps/web/src/components/messages/markdown-copy.tsx
+msgid "Couldn't draw this visual"
+msgstr ""
+
 #: apps/web/src/pages/auth/AdminAccessPage.tsx
 msgid "Couldn't load grants"
 msgstr "โหลดการให้สิทธิ์ไม่สำเร็จ"
@@ -4544,6 +4694,11 @@ msgstr "โหลดวอลเล็ตไม่สำเร็จ"
 #: apps/mobile/components/thread/thread-error-notice.tsx
 msgid "Couldn't refresh. Showing the last loaded messages."
 msgstr "รีเฟรชไม่สำเร็จ กำลังแสดงข้อความที่โหลดล่าสุด"
+
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Couldn't start"
+msgstr ""
 
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
@@ -5096,6 +5251,7 @@ msgstr "ID เดสก์ท็อป"
 msgid "Desktop update"
 msgstr "อัปเดตเดสก์ท็อป"
 
+#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5303,11 +5459,13 @@ msgstr "ยังไม่มีบัญชี?"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/cards/ImportSetupCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/messages/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault/vault-item-sheet.tsx
 #: apps/mobile/lib/board/board.ts
 #: apps/web/src/components/computers/ComputerCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/ToolActivityDisclosure.tsx
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 #: apps/web/src/components/settings/AccountDataSettings.tsx
@@ -5377,6 +5535,14 @@ msgstr "ทำสำเนา"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "แต่ละชื่อใช้ได้ครั้งเดียว"
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "Earlier"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Earlier attempts"
+msgstr ""
 
 #: packages/i18n/src/page-review.ts
 msgid "Earlier revision"
@@ -5640,7 +5806,10 @@ msgstr "exact-model-id"
 msgid "Expand"
 msgstr "ขยาย"
 
+#. placeholder {0}: block.title
 #. placeholder {0}: headerName(group)
+#: apps/mobile/components/thread/visual-card.tsx
+#: apps/web/src/components/visuals/VisualCard.tsx
 #: apps/web/src/pages/shell/sidebar/sidebar-roster.tsx
 msgid "Expand {0}"
 msgstr "ขยาย {0}"
@@ -5653,15 +5822,12 @@ msgstr "ขยาย {name}"
 msgid "Expand table"
 msgstr "ขยายตาราง"
 
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "expired"
-msgstr "หมดอายุ"
-
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
@@ -5724,11 +5890,6 @@ msgstr "ใหญ่พิเศษ"
 #: packages/i18n/src/computer-usage.ts
 msgid "Extra large (uses {rate}× hours)"
 msgstr "ใหญ่พิเศษ (ใช้ชั่วโมง {rate}×)"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "failed"
-msgstr "ล้มเหลว"
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
@@ -5833,11 +5994,6 @@ msgstr "ทำการอนุญาต MCP ให้เสร็จในเ�
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Finish setting up"
 msgstr "ตั้งค่าให้เสร็จ"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "finished"
-msgstr "เสร็จสิ้น"
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/platform/browser-notifications.ts
@@ -6147,7 +6303,7 @@ msgstr "ซ่อน"
 msgid "Hide {field}"
 msgstr "ซ่อน {field}"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Hide {label}"
 msgstr "ซ่อน {label}"
 
@@ -6522,6 +6678,10 @@ msgstr "เปิดไม่สำเร็จ ลองอีกครั้�
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "อาจถูกลบไปแล้ว หรือเป็นของผู้อื่น"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "It stops working now. What it has done so far is kept."
+msgstr ""
+
 #: apps/mobile/lib/inbox/sections/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6542,6 +6702,17 @@ msgstr "ลิงก์จะใช้งานไม่ได้อีก แ�
 #: apps/web/src/components/pages/PagesList.tsx
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "ลิงก์ที่แชร์จะใช้งานไม่ได้อีก และการ์ดในแชทจะแสดงว่าถูกลบแล้ว ย้อนกลับไม่ได้"
+
+#: apps/mobile/app/_layout.tsx
+#: apps/mobile/app/(settings)/account.tsx
+#: apps/mobile/components/inbox/inbox-header.tsx
+#: apps/mobile/lib/inbox/use-inbox-header.ts
+msgid "Jobs"
+msgstr ""
+
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
+msgid "Jobs in this chat"
+msgstr ""
 
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
@@ -6615,6 +6786,10 @@ msgstr "เก็บความจำไว้"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "เก็บผลลัพธ์เครื่องมือไว้ทั้งหมด"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Keep working"
+msgstr ""
 
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -7180,6 +7355,12 @@ msgstr "กล่าวถึงฟีเจอร์ของ OpenClaw"
 msgid "Mentions: {mentions}"
 msgstr "เมนชัน: {mentions}"
 
+#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/job-work.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "merged"
+msgstr ""
+
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/lib/thread/thread-message-text.ts
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -7380,6 +7561,10 @@ msgstr "โมเดลจากเซิร์ฟเวอร์"
 msgid "Monday"
 msgstr "วันจันทร์"
 
+#: apps/mobile/components/job-work.tsx
+msgid "Monitor"
+msgstr ""
+
 #: packages/i18n/src/billing.ts
 msgid "month"
 msgstr "เดือน"
@@ -7428,6 +7613,10 @@ msgstr "การทำงานเพิ่มเติม"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "แอปเพิ่มเติม"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "More options"
+msgstr ""
 
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -7571,8 +7760,12 @@ msgstr "ต้องเข้าสู่ระบบ"
 msgid "Needs takeover"
 msgstr "ต้องรับช่วงต่อ"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/computers/ComputerCard.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/lib/chat/roster-status.ts
 msgid "Needs you"
 msgstr "รอคุณดำเนินการ"
@@ -7789,6 +7982,10 @@ msgstr "ยังไม่มีความคิดเห็น"
 #: packages/i18n/src/computer-usage.ts
 msgid "No computer hours used yet"
 msgstr "ยังไม่มีการใช้ชั่วโมงคอมพิวเตอร์"
+
+#: apps/mobile/app/(jobs)/jobs.tsx
+msgid "No jobs yet"
+msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -8081,6 +8278,10 @@ msgstr "ไม่ทำงาน"
 msgid "Nothing remembered yet"
 msgstr "ยังไม่มีความจำ"
 
+#: apps/mobile/app/(jobs)/thread-jobs.tsx
+msgid "Nothing running"
+msgstr ""
+
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."
 msgstr "ยังไม่มีรายการที่บันทึกไว้"
@@ -8211,6 +8412,10 @@ msgstr "เฉพาะบอทนี้"
 msgid "Only you"
 msgstr "เฉพาะคุณ"
 
+#: apps/mobile/components/job-work.tsx
+msgid "open"
+msgstr ""
+
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8237,7 +8442,7 @@ msgid "Open {host}"
 msgstr "เปิด {host}"
 
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Open {name}"
 msgstr "เปิด {name}"
@@ -8250,6 +8455,10 @@ msgstr "เปิด {title}"
 #: apps/web/src/pages/shell/chat/chat-header.tsx
 msgid "Open call"
 msgstr "เปิดการโทร"
+
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Open chat"
+msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8278,6 +8487,11 @@ msgstr "เปิดลิงก์ภายนอก?"
 msgid "Open image {name}"
 msgstr "เปิดรูปภาพ {name}"
 
+#: apps/mobile/app/_layout.tsx
+#: apps/web/src/components/messages/markdown-link-prompt.tsx
+msgid "Open in {app}"
+msgstr ""
+
 #: apps/mobile/app/page-share.tsx
 msgid "Open in browser"
 msgstr "เปิดในเบราว์เซอร์"
@@ -8286,6 +8500,12 @@ msgstr "เปิดในเบราว์เซอร์"
 #: apps/web/src/pages/shell/computers/computer-panel.tsx
 msgid "Open in full window"
 msgstr "เปิดแบบเต็มหน้าต่าง"
+
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Open in T3"
+msgstr ""
 
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
@@ -8301,6 +8521,10 @@ msgstr "เปิดการนำทาง"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "เปิด Rakazo"
+
+#: apps/mobile/components/job-proof.tsx
+msgid "Open screenshot"
+msgstr ""
 
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "Open settings"
@@ -8752,6 +8976,16 @@ msgstr "โพสต์ข้อความในแชทเมื่อกา
 msgid "Post comment"
 msgstr "โพสต์ความคิดเห็น"
 
+#. placeholder {0}: pr.number
+#: apps/mobile/components/job-work.tsx
+msgid "PR #{0}"
+msgstr ""
+
+#: apps/mobile/components/job-row.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "PR #{prNumber}"
+msgstr ""
+
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -8897,11 +9131,6 @@ msgstr "เผยแพร่ฉบับแก้ไข"
 #: packages/i18n/src/page-review.ts
 msgid "Published in revision {version}"
 msgstr "เผยแพร่ในฉบับแก้ไข {version}"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Pull request"
-msgstr "Pull request"
 
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
@@ -9443,6 +9672,7 @@ msgstr "การตอบกลับและงานที่เสร็จ
 msgid "Replies to"
 msgstr "ตอบกลับถึง"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
 #: apps/web/src/pages/shell/chat/quote-selection-button.tsx
@@ -9620,6 +9850,15 @@ msgstr "กำลังคืนค่า…"
 msgid "Resume notifications"
 msgstr "เปิดการแจ้งเตือนอีกครั้ง"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Resumes"
+msgstr ""
+
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Resumes when it's back · since {since}"
+msgstr ""
+
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/bot-templates.tsx
@@ -9787,11 +10026,6 @@ msgstr "รันทันที"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "เวลารันต้องอยู่ในอนาคต"
-
-#: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "running"
-msgstr "กำลังรัน"
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10179,6 +10413,7 @@ msgstr "โฮสต์เอง"
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/composer/thread-composer.tsx
+#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/pages/shell/composer/composer-parts.tsx
 msgid "Send"
@@ -10245,6 +10480,10 @@ msgstr "ส่งด้วย Enter"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "กำลังส่ง…"
+
+#: apps/mobile/components/thread/thread-screen.tsx
+msgid "Sends to the job"
+msgstr ""
 
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
@@ -10415,7 +10654,7 @@ msgstr "แสดง"
 msgid "Show {field}"
 msgstr "แสดง {field}"
 
-#: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/message-text-card.tsx
 msgid "Show {label}"
 msgstr "แสดง {label}"
 
@@ -10925,6 +11164,8 @@ msgstr "เริ่มล่าช้า {count} ชั่วโมง"
 msgid "Started {count}m late"
 msgstr "เริ่มล่าช้า {count} นาที"
 
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: packages/i18n/src/activity.ts
 msgid "Starting"
 msgstr "กำลังเริ่ม"
@@ -10966,6 +11207,10 @@ msgstr "หยุด"
 msgid "Stop dictating"
 msgstr "หยุดพิมพ์ด้วยเสียง"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop job"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/meeting.ts
 msgid "Stop joining this series"
@@ -10983,7 +11228,13 @@ msgstr "หยุดการสอน"
 msgid "Stop the computer first."
 msgstr "หยุดคอมพิวเตอร์ก่อน"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stop this job?"
+msgstr ""
+
+#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
 msgid "Stopped"
 msgstr "หยุดแล้ว"
@@ -10992,6 +11243,10 @@ msgstr "หยุดแล้ว"
 #: apps/web/src/lib/platform/browser-notifications.ts
 msgid "Stopped."
 msgstr "หยุดแล้ว"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Stopping…"
+msgstr ""
 
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11006,6 +11261,10 @@ msgstr "สตรีมการตอบกลับ"
 #: packages/i18n/src/identity-display.ts
 msgid "subagent"
 msgstr "ซับเอเจนต์"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Subagent"
+msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -11615,6 +11874,7 @@ msgstr "โน้ตนี้ไม่มีอยู่แล้ว"
 
 #: apps/mobile/app/page-review.tsx
 #: apps/mobile/app/page.tsx
+#: apps/mobile/components/thread/visual-card.tsx
 #: apps/mobile/lib/pages/page-card.tsx
 #: apps/web/src/lib/pages/pages.ts
 msgid "This page couldn't be shown."
@@ -11728,6 +11988,10 @@ msgstr "สัปดาห์นี้"
 msgid "Thread"
 msgstr "เธรด"
 
+#: apps/mobile/app/(jobs)/job.tsx
+msgid "Thread's report"
+msgstr ""
+
 #: packages/i18n/src/cron.ts
 msgid "Thursday"
 msgstr "วันพฤหัสบดี"
@@ -11784,6 +12048,7 @@ msgstr "หากต้องการปิด ให้ใช้ ถอนก�
 msgid "To:"
 msgstr "ถึง:"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -11972,6 +12237,7 @@ msgstr "ลองอีกครั้ง"
 #: apps/mobile/components/media/audio-attachment.tsx
 #: apps/mobile/components/media/image-artifact-viewer.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
+#: apps/mobile/components/thread/thread-embeds.tsx
 #: apps/mobile/components/thread/thread-header.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/mobile/lib/composer/composer-dictation.ts
@@ -12441,6 +12707,12 @@ msgstr "ดูทั้งหมด"
 msgid "View page"
 msgstr "ดูเพจ"
 
+#: apps/mobile/app/(jobs)/job.tsx
+#: apps/mobile/components/thread/cloud-agent-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "View PR"
+msgstr ""
+
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -12519,6 +12791,10 @@ msgstr "ปลุก"
 #: apps/web/src/pages/settings/settings-nav.ts
 msgid "Wallet"
 msgstr "กระเป๋าเงิน"
+
+#: apps/mobile/components/job-work.tsx
+msgid "watching"
+msgstr ""
 
 #: apps/web/src/components/billing/CreditChoice.tsx
 msgid "Web, desktop and mobile"
@@ -12715,8 +12991,11 @@ msgstr "จะไม่ทำ"
 msgid "Work"
 msgstr "งาน"
 
+#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
+#: apps/mobile/components/job-status.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/pages/space/ActivityList.tsx
 msgid "Working"
 msgstr "กำลังทำงาน"
@@ -12724,6 +13003,10 @@ msgstr "กำลังทำงาน"
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "คำสั่งการทำงาน"
+
+#: apps/mobile/components/job-work.tsx
+msgid "Working on"
+msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx
@@ -12819,6 +13102,10 @@ msgstr "พร้อมใช้งานแล้ว"
 msgid "Your account"
 msgstr "บัญชีของคุณ"
 
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your answer"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -12886,6 +13173,10 @@ msgstr "ที่อยู่อีเมล"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "ช่วงทดลองใช้ฟรีเริ่มแล้ว"
+
+#: apps/mobile/components/thread/job-owner-actions.tsx
+msgid "Your instruction was delivered"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

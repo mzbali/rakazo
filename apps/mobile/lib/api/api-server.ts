@@ -1,6 +1,5 @@
 import { t } from "@lingui/core/macro";
 import * as SecureStore from "expo-secure-store";
-import { resetCloudJobs } from "../cloud-jobs-store";
 import { resumeLiveNotifications } from "../notifications/live-notifications";
 import type { PendingSignOut } from "./api";
 import {
@@ -81,7 +80,6 @@ export async function loadApiBase() {
   return currentApiBase();
 }
 export async function selectSpace(id: string) {
-  resetCloudJobs();
   const requestGeneration = nextSpaceSelectionRequest();
   if (!(await clearStoredValue(SPACE_ROLLBACK_KEY))) return false;
   // Rollback cleanup is the first await. A newer selection may have claimed

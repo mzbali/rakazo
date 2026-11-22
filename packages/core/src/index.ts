@@ -34,7 +34,6 @@ export * from "./bots/bot-model.js";
 export * from "./bots/bot-sections.js";
 export * from "./bots/bot-sender-name.js";
 export * from "./bots/bot-templates.js";
-export * from "./bots/corrected-claims.js";
 export * from "./bots/display-name.js";
 export * from "./bots/identity-display.js";
 export { identitySource } from "./bots/identity-source.js";

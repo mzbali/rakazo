@@ -45,13 +45,10 @@ function gate(options: {
   rule?: "always_allow" | "deny";
   asks?: boolean;
   tool?: string;
-  ruleTool?: string;
-  args?: Record<string, unknown>;
+  ownerStartedRun?: boolean;
 }) {
   const name = options.tool ?? "browser_act";
-  const args = options.args ?? {
-    actions: [{ kind: "fill_secret", ref: "e1", secret: "work", field: "Password" }],
-  };
+  const args = { actions: [{ kind: "fill_secret", ref: "e1", secret: "work", field: "Password" }] };
   const executionId = JSON.stringify(["pi-tool", "main", "call-1"]);
   const request: ToolRequest = {
     name,
@@ -73,13 +70,13 @@ function gate(options: {
     loginUse: options.asks === false ? undefined : loginUse,
   };
   const ctx = {
-    deps: { prisma: {} },
+    deps: { prisma: { attempt: { count: async () => 1 } } },
     run: { id: "run-1", userId: "user-1", spaceId: "space-1", trigger: options.trigger ?? "user" },
     runId: "run-1",
     bot: { id: "bot-1", name: "Helper" },
     thread: { id: "thread-1" },
     context: { signal: new AbortController().signal },
-    source: { ownerStartedRun: true },
+    source: { ownerStartedRun: options.ownerStartedRun ?? true },
     tools: { connector: new Map(), connectedPlugins: [] },
     state: {
       tainted: false,
@@ -87,19 +84,12 @@ function gate(options: {
     },
     trust: {
       loadApprovalRules: async () =>
-        options.rule
-          ? [
-              {
-                effect: options.rule,
-                matchKind: "tool",
-                matchValue: options.ruleTool ?? "browser_act",
-              },
-            ]
-          : [],
+        options.rule ? [{ effect: options.rule, matchKind: "tool", matchValue: name }] : [],
       loadAutoReviewPreference: async () => ({
         enabled: false,
         skipApprovals: Boolean(options.neverAsk),
       }),
+      receivedOutsideMessage: async () => false,
     },
   };
   return gateToolCall(ctx as never, request, undefined).then(
@@ -140,39 +130,35 @@ describe("gateToolCall: a login that asks first", () => {
   });
 });
 
-describe("gateToolCall: a cloud agent report", () => {
-  const report = (extra: Record<string, unknown>, options: Parameters<typeof gate>[0] = {}) =>
-    gate({
-      asks: false,
-      tool: "cloud_agent_report",
-      args: { id: "a1", verdict: "rejected", summary: "Cut off", ...extra },
-      ...options,
-    });
+// Retiring the job pipeline (#124) first dropped this guard with it; a review caught it.
+describe("gateToolCall: starting coding work the owner did not ask for", () => {
+  const launch = (options: Parameters<typeof gate>[0]) =>
+    gate({ asks: false, tool: "cloud_agent_launch", ...options });
 
   beforeEach(() => {
     plans.length = 0;
   });
 
-  it("asks like a reply when it sends the work back", async () => {
-    expect(await report({ correction: "Reshoot it." })).toBe("asks the user");
-    expect(plans).toEqual(["ask"]);
+  it("is refused in Never ask when another bot's message started the run", async () => {
+    await launch({ neverAsk: true, ownerStartedRun: false, trigger: "bot_message" });
+    expect(plans).toEqual(["deny"]);
   });
 
-  it("follows the owner's rules for replies", async () => {
-    plans.length = 0;
-    await report(
-      { correction: "Reshoot it." },
-      { rule: "always_allow", ruleTool: "cloud_agent_reply" },
-    );
+  it("is refused in Never ask from a routine or a webhook", async () => {
+    for (const trigger of ["routine", "webhook"]) {
+      plans.length = 0;
+      await launch({ neverAsk: true, trigger });
+      expect(plans).toEqual(["deny"]);
+    }
+  });
+
+  it("runs in Never ask when the owner started the run", async () => {
+    await launch({ neverAsk: true });
     expect(plans).toEqual(["allow"]);
-    expect(
-      await report({ correction: "Reshoot it." }, { rule: "deny", ruleTool: "cloud_agent_reply" }),
-    ).toEqual({ result: { error: expect.stringContaining("is blocked in this space") } });
   });
 
-  it("needs no approval for a verdict alone", async () => {
-    plans.length = 0;
-    await report({});
+  it("follows a saved Allow even from another bot's message", async () => {
+    await launch({ neverAsk: true, ownerStartedRun: false, rule: "always_allow" });
     expect(plans).toEqual(["allow"]);
   });
 });

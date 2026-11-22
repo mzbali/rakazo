@@ -1,23 +1,11 @@
 import type {
   AdapterContext,
   BackgroundJobPayloads,
-  CloudAgentAttention,
   CloudAgentProvider,
   CloudAgentSnapshot,
-  JobPublisher,
 } from "@rakazo/adapter-kit";
-import {
-  CloudAgentRequestRejected,
-  CloudAgentRetryLater,
-  cloudAgentRelayPointerJob,
-  cloudAgentReporterCheckJob,
-} from "@rakazo/adapter-kit";
-import {
-  BACKGROUND_HELPER_TRIGGER,
-  cloudAgentHttpsUrl,
-  cloudAgentUrl,
-  deadlineSignal,
-} from "@rakazo/core";
+import { CloudAgentRequestRejected, CloudAgentRetryLater } from "@rakazo/adapter-kit";
+import { cloudAgentHttpsUrl, deadlineSignal } from "@rakazo/core";
 import type { CloudAgent, HeldLease } from "@rakazo/db";
 import {
   appendEventInTransaction,
@@ -28,56 +16,16 @@ import {
   THREAD_LOCK_TRANSACTION_OPTIONS,
   withLease,
 } from "@rakazo/db";
-import { bestEffort, getLogger } from "@rakazo/logging";
-import { postRelayPointer } from "../messaging/bot-messages.js";
-import { notifyCloudAgentUnreachable } from "../runs/lifecycle/run-notifications.js";
+import { getLogger } from "@rakazo/logging";
 import { wakeRun } from "../runs/wakeups/wake-run.js";
-import {
-  goalDrivesAgent,
-  recordScopedGoalBackup,
-  startScopedGoal,
-} from "../scoped-goal-service.js";
-import { readCloudAgentFollowup } from "./cloud-agent-followup.js";
+import { cloudAgentWakePrompt } from "../runs/wakeups/wakes.prompt.js";
 import type { CloudAgentDeps } from "./cloud-agent-service.js";
-import {
-  canWake,
-  cloudAgentFor,
-  enqueueCloudAgent,
-  openQuestion,
-  promoteQueuedCloudAgent,
-} from "./cloud-agent-service.js";
-import { cloudAgentPromptSchema, storedCloudAgentLaunchSchema } from "./cloud-agent-tools.js";
-import { cloudAgentWakeNonceWhere, lockCloudAgentWakeThread } from "./cloud-agent-wake-lock.js";
-import { cloudAgentCardBlock, paintCloudAgentCard } from "./jobs/cloud-agent-card.js";
-import {
-  cloudAgentJobThreadsEnabled,
-  jobHelperTaskPrompt,
-  jobThreadFor,
-} from "./jobs/cloud-agent-job-thread.js";
-import { refreshCloudAgentProof } from "./jobs/cloud-agent-proof.js";
-import {
-  continueAfterQuota,
-  quotaPoll,
-  runningPollAt,
-  storedQuotaReset,
-} from "./jobs/cloud-agent-quota.js";
-import { failedStartRecoveryPrompt } from "./jobs/cloud-agent-recovery.prompt.js";
-import {
-  attentionWakePrompt,
-  cloudAgentWakeNonces,
-  terminalWakePrompt,
-} from "./jobs/cloud-agent-wake-start.js";
-import { watchIdle, watchOutlasted } from "./jobs/cloud-agent-watch.js";
+import { cloudAgentBlock, cloudAgentFor, enqueueCloudAgent } from "./cloud-agent-service.js";
+import { cloudAgentLaunchSchema, cloudAgentPromptSchema } from "./cloud-agent-tools.js";
 
 const FOLLOWUP_SETTLE_MS = 5 * 60_000;
 const LEASE_MS = 90_000;
-const MAX_FAILURE_REASON = 1_000;
-/** Retryable failures this long in a row mean the agent's provider is unreachable, not blipping. */
-export const UNREACHABLE_AFTER_MS = 5 * 60_000;
-/** How long a bot run that reports a finished piece itself has before its wake is made anyway. */
-export const REPORTER_CHECK_MS = 15 * 60_000;
-/** How long a report run has to post its pointer directly before the backup does. */
-const RELAY_POINTER_BACKUP_MS = 15 * 60_000;
+
 type Polled = CloudAgent & { lease: HeldLease };
 
 /** Reconcile one persisted intent. A lease serializes remote mutations across workers. */
@@ -86,9 +34,7 @@ export async function pollCloudAgent(
   payload: BackgroundJobPayloads["cloud_agent.poll"],
 ) {
   const stored = await deps.prisma.cloudAgent.findUnique({ where: { id: payload.agentId } });
-  // A queued request waits for a slot (promoteQueuedCloudAgent), so it is never launched early;
-  // cancelling one goes ahead, since a never-launched request is cancelled locally below.
-  if (!stored?.nextPollAt || (stored.queuedAt && !stored.cancelRequested)) return;
+  if (!stored?.nextPollAt) return;
   const connection = await cloudAgentFor(deps, stored);
   if (!connection) return;
   await withLease(deps.prisma, `cloud-agent:${stored.id}`, { ttlMs: LEASE_MS }, async (lease) => {
@@ -144,20 +90,14 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
       // Write dispatch intent before I/O; a crash replays the same idempotent create.
       const marked = await fenced(deps, agent, { launchDispatched: true });
       if (!marked.count) return;
-      // The card's title is the job's name, whatever the stored request carries.
-      const request = {
-        ...storedCloudAgentLaunchSchema.parse(agent.launchRequest),
-        title: agent.title,
-      };
+      const request = cloudAgentLaunchSchema.parse(agent.launchRequest);
       try {
         const snapshot = await provider.launch({ ...request, idempotencyKey: agent.id }, context);
         await finishPoll(
           deps,
           agent,
           {
-            ...snapshotData(snapshot, agent),
-            // A wait for quota left its note; the started agent replaces it.
-            launchNote: snapshot.launchNote ?? null,
+            ...snapshotData(snapshot),
             remoteId: snapshot.id,
             launchRequest: {},
             cancelRequested: abandoned || agent.cancelRequested,
@@ -169,7 +109,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
         await finishPoll(
           deps,
           agent,
-          { ...rejectedData(error), launchNote: null, launchRequest: {} },
+          { status: rejectedStatus(error), launchRequest: {} },
           abandoned,
         );
       }
@@ -182,10 +122,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
     const unsent =
       dispatchedAt !== null && Date.now() - dispatchedAt.getTime() >= FOLLOWUP_SETTLE_MS;
     if (abandoned || agent.cancelRequested) {
-      // An unsent follow-up to finished work can just be dropped; an unsent answer or steer
-      // belongs to work still running remotely, which the cancel below must stop.
-      const steering = readCloudAgentFollowup(agent)?.steerKey !== undefined;
-      if (agent.followup && !dispatchedAt && !openQuestion(agent) && !steering) {
+      if (agent.followup && !dispatchedAt) {
         await finishPoll(
           deps,
           agent,
@@ -199,9 +136,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
         context,
         dispatchedAt ? undefined : (agent.latestRunId ?? undefined),
       );
-      // Only a follow-up starts a new run that may still appear; an answer continues the current one.
-      const pending =
-        dispatchedAt !== null && !openQuestion(agent) && snapshot.latestRunId === agent.latestRunId;
+      const pending = dispatchedAt !== null && snapshot.latestRunId === agent.latestRunId;
       if (pending && !unsent) {
         // An old terminal run cannot confirm cancellation of a run that may still appear.
         await retryPoll(deps, agent);
@@ -211,7 +146,7 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
         deps,
         agent,
         {
-          ...(pending ? { status: "cancelled" } : snapshotData(snapshot, agent)),
+          ...(pending ? { status: "cancelled" } : snapshotData(snapshot)),
           cancelRequested: !pending && snapshot.status === "running",
           followup: Prisma.DbNull,
           followupDispatchedAt: null,
@@ -223,106 +158,45 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
     if (agent.followup) {
       if (dispatchedAt) {
         // Follow-ups have no idempotency key: resend only once the run list has settled.
-        const snapshot = await provider.get(
-          agent.remoteId,
-          context,
-          undefined,
-          agent.remoteCursor ?? undefined,
-        );
-        // An answer keeps its run; the question leaving the open list says it was accepted.
-        const question = openQuestion(agent);
-        const answered =
-          question !== undefined &&
-          !snapshot.attention?.some((item) => item.requestId === question.requestId);
-        if (!answered && snapshot.latestRunId === agent.latestRunId) {
+        const snapshot = await provider.get(agent.remoteId, context);
+        if (snapshot.latestRunId === agent.latestRunId) {
           await retryPoll(deps, agent, undefined, unsent ? { followupDispatchedAt: null } : {});
           return;
         }
-        await finishPoll(
-          deps,
-          agent,
-          { ...snapshotData(snapshot, agent), followup: Prisma.DbNull, followupDispatchedAt: null },
-          false,
-          snapshot.missedAttention,
-        );
+        await finishPoll(deps, agent, {
+          ...snapshotData(snapshot),
+          followup: Prisma.DbNull,
+          followupDispatchedAt: null,
+        });
       } else {
-        // A goal's follow-up is dropped if the owner stops the goal first: a continuation's also
-        // if that continuation was superseded (`goalRunId`), the reconciler's own (`goalGate`)
-        // once its goal no longer drives the agent.
-        const { goalRunId, goalGate, steerKey, ...followup } = readCloudAgentFollowup(agent) ?? {};
-        const goal =
-          goalRunId || goalGate
-            ? await deps.prisma.scopedGoal.findUnique({ where: { agentId: agent.id } })
-            : null;
-        if (
-          (goalRunId || goalGate) &&
-          (!goalDrivesAgent(goal) || (goalRunId && goal?.activeRunId !== goalRunId))
-        ) {
-          const snapshot = await provider.get(
-            agent.remoteId,
-            context,
-            undefined,
-            agent.remoteCursor ?? undefined,
-          );
-          await finishPoll(deps, agent, {
-            ...snapshotData(snapshot, agent),
-            followup: Prisma.DbNull,
-            followupDispatchedAt: null,
-          });
-          return;
-        }
         // The card stops polling once it finishes, so a run started since then, as by a person in
         // the provider, is newer than the run it knows. Recovery compares against the newest run
         // at send time, or it would take that run for this follow-up and drop the follow-up.
-        const { latestRunId = agent.latestRunId } = await provider.get(
-          agent.remoteId,
-          context,
-          undefined,
-          agent.remoteCursor ?? undefined,
-        );
+        const { latestRunId = agent.latestRunId } = await provider.get(agent.remoteId, context);
         const marked = await fenced(deps, agent, { followupDispatchedAt: new Date(), latestRunId });
         if (!marked.count) return;
-        const question = openQuestion(agent);
         try {
           const snapshot = await provider.reply(
             agent.remoteId,
-            {
-              ...cloudAgentPromptSchema.parse(followup),
-              ...(question
-                ? { questionId: question.requestId, questionThreadId: question.threadId }
-                : {}),
-              // An owner's instruction keeps its own key: two of them in one generation are two messages.
-              idempotencyKey: steerKey ?? `${agent.id}:${agent.generation}`,
-            },
+            cloudAgentPromptSchema.parse(agent.followup),
             context,
           );
-          // An answer continues the current run; only a follow-up must start a new one.
-          if (!question && (!snapshot.latestRunId || snapshot.latestRunId === latestRunId))
+          if (!snapshot.latestRunId || snapshot.latestRunId === latestRunId)
             throw new Error("Cloud agent follow-up did not identify a new run");
           await finishPoll(deps, agent, {
-            ...snapshotData(snapshot, agent),
-            ...(steerKey ? { steeredAt: new Date() } : {}),
+            ...snapshotData(snapshot),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
         } catch (error) {
           if (error instanceof CloudAgentRetryLater) {
-            // The lease, not the row version: a message sent meanwhile may have moved the
-            // version, and a marker left behind would let that message's run pass for this one.
-            await deps.prisma.$transaction(async (tx) => {
-              await assertLeaseHeld(tx, agent.lease);
-              await tx.cloudAgent.updateMany({
-                where: { id: agent.id },
-                data: { followupDispatchedAt: null },
-              });
-            });
-            await outagePoll(deps, agent, error.retryAfterMs);
+            // A refused request was never accepted, so the next poll resends it.
+            await retryPoll(deps, agent, error.retryAfterMs, { followupDispatchedAt: null });
             return;
           }
           if (!(error instanceof CloudAgentRequestRejected)) throw error;
-          // A refused answer (the owner answered first, say) leaves the work running.
           await finishPoll(deps, agent, {
-            ...(question ? {} : rejectedData(error)),
+            status: rejectedStatus(error),
             followup: Prisma.DbNull,
             followupDispatchedAt: null,
           });
@@ -331,51 +205,31 @@ async function reconcile(deps: CloudAgentDeps, agent: Polled, provider: CloudAge
       return;
     }
     // A specific run cannot regress to stale agent-level metadata after a follow-up.
-    const snapshot = await provider.get(
-      agent.remoteId,
-      context,
-      agent.latestRunId ?? undefined,
-      agent.remoteCursor ?? undefined,
-    );
-    // Before the card repaints, so it shows the checks and screenshots this poll found.
-    await refreshCloudAgentProof(deps, agent, snapshot, context);
-    const observed = await continueAfterQuota(deps, provider, agent, context, snapshot);
-    if (!observed) return;
-    const data = snapshotData(observed, agent);
-    // A watch is how a job waits on its pull request, not a reason to wait for ever: after a day
-    // of only waiting, the job is stopped as the owner's stop does. The cancel path above then
-    // keeps polling until the provider says the thread stopped, and that is what wakes the bot.
-    await finishPoll(
-      deps,
-      agent,
-      watchOutlasted(observed, agent) ? { ...data, cancelRequested: true } : data,
-      false,
-      snapshot.missedAttention,
-    );
+    const snapshot = await provider.get(agent.remoteId, context, agent.latestRunId ?? undefined);
+    await finishPoll(deps, agent, snapshotData(snapshot));
   } catch (error) {
     if (agent.lease.signal.aborted) throw error;
     if (error instanceof CloudAgentRequestRejected && error.reason !== "invalid") {
       // The remote agent or run is gone. Polling it again can never succeed.
       await finishPoll(deps, agent, {
-        ...rejectedData(error),
-        ...(agent.cancelRequested && error.reason === "not_found"
-          ? { status: "cancelled", failureReason: null }
-          : {}),
+        status:
+          agent.cancelRequested && error.reason === "not_found"
+            ? "cancelled"
+            : rejectedStatus(error),
         followup: Prisma.DbNull,
         followupDispatchedAt: null,
       });
-      return;
-    }
-    if (error instanceof CloudAgentRetryLater && error.reason === "quota") {
-      await quotaPoll(deps, agent, error);
       return;
     }
     // Provider response bodies and secrets never enter logs, cards, or model context.
     if (error instanceof CloudAgentRetryLater && error.reason === "credential")
       getLogger().warn("cloud agent credential rejected; check the provider connection");
     else getLogger().warn("cloud agent operation deferred to reconciliation");
-    if (error instanceof CloudAgentRetryLater) await outagePoll(deps, agent, error.retryAfterMs);
-    else await retryPoll(deps, agent);
+    await retryPoll(
+      deps,
+      agent,
+      error instanceof CloudAgentRetryLater ? error.retryAfterMs : undefined,
+    );
   }
 }
 
@@ -395,77 +249,19 @@ function fenced(
   });
 }
 
-function snapshotData(
-  snapshot: CloudAgentSnapshot,
-  agent: Pick<CloudAgent, "watchingSince">,
-): Prisma.CloudAgentUpdateManyMutationInput {
+function snapshotData(snapshot: CloudAgentSnapshot): Prisma.CloudAgentUpdateManyMutationInput {
   return {
-    ...(snapshot.title ? { title: snapshot.title } : {}),
+    title: snapshot.title,
     status: snapshot.status,
-    failureReason: null,
-    resultText: snapshot.result ?? null,
-    // Absent while running means nothing new was read, so the last line stays.
-    ...(snapshot.status === "running"
-      ? snapshot.quotaResetsAt
-        ? { progressText: null }
-        : snapshot.progress !== undefined
-          ? { progressText: snapshot.progress }
-          : {}
-      : { progressText: null }),
-    quotaResetsAt: storedQuotaReset(snapshot),
-    ...(snapshot.url ? { url: cloudAgentUrl(snapshot.url) ?? "" } : {}),
+    url: cloudAgentHttpsUrl(snapshot.url) ?? "",
     branch: snapshot.branch,
     prUrl: snapshot.prUrl ? (cloudAgentHttpsUrl(snapshot.prUrl) ?? "") : undefined,
     latestRunId: snapshot.latestRunId,
-    // Absent means nothing new was read; the watch's clock starts when it is first seen.
-    ...(snapshot.prState ? { prState: snapshot.prState } : {}),
-    ...(snapshot.watching !== undefined
-      ? {
-          prWatching: snapshot.watching,
-          watchingSince: watchIdle(snapshot) ? (agent.watchingSince ?? new Date()) : null,
-        }
-      : {}),
-    // Shown on the card only: nothing in it wakes the bot.
-    ...(snapshot.work && snapshot.pullRequests
-      ? {
-          threadWork: {
-            work: snapshot.work.map((item) => ({ ...item })),
-            pullRequests: snapshot.pullRequests.map((pr) => ({ ...pr })),
-          },
-        }
-      : {}),
-    ...(snapshot.cursor !== undefined ? { remoteCursor: snapshot.cursor } : {}),
-    ...(snapshot.attention !== undefined
-      ? {
-          // The question's words are content, so they live in their own sealed column.
-          attention: snapshot.attention.length
-            ? (snapshot.attention.map(
-                ({ question: _question, ...item }) => item,
-              ) as Prisma.InputJsonValue)
-            : Prisma.DbNull,
-          questionPrompt: questionPromptOf(snapshot.attention),
-          // An answer is shown while the job goes on, and gone when the next question or the end comes.
-          ...(snapshot.attention.length || snapshot.status !== "running"
-            ? { ownerAnswer: null }
-            : {}),
-        }
-      : {}),
-    ...(snapshot.historyGap ? { historyGapAt: new Date() } : {}),
   };
 }
 
-/** The open question's id, words and options for the card, or nothing once none is open. */
-function questionPromptOf(attention: CloudAgentAttention[]) {
-  const open = attention.find((item) => item.kind === "question" && item.question);
-  return open ? JSON.stringify({ requestId: open.requestId, ...open.question }) : null;
-}
-
-/** The provider's own reason travels with the terminal status, so the bot can say why. */
-function rejectedData(error: CloudAgentRequestRejected) {
-  return {
-    status: error.reason === "expired" ? "expired" : "failed",
-    failureReason: error.detail?.slice(0, MAX_FAILURE_REASON) || null,
-  };
+function rejectedStatus(error: CloudAgentRequestRejected) {
+  return error.reason === "expired" ? "expired" : "failed";
 }
 
 async function retryPoll(
@@ -485,123 +281,6 @@ async function retryPoll(
     errorCount: { increment: 1 },
   });
   if (saved.count) await enqueueCloudAgent(deps, agent.id, nextPollAt);
-  return saved.count > 0;
-}
-
-/**
- * A retryable failure. Once they have run unbroken past the threshold the card says so and the
- * owner hears once, without waking the bot; a success (finishPoll) clears it and a new outage
- * starts over.
- */
-async function outagePoll(deps: CloudAgentDeps, agent: Polled, retryAfterMs?: number) {
-  const now = new Date();
-  const since = agent.retryingSince ?? now;
-  const unreachable =
-    !agent.unreachableSince && now.getTime() - since.getTime() >= UNREACHABLE_AFTER_MS;
-  const saved = await retryPoll(deps, agent, retryAfterMs, {
-    retryingSince: since,
-    ...(unreachable ? { unreachableSince: now } : {}),
-  });
-  if (!saved || !unreachable) return;
-  await repaintCloudAgentCard(deps, agent.id);
-  await notifyCloudAgentUnreachable(
-    { prisma: deps.prisma, events: deps.events, notifications: deps.notifications },
-    agent,
-  ).catch(() => getLogger().warn("cloud agent unreachable notice failed"));
-}
-
-/**
- * The backup for a wake held back because the bot's own run reports the result: the wake is made
- * unless that run completed normally. It uses the unsuppressed path's wake key, so it fires once.
- */
-export async function checkCloudAgentReporter(
-  deps: CloudAgentDeps,
-  payload: BackgroundJobPayloads["cloud_agent.reporter_check"],
-) {
-  const agent = await deps.prisma.cloudAgent.findUnique({ where: { id: payload.agentId } });
-  // A newer piece of work, a verdict or a running agent has its own wake.
-  if (!agent || agent.generation !== payload.generation || agent.status === "running") return;
-  if (agent.verdict || !(await canWake(deps, agent))) return;
-  const reporter = agent.waitingRunId
-    ? await deps.prisma.run.findUnique({
-        where: { id: agent.waitingRunId },
-        select: { status: true },
-      })
-    : null;
-  if (reporter?.status === "completed") return;
-  const seqs: number[] = [];
-  const wakeRunIds = await deps.prisma.$transaction(async (tx) => {
-    // Under the lock chat clearing takes: a chat cleared since `canWake` gets no new card.
-    await lockCloudAgentWakeThread(tx, agent);
-    const card = agent.messageId
-      ? await tx.message.findFirst({
-          where: { id: agent.messageId, threadId: agent.threadId },
-          select: { id: true },
-        })
-      : null;
-    if (!card) return [];
-    return createCloudAgentWake(
-      tx,
-      agent,
-      terminalWakePrompt(agent),
-      `cloud-agent-wake-run:${agent.id}:${agent.generation}`,
-      { jobThread: true, seqs, jobs: deps.jobs },
-    );
-  });
-  await deps.prisma.cloudAgent.updateMany({
-    where: { id: agent.id, generation: agent.generation, wakeAttempts: 0 },
-    data: { wakeAttempts: 1 },
-  });
-  if (seqs.length)
-    await bestEffort(
-      "notify cloud agent thread",
-      deps.events.notify(agent.threadId, Math.max(...seqs)),
-    );
-  for (const wakeRunId of new Set(wakeRunIds)) await wakeRun(deps.jobs, wakeRunId);
-}
-
-/**
- * A bot run that was reporting a finished piece itself has failed or been cancelled: its backup
- * job runs now instead of after its delay.
- */
-export async function expediteCloudAgentReporterCheck(
-  deps: Pick<CloudAgentDeps, "prisma" | "jobs">,
-  runId: string,
-) {
-  const agents = await deps.prisma.cloudAgent.findMany({
-    where: { waitingRunId: runId, status: { not: "running" } },
-    select: { id: true, generation: true, wakeGeneration: true },
-  });
-  for (const agent of agents)
-    if (agent.wakeGeneration === agent.generation)
-      await deps.jobs
-        .enqueue(
-          cloudAgentReporterCheckJob(
-            { agentId: agent.id, generation: agent.generation },
-            new Date(),
-          ),
-        )
-        .catch(() => getLogger().warn("cloud agent reporter check deferred to its backup"));
-}
-
-/** The card follows the row when only its outage state changed. */
-export async function repaintCloudAgentCard(deps: CloudAgentDeps, agentId: string) {
-  const seq = await deps.prisma.$transaction(async (tx) => {
-    const saved = await tx.cloudAgent.findUnique({ where: { id: agentId } });
-    if (!saved) return undefined;
-    // Same lock order as finishPoll: thread first, then the message.
-    await tx.thread.updateMany({
-      where: { id: saved.threadId, spaceId: saved.spaceId },
-      data: { nextEventSeq: { increment: 0 } },
-    });
-    return paintCloudAgentCard(tx, agentId);
-  });
-  const agent = await deps.prisma.cloudAgent.findUnique({
-    where: { id: agentId },
-    select: { threadId: true },
-  });
-  if (seq !== undefined && agent)
-    await bestEffort("notify cloud agent thread", deps.events.notify(agent.threadId, seq));
 }
 
 async function finishPoll(
@@ -609,7 +288,6 @@ async function finishPoll(
   agent: Polled,
   data: Prisma.CloudAgentUpdateManyMutationInput,
   abandoned = false,
-  missed: CloudAgentAttention[] = [],
 ) {
   const committed = await deps.prisma.$transaction(async (tx) => {
     // Same lock order as clearing chat: thread first, then message/run changes.
@@ -643,8 +321,7 @@ async function finishPoll(
     const terminal = status !== "running";
     const cancelRequested =
       !terminal && (detached || data.cancelRequested === true || agent.cancelRequested);
-    const attention = data.attention !== undefined ? data.attention : agent.attention;
-    const nextPollAt = terminal ? null : runningPollAt(data.quotaResetsAt, attention);
+    const nextPollAt = terminal ? null : new Date(Date.now() + 5_000);
     await assertLeaseHeld(tx, agent.lease);
     const updated = await tx.cloudAgent.updateMany({
       where: fence(agent),
@@ -652,25 +329,16 @@ async function finishPoll(
         ...data,
         cancelRequested,
         nextPollAt,
-        // A queued request cancelled before it started ends here, off the queue.
-        ...(terminal ? { queuedAt: null } : {}),
         errorCount: 0,
-        retryingSince: null,
-        unreachableSince: null,
         version: { increment: 1 },
       },
     });
     if (!updated.count) return null;
     const saved = await tx.cloudAgent.findUniqueOrThrow({ where: { id: agent.id } });
     let seq: number | undefined;
-    const wakeRunIds: string[] = [];
-    let goalId: string | undefined;
-    let goalBackupKey: string | undefined;
-    // Events for the cards a job helper's wakes left in the chat, announced with the rest.
-    const wakeSeqs: number[] = [];
-    const wakeOptions = { jobThread: true, seqs: wakeSeqs, jobs: deps.jobs };
+    let wakeRunId: string | undefined;
     if (message && !detached) {
-      const nextBlock = await cloudAgentCardBlock(tx, saved);
+      const nextBlock = cloudAgentBlock(saved);
       const next = changeMessageBlocks(message, (block) =>
         block.kind === "cloud_agent" &&
         block.agentId === agent.id &&
@@ -689,307 +357,41 @@ async function finishPoll(
         });
         seq = event.seq;
       }
-      // A live goal starts its own supervisory turn; otherwise the owner hears as usual.
-      const goal = await tx.scopedGoal.findUnique({ where: { agentId: agent.id } });
-      // The agent stopping is when its goal's gates are worth observing.
-      if (terminal && goalDrivesAgent(goal) && goal.nextAttemptAt) {
-        goalId = goal.id;
-        await tx.scopedGoal.update({ where: { id: goal.id }, data: { nextAttemptAt: new Date() } });
-        goalBackupKey = await recordScopedGoalBackup(deps, tx, goal.id);
-      }
-      if (terminal && !goalDrivesAgent(goal) && saved.wakeGeneration < saved.generation) {
-        // A bot run that messaged or waited on this work and is still going reports its result
-        // itself, so waking again would only judge the same answer a second time.
-        const reporting = saved.waitingRunId
-          ? await tx.run.findFirst({
-              where: { id: saved.waitingRunId, status: "running" },
-              select: { id: true },
-            })
-          : null;
-        // If that run fails or stalls instead, its backup job makes the wake after all.
-        if (reporting)
-          await deps.jobs.enqueueIn(
-            tx,
-            cloudAgentReporterCheckJob(
-              { agentId: agent.id, generation: saved.generation },
-              new Date(Date.now() + REPORTER_CHECK_MS),
-            ),
-          );
+      if (terminal && saved.wakeGeneration < saved.generation) {
         // Provider text is untrusted. Wake with local identity and status only.
-        else
-          wakeRunIds.push(
-            ...(await createCloudAgentWake(
-              tx,
-              saved,
-              terminalWakePrompt(saved),
-              `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
-              wakeOptions,
-            )),
-          );
+        const task = await tx.task.create({
+          data: {
+            spaceId: agent.spaceId,
+            botId: agent.botId,
+            threadId: agent.threadId,
+            userId: agent.userId,
+            prompt: cloudAgentWakePrompt(agent.id, status),
+            status: "queued",
+          },
+        });
+        const run = await tx.run.create({
+          data: {
+            spaceId: agent.spaceId,
+            botId: agent.botId,
+            threadId: agent.threadId,
+            userId: agent.userId,
+            taskId: task.id,
+            status: "queued",
+            trigger: "cloud_agent",
+            clientNonce: `cloud-agent-wake-run:${agent.id}:${saved.generation}`,
+          },
+        });
         await tx.cloudAgent.update({
           where: { id: agent.id },
-          data: { wakeGeneration: saved.generation, wakeAttempts: reporting ? 0 : 1 },
+          data: { wakeGeneration: saved.generation },
         });
-      }
-      // Each new question or approval wakes the bot once; the request id is the dedupe key.
-      for (const requestId of newAttention(agent.attention, saved.attention)) {
-        wakeRunIds.push(
-          ...(await createCloudAgentWake(
-            tx,
-            saved,
-            attentionWakePrompt(agent.id, requestId),
-            `cloud-agent-attention:${agent.id}:${requestId}`,
-            wakeOptions,
-          )),
-        );
-      }
-      // A closed blocker only matters if the agent did not keep working or finish normally.
-      for (const { requestId } of saved.status === "running" || saved.status === "finished"
-        ? []
-        : missed) {
-        wakeRunIds.push(
-          ...(await createCloudAgentWake(
-            tx,
-            saved,
-            `Cloud agent ${agent.id} had a question or approval (${requestId}) that closed unanswered. Use cloud_agent_status to check whether it is still working.`,
-            `cloud-agent-attention:${agent.id}:${requestId}`,
-            wakeOptions,
-          )),
-        );
+        wakeRunId = run.id;
       }
     }
-    const promotedId =
-      terminal && agent.status === "running"
-        ? await promoteQueuedCloudAgent(tx, agent.providerKey, agent.botId)
-        : undefined;
-    return {
-      seq: wakeSeqs.length ? Math.max(seq ?? 0, ...wakeSeqs) : seq,
-      wakeRunIds,
-      nextPollAt,
-      promotedId,
-      goalId,
-      goalBackupKey,
-    };
+    return { seq, wakeRunId, nextPollAt };
   }, THREAD_LOCK_TRANSACTION_OPTIONS);
   if (!committed) return;
-  if (committed.promotedId) await enqueueCloudAgent(deps, committed.promotedId);
-  if (committed.seq !== undefined)
-    await bestEffort(
-      "notify cloud agent thread",
-      deps.events.notify(agent.threadId, committed.seq),
-    );
-  for (const wakeRunId of new Set(committed.wakeRunIds)) await wakeRun(deps.jobs, wakeRunId);
+  if (committed.seq !== undefined) await deps.events.notify(agent.threadId, committed.seq);
+  if (committed.wakeRunId) await wakeRun(deps.jobs, committed.wakeRunId);
   if (committed.nextPollAt) await enqueueCloudAgent(deps, agent.id, committed.nextPollAt);
-  // Only this agent's goal is looked at, from here; its backup job and the reconciler cover a crash.
-  else if (committed.goalId) startScopedGoal(deps, committed.goalId, committed.goalBackupKey);
-}
-
-type Tx = Parameters<Parameters<CloudAgentDeps["prisma"]["$transaction"]>[0]>[0];
-
-export function attentionIds(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.flatMap((item) =>
-        typeof item?.requestId === "string" ? [item.requestId as string] : [],
-      )
-    : [];
-}
-
-function newAttention(before: unknown, after: unknown): string[] {
-  const seen = new Set(attentionIds(before));
-  return attentionIds(after).filter((id) => !seen.has(id));
-}
-
-export interface CloudAgentWakeOptions {
-  /** Run the wake in the agent's own helper thread when the deployment turns that on. */
-  jobThread?: boolean;
-  /** Collects the event seq of each card posted to the chat, for the caller to announce. */
-  seqs?: number[];
-  /** Records the pointer backup for a report on another bot's request in the wake's transaction. */
-  jobs?: Pick<JobPublisher, "enqueueIn">;
-}
-
-/**
- * Preserve each wake identity, folding it into an unstarted run in the same bot/thread.
- * The thread lock serializes deduplication and appends across pollers and reconcilers.
- */
-export async function createCloudAgentWake(
-  tx: Tx,
-  agent: CloudAgent,
-  prompt: string,
-  clientNonce: string,
-  options: CloudAgentWakeOptions = {},
-): Promise<string[]> {
-  prompt = [prompt, failedStartRecoveryPrompt(agent)].filter(Boolean).join("\n\n");
-  // Use the same thread-first lock order as polling and chat clearing. Reconciler retries
-  // also come here; no in-process lock can protect wakes created on another instance.
-  await lockCloudAgentWakeThread(tx, agent);
-  const existing = await tx.run.findFirst({
-    where: { spaceId: agent.spaceId, ...cloudAgentWakeNonceWhere(clientNonce) },
-    select: { id: true },
-  });
-  if (existing) return [];
-  const job = options.jobThread && cloudAgentJobThreadsEnabled();
-  const threadId = job ? await jobThreadFor(tx, agent) : agent.threadId;
-  const queued = await tx.run.findFirst({
-    where: {
-      spaceId: agent.spaceId,
-      userId: agent.userId,
-      botId: agent.botId,
-      threadId,
-      trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
-      status: "queued",
-      startedAt: null,
-    },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, taskId: true, clientNonce: true, cloudAgentWakeNonces: true },
-  });
-  if (queued) {
-    // Claiming the run competes on this row. If it won, its prompt is immutable and the new
-    // wake needs another run. If we win, the claimant reads the appended prompt after commit.
-    const appended = await tx.run.updateMany({
-      where: { id: queued.id, status: "queued", startedAt: null },
-      data: {
-        cloudAgentWakeNonces: [...cloudAgentWakeNonces(queued), clientNonce],
-      },
-    });
-    if (appended.count) {
-      const task = await tx.task.findUniqueOrThrow({ where: { id: queued.taskId } });
-      await tx.task.update({
-        where: { id: task.id },
-        data: { prompt: `${task.prompt}\n\n${prompt}` },
-      });
-      await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
-      return [queued.id];
-    }
-  }
-  // A job helper's review shows as Checking on the job's own card, which its run settles; the
-  // run's source is that card, so stopping the chat still reaches it.
-  const card = job ? await startJobReview(tx, agent) : undefined;
-  if (card?.seq !== undefined) options.seqs?.push(card.seq);
-  const task = await tx.task.create({
-    data: {
-      spaceId: agent.spaceId,
-      botId: agent.botId,
-      threadId,
-      userId: agent.userId,
-      prompt: job ? await jobHelperTaskPrompt(tx, agent, [prompt]) : prompt,
-      status: "queued",
-    },
-  });
-  const run = await tx.run.create({
-    data: {
-      spaceId: agent.spaceId,
-      botId: agent.botId,
-      threadId,
-      userId: agent.userId,
-      taskId: task.id,
-      status: "queued",
-      trigger: job ? BACKGROUND_HELPER_TRIGGER : "cloud_agent",
-      clientNonce,
-      cloudAgentWakeNonces: [clientNonce],
-      ...(card?.messageId ? { sourceMessageId: card.messageId } : {}),
-    },
-  });
-  await recordRelayPointerBackup(tx, agent, clientNonce, options.jobs);
-  return [run.id];
-}
-
-const TERMINAL_WAKE_NONCE = "cloud-agent-wake-run";
-
-/** Marks the job as being checked and repaints its card; the review adds no card of its own. */
-async function startJobReview(tx: Tx, agent: CloudAgent) {
-  await tx.cloudAgent.update({ where: { id: agent.id }, data: { reviewingAt: new Date() } });
-  const seq = await paintCloudAgentCard(tx, agent.id);
-  return { messageId: agent.messageId ?? undefined, seq };
-}
-
-/**
- * Records, in the transaction that makes a bot's report run for finished work, the backup that
- * leaves the pointer in the asking chat if posting it directly after that run fails. Only the wake
- * for the finished piece reports; one for a question or approval does not.
- */
-async function recordRelayPointerBackup(
-  tx: Tx,
-  agent: CloudAgent,
-  clientNonce: string,
-  jobs: Pick<JobPublisher, "enqueueIn"> | undefined,
-) {
-  if (!jobs || !agent.originMessageId || agent.originBotId === agent.botId) return;
-  if (clientNonce !== `${TERMINAL_WAKE_NONCE}:${agent.id}:${agent.generation}`) return;
-  await jobs.enqueueIn(
-    tx,
-    cloudAgentRelayPointerJob(
-      { agentId: agent.id, generation: agent.generation },
-      new Date(Date.now() + RELAY_POINTER_BACKUP_MS),
-    ),
-  );
-}
-
-/**
- * The bot's report run for work another bot asked for has completed: point the asking chat at it,
- * then retire the backup. A failed post makes the backup runnable now; a crash leaves it to fire.
- */
-export async function postCloudAgentRelayPointers(
-  deps: Pick<CloudAgentDeps, "prisma" | "events" | "jobs">,
-  run: { id: string },
-  bot: { id: string; name: string },
-) {
-  const woken = await deps.prisma.run.findUnique({
-    where: { id: run.id },
-    select: { clientNonce: true, cloudAgentWakeNonces: true },
-  });
-  const pieces = [...(woken?.cloudAgentWakeNonces ?? []), woken?.clientNonce ?? ""].flatMap(
-    (nonce) => {
-      const [kind, agentId, generation] = nonce.split(":");
-      return kind === TERMINAL_WAKE_NONCE && agentId && generation
-        ? [{ agentId, generation: Number(generation) }]
-        : [];
-    },
-  );
-  for (const piece of pieces) {
-    const agent = await deps.prisma.cloudAgent.findFirst({
-      where: { id: piece.agentId, botId: bot.id, originMessageId: { not: null } },
-      select: { originMessageId: true },
-    });
-    if (!agent) continue;
-    const job = cloudAgentRelayPointerJob(piece, new Date());
-    try {
-      await postRelayPointer(deps, { sourceMessageId: agent.originMessageId!, bot });
-    } catch (error) {
-      await bestEffort("queue cloud agent relay pointer", deps.jobs.enqueue(job));
-      throw error;
-    }
-    await deps.prisma.$transaction((tx) => deps.jobs.cancelIn(tx, job.replaceKey!));
-  }
-}
-
-/**
- * The backup for that pointer: it posts once the report run has completed, and asks the queue to
- * retry while that run is still going. A run that failed or was cancelled reported nothing.
- */
-export async function runRelayPointerBackup(
-  deps: Pick<CloudAgentDeps, "prisma" | "events">,
-  payload: BackgroundJobPayloads["cloud_agent.relay_pointer"],
-) {
-  const agent = await deps.prisma.cloudAgent.findUnique({
-    where: { id: payload.agentId },
-    select: { spaceId: true, botId: true, originMessageId: true },
-  });
-  if (!agent?.originMessageId) return;
-  const report = await deps.prisma.run.findFirst({
-    where: {
-      spaceId: agent.spaceId,
-      ...cloudAgentWakeNonceWhere(
-        `${TERMINAL_WAKE_NONCE}:${payload.agentId}:${payload.generation}`,
-      ),
-    },
-    select: { status: true },
-  });
-  if (!report || report.status === "failed" || report.status === "cancelled") return;
-  if (report.status !== "completed") throw new Error("The report run has not completed yet");
-  const bot = await deps.prisma.bot.findUnique({
-    where: { id: agent.botId },
-    select: { id: true, name: true },
-  });
-  if (bot) await postRelayPointer(deps, { sourceMessageId: agent.originMessageId, bot });
 }

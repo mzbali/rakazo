@@ -32,7 +32,6 @@ import type {
   CloudAgentCapabilities,
   CloudAgentHandle,
   CloudAgentLaunchRequest,
-  CloudAgentPullRequest,
   CloudAgentReplyRequest,
   CloudAgentSnapshot,
   CommandRequest,
@@ -823,26 +822,14 @@ export interface BrowserProvider {
  */
 export interface CloudAgentProvider {
   describe(): AdapterDescriptor<CloudAgentCapabilities>;
-  /** Replace recognized links to a tracked agent with its canonical link. */
-  canonicalizeLinks?(text: string, id: string, url: string): string;
   launch(request: CloudAgentLaunchRequest, context: AdapterContext): Promise<CloudAgentHandle>;
-  /** `cursor` is the last snapshot's, for providers that read an event feed. */
-  get(
-    id: string,
-    context: AdapterContext,
-    runId?: string,
-    cursor?: number,
-  ): Promise<CloudAgentSnapshot>;
+  get(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
   reply(
     id: string,
     request: CloudAgentReplyRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle>;
   cancel(id: string, context: AdapterContext, runId?: string): Promise<CloudAgentSnapshot>;
-  /** Marks accepted work as done in the provider's own list, for providers that keep one. */
-  settle?(id: string, context: AdapterContext): Promise<void>;
-  /** The pull requests the agent's work opened, for providers that track them. */
-  pullRequests?(id: string, context: AdapterContext): Promise<CloudAgentPullRequest[]>;
 }
 
 /**

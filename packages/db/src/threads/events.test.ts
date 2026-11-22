@@ -2489,12 +2489,7 @@ describe("answerRunInput approvals", () => {
     await expect(answer("deny")).resolves.toBe(true);
     expect(tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: {
-        status: "denied",
-        approvedByUserId: null,
-        approvedAt: null,
-        result: APPROVAL_EXPIRED_RESULT,
-      },
+      data: { status: "denied", result: APPROVAL_EXPIRED_RESULT },
     });
     expect(tx.message.update).toHaveBeenCalledWith({
       where: { id: "message-1" },
@@ -2601,7 +2596,7 @@ describe("answerRunInput approvals", () => {
     });
     expect(tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: { status: "approved", approvedByUserId: "user-1", approvedAt: expect.any(Date) },
+      data: { status: "approved" },
     });
   });
 
@@ -2846,7 +2841,7 @@ describe("answerRunInput approvals", () => {
       expect(tx.task.update).not.toHaveBeenCalled();
       expect(tx.externalEffect.update).toHaveBeenCalledWith({
         where: { id: "effect-1" },
-        data: { status: "approved", approvedByUserId: "user-1", approvedAt: expect.any(Date) },
+        data: { status: "approved" },
       });
       expect(tx.spaceSettingOverride.findUnique).toHaveBeenCalledWith({
         where: {
@@ -2974,7 +2969,7 @@ describe("answerRunInput approvals", () => {
 
     expect(tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: { status: "approved", approvedByUserId: "user-1", approvedAt: expect.any(Date) },
+      data: { status: "approved" },
     });
     expect(
       tx.userActionApprovalRule.upsert.mock.calls.map(([call]) => call.create.matchValue),
@@ -5829,7 +5824,7 @@ describe("held instruction answers", () => {
     );
     expect(f.tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: { status: "approved", approvedByUserId: "owner", approvedAt: expect.any(Date) },
+      data: { status: "approved" },
     });
     expect(f.tx.task.update).not.toHaveBeenCalled();
     expect(f.tx.message.update).toHaveBeenCalledWith(
@@ -5863,7 +5858,7 @@ describe("held instruction answers", () => {
     expect(await f.answer("deny")).toBe(true);
     expect(f.tx.externalEffect.update).toHaveBeenCalledWith({
       where: { id: "effect-1" },
-      data: { status: "denied", approvedByUserId: null, approvedAt: null },
+      data: { status: "denied" },
     });
   });
 });

@@ -1133,12 +1133,6 @@ export interface BackgroundJobPayloads {
   "team_chat.ambient": { conversationId: string };
   /** Reconcile durable remote-agent intent; scope is loaded from the database. */
   "cloud_agent.poll": { agentId: string };
-  /** Wake for a finished piece of work whose reporting bot run did not complete; see `cloudAgentReporterCheckJob`. */
-  "cloud_agent.reporter_check": { agentId: string; generation: number };
-  /** Backup for the pointer left in the asking chat once a cloud agent's report run for another bot's request completes. */
-  "cloud_agent.relay_pointer": { agentId: string; generation: number };
-  /** Observe and advance one scoped goal; its gates' remote reads never wait on another goal. */
-  "scoped_goal.advance": { goalId: string };
   "meeting.calendar-sync": { connectionId: string };
   "meeting.work": {
     sessionId: string;
@@ -1713,65 +1707,21 @@ export interface CloudAgentCapabilities {
   launch: boolean;
   reply: boolean;
   cancel: boolean;
-  /** Broadest runtime mode this connection can grant. */
-  runtimeModeCeiling?: CloudAgentRuntimeMode;
   /** True when the adapter never leaves the process (tests / Playwright). */
   offline?: boolean;
 }
 
 export type CloudAgentImage = { data: string; mimeType: string } | { url: string };
 
-/** What the work needs, so a provider with a model route for the kind can pick a model. */
-export type CloudAgentWorkKind = "hard" | "normal" | "simple" | "ui";
-
 export interface CloudAgentLaunchRequest {
   /** Repeated launches with this key must resolve to the same remote agent. */
   idempotencyKey: string;
   prompt: string;
-  /** A short label; providers that title their agents use it. */
-  title?: string;
   repository?: string;
   images?: CloudAgentImage[];
   openPr?: boolean;
-  /**
-   * How the agent starts. Each is optional and leaves the provider's default when absent; a
-   * provider that cannot honor one it is given rejects the launch rather than start other work.
-   */
-  modelSelection?: CloudAgentModelSelection;
-  /** The kind of work; a provider with routes for it picks the model unless one is named. */
-  workKind?: CloudAgentWorkKind;
-  /** The provider's own project id, from its project list. */
-  projectId?: string;
-  /** A project named as the owner knows it: its title, repository name or folder name. */
-  project?: string;
-  /** Work that belongs to no project. A provider with projects refuses a launch with neither. */
-  scratch?: boolean;
-  workspaceStrategy?: CloudAgentWorkspaceStrategy;
-  runtimeMode?: CloudAgentRuntimeMode;
-  interactionMode?: CloudAgentInteractionMode;
   signal?: AbortSignal;
 }
-
-/** A model named by the provider's own ids, as its model list reports them. */
-export interface CloudAgentModelSelection {
-  model: string;
-  provider?: string;
-  instanceId?: string;
-  options?: Array<{ id: string; value: string | number | boolean }>;
-}
-
-export type CloudAgentWorkspaceStrategy =
-  | { type: "root" }
-  | { type: "worktree"; baseRef?: string; branch?: string; startFromOrigin?: boolean }
-  | { type: "existing_worktree"; worktreePath: string };
-
-export type CloudAgentRuntimeMode =
-  | "approval-required"
-  | "auto-accept-edits"
-  | "auto"
-  | "full-access";
-
-export type CloudAgentInteractionMode = "default" | "plan";
 
 export interface CloudAgentHandle {
   id: string;
@@ -1780,8 +1730,6 @@ export interface CloudAgentHandle {
   status: CloudAgentStatus;
   /** Latest remote run id when the vendor exposes one (needed for cancel). */
   latestRunId?: string;
-  /** What the provider actually started, when it differs from the request or the request named nothing. */
-  launchNote?: string;
 }
 
 export interface CloudAgentSnapshot {
@@ -1791,88 +1739,12 @@ export interface CloudAgentSnapshot {
   status: CloudAgentStatus;
   branch?: string;
   prUrl?: string;
-  /** The pull request's state, when the provider reports it. */
-  prState?: "open" | "merged" | "closed";
-  /** The agent is watching its open pull request and gets woken by what happens to it. */
-  watching?: boolean;
-  /** Watching with no run working: only the watch keeps the job open. */
-  watchIdle?: boolean;
-  /** What the thread has going besides its run. Absent when it was not read this poll. */
-  work?: CloudAgentWork[];
-  /** Every pull request on the thread. Absent when it was not read this poll. */
-  pullRequests?: CloudAgentThreadPullRequest[];
   latestRunId?: string;
-  /** Providers with an event feed: the cursor this snapshot was read through. */
-  cursor?: number;
-  /** Open questions and approvals; a new requestId wakes the bot once. */
-  attention?: CloudAgentAttention[];
-  /** Questions and approvals that closed unanswered (expired, cancelled) since the cursor. */
-  missedAttention?: CloudAgentAttention[];
-  /** Events after the previous cursor may be missing; the snapshot is still current. */
-  historyGap?: boolean;
-  /** A finished run's final message, bounded. Untrusted job output, never instructions. */
-  result?: string;
-  /** While running: the agent's latest message, bounded. Untrusted job output. Absent when unchanged. */
-  progress?: string;
-  /**
-   * Stopped on the provider's usage limit. The work continues after this ISO time.
-   * Absent when the provider did not report a limit.
-   */
-  quotaResetsAt?: string;
-  /**
-   * Whether the provider sends the continuation itself at `quotaResetsAt`.
-   * Present only together with that time. False means the caller sends it once the reset has passed.
-   */
-  quotaAutoResume?: boolean;
-}
-
-export interface CloudAgentWork {
-  kind: "subagent" | "command" | "monitor" | "background_task";
-  label: string;
-  /** Where a child thread opens in its provider. */
-  url?: string;
-}
-
-export interface CloudAgentThreadPullRequest {
-  url: string;
-  number: number;
-  state: "open" | "merged" | "closed";
-  watching: boolean;
-}
-
-export interface CloudAgentPullRequest {
-  url: string;
-  number: number;
-  repository: string;
-  state: "open" | "merged" | "closed";
-  /** Only when the provider reports it; observers may look it up elsewhere. */
-  mergeCommitSha?: string;
-}
-
-export interface CloudAgentAttention {
-  requestId: string;
-  kind: "question" | "approval";
-  threadId?: string;
-  /** For a question: what it asks and the answers the provider offers, the recommended one marked. */
-  question?: CloudAgentQuestion;
-}
-
-export interface CloudAgentQuestion {
-  text?: string;
-  options: Array<{ label: string; recommended?: boolean }>;
-  /** False when only the offered options may be chosen; absent means a typed answer is welcome too. */
-  allowCustomAnswer?: boolean;
 }
 
 export interface CloudAgentReplyRequest {
   prompt: string;
   images?: CloudAgentImage[];
-  /** Answer this open question instead of sending a follow-up. */
-  questionId?: string;
-  /** The provider thread that asked it, when not the agent's own (a subagent). */
-  questionThreadId?: string;
-  /** Repeated replies with this key must resolve to the same remote message. */
-  idempotencyKey?: string;
   signal?: AbortSignal;
 }
 

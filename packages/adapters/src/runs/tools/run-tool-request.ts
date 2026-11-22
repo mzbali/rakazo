@@ -1,13 +1,6 @@
 import type { ConnectorCall, ConnectorTool } from "@rakazo/adapter-kit";
-import {
-  BOT_INSTRUCTIONS_MAX_LENGTH,
-  BotSecretAuth,
-  OneTimeCodeTarget,
-  ScopedGoalControl,
-  ScopedGoalReport,
-  ScopedGoalScope,
-} from "@rakazo/contracts";
-import { addedClaimMessage, redactSecrets } from "@rakazo/core";
+import { BOT_INSTRUCTIONS_MAX_LENGTH, BotSecretAuth, OneTimeCodeTarget } from "@rakazo/contracts";
+import { redactSecrets } from "@rakazo/core";
 import { runLoginKind } from "@rakazo/db";
 import type { FleetCardSummary } from "../../approvals/approval-ask.js";
 import type { TerminatingToolResult } from "../../approvals/approval-effect.js";
@@ -32,11 +25,7 @@ import {
   BOT_SETTING_ARGS,
   dropUnchangedOwnBotArgs,
 } from "../../bots/update-bot-patch.js";
-import {
-  CLOUD_AGENT_LAUNCH_USAGE,
-  CLOUD_AGENT_REPORT_USAGE,
-  validCloudAgentArgs,
-} from "../../cloud-agents/cloud-agent-tools.js";
+import { validCloudAgentArgs } from "../../cloud-agents/cloud-agent-tools.js";
 import { sanitizeConnectorError } from "../../integrations/connector-safety.js";
 import { paidRequestEffect, restorePaidRequest } from "../../payments/paid-request.js";
 import type { PurchaseApproval, UncheckedPress } from "../../payments/purchase-gate.js";
@@ -151,28 +140,12 @@ export async function resolveToolRequest(
   );
   if (approvedReplay.error) return { error: approvedReplay.error };
   if (approvedReplay.args) connectorCall.args = approvedReplay.args;
-  if (name.startsWith("scoped_goal_")) {
-    const schema =
-      name === "scoped_goal_authorize"
-        ? ScopedGoalScope
-        : name === "scoped_goal_report"
-          ? ScopedGoalReport
-          : name === "scoped_goal_control"
-            ? ScopedGoalControl
-            : null;
-    if (schema && !schema.safeParse(args).success)
-      return { error: "Invalid scoped goal arguments." };
-  }
   let catalogRemapped = false;
   let resolvedTool: ConnectorTool | undefined;
   if (name.startsWith("cloud_agent_") && !validCloudAgentArgs(name, args)) {
     return refusal(
       "invalid_cloud_agent_arguments",
-      name === "cloud_agent_report"
-        ? CLOUD_AGENT_REPORT_USAGE
-        : name === "cloud_agent_launch"
-          ? CLOUD_AGENT_LAUNCH_USAGE
-          : "Invalid cloud agent arguments.",
+      "Invalid cloud agent arguments. Raw environment variables are not supported.",
     );
   }
   let effectRequest: unknown = name === "paid_request" ? paidRequestEffect(args) : args;
@@ -879,8 +852,6 @@ async function prepareOwnBotUpdate(
     );
   if (redactSecrets(instructions, ctx.secrets) !== instructions)
     return refusal("instructions_contain_credentials", "Instructions cannot contain credentials.");
-  const addedClaim = await addedClaimMessage(current?.instructions ?? "", instructions);
-  if (addedClaim) return refusal("instructions_corrected_claim", addedClaim);
   request.args = { ...args, instructions };
   if (unguarded) return undefined;
   // A run someone else started acts with their authority, and its card is theirs to answer. A new

@@ -62,16 +62,6 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     request: CloudAgentLaunchRequest,
     context: AdapterContext,
   ): Promise<CloudAgentHandle> {
-    // Dropping these silently would start different work than agreed.
-    if (
-      request.modelSelection ||
-      request.projectId ||
-      request.project ||
-      request.workspaceStrategy ||
-      request.runtimeMode ||
-      request.interactionMode
-    )
-      throw new CloudAgentRequestRejected("invalid");
     // Cursor's client-supplied id makes create replay safe after a lost response.
     const id = cursorAgentId(request.idempotencyKey);
     const response = await this.request(
@@ -198,8 +188,7 @@ export class CursorCloudAgentProvider implements CloudAgentProvider {
     const branch = run.git?.branches[0];
     return {
       id: agent.id,
-      // The card keeps the name it was launched with; Cursor names an agent after its prompt.
-      title: "",
+      title: agent.name || "Cloud agent",
       status,
       url: agent.url || `https://cursor.com/agents/${encodeURIComponent(agent.id)}`,
       latestRunId: run.id,

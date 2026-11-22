@@ -7,7 +7,7 @@ import type { CreateAction } from "./create-chooser";
 import { createMenuItems } from "./create-chooser";
 
 /**
- * Liquid Glass home header: account on the left; jobs, activity and search together on the right, and
+ * Liquid Glass home header: account on the left; activity and search together on the right, and
  * create on its own glass after them.
  */
 export function useInboxHeader({
@@ -19,7 +19,6 @@ export function useInboxHeader({
   toggleActivityMode,
   runCreateAction,
   headerTitle,
-  jobs,
 }: {
   nativeHeader: boolean;
   ready: boolean;
@@ -29,8 +28,6 @@ export function useInboxHeader({
   toggleActivityMode: () => void;
   runCreateAction: (action: CreateAction) => void;
   headerTitle?: () => ReactNode;
-  /** Shown outside the share picker; `needsYou` is the badge. */
-  jobs?: { needsYou: number };
 }) {
   const navigation = useNavigation();
   const router = useRouter();
@@ -55,18 +52,6 @@ export function useInboxHeader({
         },
       ],
       unstable_headerRightItems: () => [
-        ...(jobs
-          ? [
-              {
-                type: "button" as const,
-                label: t`Jobs`,
-                accessibilityLabel: t`Jobs`,
-                icon: { type: "sfSymbol" as const, name: "checklist" },
-                ...(jobs.needsYou > 0 ? { badge: { value: jobs.needsYou } } : {}),
-                onPress: () => router.push("/jobs"),
-              },
-            ]
-          : []),
         {
           type: "button" as const,
           label: t`Activity`,
@@ -111,7 +96,6 @@ export function useInboxHeader({
     toggleActivityMode,
     runCreateAction,
     headerTitle,
-    jobs?.needsYou,
     router,
     t,
     locale,

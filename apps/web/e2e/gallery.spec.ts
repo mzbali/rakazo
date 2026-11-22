@@ -68,8 +68,8 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
         await expect(page.getByRole("button", { name: "2 sources", exact: true })).toBeVisible();
       }
       if (label === "Working") {
-        // A bare app link in prose and the job card's link are the same pill.
-        await expect(page.locator("a.rk-chat-link", { hasText: "Open in T3" })).toHaveCount(2);
+        // A bare app link in prose is drawn as a pill.
+        await expect(page.locator("a.rk-chat-link", { hasText: "Open in T3" })).toHaveCount(1);
         await expect(page.getByText("t3code://", { exact: false })).toHaveCount(0);
       }
       if (label === "Inline embeds") {

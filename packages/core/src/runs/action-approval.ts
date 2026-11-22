@@ -60,7 +60,6 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "request_takeover",
   "run_subagent",
   "schedule_list",
-  "scoped_goal_status",
   "scratchpad_list",
   "search_history",
   "service_search",
@@ -98,8 +97,6 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "set_child_bot_model",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
-  "scoped_goal_authorize",
-  "scoped_goal_control",
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
   "respond_agent_connection",
@@ -233,8 +230,8 @@ export function toolRequiresExplicitApproval(toolName: string): boolean {
 }
 
 /**
- * Tools that ask when the owner did not start the run, or outside content entered it, and that
- * Never ask refuses in those runs. A saved Allow for the tool is applied before that ask.
+ * Tools that ask when the owner did not start the run, a routine started it, or outside content
+ * entered it, and that Never ask refuses in those runs. A saved Allow for a launch applies first.
  * Another owner's connection, and starting coding work, which a bot's message or an email must
  * not agree to on the owner's behalf unless they allowed the tool.
  */

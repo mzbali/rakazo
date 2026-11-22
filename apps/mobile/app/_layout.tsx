@@ -643,27 +643,6 @@ function LayoutContent() {
                         name="routine-runs"
                         options={glassHeaderOptions(t`Run history`)}
                       />
-                      <Stack.Screen name="(jobs)/jobs" options={glassHeaderOptions(t`Jobs`)} />
-                      <Stack.Screen
-                        name="(jobs)/job"
-                        options={{
-                          headerShown: false,
-                          presentation: Platform.OS === "ios" ? "formSheet" : "card",
-                          sheetAllowedDetents: [0.6, 1],
-                          sheetGrabberVisible: true,
-                          contentStyle: { backgroundColor: native.groupedPage },
-                        }}
-                      />
-                      <Stack.Screen
-                        name="(jobs)/thread-jobs"
-                        options={{
-                          headerShown: false,
-                          presentation: Platform.OS === "ios" ? "formSheet" : "card",
-                          sheetAllowedDetents: [0.5, 1],
-                          sheetGrabberVisible: true,
-                          contentStyle: { backgroundColor: native.groupedPage },
-                        }}
-                      />
                       <Stack.Screen name="board" options={glassHeaderOptions(t`Board`)} />
                       <Stack.Screen name="computer" options={{ title: t`Computer` }} />
                       <Stack.Screen

@@ -4,7 +4,6 @@ import {
   memoryRetainTurnJob,
 } from "@rakazo/adapter-kit";
 import {
-  assertNoAddedClaims,
   BACKGROUND_HELPER_TRIGGER,
   containsSecret,
   displayName,
@@ -14,7 +13,6 @@ import {
 } from "@rakazo/core";
 import { withCitedSourceBlock } from "@rakazo/core/answer-sources";
 import { getLogger } from "@rakazo/logging";
-import { postCloudAgentRelayPointers } from "../../cloud-agents/cloud-agent-poll.js";
 import { resolveBotWorkspacePath } from "../../computers/screens/computer-support.js";
 import {
   answeredSteeringMessageIds,
@@ -180,12 +178,6 @@ export async function completeRun(ctx: RunContext) {
       botMessageOutcome.intent,
     ).catch((error) => getLogger().error("bot message result return", error));
   }
-  if (run.trigger === "cloud_agent" || run.trigger === BACKGROUND_HELPER_TRIGGER) {
-    // The report on work another bot asked for; its asking chat gets a pointer to it.
-    await postCloudAgentRelayPointers(deps, run, { id: bot.id, name: bot.name }).catch((error) =>
-      getLogger().error("cloud agent relay pointer", error),
-    );
-  }
   if (run.trigger === BACKGROUND_HELPER_TRIGGER) {
     await returnHelperOutcome(deps, run, { status: "completed", text }).catch((error) =>
       getLogger().error("background helper result return", error),
@@ -228,19 +220,12 @@ async function applyScriptedTurns(ctx: RunContext) {
       );
     }
     for (const mem of turn.memory ?? []) {
-      const snapshot = await deps.memory.read(
-        { scope: mem.scope, botId: mem.scope === "bot" ? bot.id : undefined, path: mem.path },
-        context,
-      );
-      const previous = snapshot.documents.find((doc) => doc.path === mem.path);
-      await assertNoAddedClaims(previous?.content ?? "", mem.content);
       await deps.memory.commit(
         {
           scope: mem.scope,
           botId: mem.scope === "bot" ? bot.id : undefined,
           path: mem.path,
           content: mem.content,
-          expectedRevision: previous?.revision ?? 0,
           sourceRunId: runId,
           sourceThreadId: thread.id,
         },

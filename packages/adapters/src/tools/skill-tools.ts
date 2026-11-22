@@ -1,6 +1,5 @@
 import type { SkillRecord, SkillSource } from "@rakazo/core";
 import {
-  addedClaimMessage,
   buildSkillMd,
   findSkillByName,
   isSkillReadOnly,
@@ -273,8 +272,6 @@ export async function skillCreateFromTool(
 
   const existing = await findOwnedSkill(prisma, owner, { name });
   if (existing) return { error: `A skill named "${existing.name}" already exists.` };
-  const addedClaim = await addedClaimMessage("", content);
-  if (addedClaim) return { error: addedClaim };
 
   try {
     const row = await prisma.agentSkill.create({
@@ -361,9 +358,6 @@ export async function skillUpdateFromTool(
       return { error: `A skill named "${clash.name}" already exists.` };
     }
   }
-
-  const addedClaim = await addedClaimMessage(existing.content, nextContent);
-  if (addedClaim) return { error: addedClaim };
 
   try {
     // Re-scope mutate to owner + user source so a stale id cannot cross tenants.

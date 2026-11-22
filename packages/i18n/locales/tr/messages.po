@@ -17,16 +17,6 @@ msgstr ""
 msgid " (unread)"
 msgstr " (okunmadı)"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# background task} other {# background tasks}}"
-msgstr ""
-
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# command} other {# commands}}"
-msgstr ""
-
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -47,11 +37,6 @@ msgstr "{0, plural, one {# ücretsiz ay kazanıldı} other {# ücretsiz ay kazan
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, one {# ücretsiz ay} other {# ücretsiz ay}}"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# monitor} other {# monitors}}"
-msgstr ""
-
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -69,11 +54,6 @@ msgstr "{0, plural, one {# beceri} other {# beceri}}"
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, one {# alan} other {# alan}}"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# subagent} other {# subagents}}"
-msgstr ""
-
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0, plural, one {# tool} other {# tools}}"
@@ -83,11 +63,6 @@ msgstr "{0, plural, one {# araç} other {# araç}}"
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "{0, plural, one {The code expires in about # minute.} other {The code expires in about # minutes.}}"
 msgstr "{0, plural, one {Kodun süresi yaklaşık # dakika içinde dolacak.} other {Kodun süresi yaklaşık # dakika içinde dolacak.}}"
-
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {watching PR} other {watching # PRs}}"
-msgstr ""
 
 #. placeholder {0}: bot.name
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -104,11 +79,6 @@ msgstr "{0} (en fazla {ATTACHMENT_MAX_COUNT} ek)"
 #: apps/web/src/pages/shell/composer/use-composer-actions.ts
 msgid "{0} (over {1})"
 msgstr "{0} ({1} üzeri)"
-
-#. placeholder {0}: choice.label
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "{0} (recommended)"
-msgstr ""
 
 #. placeholder {0}: block.name
 #: apps/web/src/pages/shell/chat/message-cards.tsx
@@ -145,11 +115,6 @@ msgstr "{0} çalışmıyor"
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0} is running"
 msgstr "{0} çalışıyor"
-
-#. placeholder {0}: pill.count
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
-msgid "{0} jobs working"
-msgstr ""
 
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
@@ -289,26 +254,14 @@ msgstr "{connectedCount, plural, one {# bağlı} other {# bağlı}}"
 msgid "{count, plural, one {{names} keeps its own model} other {{names} keep their own model}}"
 msgstr "{count, plural, one {{names} kendi modelini kullanmaya devam ediyor} other {{names} kendi modellerini kullanmaya devam ediyor}}"
 
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# background task} other {# background tasks}}"
-msgstr ""
-
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {# bot has its own model: {names}} other {# bots have their own model: {names}}}"
 msgstr "{count, plural, one {# botun kendi modeli var: {names}} other {# botun kendi modeli var: {names}}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# command} other {# commands}}"
-msgstr ""
 
 #: apps/mobile/components/thread/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/chat/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, one {{peer} ile # mesaj} other {{peer} ile # mesaj}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# monitor} other {# monitors}}"
-msgstr ""
 
 #: apps/web/src/components/messages/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
@@ -327,17 +280,9 @@ msgstr "{count, plural, one {# beceri} other {# beceri}}"
 msgid "{count, plural, one {# source} other {# sources}}"
 msgstr ""
 
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# subagent} other {# subagents}}"
-msgstr ""
-
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
 msgstr "{count, plural, one {# bot alan varsayılanına geçirilsin mi?} other {# bot alan varsayılanına geçirilsin mi?}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {watching PR} other {watching # PRs}}"
-msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -359,10 +304,6 @@ msgstr "{count} dosya"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "{count} ücretsiz ay kazanıldı"
-
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-msgid "{count} jobs"
-msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/billing.ts
@@ -932,10 +873,6 @@ msgstr "1 ücretsiz ay kazanıldı"
 #: apps/web/src/pages/shell/chat/bot-context-menu.tsx
 msgid "1 hour"
 msgstr "1 saat"
-
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
-msgid "1 job working"
-msgstr ""
 
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "1 space"
@@ -1639,11 +1576,6 @@ msgstr "Yanıtla"
 msgid "Answered"
 msgstr "Yanıtlandı"
 
-#. placeholder {0}: job.answered
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Answered: {0}"
-msgstr ""
-
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -2017,10 +1949,6 @@ msgstr "Toplantılara dön"
 msgid "Back to sign in"
 msgstr "Oturum açmaya geri dön"
 
-#: apps/mobile/components/job-work.tsx
-msgid "Background task"
-msgstr ""
-
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Base URL"
 msgstr "Temel URL"
@@ -2233,10 +2161,6 @@ msgstr "Botlara bağlı"
 msgid "Brain label"
 msgstr "Beyin etiketi"
 
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Brief"
-msgstr ""
-
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
 msgid "Browse"
@@ -2380,7 +2304,6 @@ msgstr "Görselleri okuyamaz"
 #: apps/mobile/components/settings/account-deletion.tsx
 #: apps/mobile/components/settings/space-bots-model.tsx
 #: apps/mobile/components/thread/failed-send-bubble.tsx
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/thread/selection-bar.tsx
@@ -2443,6 +2366,11 @@ msgstr "Yanıtı iptal et"
 #: apps/web/src/pages/settings/BillingSettingsPanel.tsx
 msgid "Canceled"
 msgstr "İptal edildi"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "cancelled"
+msgstr ""
 
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -2613,11 +2541,6 @@ msgstr "Bağlantınızı kontrol edip yeniden deneyin."
 msgid "Check your email"
 msgstr "E-postanızı kontrol edin"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Checking"
-msgstr ""
-
 #: apps/web/src/components/computers/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "Bilgisayar kurulumu kontrol ediliyor…"
@@ -2632,21 +2555,6 @@ msgstr "Bağlantı kontrol ediliyor…"
 #: apps/web/src/pages/shell/host-computer-prompt.tsx
 msgid "Checking…"
 msgstr "Kontrol ediliyor…"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks running"
-msgstr ""
 
 #: apps/web/src/pages/shell/meetings/meeting-calendar.tsx
 msgid "Choose"
@@ -2743,7 +2651,6 @@ msgid "Clean up"
 msgstr "Temizle"
 
 #: apps/mobile/app/search.tsx
-#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/web/src/components/messages/SecretAskCard.tsx
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
@@ -2773,10 +2680,6 @@ msgstr "{label} filtresini temizle"
 #: apps/web/src/pages/space/Artifacts.tsx
 msgid "Clear filters"
 msgstr "Filtreleri temizle"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Clear from list"
-msgstr ""
 
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "Clearing…"
@@ -2884,17 +2787,11 @@ msgstr "Kullanıcı ayarlarını kapat"
 msgid "Close voice settings"
 msgstr "Ses ayarlarını kapat"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "closed"
-msgstr ""
-
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Cloud"
 msgstr "Bulut"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/thread/special-message-card.tsx
 msgid "Cloud agent"
 msgstr "Bulut agent'ı"
 
@@ -2951,7 +2848,6 @@ msgstr "sütun {index}"
 msgid "Comfortable"
 msgstr "Rahat"
 
-#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -3578,11 +3474,6 @@ msgstr "Sohbet temizlenemedi"
 msgid "Could not clear the custom server URL"
 msgstr "Özel sunucu URL'si temizlenemedi"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Could not clear the job"
-msgstr ""
-
 #: apps/mobile/lib/auth/api-auth.ts
 msgid "Could not clear the local session"
 msgstr "Yerel oturum temizlenemedi"
@@ -3967,14 +3858,6 @@ msgstr "Görsel yüklenemedi"
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
 msgid "Could not load integrations"
 msgstr "Entegrasyonlar yüklenemedi"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Could not load job"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Could not load jobs"
-msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
@@ -4467,14 +4350,6 @@ msgstr "Sıfırlama e-postası gönderilemedi"
 msgid "Could not send that"
 msgstr "Gönderilemedi"
 
-#: apps/mobile/lib/thread/send/thread-send.ts
-msgid "Could not send to the job"
-msgstr ""
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Could not send your answer"
-msgstr ""
-
 #: apps/mobile/components/media/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "Dosya paylaşılamadı"
@@ -4543,10 +4418,6 @@ msgstr "Oturum açma başlatılamadı"
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "Öğretme başlatılamadı"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Could not stop the job"
-msgstr ""
 
 #: apps/mobile/components/cards/AskActions.tsx
 msgid "Could not submit answer"
@@ -4700,11 +4571,6 @@ msgstr "Cüzdanın yüklenemedi"
 #: apps/mobile/components/thread/thread-error-notice.tsx
 msgid "Couldn't refresh. Showing the last loaded messages."
 msgstr "Yenilenemedi. Son yüklenen mesajlar gösteriliyor."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Couldn't start"
-msgstr ""
 
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
@@ -5257,7 +5123,6 @@ msgstr "Masaüstü kimliği"
 msgid "Desktop update"
 msgstr "Masaüstü güncellemesi"
 
-#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5465,13 +5330,11 @@ msgstr "Hesabın yok mu?"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/messages/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault/vault-item-sheet.tsx
 #: apps/mobile/lib/board/board.ts
 #: apps/web/src/components/computers/ComputerCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/ToolActivityDisclosure.tsx
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 #: apps/web/src/components/settings/AccountDataSettings.tsx
@@ -5541,14 +5404,6 @@ msgstr "Çoğalt"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "Her ad yalnızca bir kez kullanılabilir."
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Earlier"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Earlier attempts"
-msgstr ""
 
 #: packages/i18n/src/page-review.ts
 msgid "Earlier revision"
@@ -5828,12 +5683,15 @@ msgstr "{name} genişlet"
 msgid "Expand table"
 msgstr "Tabloyu genişlet"
 
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "expired"
+msgstr ""
+
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
@@ -5896,6 +5754,11 @@ msgstr "Çok büyük"
 #: packages/i18n/src/computer-usage.ts
 msgid "Extra large (uses {rate}× hours)"
 msgstr "Çok büyük ({rate}× saat kullanır)"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "failed"
+msgstr ""
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
@@ -6000,6 +5863,11 @@ msgstr "MCP yetkilendirmesini web uygulamasında tamamla."
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Finish setting up"
 msgstr "Kurulumu tamamla"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "finished"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/platform/browser-notifications.ts
@@ -6684,10 +6552,6 @@ msgstr "Açılamadı. Kenar çubuğundan tekrar dene."
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "Silinmiş veya başka birine ait olabilir."
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "It stops working now. What it has done so far is kept."
-msgstr ""
-
 #: apps/mobile/lib/inbox/sections/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6708,17 +6572,6 @@ msgstr "Bağlantısı çalışmayı durdurur. Bu geri alınamaz."
 #: apps/web/src/components/pages/PagesList.tsx
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "Paylaşılan bağlantısı çalışmayı durdurur ve sohbetteki kartları silinmiş olarak görünür. Bu işlem geri alınamaz."
-
-#: apps/mobile/app/_layout.tsx
-#: apps/mobile/app/(settings)/account.tsx
-#: apps/mobile/components/inbox/inbox-header.tsx
-#: apps/mobile/lib/inbox/use-inbox-header.ts
-msgid "Jobs"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/thread-jobs.tsx
-msgid "Jobs in this chat"
-msgstr ""
 
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
@@ -6792,10 +6645,6 @@ msgstr "Hafızayı koru"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "Araç sonuçlarını bütün tut"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Keep working"
-msgstr ""
 
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -7361,12 +7210,6 @@ msgstr "OpenClaw özelliklerinden bahsediyor"
 msgid "Mentions: {mentions}"
 msgstr "Bahsedilenler: {mentions}"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "merged"
-msgstr ""
-
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/lib/thread/thread-message-text.ts
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -7567,10 +7410,6 @@ msgstr "Sunucudan gelen modeller"
 msgid "Monday"
 msgstr "Pazartesi"
 
-#: apps/mobile/components/job-work.tsx
-msgid "Monitor"
-msgstr ""
-
 #: packages/i18n/src/billing.ts
 msgid "month"
 msgstr "ay"
@@ -7619,10 +7458,6 @@ msgstr "Diğer işlemler"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "Daha fazla uygulama"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "More options"
-msgstr ""
 
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -7766,12 +7601,8 @@ msgstr "Oturum açılması gerekiyor"
 msgid "Needs takeover"
 msgstr "Devralma bekliyor"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
-#: apps/mobile/components/job-status.tsx
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/computers/ComputerCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/lib/chat/roster-status.ts
 msgid "Needs you"
 msgstr "Seni bekliyor"
@@ -7988,10 +7819,6 @@ msgstr "Henüz yorum yok."
 #: packages/i18n/src/computer-usage.ts
 msgid "No computer hours used yet"
 msgstr "Henüz bilgisayar saati kullanılmadı"
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "No jobs yet"
-msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -8284,10 +8111,6 @@ msgstr "Çalışmıyor"
 msgid "Nothing remembered yet"
 msgstr "Henüz hatırlanan bir şey yok"
 
-#: apps/mobile/app/(jobs)/thread-jobs.tsx
-msgid "Nothing running"
-msgstr ""
-
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."
 msgstr "Henüz kayıtlı bir şey yok."
@@ -8418,10 +8241,6 @@ msgstr "Yalnızca bu bot"
 msgid "Only you"
 msgstr "Yalnızca siz"
 
-#: apps/mobile/components/job-work.tsx
-msgid "open"
-msgstr ""
-
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8461,10 +8280,6 @@ msgstr "{title} aç"
 #: apps/web/src/pages/shell/chat/chat-header.tsx
 msgid "Open call"
 msgstr "Aramayı aç"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Open chat"
-msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8507,12 +8322,6 @@ msgstr "Tarayıcıda aç"
 msgid "Open in full window"
 msgstr "Tam pencerede aç"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Open in T3"
-msgstr ""
-
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
 msgstr "Bağlantıyı aç"
@@ -8527,10 +8336,6 @@ msgstr "Gezinmeyi aç"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "Rakazo'yu aç"
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Open screenshot"
-msgstr ""
 
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "Open settings"
@@ -8982,16 +8787,6 @@ msgstr "Bir kontrol değişiklik bulmadığında sohbete mesaj gönder. Rutin ç
 msgid "Post comment"
 msgstr "Yorumu gönder"
 
-#. placeholder {0}: pr.number
-#: apps/mobile/components/job-work.tsx
-msgid "PR #{0}"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "PR #{prNumber}"
-msgstr ""
-
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -9137,6 +8932,11 @@ msgstr "Revizyonu yayınla"
 #: packages/i18n/src/page-review.ts
 msgid "Published in revision {version}"
 msgstr "{version}. revizyonda yayınlandı"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Pull request"
+msgstr ""
 
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
@@ -9678,7 +9478,6 @@ msgstr "Yanıtlar ve tamamlanan işler"
 msgid "Replies to"
 msgstr "Yanıt verdiği"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
 #: apps/web/src/pages/shell/chat/quote-selection-button.tsx
@@ -9856,15 +9655,6 @@ msgstr "Geri yükleniyor…"
 msgid "Resume notifications"
 msgstr "Bildirimleri sürdür"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Resumes"
-msgstr ""
-
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Resumes when it's back · since {since}"
-msgstr ""
-
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/bot-templates.tsx
@@ -10032,6 +9822,11 @@ msgstr "Şimdi çalıştır"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "Çalışma zamanı gelecekte olmalı."
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "running"
+msgstr ""
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10419,7 +10214,6 @@ msgstr "Kendi sunucunuz"
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/composer/thread-composer.tsx
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/pages/shell/composer/composer-parts.tsx
 msgid "Send"
@@ -10486,10 +10280,6 @@ msgstr "Enter ile gönder"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "Gönderiliyor…"
-
-#: apps/mobile/components/thread/thread-screen.tsx
-msgid "Sends to the job"
-msgstr ""
 
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
@@ -11170,8 +10960,6 @@ msgstr "{count} sa gecikmeyle başladı"
 msgid "Started {count}m late"
 msgstr "{count} dk gecikmeyle başladı"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: packages/i18n/src/activity.ts
 msgid "Starting"
 msgstr "Başlıyor"
@@ -11213,10 +11001,6 @@ msgstr "Durdur"
 msgid "Stop dictating"
 msgstr "Dikteyi durdur"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stop job"
-msgstr ""
-
 #. js-lingui-explicit-id
 #: packages/i18n/src/meeting.ts
 msgid "Stop joining this series"
@@ -11234,13 +11018,7 @@ msgstr "Öğretmeyi durdur"
 msgid "Stop the computer first."
 msgstr "Önce bilgisayarı durdur."
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stop this job?"
-msgstr ""
-
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
 msgid "Stopped"
 msgstr "Durduruldu"
@@ -11249,10 +11027,6 @@ msgstr "Durduruldu"
 #: apps/web/src/lib/platform/browser-notifications.ts
 msgid "Stopped."
 msgstr "Durduruldu."
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stopping…"
-msgstr ""
 
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11267,10 +11041,6 @@ msgstr "Yanıtları akışla göster"
 #: packages/i18n/src/identity-display.ts
 msgid "subagent"
 msgstr "alt ajan"
-
-#: apps/mobile/components/job-work.tsx
-msgid "Subagent"
-msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -11994,10 +11764,6 @@ msgstr "Bu hafta"
 msgid "Thread"
 msgstr "Konu"
 
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Thread's report"
-msgstr ""
-
 #: packages/i18n/src/cron.ts
 msgid "Thursday"
 msgstr "Perşembe"
@@ -12054,7 +11820,6 @@ msgstr "Bunu kapatmak için Hesap → Yapay zekâ veri paylaşımı bölümünde
 msgid "To:"
 msgstr "Kime:"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12713,12 +12478,6 @@ msgstr "Tümünü gör"
 msgid "View page"
 msgstr "Sayfayı görüntüle"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "View PR"
-msgstr ""
-
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -12797,10 +12556,6 @@ msgstr "Uyandır"
 #: apps/web/src/pages/settings/settings-nav.ts
 msgid "Wallet"
 msgstr "Cüzdan"
-
-#: apps/mobile/components/job-work.tsx
-msgid "watching"
-msgstr ""
 
 #: apps/web/src/components/billing/CreditChoice.tsx
 msgid "Web, desktop and mobile"
@@ -12997,11 +12752,8 @@ msgstr "Yapılmayacak"
 msgid "Work"
 msgstr "İş"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/pages/space/ActivityList.tsx
 msgid "Working"
 msgstr "Çalışıyor"
@@ -13009,10 +12761,6 @@ msgstr "Çalışıyor"
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "Çalışma talimatları"
-
-#: apps/mobile/components/job-work.tsx
-msgid "Working on"
-msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx
@@ -13108,10 +12856,6 @@ msgstr "Her şey hazır"
 msgid "Your account"
 msgstr "Hesabın"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Your answer"
-msgstr ""
-
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -13179,10 +12923,6 @@ msgstr "E-posta adresin"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "Ücretsiz denemen başladı"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Your instruction was delivered"
-msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

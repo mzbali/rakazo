@@ -105,8 +105,6 @@ export const ROW_SECURITY_MODELS: ReadonlySet<string> = new Set([
   "BillingAuditEvent",
   "ComputerAllowanceGrant",
   "PushRegistration",
-  "ScopedGoal",
-  "ScopedGoalTransition",
   "CallPushDevice",
   "WorkActivityToken",
   "WorkActivityStartToken",

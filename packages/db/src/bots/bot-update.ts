@@ -1,5 +1,4 @@
-import type { CorrectedClaimTicket } from "@rakazo/core";
-import { displayName, prepareCorrectedClaimWrite } from "@rakazo/core";
+import { displayName } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
 import type { Bot, Prisma, PrismaClient } from "../database/client.js";
 import { appendEventInTransaction, THREAD_LOCK_TRANSACTION_OPTIONS } from "../threads/events.js";
@@ -60,14 +59,6 @@ export async function commitBotUpdate(
   }
 
   const { instructions, ...data } = options.data;
-  let claimTicket: CorrectedClaimTicket | undefined;
-  if (typeof instructions === "string" && !options.instructionRestore) {
-    const baseline =
-      options.expectedInstructions ??
-      (await options.prisma.bot.findUniqueOrThrow({ where: { id: options.botId } })).instructions;
-    claimTicket = await prepareCorrectedClaimWrite(baseline, instructions);
-    options = { ...options, expectedInstructions: baseline };
-  }
   const committed = await options.prisma.$transaction(async (tx) => {
     // The owner's share lock comes first: a timezone save holds the user row while it
     // moves routines, and a routine wake inserts a task whose foreign key waits for the
@@ -82,7 +73,6 @@ export async function commitBotUpdate(
     if (typeof instructions === "string" || options.instructionRestore) {
       await writeBotInstructions(tx, {
         botId: options.botId,
-        claimTicket,
         instructions,
         reason: options.instructionRestore ? "Restore" : (options.reason ?? "Manual edit"),
         expectedInstructions: options.expectedInstructions,

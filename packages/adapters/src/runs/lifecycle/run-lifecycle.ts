@@ -19,7 +19,6 @@ import type { PrismaClient } from "@rakazo/db";
 import { databaseOutage, retryWhileDatabaseUnavailable, spaceTakesWork } from "@rakazo/db";
 import { bestEffort, getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
-import { expediteCloudAgentReporterCheck } from "../../cloud-agents/cloud-agent-poll.js";
 import { sleepDeferReason } from "../../computers/computer-idle.js";
 import type { ComputerExecutionLease } from "../../computers/computer-lifecycle.js";
 import {
@@ -122,10 +121,6 @@ export async function failRunBeforeTurn(
     error: message,
   });
   if (!failed) return false;
-  await bestEffort(
-    "expedite cloud agent reporter check",
-    expediteCloudAgentReporterCheck(deps, run.id),
-  );
   await enqueueSteeringContinuation(deps, failed.continuationRunId);
   if (run.trigger === "bot_message") {
     await returnBotMessageOutcome(

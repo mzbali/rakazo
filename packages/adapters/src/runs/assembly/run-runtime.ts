@@ -66,7 +66,6 @@ import {
 } from "../../providers/integration/pipedream/pipedream-connector.js";
 import { createStrategicInitiativeReconciler } from "../../routines/strategic-initiative.js";
 import { localModelsApiKey } from "../../runtime/pi/models/pi-local-provider-id.js";
-import { reconcileScopedGoals } from "../../scoped-goal-service.js";
 import type { SecretCleanupDeps } from "../../secrets/secret-cleanup.js";
 import { workspaceSaveLimits } from "../../storage/workspace-save-policy.js";
 import { createWebProvider } from "../../web/web-provider-factory.js";
@@ -86,8 +85,6 @@ export interface RunRuntimeEnv extends PipedreamEnvironmentValues {
   dataDir: string;
   composioApiKey: string | undefined;
   cursorApiKey: string | undefined;
-  /** Read-only token for proof from private repositories; unset keeps public repositories only. */
-  cloudAgentGithubToken?: string;
   deploymentModelKey: string | undefined;
   deploymentModelConfigured: boolean;
   /** The deployment model, which judges ambient team-chat messages unless overridden. */
@@ -119,7 +116,6 @@ export function runRuntimeEnvFromProcess(source: NodeJS.ProcessEnv): RunRuntimeE
     encryptionKey: resolveEncryptionKey(source),
     composioApiKey: source.COMPOSIO_API_KEY,
     cursorApiKey: source.CURSOR_API_KEY,
-    cloudAgentGithubToken: source.CLOUD_AGENT_GITHUB_TOKEN?.trim() || undefined,
     deploymentModelKey: deploymentModel.key,
     deploymentModelConfigured: deploymentModel.configured,
     defaultProvider: deploymentModel.provider,
@@ -373,22 +369,10 @@ export function createRunRuntime(
     mediaGeneration: deps.mediaGeneration,
     maxUploadSizeBytes: env.maxUploadSizeBytes,
     lifecycleEmail,
-    cloudAgentGithubToken: env.cloudAgentGithubToken,
     meetingWork,
     meetingCalendarSync,
   });
   return { runtime, executor, jobHandlers, messagingDelivery, teamChat, pageRevisions };
-}
-
-/** Agents and their goals; a deployment with only user-connected agents has goals to drive too. */
-export async function reconcileCloudWork(
-  deps: Pick<ExecutorDeps, "prisma" | "jobs" | "events" | "userCloudAgents"> & {
-    cloudAgent: NonNullable<ExecutorDeps["cloudAgent"]> | null;
-  },
-) {
-  const { prisma, jobs, cloudAgent, userCloudAgents } = deps;
-  await reconcileCloudAgents({ prisma, jobs, events: deps.events, cloudAgent, userCloudAgents });
-  if (cloudAgent || userCloudAgents) await reconcileScopedGoals({ prisma, jobs });
 }
 
 type JobReconcilerDeps = Parameters<typeof createJobReconciler>[0];
@@ -415,7 +399,7 @@ export function createRunReconciler(
   > = {},
   chat: { messagingDelivery?: MessagingDelivery; teamChat?: TeamChat } = {},
 ) {
-  const { prisma, jobs, paymentWallet, mediaGeneration } = deps;
+  const { prisma, jobs, cloudAgent, paymentWallet, mediaGeneration } = deps;
   const { messagingDelivery, teamChat } = chat;
   const chatHistoryDays = chatHistoryRetentionDays();
   return createJobReconciler({
@@ -441,7 +425,8 @@ export function createRunReconciler(
       jobs,
       billingEnabled: deps.billingEnabled,
     }),
-    reconcileCloudAgents: () => reconcileCloudWork(deps),
+    reconcileCloudAgents: () =>
+      reconcileCloudAgents({ prisma, jobs, cloudAgent, userCloudAgents: deps.userCloudAgents }),
     reconcilePurchases: () => reconcilePurchases({ prisma, jobs, paymentWallet }),
     reconcileMediaVideos: () => reconcileMediaVideos({ prisma, jobs, mediaGeneration }),
     reconcileComputerUpdates: () => reconcileComputerUpdates({ prisma, jobs, events: deps.events }),

@@ -9,19 +9,11 @@ import { MEMORY_REVISION_CONFLICT_ERROR, MemoryRevisionConflictError } from "@ra
 import type { ModelRoleSettings, SpendingLimit } from "@rakazo/contracts";
 import { BOT_INSTRUCTIONS_MAX_LENGTH } from "@rakazo/contracts";
 import type { ActionApprovalRule } from "@rakazo/core";
-import { configureCorrectedClaimJudge, inboundRoutineBlock } from "@rakazo/core";
+import { inboundRoutineBlock } from "@rakazo/core";
 import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/approval-effect-key";
 import type { PrismaClient } from "@rakazo/db";
 import { createPendingSteeringRun, sendUserMessage } from "@rakazo/db";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  afterEach as resetClaimJudge,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DENIED_ACTION_ERROR, isApprovalPausedResult } from "../../approvals/approval-effect.js";
 import { fakeSpendingPrisma } from "../../billing/fake-spending.js";
 import type * as ComputerLifecycleModule from "../../computers/computer-lifecycle.js";
@@ -40,8 +32,6 @@ import {
 import type { TurnCheckpoint } from "../turn/turn-checkpoint.js";
 import { serializeTurnCheckpoint } from "../turn/turn-checkpoint.js";
 import { createRunExecutor } from "./executor.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 vi.mock("../../computers/computer-lifecycle.js", async (importOriginal) => ({
   ...(await importOriginal<typeof ComputerLifecycleModule>()),
@@ -899,37 +889,6 @@ describe("connector read-only metadata and approval enforcement", () => {
       expect.anything(),
     );
     expect(f.results.at(-1)).toEqual({ ok: true, path: "MEMORY.md", revision: 2 });
-  });
-
-  it("refuses shared memory that adds a corrected claim, which every bot would read", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const f = fixture({
-      name: "save_shared_memory",
-      builtin: true,
-      existingSharedMemory: "Old rule",
-    });
-    f.setCalls([
-      {
-        args: { path: "MEMORY.md", content: "Old rule\nContinuations don't wake this bot." },
-        executionId: "call-1",
-      },
-    ]);
-    await f.run();
-    expect(f.commit).not.toHaveBeenCalled();
-    expect(f.results.at(-1)).toEqual({ error: expect.stringContaining("Nothing was saved") });
-  });
-
-  it("lets shared memory that already holds a corrected claim take an unrelated edit", async () => {
-    const stale = "Continuations don't wake this bot.";
-    const f = fixture({ name: "save_shared_memory", builtin: true, existingSharedMemory: stale });
-    f.setCalls([
-      { args: { path: "MEMORY.md", content: `${stale}\nNew rule` }, executionId: "call-1" },
-    ]);
-    await f.run();
-    expect(f.commit).toHaveBeenCalledOnce();
   });
 
   it("does not overwrite shared memory that changed after it was read", async () => {
@@ -5361,148 +5320,6 @@ it("does not blame the webhook on cards every run shows", async () => {
   expect(connection.pauseRunForInput).toHaveBeenCalledOnce();
   expect(askDetail(connection)).toBe("Telegram: fake");
 });
-
-it("applies a saved Allow for cloud_agent_launch before posting a card", async () => {
-  const rules = [
-    { effect: "always_allow", matchKind: "tool", matchValue: "cloud_agent_launch" },
-  ] as ActionApprovalRule[];
-  // The rule matches the tool name. requestKey, project and runtime mode are not part of it.
-  const args = {
-    prompt: "Trace the quota reset",
-    title: "Quota reset trace",
-    requestKey: "example-launch-request",
-    projectId: "example-project",
-    runtimeMode: "full-access",
-  };
-  const owner = fixture({ name: "cloud_agent_launch", builtin: true, rules });
-  owner.setCalls([{ args, executionId: "call-1" }]);
-  await owner.run();
-  expect(owner.pauseRunForInput).not.toHaveBeenCalled();
-
-  const relayed = fixture({
-    name: "cloud_agent_launch",
-    builtin: true,
-    rules,
-    trigger: "bot_message",
-  });
-  relayed.setCalls([{ args, executionId: "call-1" }]);
-  await relayed.run();
-  expect(relayed.pauseRunForInput).not.toHaveBeenCalled();
-
-  const tainted = fixture({ name: "cloud_agent_launch", builtin: true, rules });
-  tainted.prisma.attempt.count.mockResolvedValue(2);
-  tainted.setCalls([{ args, executionId: "call-1" }]);
-  await tainted.run();
-  expect(tainted.pauseRunForInput).not.toHaveBeenCalled();
-
-  const unruled = fixture({
-    name: "cloud_agent_launch",
-    builtin: true,
-    trigger: "bot_message",
-  });
-  unruled.setCalls([{ args: { prompt: "Fix it", title: "Fix it" }, executionId: "call-1" }]);
-  await unruled.run();
-  expect(unruled.pauseRunForInput).toHaveBeenCalledOnce();
-});
-
-it("asks before a routine launches a cloud agent, and Never ask refuses it", async () => {
-  const args = { prompt: "Fix it", title: "Fix it", requestKey: "example-request" };
-  const asks = fixture({ name: "cloud_agent_launch", builtin: true, trigger: "routine" });
-  asks.setCalls([{ args, executionId: "call-1" }]);
-  await asks.run();
-  expect(asks.pauseRunForInput).toHaveBeenCalledOnce();
-
-  const never = fixture({
-    name: "cloud_agent_launch",
-    builtin: true,
-    trigger: "routine",
-    skipApprovals: true,
-  });
-  never.setCalls([{ args, executionId: "call-1" }]);
-  await never.run();
-  expect(never.pauseRunForInput).not.toHaveBeenCalled();
-  expect(never.results[0]).toEqual(
-    expect.objectContaining({ error: expect.stringContaining("this space never asks") }),
-  );
-});
-
-it.each(["cloud_agent_launch", "respond_agent_connection"])(
-  "keeps webhook Never ask guarded for %s despite a saved Allow",
-  async (name) => {
-    const f = fixture({
-      name,
-      builtin: true,
-      trigger: "webhook",
-      skipApprovals: true,
-      rules: [{ effect: "always_allow", matchKind: "tool", matchValue: name }],
-    });
-    if (name === "respond_agent_connection") {
-      f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
-      Object.assign(f.prisma, {
-        agentConnection: {
-          findFirst: vi.fn(async () => ({
-            id: "connection-1",
-            requestVersion: 1,
-            requesterBotId: "bot-other",
-          })),
-        },
-        messagingIdentity: {
-          findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
-        },
-      });
-    }
-    f.setCalls([
-      {
-        args:
-          name === "cloud_agent_launch"
-            ? {
-                prompt: "Example task",
-                title: "Example task",
-                requestKey: "example-request",
-                projectId: "example-project",
-              }
-            : { accept: true },
-        executionId: "call-1",
-      },
-    ]);
-    await f.run();
-    expect(f.pauseRunForInput).not.toHaveBeenCalled();
-    expect(f.results[0]).toEqual(
-      expect.objectContaining({ error: expect.stringContaining("this space never asks") }),
-    );
-  },
-);
-
-it.each(["relayed", "tainted"])(
-  "keeps connection acceptance guarded with saved Allow in a %s run",
-  async (source) => {
-    const f = fixture({
-      name: "respond_agent_connection",
-      builtin: true,
-      ...(source === "relayed" ? { trigger: "bot_message" as const } : {}),
-      rules: [
-        { effect: "always_allow", matchKind: "tool", matchValue: "respond_agent_connection" },
-      ],
-    });
-    if (source === "tainted") f.prisma.attempt.count.mockResolvedValue(2);
-    f.prisma.bot.findUnique.mockResolvedValue({ name: "Example bot" } as never);
-    Object.assign(f.prisma, {
-      agentConnection: {
-        findFirst: vi.fn(async () => ({
-          id: "connection-1",
-          requestVersion: 1,
-          requesterBotId: "bot-other",
-        })),
-      },
-      messagingIdentity: {
-        findUnique: vi.fn(async () => ({ address: "fake", provider: "telegram" })),
-      },
-    });
-    f.setCalls([{ args: { accept: true }, executionId: "call-1" }]);
-    await f.run();
-    expect(f.pauseRunForInput).toHaveBeenCalledOnce();
-  },
-);
 
 describe("Auto Review of targets only outside content named", () => {
   const reviewRequest = (index: number) =>

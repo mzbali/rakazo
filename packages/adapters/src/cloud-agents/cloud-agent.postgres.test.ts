@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { AdapterContext, BackgroundJob, JobPublisher } from "@rakazo/adapter-kit";
-import { CloudAgentRequestRejected } from "@rakazo/adapter-kit";
 import { deferred } from "@rakazo/core/test-async";
 import type { PrismaClient } from "@rakazo/db";
 import {
@@ -137,7 +136,6 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     const launch = async () => {
       const result = await tool("launch", {
         prompt: "Add README",
-        title: "README setup",
         repository: "https://github.com/example/demo",
         openPr: true,
       });
@@ -155,10 +153,6 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       );
     const wakes = () =>
       asSystem(prisma).run.findMany({ where: { threadId: thread.id, trigger: "cloud_agent" } });
-    const wakeNonces = async () =>
-      (await wakes()).flatMap((run) =>
-        run.cloudAgentWakeNonces.length ? run.cloudAgentWakeNonces : [run.clientNonce],
-      );
     const finish = async (agentId: string) => {
       wire.complete((await state(agentId)).remoteId!);
       await poll(agentId);
@@ -188,7 +182,6 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       poll,
       clear,
       wakes,
-      wakeNonces,
       finish,
       settle,
       runs,
@@ -310,19 +303,16 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.launch()).toBe(id);
     expect(await prisma.cloudAgent.count({ where: { userId: h.id } })).toBe(1);
     await h.poll(id);
-    // The provider names its agent after the prompt; the card keeps the launch's title.
-    expect(await h.state(id)).toMatchObject({ title: "README setup" });
     await h.finish(id);
     expect(await h.state(id)).toMatchObject({
       status: "finished",
-      title: "README setup",
       wakeGeneration: 0,
       nextPollAt: null,
     });
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     await prisma.cloudAgent.update({ where: { id }, data: { nextPollAt: new Date() } });
     await h.poll(id);
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
   });
 
   it("recovers an accepted launch whose response was lost without creating a second remote agent", async () => {
@@ -384,7 +374,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
           h.context,
           h.run,
           "cloud_agent_launch",
-          { prompt: "Add README", title: "Add README" },
+          { prompt: "Add README" },
         ),
       ),
     ).rejects.toBeInstanceOf(RunHistoryWriteError);
@@ -396,7 +386,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     const h = await setup();
     // A chat that is gone by the time the card is written fails the card transaction.
     h.run.threadId = "missing-thread";
-    await expect(h.tool("launch", { prompt: "Task", title: "Task" })).rejects.toThrow();
+    await expect(h.tool("launch", { prompt: "Task" })).rejects.toThrow();
     expect(await prisma.cloudAgent.count({ where: { userId: h.id } })).toBe(0);
     expect(h.wire.requests).toHaveLength(0);
   });
@@ -449,7 +439,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       return snapshot;
     });
     await h.poll(id);
-    expect(await h.wakeNonces()).toHaveLength(0);
+    expect(await h.wakes()).toHaveLength(0);
     expect((await h.state(id)).nextPollAt).toBeNull();
   });
 
@@ -483,10 +473,10 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(newRun).not.toBe(oldRun);
     await h.poll(id);
     expect((await h.state(id)).status).toBe("running");
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     h.wire.complete((await h.state(id)).remoteId!);
     await h.poll(id);
-    expect(await h.wakeNonces()).toHaveLength(2);
+    expect(await h.wakes()).toHaveLength(2);
     expect(await h.state(id)).toMatchObject({
       latestRunId: newRun,
       generation: 1,
@@ -527,7 +517,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "running", followup: null });
     expect((await h.state(id)).latestRunId).not.toBe(oldRun);
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     expect(
       h.wire.requests.filter(
         (request) => request.method === "POST" && request.path.endsWith("/runs"),
@@ -644,8 +634,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
         { body: { prompt: { text: "Add tests" } } },
       ]);
       await h.finish(id);
-      // The second finish folds into the wake still waiting from the first, keeping both nonces.
-      expect(await h.wakeNonces()).toHaveLength(2);
+      expect(await h.wakes()).toHaveLength(2);
     },
   );
 
@@ -719,20 +708,6 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     expect(await h.state(id)).toMatchObject({ status: "cancelled", followup: null });
   });
 
-  it("stops a running job whose steer was not yet sent", async () => {
-    const h = await setup();
-    const id = await h.launch();
-    await h.poll(id);
-    await prisma.cloudAgent.update({
-      where: { id },
-      data: { followup: { prompt: "Also add tests", steerKey: "steer-key-1" } },
-    });
-    await h.tool("cancel", { id });
-    await h.poll(id);
-    expect(await h.state(id)).toMatchObject({ status: "cancelled", followup: null });
-    expect((await h.runs(id)).map((run) => run.status)).toEqual(["CANCELLED"]);
-  });
-
   it("recovers remote identity after the database fails following an accepted create", async () => {
     const h = await setup();
     const id = await h.launch();
@@ -780,7 +755,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.complete((await h.state(id)).remoteId!, { failed: true });
     await h.poll(id);
     expect((await h.state(id)).status).toBe("failed");
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     await h.tool("reply", { id, prompt: "Try again" });
     expect(await h.tool("reply", { id, prompt: "Duplicate" })).toHaveProperty("error");
   });
@@ -794,27 +769,8 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.failNextRequest = 400;
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     expect(h.wire.agents.size).toBe(0);
-  });
-
-  it("keeps the provider's reason when it refuses a launch, and shows it in status", async () => {
-    const h = await setup();
-    const id = await h.launch();
-    const reason = "Child runtime mode full-access is broader than parent mode auto.";
-    vi.spyOn(h.connection.provider, "launch").mockRejectedValueOnce(
-      new CloudAgentRequestRejected("invalid", reason),
-    );
-    await h.poll(id);
-    expect(await h.state(id)).toMatchObject({
-      status: "failed",
-      remoteId: null,
-      failureReason: reason,
-    });
-    expect(await h.tool("status", { id })).toMatchObject({
-      status: "failed",
-      failureReason: reason,
-    });
   });
 
   it("stops polling a remote agent or run that no longer exists", async () => {
@@ -824,7 +780,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
     h.wire.agents.delete((await h.state(id)).remoteId!);
     await h.poll(id);
     expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
-    expect(await h.wakeNonces()).toHaveLength(1);
+    expect(await h.wakes()).toHaveLength(1);
     const cancelled = await setup();
     const cancelledId = await cancelled.launch();
     await cancelled.poll(cancelledId);
@@ -904,7 +860,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       followupDispatchedAt: null,
       nextPollAt: null,
     });
-    expect(await h.wakeNonces()).toHaveLength(2);
+    expect(await h.wakes()).toHaveLength(2);
   });
 
   it("resends a follow-up the provider refused for its key or rate limit", async () => {
@@ -1032,7 +988,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
           ),
         );
       const launch = async (args: Record<string, unknown> = {}) => {
-        const result = await tool("launch", { prompt: "Add README", title: "Add README", ...args });
+        const result = await tool("launch", { prompt: "Add README", ...args });
         if (!("id" in result)) throw new Error("Launch failed");
         return result.id;
       };
@@ -1052,7 +1008,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
             { ...h.context, operationId },
             h.run,
             "cloud_agent_launch",
-            { prompt: "Add README", title: "Add README" },
+            { prompt: "Add README" },
           ),
         );
       const first = await launch((await forActor())!);
@@ -1112,7 +1068,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
 
     it("keeps the deployment's agents reachable once the user connects T3 Code", async () => {
       const { h, actor, tool, forActor } = await connected();
-      const cursor = await h.tool("launch", { prompt: "Fix tests", title: "Fix tests" });
+      const cursor = await h.tool("launch", { prompt: "Fix tests" });
       if (!("id" in cursor)) throw new Error("Launch failed");
       await connectServer(actor);
       expect((await forActor())!.key).not.toBe(h.connection.key);
@@ -1173,7 +1129,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
         await poll(id);
         expect(await h.state(id)).toMatchObject({ status: "failed", nextPollAt: null });
         expect(t3.calls.at(-1)).toMatchObject({ tool: "t3_queue", args: { action: "cancel" } });
-        expect(await h.wakeNonces()).toHaveLength(2);
+        expect(await h.wakes()).toHaveLength(2);
       } finally {
         vi.useRealTimers();
       }
@@ -1308,7 +1264,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       t3.token = "revoked";
       await poll(id);
       expect(await h.state(id)).toMatchObject({ status: "expired", nextPollAt: null });
-      expect(await h.wakeNonces()).toHaveLength(1);
+      expect(await h.wakes()).toHaveLength(1);
       // The token is dropped, so MCP servers list it as needing a reconnect.
       expect((await forActor())!.key).toBe(h.connection.key);
       t3.token = T3_TOKEN;
@@ -1322,7 +1278,7 @@ describePostgres("cloud agent lifecycle and recovery (PostgreSQL + Cursor emulat
       await poll(next);
       expect(await h.state(next)).toMatchObject({ status: "expired", nextPollAt: null });
       expect(t3.calls).toHaveLength(calls);
-      expect(await h.wakeNonces()).toHaveLength(2);
+      expect(await h.wakes()).toHaveLength(2);
     });
   });
 });

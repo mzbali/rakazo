@@ -1339,8 +1339,6 @@ model Run {
   // Original run for delegated work; authorization is recovered from its user message.
   delegatedFromRunId   String?
   checkpoint           String?
-  /// Every cloud-agent wake folded into this run, including its primary client nonce.
-  cloudAgentWakeNonces  String[]          @default([])
   clientNonce          String?
   sourceMessageId      String?
   sourceMessage        Message?          @relation("RunSourceMessage", fields: [sourceMessageId], references: [id], onDelete: SetNull)
@@ -1367,7 +1365,6 @@ model Run {
   steeringMessages     SteeringMessage[]
   externalMessage      ExternalMessage?
 
-  @@index([cloudAgentWakeNonces], type: Gin)
   @@unique([spaceId, clientNonce])
   @@index([status, wakeAt])
   @@index([status, leaseExpiresAt])
@@ -1452,91 +1449,10 @@ model CloudAgent {
   version             Int      @default(0)
   nextPollAt          DateTime? @default(now())
   errorCount          Int      @default(0)
-  /// Waiting for one of its bot's two execution slots; never launched or polled meanwhile.
-  queuedAt            DateTime?
-  /// Open questions or approvals the provider reported, as [{ requestId, kind, threadId? }].
-  attention           Json?
-  /// The provider's event cursor, committed with the state derived from it.
-  remoteCursor        Int?
-  /// When the provider said events after the cursor may be missing.
-  historyGapAt        DateTime?
-  /// The bot's own key for one agreed request, so resubmitting it returns this row.
-  requestKey          String?
-  agreement           String?
-  acceptance          String?
-  /// The bot whose message asked for this request, if another bot asked.
-  originBotId         String?
-  originMessageId     String?
-  verdict             String?
-  verdictSummary      String?
-  /// The provider's reason for refusing the launch or ending the agent, when it gave one.
-  failureReason       String?
-  /// What the provider reported starting, shown to the bot, when it is worth saying.
-  launchNote          String?
-  /// The project or repository the work is for, read from the launch request before it is cleared.
-  projectName         String?
-  /// When the provider's calls first failed retryably in the current outage; cleared by a success.
-  retryingSince       DateTime?
-  /// When the outage had lasted long enough to tell the owner, once; shown on the card.
-  unreachableSince    DateTime?
-  /// Wake runs created for the current generation, counting retries of failed ones.
-  wakeAttempts        Int      @default(0)
-  /// The hidden helper thread that handles this agent's wakes, created on its first one.
-  jobThreadId         String?
-  /// The launch prompt, kept for that helper once the launch request itself is cleared.
-  launchBrief         String?
-  /// The finished run's final message, bounded, as the provider reported it; untrusted job output.
-  resultText          String?
-  /// The agent's latest message while it works, bounded; untrusted job output, cleared when it ends.
-  progressText        String?
-  /// When the work ended; the card's elapsed clock stops here, and a new run clears it.
-  endedAt             DateTime?
-  /// When the provider stopped this work on a usage limit. The next poll is shortly after, and the card says when it resumes. Cleared once the limit is gone.
-  quotaResetsAt       DateTime?
-  /// The limit reset whose continuation the provider accepted, so a later poll does not send it again.
-  quotaContinuedFor   DateTime?
-  /// What the bot's latest follow-up asked of the current piece of work, for that helper to judge it by.
-  followupBrief       String?
-  /// What only the owner can decide, after a needs_owner verdict; cleared when new work starts.
-  ownerQuestion       String?
-  /// Rejections sent back with a correction in a row; any other follow-up starts again from 0.
-  corrections         Int      @default(0)
-  /// The provider's open question as JSON ({ requestId, text?, options }), for the card's answer buttons; cleared once it closes.
-  questionPrompt      String?
-  /// What the owner answered from the card, shown once while the job goes on.
-  ownerAnswer         String?
-  /// When the owner last sent the job an instruction from its card.
-  steeredAt           DateTime?
-  /// The bot's run that messaged or is waiting on this agent's thread; it reports the result itself while it runs.
-  waitingRunId        String?
-  /// The earlier attempt this one replaces: the same request launched again after that one failed to start.
-  replacesId          String?
-  /// When the hidden review of this agent's work began; cleared when it ends.
-  reviewingAt         DateTime?
-  /// When the owner cleared this finished job from their jobs list; the chat card stays.
-  clearedAt           DateTime?
-  /// The pull request's check result as last read: passing, failing or running; empty when unknown.
-  checksState         String?
-  /// When the checks were last read, so a running job reads them every few minutes, not every poll.
-  checksAt            DateTime?
-  /// The pull request's state as T3 reports it: open, merged or closed; empty when the job has none.
-  prState             String?
-  /// The agent is watching its open pull request, so a run that ends is not yet its handback.
-  prWatching          Boolean  @default(false)
-  /// When the current watch began, so a job that only waits is handed back after a day.
-  watchingSince       DateTime?
-  /// What the job's thread has going, as { work, pullRequests }: shown on the card, never a wake.
-  threadWork          Json?
-  /// Screenshots copied from the job's pull request, as [{ source, artifactId, name, mimeType }]; at most three.
-  proofImages         Json?
   createdAt           DateTime @default(now())
 
-  @@unique([spaceId, userId, botId, requestKey])
-  @@index([replacesId])
   @@index([providerKey, nextPollAt])
-  @@index([botId, queuedAt])
   @@index([spaceId, userId, id])
-  @@index([waitingRunId])
   @@map("cloud_agents")
 }
 
@@ -1666,8 +1582,6 @@ model ExternalEffect {
   /// `kind`. Empty when an entry names no action; null for any other tool.
   batchActions   Json?
   result         Json?
-  approvedByUserId String?
-  approvedAt DateTime?
   reviewDecision String?
   reviewReason   String?
   reviewModel    String?
@@ -3121,51 +3035,6 @@ model CapabilityInstallSpace {
   @@id([installId, spaceId])
   @@index([spaceId, userId])
   @@map("capability_install_spaces")
-}
-
-/// Durable owner-authorized work; remote execution remains in CloudAgent/Run.
-model ScopedGoal {
-  id String @id @default(cuid())
-  spaceId String
-  userId String
-  botId String
-  threadId String
-  agentId String @unique
-  approvalEffectId String @unique
-  ownerSeenAt DateTime @default(now())
-  controlEpoch Int @default(0)
-  activeEpoch Int @default(0)
-  sourceMessageId String?
-  approval Json
-  scope Json
-  status String @default("active")
-  gate String
-  version Int @default(0)
-  attempt Int @default(0)
-  noProgress Int @default(0)
-  activeRunId String?
-  nextAttemptAt DateTime? @default(now())
-  blocker Json?
-  evidence Json @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  transitions ScopedGoalTransition[]
-  @@index([status, nextAttemptAt])
-  @@index([spaceId, userId, botId])
-  @@map("scoped_goals")
-}
-
-model ScopedGoalTransition {
-  id String @id @default(cuid())
-  goalId String
-  goal ScopedGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  spaceId String
-  userId String
-  version Int
-  detail Json
-  createdAt DateTime @default(now())
-  @@index([goalId, createdAt])
-  @@map("scoped_goal_transitions")
 }
 
 /// Financial evidence survives chat deletion; contains no audio, transcripts or credentials.

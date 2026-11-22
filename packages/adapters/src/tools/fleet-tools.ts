@@ -15,9 +15,7 @@ import {
   UpdateGroupInput,
 } from "@rakazo/contracts";
 import {
-  addedClaimMessage,
   CARD_TITLE_ESCAPED_CHARACTERS,
-  CorrectedClaimError,
   messagingProviderNamed,
   ONCE_ROUTINE_CRON,
   redactSecrets,
@@ -453,8 +451,6 @@ async function prepareChildInstructions(
     select: { instructions: true, instructionHistory: true },
   });
   if (instructionsVersionOf(current) !== expectedVersion) return refuse(CHILD_CHANGED);
-  const addedClaim = await addedClaimMessage(current.instructions, instructions);
-  if (addedClaim) return refuse(addedClaim);
   return {
     ok: true,
     canonical: {
@@ -873,7 +869,6 @@ export async function setChildInstructions(
     });
   } catch (error) {
     if (error instanceof InstructionConflictError) return { error: CHILD_CHANGED };
-    if (error instanceof CorrectedClaimError) return { error: error.message };
     throw error;
   }
   return { ok: true, botId: child.id, name: singleLine(child.name), length: instructions.length };

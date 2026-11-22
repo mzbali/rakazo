@@ -1,14 +1,12 @@
 import { skillReadFromTool } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
-import { buildSkillMd, configureCorrectedClaimJudge, parseSkillMd } from "@rakazo/core";
+import { buildSkillMd, parseSkillMd } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import { Prisma } from "@rakazo/db";
-import { describe, expect, it, afterEach as resetClaimJudge, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { RouterDeps } from "../router.js";
 import { appHandler, handle } from "../router-test-support.js";
 import { createAgentSkillsService, resolveSkillContent } from "./agent-skills.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 const actor: Actor = {
   spaceId: "space-1",
@@ -300,74 +298,6 @@ describe("skill fields the caller wrote", () => {
       });
     },
   );
-});
-
-describe("corrected claims in the API", () => {
-  const stale = "A continuation does not wake on completion.";
-
-  it("refuses a create that adds one with BAD_REQUEST", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const { service } = setup();
-    await expect(
-      service.create(actor, { name: "Waker", description: "Wake rules", body: stale }),
-    ).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message: expect.stringContaining("Nothing was saved"),
-    });
-  });
-
-  it("refuses an update that adds one and leaves the row alone", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const rows = [savedSkill("Waker")];
-    const { service, agentSkill } = setup(rows);
-    const before = rows[0]!.content;
-    await expect(service.update(actor, { skillId: "saved-1", body: stale })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-    });
-    expect(agentSkill.updateMany).not.toHaveBeenCalled();
-    expect(rows[0]!.content).toBe(before);
-  });
-
-  it("accepts an unrelated edit to a skill that already holds one", async () => {
-    const row = savedSkill("Waker");
-    row.content = buildSkillMd({ name: "Waker", description: "Saved review recipe", body: stale });
-    const { service } = setup([row]);
-    await expect(
-      service.update(actor, { skillId: "saved-1", description: "Reworded" }),
-    ).resolves.toMatchObject({ description: "Reworded" });
-  });
-
-  it("matches the content it read, so a stale read cannot revive a removed phrase", async () => {
-    const row = savedSkill("Waker");
-    const { service, agentSkill } = setup([row]);
-    const read = agentSkill.findFirst.getMockImplementation()!;
-    agentSkill.findFirst.mockImplementationOnce(async (args) => {
-      const found = await read(args);
-      const snapshot = found ? { ...found } : found;
-      row.content = buildSkillMd({
-        name: "Waker",
-        description: "Saved review recipe",
-        body: "Fixed",
-      });
-      return snapshot;
-    });
-    await expect(
-      service.update(actor, { skillId: "saved-1", description: "Reworded" }),
-    ).rejects.toMatchObject({
-      code: "CONFLICT",
-      message: "This skill changed since it was read. Reload it and try again.",
-    });
-    expect(row.content).toContain("Fixed");
-    expect(agentSkill.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ content: expect.any(String) }) }),
-    );
-  });
 });
 
 describe("personal skill attachments", () => {

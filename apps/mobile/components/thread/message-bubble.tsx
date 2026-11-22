@@ -58,7 +58,6 @@ import { InlineImageAttachment } from "../media/inline-image-attachment";
 import { MessageMentions } from "../messages/bot-mention";
 import { MessageCaption } from "../messages/message-caption";
 import { AskBlock } from "./ask-block";
-import { CloudAgentCards } from "./cloud-agent-card";
 import { McpAppCard } from "./mcp-app-card";
 import type { MessageRowActions } from "./message-row";
 import { AgentEventLabel, MessageTextCard } from "./message-text-card";
@@ -167,19 +166,9 @@ export function hasSenderLabelContent(message: { blocks: MessageBlock[] }): bool
 
 function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   const { message } = props;
-  // Jobs launched together sit in one group, as T3 groups its subagents.
-  const pieces = splitMessageBlocks(
-    message.blocks,
-    isOwnCardBlock,
-    (block, previous) => block.kind === "cloud_agent" && previous.kind === "cloud_agent",
-  );
+  const pieces = splitMessageBlocks(message.blocks, isOwnCardBlock);
   if (pieces[0] === message.blocks) return <MessageBubbleContent {...props} />;
   const firstContent = pieces.findIndex(pieceShowsSender);
-  // A bot's lead-in text sits inside the job card that follows it, so the two read as one bubble.
-  const leadsCard = (index: number) =>
-    message.role !== "user" &&
-    !isOwnCardBlock(pieces[index]![0]!) &&
-    pieces[index + 1]?.[0]?.kind === "cloud_agent";
   const renderText = (blocks: MessageBlock[], key: string, index: number) => (
     <MessageBubbleContent
       {...props}
@@ -191,7 +180,6 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
   );
   const content = pieces.map((blocks, index) => {
     const first = blocks[0]!;
-    if (leadsCard(index)) return null;
     if (first.kind === "page")
       return <PageCard key={`page-${index}`} block={first} messageId={message.id} />;
     if (first.kind === "visual") return <VisualCard key={`visual-${index}`} block={first} />;
@@ -211,21 +199,6 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
           key={`app-${index}`}
           block={first}
           target={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
-        />
-      );
-    if (first.kind === "cloud_agent")
-      return (
-        <CloudAgentCards
-          key={`cloud-${index}`}
-          lead={
-            index > 0 && leadsCard(index - 1)
-              ? renderText(pieces[index - 1]!, "lead", index - 1)
-              : undefined
-          }
-          jobs={blocks.filter((block) => block.kind === "cloud_agent")}
-          actionProps={props.actionProps}
-          threadTarget={props.groupId ? { groupId: props.groupId } : { botId: props.botId }}
-          userBubble={props.userBubble}
         />
       );
     return isSpecialMessageBlock(first) ? (
@@ -249,8 +222,11 @@ function MessageBubbleBody(props: ComponentProps<typeof MessageBubbleContent>) {
       renderText(blocks, `content-${index}`, index)
     );
   });
-  const shown = content.filter(Boolean);
-  return shown.length === 1 ? shown[0] : <View style={{ gap: 8, width: "100%" }}>{shown}</View>;
+  return content.length === 1 ? (
+    content[0]
+  ) : (
+    <View style={{ gap: 8, width: "100%" }}>{content}</View>
+  );
 }
 
 const MessageBubbleContent = memo(function MessageBubbleContent({

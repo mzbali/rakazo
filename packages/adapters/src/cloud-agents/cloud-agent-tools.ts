@@ -20,7 +20,6 @@ const image = z.union([
     })
     .strict(),
 ]);
-const id = z.string().trim().min(1).max(200);
 export const cloudAgentPromptSchema = z
   .object({
     prompt: z.string().trim().min(1).max(100_000),
@@ -34,98 +33,8 @@ export const cloudAgentLaunchSchema = cloudAgentPromptSchema.extend({
     .refine((value) => Boolean(cloudAgentHttpsUrl(value)))
     .optional(),
   openPr: z.boolean().optional(),
-  /** What the card and the provider's thread are called: a few plain words, never the brief. */
-  title: z
-    .string()
-    .trim()
-    .min(1)
-    .max(60)
-    .refine((value) => value.split(/\s+/).length <= 8),
-  /** How the agent starts; each one left out keeps the provider's default. */
-  modelSelection: z
-    .object({
-      model: id,
-      provider: id.optional(),
-      instanceId: id.optional(),
-      options: z
-        .array(
-          z.object({ id, value: z.union([z.string().max(200), z.number(), z.boolean()]) }).strict(),
-        )
-        .max(20)
-        .optional(),
-    })
-    .strict()
-    .optional(),
-  workKind: z.enum(["hard", "normal", "simple", "ui"]).optional(),
-  projectId: id.optional(),
-  project: id.optional(),
-  scratch: z.boolean().optional(),
-  workspaceStrategy: z
-    .discriminatedUnion("type", [
-      z.object({ type: z.literal("root") }).strict(),
-      z
-        .object({
-          type: z.literal("worktree"),
-          baseRef: id.optional(),
-          branch: id.optional(),
-          startFromOrigin: z.boolean().optional(),
-        })
-        .strict(),
-      z
-        .object({
-          type: z.literal("existing_worktree"),
-          worktreePath: z.string().trim().min(1).max(1_000),
-        })
-        .strict(),
-    ])
-    .optional(),
-  runtimeMode: z.enum(["approval-required", "auto-accept-edits", "auto", "full-access"]).optional(),
-  interactionMode: z.enum(["default", "plan"]).optional(),
-  /** The bot's own name for one agreed request; launching it again returns the same agent. */
-  requestKey: z.string().trim().min(1).max(120).optional(),
-  /** An agent that failed to start; this launch is its next attempt at the same request. */
-  replaces: id.optional(),
-  /** What the owner agreed to, in their words, and how the result will be judged. */
-  agreement: z.string().trim().min(1).max(4_000).optional(),
-  acceptance: z.string().trim().min(1).max(4_000).optional(),
 });
-/**
- * A launch stored by an earlier release may have no title, or one the current rule refuses; its
- * card row holds the name, so the stored title is never read.
- */
-export const storedCloudAgentLaunchSchema = cloudAgentLaunchSchema.extend({
-  title: z.unknown().optional(),
-});
-export const CLOUD_AGENT_LAUNCH_USAGE =
-  'Invalid cloud agent arguments. A launch needs a title of 2-5 plain words naming the work, such as "Porcupine Tree FLAC check" (at most 60 characters, never the start of the brief). Raw environment variables are not supported.';
 const idSchema = z.object({ id: z.string().trim().min(1) }).strict();
-export const cloudAgentReportSchema = z
-  .object({
-    id: z.string().trim().min(1),
-    verdict: z.enum(["accepted", "rejected", "needs_owner"]),
-    summary: z.string().trim().min(1).max(4_000),
-    /** The decision only the owner can make, with the recommendation; only for needs_owner. */
-    ownerQuestion: z.string().trim().min(1).max(1_000).optional(),
-    /** What is wrong and what to do about it; sent back to the agent as its next request. */
-    correction: z.string().trim().min(1).max(100_000).optional(),
-  })
-  .strict()
-  .superRefine((report, ctx) => {
-    if ((report.verdict === "needs_owner") !== (report.ownerQuestion !== undefined))
-      ctx.addIssue({
-        code: "custom",
-        path: ["ownerQuestion"],
-        message: "Only needs_owner takes an ownerQuestion, and it needs one.",
-      });
-    if (report.correction !== undefined && report.verdict !== "rejected")
-      ctx.addIssue({
-        code: "custom",
-        path: ["correction"],
-        message: "Only rejected takes a correction.",
-      });
-  });
-export const CLOUD_AGENT_REPORT_USAGE =
-  "Invalid cloud agent report. Send id, verdict and summary. rejected may add a correction to send the work back; needs_owner needs an ownerQuestion; accepted takes neither.";
 export const cloudAgentReplySchema = cloudAgentPromptSchema.extend({
   id: z.string().trim().min(1),
 });
@@ -137,8 +46,6 @@ export function validCloudAgentArgs(name: string, args: unknown): boolean {
       ? cloudAgentLaunchSchema
       : name === "cloud_agent_reply"
         ? cloudAgentReplySchema
-        : name === "cloud_agent_report"
-          ? cloudAgentReportSchema
-          : idSchema;
+        : idSchema;
   return schema.safeParse(args).success;
 }

@@ -229,6 +229,6 @@ it("reserves the hover actions' room beside a full-width question card", () => {
   const [bubbleFrame, cardFrame] = container.querySelectorAll(
     '[data-testid="message-bubble-frame"]',
   );
-  expect(bubbleFrame?.className).toContain("calc(100%_-_8rem)");
-  expect(cardFrame?.className).toContain("calc(100%_-_8rem)");
+  expect(bubbleFrame?.className).toContain("calc(100%_-_6rem)");
+  expect(cardFrame?.className).toContain("calc(100%_-_6rem)");
 });

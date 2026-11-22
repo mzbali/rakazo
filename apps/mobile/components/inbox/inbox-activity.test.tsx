@@ -22,7 +22,7 @@ vi.mock("react-native", () => ({
 vi.mock("../../lib/native/native", () => ({ useThemedStyles: () => ({}) }));
 vi.mock("../../lib/inbox/activity", () => ({ formatActivityRelativeTime: () => "" }));
 vi.mock("@rakazo/i18n/activity", () => ({
-  activityPreview: () => "",
+  activityPreview: (run: { promptSnippet?: string }) => run.promptSnippet ?? "",
   runStatusLabel: (status: string) => status,
 }));
 vi.mock("./inbox-styles", () => ({ createInboxStyles: () => ({}) }));

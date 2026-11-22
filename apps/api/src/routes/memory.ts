@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/server";
-import { MEMORY_REVISION_CONFLICT_ERROR, MemoryRevisionConflictError } from "@rakazo/adapter-kit";
+import { MemoryRevisionConflictError } from "@rakazo/adapter-kit";
 import {
   buildAgentMemoryPrompt,
   isScratchpadStatus,

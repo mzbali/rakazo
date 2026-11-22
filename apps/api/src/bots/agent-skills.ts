@@ -32,8 +32,8 @@ import {
   TransactionConflictError,
   withTransactionRetry,
 } from "@rakazo/db";
-import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import { z } from "zod";
+import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import { userAddedAvailability } from "../spaces/name-claims.js";
 
 type AgentSkillRow = {

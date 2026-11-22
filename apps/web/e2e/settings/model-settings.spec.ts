@@ -10,7 +10,6 @@ import {
   completeOnboarding,
   manageModelConnection,
   modelConnectionDialog,
-  modelConnectOption,
   openBotSettings,
   openModelConnection,
   openUserSettings,

@@ -29,8 +29,6 @@ import { allowsSpace } from "../../lib/cards/ask-action-label";
 import { plainAskTitle } from "../../lib/cards/ask-title";
 import { isInlineImageBlock } from "../../lib/messages/inline-image";
 import {
-  mentionedBots,
-  textWithMentions,
   UserMentionsContext,
   userMentionTargets,
 } from "../../lib/messages/message-mentions";

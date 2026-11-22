@@ -438,8 +438,6 @@ async function commitAnswerRunInput(
       // An expired card carries a result, so a later call may ask again: nobody denied it.
       data: {
         status: allowed ? "approved" : "denied",
-        approvedByUserId: allowed ? input.answeredByUserId : null,
-        approvedAt: allowed ? new Date() : null,
         ...(editedDraft ? { request: editedDraft.request as Prisma.InputJsonValue } : {}),
         ...(expired ? { result: APPROVAL_EXPIRED_RESULT } : {}),
       },

@@ -14,7 +14,6 @@
   "apps/web/src/components/billing/SpendingLimitSettings.tsx": 1,
   "apps/web/src/components/computers/ComputerCard.tsx": 1,
   "apps/web/src/components/messages/AskCard.tsx": 1,
-  "apps/web/src/components/messages/CloudAgentCard.tsx": 1,
   "apps/web/src/components/pages/PageCard.tsx": 5,
   "apps/web/src/components/pages/PagesList.tsx": 1,
   "apps/web/src/components/vault/VaultItemAccess.tsx": 1,

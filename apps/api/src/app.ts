@@ -27,7 +27,6 @@ import {
   BillingEmulator,
   CodexCatalogCache,
   closeServerFoundation,
-  configureCorrectedClaimsConnections,
   configuredMessaging,
   contentKeyProviderFromEnv,
   createAgentHomeStore,
@@ -285,13 +284,6 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     encryptionKey: env.encryptionKey,
   });
   const { prisma, realtime, secrets, analytics, events } = foundation;
-  const codexCatalog = new CodexCatalogCache();
-  configureCorrectedClaimsConnections({
-    codexCatalog,
-    prisma,
-    secretStore: secrets,
-    mcpAllowPrivateEndpoint: env.mcpAllowPrivateEndpoint,
-  });
   const partnerProgram = env.dubApiKey ? createDubPartnerProgram(env.dubApiKey) : undefined;
   const boardEvents = createBoardEvents(realtime);
 
@@ -523,21 +515,18 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       if (!shutdown.signal.aborted) getLogger().error("mcp server arguments move failed", error);
     });
   // One provider instance so emulator launches and polls share the same Map.
-  const cloudAgent = createCloudAgentConnection(
-    {
-      CLOUD_AGENT_PROVIDER: env.cloudAgentProvider,
-      CURSOR_API_KEY: env.cursorApiKey,
-      CLOUD_AGENT_SPACE_ID: env.cloudAgentSpaceId,
-      CLOUD_AGENT_MCP_SERVER: env.cloudAgentMcpServer,
-    },
-    connectors.stack.connector,
-  );
+  const cloudAgent = createCloudAgentConnection({
+    CLOUD_AGENT_PROVIDER: env.cloudAgentProvider,
+    CURSOR_API_KEY: env.cursorApiKey,
+    CLOUD_AGENT_SPACE_ID: env.cloudAgentSpaceId,
+  });
   const paymentWallet = await createPaymentWalletProvider({
     PAYMENT_WALLET_PROVIDER: env.paymentWalletProvider,
     PAYMENT_WALLET_CLIENT_ID: env.paymentWalletClientId,
   });
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
+  const codexCatalog = new CodexCatalogCache();
   // One instance: chat runs submit videos and, in single-process mode, background polls finish them.
   const mediaGeneration = createMediaGenerationProvider();
   const { runtime, executor, jobHandlers, messagingDelivery, teamChat, pageRevisions } =

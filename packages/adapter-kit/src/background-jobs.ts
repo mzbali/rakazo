@@ -124,15 +124,6 @@ const payloadSchemas = {
   "team_chat.engage": z.object({ externalMessageId: z.string().min(1) }),
   "team_chat.ambient": z.object({ conversationId: z.string().min(1) }),
   "cloud_agent.poll": z.object({ agentId: z.string().min(1) }),
-  "cloud_agent.reporter_check": z.object({
-    agentId: z.string().min(1),
-    generation: z.number().int().min(0),
-  }),
-  "cloud_agent.relay_pointer": z.object({
-    agentId: z.string().min(1),
-    generation: z.number().int().min(0),
-  }),
-  "scoped_goal.advance": z.object({ goalId: z.string().min(1) }),
   "meeting.calendar-sync": z.object({ connectionId: z.string().min(1) }),
   "meeting.work": z.object({
     sessionId: z.string().min(1),
@@ -546,49 +537,6 @@ export function cloudAgentPollJob(
     name: "cloud_agent.poll",
     payload,
     replaceKey: cloudAgentPollJobKey(payload.agentId),
-    ...(availableAt ? { availableAt } : {}),
-  };
-}
-
-/**
- * The backup for a finished piece whose wake was held back because the bot's own run reports it:
- * one job per agent and piece of work, so running it again changes nothing.
- */
-export function cloudAgentReporterCheckJob(
-  payload: BackgroundJobPayloads["cloud_agent.reporter_check"],
-  availableAt: Date,
-): BackgroundJob {
-  return {
-    name: "cloud_agent.reporter_check",
-    payload,
-    replaceKey: `cloud_agent.reporter_check:${payload.agentId}:${payload.generation}`,
-    availableAt,
-  };
-}
-
-/** The key is the agent and piece of work, which is one relayed request's report, so it posts once. */
-export function cloudAgentRelayPointerJob(
-  payload: BackgroundJobPayloads["cloud_agent.relay_pointer"],
-  availableAt: Date,
-): BackgroundJob {
-  return {
-    name: "cloud_agent.relay_pointer",
-    payload,
-    replaceKey: `cloud_agent.relay_pointer:${payload.agentId}:${payload.generation}`,
-    availableAt,
-  };
-}
-
-/** `backup` names one direct attempt's backup job, so that attempt can retire only its own. */
-export function scopedGoalAdvanceJob(
-  payload: BackgroundJobPayloads["scoped_goal.advance"],
-  availableAt?: Date,
-  backup?: string,
-): BackgroundJob {
-  return {
-    name: "scoped_goal.advance",
-    payload,
-    replaceKey: `scoped_goal.advance:${payload.goalId}${backup ? `:backup:${backup}` : ""}`,
     ...(availableAt ? { availableAt } : {}),
   };
 }

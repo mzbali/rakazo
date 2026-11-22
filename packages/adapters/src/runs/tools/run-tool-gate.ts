@@ -17,7 +17,6 @@ import {
   resolveActionApprovalForTools,
   SITE_SENDING_TOOLS,
   savedContextWriteNeedsReview,
-  toolGuardedInNeverAsk,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
 } from "@rakazo/core";
@@ -49,7 +48,6 @@ import { paidRequestEffect } from "../../payments/paid-request.js";
 import type { PurchaseApproval } from "../../payments/purchase-gate.js";
 import { PURCHASE_CHECKED_TOOLS, purchaseApprovalOf } from "../../payments/purchase-gate.js";
 import { asksRoutineEvents } from "../../routines/routine-triggers.js";
-import { goalDrivesAgent, SCOPED_GOAL_NONCE, uncertainEffect } from "../../scoped-goal-service.js";
 import { resolveCompletedSecretLeftover } from "../../secrets/run-secret.js";
 import { scheduleRunSecretsExpiry } from "../../secrets/run-secrets-expiry.js";
 import { RAKAZO_DOCS_URLS } from "../../tools/builtin-skills.prompt.js";
@@ -142,14 +140,7 @@ export async function gateToolCall(
   // check look at each action, never the batch tool. An entry naming no action asks.
   const batch = connectorTool?.batch ? batchActions(connectorTool.batch, args) : undefined;
   const unidentifiedAction = Boolean(batch && !batch.complete);
-  // A report that sends the work back is a follow-up message, so it asks and is allowed like a reply.
-  const sendsCorrection =
-    name === "cloud_agent_report" && args.verdict === "rejected" && Boolean(args.correction);
-  const approvalName = sendsCorrection
-    ? "cloud_agent_reply"
-    : connectorCall.route?.connectionId
-      ? connectorCall.route.toolName
-      : name;
+  const approvalName = connectorCall.route?.connectionId ? connectorCall.route.toolName : name;
   const approvalToolNames = batch?.actions.length ? batch.actions : [approvalName];
   // Search and load return a list or a schema. They never call the connector.
   const catalogControlRead =
@@ -319,6 +310,8 @@ export async function gateToolCall(
       ));
   // A reviewed call still fails closed when its review errors, and keeps its approval key.
   const gated = requiresApprovalByDefault || reviewOnly;
+  // In Ask and Auto these ask a person every time, whatever started the run.
+  const mandatoryInAnyRun = paying || unattendedWatch || toolRequiresExplicitApproval(name);
   // Outside text may have asked for these, so an Always allow rule saved for calls the owner asked
   // for does not skip them; they still go through the approval mode.
   const ignoresAllowRules = routineWrittenAfterOutside || request.ignoresAllowRules;
@@ -327,6 +320,8 @@ export async function gateToolCall(
   const asksEveryTime =
     (unattendedWatch || scheduleNamesNewSite || routineAddsEvents || ignoresAllowRules) &&
     !toolRequiresApproval(name, viaConnector);
+  // Never ask runs everything else: only another owner's connection could have been steered into it.
+  const guardedInNeverAsk = name === "respond_agent_connection";
   const resolvedRules = resolveActionApprovalForTools({
     tools: approvalToolNames.map((toolName) => ({
       name: toolName,
@@ -347,24 +342,6 @@ export async function gateToolCall(
       : ignoresAllowRules && resolvedRules.source === "always_allow"
         ? { ...resolvedRules, source: "default" as const }
         : resolvedRules;
-  // Guarded tools ask when the owner did not start the run, a routine started it (nobody is
-  // watching it run), or outside content entered it, and Never ask refuses them (see
-  // toolGuardedInNeverAsk). A saved Allow for the tool is
-  // applied first for cloud-agent launches: it matches the tool name, not the arguments, so a wake or a run that
-  // already read something does not post another card.
-  const guardedInNeverAsk = toolGuardedInNeverAsk(name);
-  const steered =
-    guardedInNeverAsk &&
-    !(name === "cloud_agent_launch" && approvalResolved.source === "always_allow")
-      ? !ctx.source.ownerStartedRun || run.trigger === "routine" || (await isRunTainted(ctx))
-      : false;
-  // These ask in every run, whatever started it.
-  const mandatoryInAnyRun =
-    paying ||
-    unattendedWatch ||
-    toolRequiresExplicitApproval(name) ||
-    (guardedInNeverAsk && run.trigger === "webhook") ||
-    steered;
   const reviewable = mode === "auto" && !mandatoryInAnyRun;
   const injectedReview = reviewable ? deps.autoReview : undefined;
   const reviewSettings = !reviewable || injectedReview ? null : await ctx.trust.loadApprovalModel();
@@ -405,7 +382,9 @@ export async function gateToolCall(
         mode,
         mandatory: mandatoryInAnyRun,
         steerable:
-          guardedInNeverAsk && mode === "never" ? steered || run.trigger === "webhook" : undefined,
+          guardedInNeverAsk && mode === "never"
+            ? !ctx.source.ownerStartedRun || (await isRunTainted(ctx))
+            : undefined,
         consequential: requiresApprovalByDefault,
         reviewOnly,
         checkerConfigured,
@@ -474,34 +453,7 @@ export async function gateToolCall(
       : toolEffectIdempotencyKey(runId, replayEffectToolName, args, occurrence));
   // Connector read-only hints must not bypass approval, review, or replay decisions.
   // A fetch to a new site is gated like any action, so it needs an effect to approve.
-  const goalRun = ctx.run.clientNonce?.startsWith(SCOPED_GOAL_NONCE);
-  const goalContinuation = goalRun
-    ? await deps.prisma.scopedGoal.findFirst({ where: { activeRunId: runId } })
-    : null;
-  // A superseded continuation (no longer the goal's active Run) is stopped too.
-  if (goalRun && !goalDrivesAgent(goalContinuation) && !READ_ONLY_AGENT_TOOLS.has(name))
-    return { result: refusal("goal_stopped", "The owner stopped this goal.") };
-  if (
-    goalContinuation &&
-    name !== "scoped_goal_report" &&
-    name !== "scoped_goal_status" &&
-    !READ_ONLY_AGENT_TOOLS.has(name) &&
-    !(viaConnector && connectorTool?.readOnly === true)
-  ) {
-    const uncertain = await uncertainEffect(deps.prisma, {
-      spaceId: run.spaceId,
-      threadId: ctx.thread.id,
-    });
-    if (uncertain)
-      return {
-        result: refusal(
-          "goal_uncertain_write",
-          `Reconcile effect ${uncertain.id} before another write.`,
-        ),
-      };
-  }
   const applied =
-    !goalContinuation &&
     READ_ONLY_AGENT_TOOLS.has(name) &&
     plan === "allow" &&
     siteGate !== "new" &&
@@ -746,16 +698,8 @@ function createToolCall(
             result,
           )
         : Promise.resolve(true),
-    finish: async (result) => {
-      if (!(await call.persistEffectResult(result))) return uncertainEffectResult(name, args);
-      return ctx.run.clientNonce?.startsWith(SCOPED_GOAL_NONCE) &&
-        applied &&
-        result &&
-        typeof result === "object" &&
-        !Array.isArray(result)
-        ? { ...result, recordedEffectId: applied.effect.id }
-        : result;
-    },
+    finish: async (result) =>
+      (await call.persistEffectResult(result)) ? result : uncertainEffectResult(name, args),
     claimOrReturn: async (from) => {
       if (await claimEffect(deps, ctx.runId, applied!.effect.id, from)) {
         call.claimedEffect = true;

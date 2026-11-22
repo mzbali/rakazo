@@ -60,7 +60,6 @@ const OUTSIDE_RUN_SAFE_BUILTIN_TOOLS = new Set([
   "request_takeover",
   "run_subagent",
   "schedule_list",
-  "scoped_goal_status",
   "scratchpad_list",
   "search_history",
   "service_search",
@@ -98,8 +97,6 @@ const APPROVAL_REQUIRED_BUILTIN_TOOLS = new Set([
   "set_child_bot_model",
 ]);
 const EXPLICIT_APPROVAL_BUILTIN_TOOLS = new Set([
-  "scoped_goal_authorize",
-  "scoped_goal_control",
   // Permanent: the owner sees the exact address before it is theirs for good.
   "claim_email_address",
   "respond_agent_connection",
@@ -230,16 +227,6 @@ function innerToolSlugs(args: unknown): string[] {
 /** Security-boundary changes cannot be auto-reviewed or permanently allowed. */
 export function toolRequiresExplicitApproval(toolName: string): boolean {
   return EXPLICIT_APPROVAL_BUILTIN_TOOLS.has(toolName);
-}
-
-/**
- * Tools that ask when the owner did not start the run, or outside content entered it, and that
- * Never ask refuses in those runs. A saved Allow for the tool is applied before that ask.
- * Another owner's connection, and starting coding work, which a bot's message or an email must
- * not agree to on the owner's behalf unless they allowed the tool.
- */
-export function toolGuardedInNeverAsk(toolName: string): boolean {
-  return toolName === "respond_agent_connection" || toolName === "cloud_agent_launch";
 }
 
 /**

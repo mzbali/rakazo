@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BOT_INSTRUCTIONS_MAX_LENGTH, InstructionVersionSchema } from "@rakazo/contracts";
-import type { CorrectedClaimTicket } from "@rakazo/core";
-import { ClientError, validateCorrectedClaimWrite } from "@rakazo/core";
+import { ClientError } from "@rakazo/core";
 import type { Prisma } from "../database/client.js";
 
 export class InstructionConflictError extends ClientError {
@@ -21,7 +20,6 @@ export async function writeBotInstructions(
     versionId?: string;
     expectedInstructions?: string;
     undo?: boolean;
-    claimTicket?: CorrectedClaimTicket;
   },
 ) {
   await tx.$queryRaw`SELECT id FROM bots WHERE id = ${input.botId} FOR UPDATE`;
@@ -46,9 +44,6 @@ export async function writeBotInstructions(
     throw new InstructionConflictError("Instruction version is unavailable or too large.");
   }
   if (instructions === bot.instructions) return null;
-  if (!input.versionId)
-    validateCorrectedClaimWrite(bot.instructions, instructions, input.claimTicket);
-  // A restore or undo brings back text the owner already had.
   const version = {
     id: randomUUID(),
     instructions: bot.instructions,

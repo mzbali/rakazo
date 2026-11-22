@@ -6,7 +6,6 @@ import {
   chatAppConnectNote,
   HELPER_RESULT_TRIGGER,
   isCallClientNonce,
-  isJobHelperRun,
   isOwnerStartedRun,
   messagingChannelPrivacyBlock,
   messagingDmSurfaceNote,
@@ -739,12 +738,7 @@ export async function selectRunTools(
       webImagesEnabled: Boolean(deps.artifacts),
       mediaVideoEnabled: Boolean(deps.artifacts && mediaGeneration?.capabilities.video),
       paidServicesEnabled: Boolean(paidServices),
-      // cloudAgentForActor already checked the space; a provider reached through a bot's own
-      // connection also needs this bot to have it.
-      cloudAgentEnabled:
-        Boolean(cloudAgent) &&
-        ((await cloudAgent?.enabledForBot?.(deps.prisma, run.spaceId, bot.id)) ?? true),
-      jobHelper: isJobHelperRun(run),
+      cloudAgentEnabled: Boolean(cloudAgent),
       cloudAgentCleanupEnabled,
       paymentWalletEnabled,
       messagingChannelRun: nonOwnerChatRun,

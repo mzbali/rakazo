@@ -28,7 +28,6 @@ import {
   resolveActionApprovalDetail,
   resolveActionApprovalForTools,
   savedContextWriteNeedsReview,
-  toolGuardedInNeverAsk,
   toolRequiresApproval,
   toolRequiresExplicitApproval,
   toolResultTaintsRun,
@@ -78,11 +77,6 @@ describe("toolRequiresApproval", () => {
     expect(toolRequiresApproval("delete_bot", true, false)).toBe(true);
     expect(toolRequiresApproval("archive_bot", false)).toBe(true);
     expect(toolRequiresApproval("cloud_agent_launch", false)).toBe(true);
-    // Starting real work asks outside the owner's own clean run unless they allowed the tool.
-    expect(toolRequiresExplicitApproval("cloud_agent_launch")).toBe(false);
-    expect(toolGuardedInNeverAsk("cloud_agent_launch")).toBe(true);
-    expect(toolGuardedInNeverAsk("cloud_agent_reply")).toBe(false);
-    expect(toolRequiresApproval("cloud_agent_report", false)).toBe(false);
     expect(toolRequiresApproval("create_space", false)).toBe(true);
     expect(toolRequiresExplicitApproval("create_space")).toBe(false);
     // The wallet owner approves every purchase on the provider's side.

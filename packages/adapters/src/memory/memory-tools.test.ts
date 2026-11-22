@@ -245,15 +245,4 @@ describe("editMemory", () => {
     const oversized = `${"a".repeat(40)}\n${"b".repeat(40)}\n`;
     expect(editMemory(oversized, "", "bbb", 32)).toEqual({ content: `${"a".repeat(40)}\n` });
   });
-
-  it("leaves semantic assessment to the async persistence caller", () => {
-    expect(editMemory("", "A continuation does not wake on completion.")).toEqual({
-      content: "A continuation does not wake on completion.\n",
-    });
-  });
-
-  it("lets an unrelated edit through memory that already holds a corrected claim", () => {
-    const stale = "A continuation does not wake on completion.\n";
-    expect(editMemory(stale, "Be brief.")).toEqual({ content: `${stale}Be brief.\n` });
-  });
 });

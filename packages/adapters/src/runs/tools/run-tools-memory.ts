@@ -5,7 +5,6 @@ import {
   isDeletableMemoryDocument,
   MEMORY_INDEX_PATH,
 } from "@rakazo/contracts";
-import { addedClaimMessage } from "@rakazo/core";
 import { readHistory, searchHistory } from "@rakazo/db";
 import { redactConnectorPayload } from "../../integrations/connector-safety.js";
 import { editMemory } from "../../memory/memory-tools.js";
@@ -116,8 +115,6 @@ export const memoryTools: ToolHandlers = {
       );
       if ("error" in edit) return call.finish(edit);
       const { content } = edit;
-      const claimError = await addedClaimMessage(existing?.content ?? "", content);
-      if (claimError) return call.finish({ error: claimError });
       if (content === (existing?.content ?? "")) return call.finish({ ok: true });
       try {
         await deps.memory.commit(
@@ -148,16 +145,12 @@ export const memoryTools: ToolHandlers = {
     // concurrent edit is rejected instead of overwritten.
     const snapshot = await deps.memory.read({ scope: "user", path }, context);
     const expectedRevision = snapshot.documents[0]?.revision ?? 0;
-    const content = String(args.content ?? "");
-    // Every bot in the space reads shared memory, so a corrected claim may not come in here either.
-    const addedClaim = await addedClaimMessage(snapshot.documents[0]?.content ?? "", content);
-    if (addedClaim) return call.finish({ error: addedClaim });
     try {
       const saved = await deps.memory.commit(
         {
           scope: "user",
           path,
-          content,
+          content: String(args.content ?? ""),
           expectedRevision,
           sourceRunId: runId,
           sourceThreadId: thread.id,
@@ -230,14 +223,10 @@ export const memoryTools: ToolHandlers = {
   async save_memory(ctx, call) {
     const { bot, context } = ctx;
     const { args } = call;
-    const content = String(args.content ?? "");
-    // Each save is a new fact that later runs recall into their prompt.
-    const addedClaim = await addedClaimMessage("", content);
-    if (addedClaim) return call.finish({ error: addedClaim });
     return call.finish(
       await ctx.memory.semantic!.save(
         {
-          content,
+          content: String(args.content ?? ""),
           scope: ctx.memory.scope!,
           botId: bot.id,
           source: { kind: "durable" },

@@ -1,7 +1,6 @@
 import { botMessageAllowsSilence, userTurnMessageForRun } from "@rakazo/core";
 import { isPartialReplyClientNonce, storedMessageBlocks } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
-import { loadRunImages } from "../../cloud-agents/jobs/cloud-agent-review-images.js";
 import { loadAgentMemoryContext } from "../../memory/memory-context.js";
 import { PARTIAL_REPLY_NOTE } from "../../messaging/automated-messages.prompt.js";
 import {
@@ -21,6 +20,7 @@ import {
 import { loadAgentScratchpadContext } from "../../runtime/context/scratchpad-context.js";
 import { loadAgentTicketContext } from "../../tasks/ticket-context.js";
 import type { RunHold } from "../lifecycle/run-attempt.js";
+import { loadCurrentTurnImages } from "../turn/run-turn-images.js";
 import {
   latestOwnReplyId,
   messageToAgentHistorySegments,
@@ -230,7 +230,7 @@ export async function loadTurnContext(
   const [discovered, currentTurnImages, memoryContext, scratchpadContext, ticketContext, recalled] =
     await Promise.all([
       discoveredPromise,
-      loadRunImages(deps, run, turnBlocks, context),
+      loadCurrentTurnImages(deps, turnBlocks, context),
       nonOwnerChatRun ? Promise.resolve("") : loadAgentMemoryContext(deps.memory, bot.id, context),
       nonOwnerChatRun
         ? Promise.resolve("")

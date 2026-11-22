@@ -31,11 +31,7 @@ import type {
   CloudAgentConnection,
   UserCloudAgents,
 } from "../../cloud-agents/cloud-agent-factory.js";
-import {
-  checkCloudAgentReporter,
-  pollCloudAgent,
-  runRelayPointerBackup,
-} from "../../cloud-agents/cloud-agent-poll.js";
+import { pollCloudAgent } from "../../cloud-agents/cloud-agent-poll.js";
 import {
   rateLimitEnds,
   scheduleComputerSleep,
@@ -63,7 +59,6 @@ import type { TeamChat } from "../../messaging/team-chat/team-chat.js";
 import type { ExpoPushProvider } from "../../notifications/expo-push.js";
 import { pollPurchase } from "../../payments/purchase-poll.js";
 import { compactHistory } from "../../runtime/context/history-compaction.js";
-import { advanceScopedGoal } from "../../scoped-goal-service.js";
 import { expireRunSecrets } from "../../secrets/run-secrets-expiry.js";
 import { retrySecretCleanup } from "../../secrets/secret-cleanup.js";
 import type { createRunExecutor } from "../executor/executor.js";
@@ -130,8 +125,6 @@ export function createBackgroundJobHandlers(deps: {
   pageRevisionWork?: (requestId: string, attempt?: BackgroundJobAttempt) => Promise<void>;
   meetingWork?: (job: BackgroundJobPayloads["meeting.work"]) => Promise<unknown>;
   lifecycleEmail?: (job: BackgroundJobPayloads["email.lifecycle"]) => Promise<void>;
-  /** Lets finished jobs show proof from private repositories. */
-  cloudAgentGithubToken?: string;
 }): BackgroundJobHandlers {
   const delivery = deps.messagingDelivery;
   const cleanupDeps = { prisma: deps.prisma, secrets: deps.secretStore };
@@ -147,8 +140,6 @@ export function createBackgroundJobHandlers(deps: {
     deps.prisma.taughtSkill.findUnique({ where: { id: skillId }, select: OWNER });
   const cloudAgent = ({ agentId }: { agentId: string }) =>
     deps.prisma.cloudAgent.findUnique({ where: { id: agentId }, select: OWNER });
-  const scopedGoal = ({ goalId }: { goalId: string }) =>
-    deps.prisma.scopedGoal.findUnique({ where: { id: goalId }, select: OWNER });
   const purchase = ({ purchaseId }: { purchaseId: string }) =>
     deps.prisma.purchase.findUnique({ where: { id: purchaseId }, select: OWNER });
   const messagingIdentity = ({ identityId }: { identityId: string }) =>
@@ -300,43 +291,11 @@ export function createBackgroundJobHandlers(deps: {
           prisma: deps.prisma,
           jobs: deps.jobs,
           events: deps.events,
-          notifications: deps.notifications,
-          cloudAgent: deps.cloudAgent,
-          userCloudAgents: deps.userCloudAgents,
-          artifacts: deps.artifacts,
-          githubToken: deps.cloudAgentGithubToken,
-        },
-        payload,
-      );
-    }),
-    "cloud_agent.reporter_check": asOwner(cloudAgent, async (payload) => {
-      await checkCloudAgentReporter(
-        {
-          prisma: deps.prisma,
-          jobs: deps.jobs,
-          events: deps.events,
-          notifications: deps.notifications,
           cloudAgent: deps.cloudAgent,
           userCloudAgents: deps.userCloudAgents,
         },
         payload,
       );
-    }),
-    "cloud_agent.relay_pointer": asOwner(cloudAgent, async (payload) => {
-      await runRelayPointerBackup({ prisma: deps.prisma, events: deps.events }, payload);
-    }),
-    "scoped_goal.advance": asOwner(scopedGoal, async (payload) => {
-      // A swallowed failure fails the job, so the queue retries it.
-      const ok = await advanceScopedGoal(
-        {
-          prisma: deps.prisma,
-          jobs: deps.jobs,
-          cloudAgent: deps.cloudAgent,
-          userCloudAgents: deps.userCloudAgents,
-        },
-        payload.goalId,
-      );
-      if (!ok) throw new Error("Scoped goal advance failed; retrying.");
     }),
     "meeting.calendar-sync": async (payload) => {
       if (!deps.meetingCalendarSync) throw new RetryJobLaterError(60_000);

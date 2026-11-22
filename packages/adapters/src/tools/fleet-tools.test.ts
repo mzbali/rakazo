@@ -1,15 +1,6 @@
 import type { AgentHomeStore, JobPublisher, SandboxProvider } from "@rakazo/adapter-kit";
-import { configureCorrectedClaimJudge } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  afterEach as resetClaimJudge,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateChildBot } from "../bots/child-bot-settings.js";
 import {
   ROUTINE_CHAT_TRIGGER_NOTE,
@@ -25,8 +16,6 @@ import {
   setChildBotModel,
   setChildInstructions,
 } from "./fleet-tools.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 type FakeBot = {
   id: string;
@@ -1419,20 +1408,6 @@ describe("prepareFleetRequest set_child_instructions", () => {
         lines: ["Old length: 16 characters", "New length: 17 characters", "", "Plan the offsite."],
       },
     });
-  });
-
-  it("refuses text that adds a corrected claim before any card is shown", async () => {
-    configureCorrectedClaimJudge(async () => ({
-      status: "rejected",
-      reason: "Scripted rejection",
-    }));
-    const { deps } = fakeFleet({ bots });
-    expect(
-      await prepareFleetRequest(deps, run, "set_child_instructions", {
-        ...edit,
-        instructions: "A continuation does not wake on completion.",
-      }),
-    ).toEqual({ ok: false, error: expect.stringContaining("Nothing was saved") });
   });
 
   it("refuses an edit made against an older version", async () => {

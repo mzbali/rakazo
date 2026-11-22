@@ -1,10 +1,5 @@
-import {
-  buildSkillMd,
-  configureCorrectedClaimJudge,
-  formatSkillsCatalogInstruction,
-  parseSkillMd,
-} from "@rakazo/core";
-import { beforeEach, describe, expect, it, afterEach as resetClaimJudge, vi } from "vitest";
+import { buildSkillMd, formatSkillsCatalogInstruction, parseSkillMd } from "@rakazo/core";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { builtinAgentTools } from "./builtin.tool-definition.js";
 import { BUILTIN_AGENT_SKILLS } from "./builtin-skills.prompt.js";
 import {
@@ -14,8 +9,6 @@ import {
   skillReadFromTool,
   skillUpdateFromTool,
 } from "./skill-tools.js";
-
-resetClaimJudge(() => configureCorrectedClaimJudge(undefined));
 
 type Scope = {
   spaceId?: string;
@@ -620,89 +613,5 @@ describe("skill tools", () => {
         newName: longName,
       }),
     ).toEqual({ error: "Skill name must be at most 80 characters." });
-  });
-
-  describe("corrected claims", () => {
-    const stale = "A continuation does not wake on completion.";
-
-    it("refuses a create that adds one and stores nothing", async () => {
-      configureCorrectedClaimJudge(async () => ({
-        status: "rejected",
-        reason: "Scripted rejection",
-      }));
-      const result = await skillCreateFromTool(prisma as never, owner, {
-        name: "Waker",
-        description: "Wake rules",
-        body: stale,
-      });
-      expect(result.error).toContain("Nothing was saved");
-      expect(prisma._store).toHaveLength(0);
-    });
-
-    it("refuses an update that adds one and keeps the old content", async () => {
-      await skillCreateFromTool(prisma as never, owner, {
-        name: "Waker",
-        description: "Wake rules",
-        body: "Fine.",
-      });
-      const before = prisma._store[0]!.content;
-      configureCorrectedClaimJudge(async () => ({
-        status: "rejected",
-        reason: "Scripted rejection",
-      }));
-      const result = await skillUpdateFromTool(prisma as never, owner, {
-        name: "Waker",
-        body: stale,
-      });
-      expect(result.error).toContain("Nothing was saved");
-      expect(prisma._store[0]!.content).toBe(before);
-    });
-
-    it("accepts an unrelated edit to a skill that already holds one", async () => {
-      prisma._store.push({
-        id: "skill-x",
-        ...owner,
-        name: "Waker",
-        description: "Wake rules",
-        source: "user",
-        content: buildSkillMd({ name: "Waker", description: "Wake rules", body: stale }),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      const result = await skillUpdateFromTool(prisma as never, owner, {
-        name: "Waker",
-        description: "Wake rules, reworded",
-      });
-      expect(result).toMatchObject({ ok: true });
-    });
-
-    it("refuses an update whose baseline went stale instead of reviving a removed phrase", async () => {
-      const row = {
-        id: "skill-x",
-        ...owner,
-        name: "Waker",
-        description: "Wake rules",
-        source: "user",
-        content: buildSkillMd({ name: "Waker", description: "Wake rules", body: stale }),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      prisma._store.push(row);
-      const original = prisma.agentSkill.findMany.getMockImplementation()!;
-      // Another edit removes the phrase after this update has read the row.
-      prisma.agentSkill.findMany.mockImplementationOnce(async (args) => {
-        const rows = await original(args);
-        row.content = buildSkillMd({ name: "Waker", description: "Wake rules", body: "Fixed." });
-        return rows;
-      });
-      const result = await skillUpdateFromTool(prisma as never, owner, {
-        name: "Waker",
-        description: "Reworded",
-      });
-      expect(result.error).toBe(
-        "This skill changed since it was read; read it again before updating.",
-      );
-      expect(prisma._store[0]!.content).toContain("Fixed.");
-    });
   });
 });

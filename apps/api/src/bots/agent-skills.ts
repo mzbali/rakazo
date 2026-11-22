@@ -33,7 +33,6 @@ import {
   withTransactionRetry,
 } from "@rakazo/db";
 import { z } from "zod";
-import { assertNoAddedClaimsOrBadRequest } from "../corrected-claim-guard.js";
 import { userAddedAvailability } from "../spaces/name-claims.js";
 
 type AgentSkillRow = {
@@ -276,7 +275,6 @@ export function createAgentSkillsService(
       if (builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
-      await assertNoAddedClaimsOrBadRequest("", resolved.content);
       try {
         const row = await prisma.$transaction(async (tx) => {
           await assertNameFreeWhereAvailable(
@@ -331,7 +329,6 @@ export function createAgentSkillsService(
       ) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
-      await assertNoAddedClaimsOrBadRequest(existing.content, resolved.content);
       // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
       let renamedRoutineSpaces: string[] = [];
       try {

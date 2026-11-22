@@ -40,8 +40,6 @@ export * from "./cloud-agents/cloud-agent-provider-env.js";
 export * from "./cloud-agents/cloud-agent-service.js";
 export * from "./cloud-agents/cloud-agent-tools.js";
 export * from "./cloud-agents/cloud-agent-tools-select.js";
-export { previousAttempts } from "./cloud-agents/jobs/cloud-agent-card.js";
-export * from "./cloud-agents/jobs/cloud-agent-owner-actions.js";
 export * from "./computers/bot-computer-switch.js";
 export * from "./computers/computer-disk.js";
 export * from "./computers/computer-idle.js";
@@ -75,10 +73,6 @@ export * from "./computers/screens/computer-screens.js";
 export * from "./computers/screens/computer-support.js";
 export { teamWorkspaceInstruction } from "./computers/screens/computer-support.prompt.js";
 export * from "./computers/screens/computer-tools.js";
-export {
-  configureCorrectedClaimsConnections,
-  configureCorrectedClaimsFromEnv,
-} from "./corrected-claims.js";
 export * from "./email/email-emulator.js";
 export * from "./email/email-provider.js";
 export * from "./email/inbound-email.js";

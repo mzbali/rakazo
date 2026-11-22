@@ -14,7 +14,7 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   GROUP_MEMBER_MIN,
 } from "@rakazo/contracts";
-import { ACTIVE_RUN_STATUSES, addedClaimMessage, retry } from "@rakazo/core";
+import { ACTIVE_RUN_STATUSES, retry } from "@rakazo/core";
 import type { Prisma, PrismaClient, ThreadEvents } from "@rakazo/db";
 import {
   cancelRunsInTransaction,
@@ -85,10 +85,6 @@ export async function spawnBot(
   const name = input.name.trim();
   if (!name) return { error: "Bot name is required." };
 
-  const instructions = (input.instructions ?? "").trim().slice(0, BOT_INSTRUCTIONS_MAX_LENGTH);
-  const addedClaim = await addedClaimMessage("", instructions);
-  if (addedClaim) return { error: addedClaim };
-
   const actor: Actor = {
     userId: input.spawnedBy.userId,
     spaceId: input.spawnedBy.spaceId,
@@ -101,7 +97,7 @@ export async function spawnBot(
     created = await createRepos(deps.prisma).createBot(actor, {
       name,
       description: (input.description ?? "").trim().slice(0, BOT_DESCRIPTION_MAX_LENGTH),
-      instructions,
+      instructions: (input.instructions ?? "").trim().slice(0, BOT_INSTRUCTIONS_MAX_LENGTH),
       notifyOnFinish: true,
       // Creation provenance only; bots remain peers in the roster.
       parentBotId: input.spawnedBy.id,

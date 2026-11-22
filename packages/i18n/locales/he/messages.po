@@ -17,16 +17,6 @@ msgstr ""
 msgid " (unread)"
 msgstr " (לא נקראה)"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# background task} other {# background tasks}}"
-msgstr ""
-
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# command} other {# commands}}"
-msgstr ""
-
 #. placeholder {0}: servers.length
 #: apps/web/src/pages/plugins/manage-view.tsx
 msgid "{0, plural, one {# connector} other {# connectors}}"
@@ -47,11 +37,6 @@ msgstr "{0, plural, one {הרווחת חודש חינם אחד} other {הרוו�
 msgid "{0, plural, one {# free month} other {# free months}}"
 msgstr "{0, plural, one {חודש חינם אחד} two {# חודשים חינם} other {# חודשים חינם}}"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# monitor} other {# monitors}}"
-msgstr ""
-
 #. placeholder {0}: skills.length - shownSkills.length
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -69,11 +54,6 @@ msgstr "{0, plural, one {מיומנות אחת} two {# מיומנויות} other
 msgid "{0, plural, one {# space} other {# spaces}}"
 msgstr "{0, plural, one {מרחב אחד} two {# מרחבים} other {# מרחבים}}"
 
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {# subagent} other {# subagents}}"
-msgstr ""
-
 #. placeholder {0}: server.health.toolCount
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0, plural, one {# tool} other {# tools}}"
@@ -83,11 +63,6 @@ msgstr "{0, plural, one {כלי אחד} two {# כלים} other {# כלים}}"
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "{0, plural, one {The code expires in about # minute.} other {The code expires in about # minutes.}}"
 msgstr "{0, plural, one {תוקף הקוד יפוג בעוד כ-# דקה.} two {תוקף הקוד יפוג בעוד כ-# דקות.} other {תוקף הקוד יפוג בעוד כ-# דקות.}}"
-
-#. placeholder {0}: part.count
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "{0, plural, one {watching PR} other {watching # PRs}}"
-msgstr ""
 
 #. placeholder {0}: bot.name
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -104,11 +79,6 @@ msgstr "{0} (עד {ATTACHMENT_MAX_COUNT} קבצים מצורפים)"
 #: apps/web/src/pages/shell/composer/use-composer-actions.ts
 msgid "{0} (over {1})"
 msgstr "{0} (מעל {1})"
-
-#. placeholder {0}: choice.label
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "{0} (recommended)"
-msgstr ""
 
 #. placeholder {0}: block.name
 #: apps/web/src/pages/shell/chat/message-cards.tsx
@@ -145,11 +115,6 @@ msgstr "{0} לא עובד"
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
 msgid "{0} is running"
 msgstr "{0} פעיל"
-
-#. placeholder {0}: pill.count
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
-msgid "{0} jobs working"
-msgstr ""
 
 #. placeholder {0}: parts.amount
 #: apps/web/src/components/messages/ArtifactFileCard.tsx
@@ -289,26 +254,14 @@ msgstr "{connectedCount, plural, one {מחובר אחד} two {# מחוברים} 
 msgid "{count, plural, one {{names} keeps its own model} other {{names} keep their own model}}"
 msgstr "{count, plural, one {{names} שומר על מודל משלו} two {{names} שומרים על מודל משלהם} other {{names} שומרים על מודל משלהם}}"
 
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# background task} other {# background tasks}}"
-msgstr ""
-
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {# bot has its own model: {names}} other {# bots have their own model: {names}}}"
 msgstr "{count, plural, one {ל-# בוט יש מודל משלו: {names}} two {ל-# בוטים יש מודל משלהם: {names}} other {ל-# בוטים יש מודל משלהם: {names}}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# command} other {# commands}}"
-msgstr ""
 
 #: apps/mobile/components/thread/peer-receipt-line.tsx
 #: apps/web/src/pages/shell/chat/message-view.tsx
 msgid "{count, plural, one {# message with {peer}} other {# messages with {peer}}}"
 msgstr "{count, plural, one {הודעה אחת עם {peer}} two {# הודעות עם {peer}} other {# הודעות עם {peer}}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# monitor} other {# monitors}}"
-msgstr ""
 
 #: apps/web/src/components/messages/markdown-copy.tsx
 msgid "{count, plural, one {# row} other {# rows}}"
@@ -327,17 +280,9 @@ msgstr "{count, plural, one {# מיומנות} two {# מיומנויות} other 
 msgid "{count, plural, one {# source} other {# sources}}"
 msgstr ""
 
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {# subagent} other {# subagents}}"
-msgstr ""
-
 #: apps/mobile/components/settings/space-bots-model.tsx
 msgid "{count, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
 msgstr "{count, plural, one {להעביר # בוט לברירת המחדל של המרחב?} two {להעביר # בוטים לברירת המחדל של המרחב?} other {להעביר # בוטים לברירת המחדל של המרחב?}}"
-
-#: apps/mobile/components/job-work.tsx
-msgid "{count, plural, one {watching PR} other {watching # PRs}}"
-msgstr ""
 
 #: apps/mobile/components/thread/thread-list-controls.tsx
 msgid "{count} agents working"
@@ -359,10 +304,6 @@ msgstr "{count} קבצים"
 #: apps/mobile/app/invite.tsx
 msgid "{count} free months earned"
 msgstr "הרווחת {count} חודשים חינם"
-
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-msgid "{count} jobs"
-msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/billing.ts
@@ -932,10 +873,6 @@ msgstr "הרווחת חודש חינם אחד"
 #: apps/web/src/pages/shell/chat/bot-context-menu.tsx
 msgid "1 hour"
 msgstr "שעה"
-
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
-msgid "1 job working"
-msgstr ""
 
 #: apps/web/src/components/integrations/space-availability.tsx
 msgid "1 space"
@@ -1639,11 +1576,6 @@ msgstr "תשובה"
 msgid "Answered"
 msgstr "נענה"
 
-#. placeholder {0}: job.answered
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Answered: {0}"
-msgstr ""
-
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -2017,10 +1949,6 @@ msgstr "חזרה לפגישות"
 msgid "Back to sign in"
 msgstr "חזרה להתחברות"
 
-#: apps/mobile/components/job-work.tsx
-msgid "Background task"
-msgstr ""
-
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -2233,10 +2161,6 @@ msgstr "מקושר לבוטים"
 msgid "Brain label"
 msgstr "תווית Brain"
 
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Brief"
-msgstr ""
-
 #: apps/mobile/app/(settings)/skills.tsx
 #: apps/web/src/components/integrations/skills-dialog.tsx
 msgid "Browse"
@@ -2380,7 +2304,6 @@ msgstr "לא ניתן לקרוא תמונות"
 #: apps/mobile/components/settings/account-deletion.tsx
 #: apps/mobile/components/settings/space-bots-model.tsx
 #: apps/mobile/components/thread/failed-send-bubble.tsx
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/mobile/components/thread/quote-sheet.tsx
 #: apps/mobile/components/thread/selection-bar.tsx
@@ -2443,6 +2366,11 @@ msgstr "ביטול תשובה"
 #: apps/web/src/pages/settings/BillingSettingsPanel.tsx
 msgid "Canceled"
 msgstr "בוטל"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "cancelled"
+msgstr ""
 
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
@@ -2613,11 +2541,6 @@ msgstr "בדקו את החיבור ונסו שוב."
 msgid "Check your email"
 msgstr "יש לבדוק את תיבת האימייל"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Checking"
-msgstr ""
-
 #: apps/web/src/components/computers/ComputersUnavailableHint.tsx
 msgid "Checking computer setup…"
 msgstr "בודק את הגדרות המחשב…"
@@ -2632,21 +2555,6 @@ msgstr "בודק חיבור…"
 #: apps/web/src/pages/shell/host-computer-prompt.tsx
 msgid "Checking…"
 msgstr "בודק…"
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks failing"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks passing"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "checks running"
-msgstr ""
 
 #: apps/web/src/pages/shell/meetings/meeting-calendar.tsx
 msgid "Choose"
@@ -2743,7 +2651,6 @@ msgid "Clean up"
 msgstr "ניקוי"
 
 #: apps/mobile/app/search.tsx
-#: apps/mobile/components/job-swipe-row.ios.tsx
 #: apps/mobile/lib/bots/bot-lifecycle.ts
 #: apps/web/src/components/messages/SecretAskCard.tsx
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
@@ -2773,10 +2680,6 @@ msgstr "ניקוי המסנן {label}"
 #: apps/web/src/pages/space/Artifacts.tsx
 msgid "Clear filters"
 msgstr "ניקוי מסננים"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Clear from list"
-msgstr ""
 
 #: apps/web/src/pages/shell/create-delete-dialogs.tsx
 msgid "Clearing…"
@@ -2884,17 +2787,11 @@ msgstr "סגירת הגדרות המשתמש"
 msgid "Close voice settings"
 msgstr "סגירת הגדרות הקול"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "closed"
-msgstr ""
-
 #: apps/web/src/components/models/ProviderSettingsForm.tsx
 msgid "Cloud"
 msgstr "ענן"
 
-#: apps/mobile/components/job-row.tsx
+#: apps/mobile/components/thread/special-message-card.tsx
 msgid "Cloud agent"
 msgstr "סוכן ענן"
 
@@ -2951,7 +2848,6 @@ msgstr "עמודה {index}"
 msgid "Comfortable"
 msgstr "מרווח"
 
-#: apps/mobile/components/job-work.tsx
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Command"
@@ -3578,11 +3474,6 @@ msgstr "לא ניתן לנקות את השיחה"
 msgid "Could not clear the custom server URL"
 msgstr "לא ניתן לנקות את כתובת השרת המותאם"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Could not clear the job"
-msgstr ""
-
 #: apps/mobile/lib/auth/api-auth.ts
 msgid "Could not clear the local session"
 msgstr "לא ניתן לנקות את הסשן המקומי"
@@ -3967,14 +3858,6 @@ msgstr "לא ניתן לטעון את התמונה"
 #: apps/web/src/pages/plugins/use-plugin-connections.ts
 msgid "Could not load integrations"
 msgstr "לא ניתן לטעון את האינטגרציות"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Could not load job"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Could not load jobs"
-msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/web/src/pages/integrations/McpServersOverlay.tsx
@@ -4467,14 +4350,6 @@ msgstr "לא ניתן לשלוח אימייל לאיפוס"
 msgid "Could not send that"
 msgstr "לא ניתן לשלוח את זה"
 
-#: apps/mobile/lib/thread/send/thread-send.ts
-msgid "Could not send to the job"
-msgstr ""
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Could not send your answer"
-msgstr ""
-
 #: apps/mobile/components/media/audio-attachment.tsx
 msgid "Could not share file"
 msgstr "לא ניתן לשתף את הקובץ"
@@ -4543,10 +4418,6 @@ msgstr "לא ניתן להתחיל את ההתחברות"
 #: apps/web/src/components/teach/TeachComputerOverlay.tsx
 msgid "Could not start teaching"
 msgstr "לא ניתן להתחיל לימוד"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Could not stop the job"
-msgstr ""
 
 #: apps/mobile/components/cards/AskActions.tsx
 msgid "Could not submit answer"
@@ -4700,11 +4571,6 @@ msgstr "לא ניתן לטעון את הארנק"
 #: apps/mobile/components/thread/thread-error-notice.tsx
 msgid "Couldn't refresh. Showing the last loaded messages."
 msgstr "הרענון נכשל. מוצגות ההודעות האחרונות שנטענו."
-
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Couldn't start"
-msgstr ""
 
 #: apps/mobile/app/computer.tsx
 msgid "Couldn't start the computer"
@@ -5257,7 +5123,6 @@ msgstr "מזהה דסקטופ"
 msgid "Desktop update"
 msgstr "עדכון לאפליקציית הדסקטופ"
 
-#: apps/mobile/app/(jobs)/job.tsx
 #: apps/mobile/components/thread/thread-error-notice.tsx
 #: apps/web/src/pages/routines/RoutineRunHistory.tsx
 #: apps/web/src/pages/shell/composer/composer-error.tsx
@@ -5465,13 +5330,11 @@ msgstr "אין חשבון?"
 #: apps/mobile/app/bot-settings.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
 #: apps/mobile/components/cards/ImportSetupCard.tsx
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/messages/select-text-sheet.tsx
 #: apps/mobile/components/thread/ask-block.tsx
 #: apps/mobile/components/vault/vault-item-sheet.tsx
 #: apps/mobile/lib/board/board.ts
 #: apps/web/src/components/computers/ComputerCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/ToolActivityDisclosure.tsx
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 #: apps/web/src/components/settings/AccountDataSettings.tsx
@@ -5541,14 +5404,6 @@ msgstr "שכפול"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Each name can be used once."
 msgstr "ניתן להשתמש בכל שם פעם אחת בלבד."
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "Earlier"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Earlier attempts"
-msgstr ""
 
 #: packages/i18n/src/page-review.ts
 msgid "Earlier revision"
@@ -5828,12 +5683,15 @@ msgstr "הרחבת {name}"
 msgid "Expand table"
 msgstr "הרחבת טבלה"
 
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "expired"
+msgstr ""
+
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
 #: apps/web/src/components/messages/AskCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/ToolQuestionCard.tsx
 msgid "Expired"
@@ -5896,6 +5754,11 @@ msgstr "גדול במיוחד"
 #: packages/i18n/src/computer-usage.ts
 msgid "Extra large (uses {rate}× hours)"
 msgstr "גדול במיוחד (צורך פי {rate} שעות)"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "failed"
+msgstr ""
 
 #: apps/mobile/components/thread/special-message-card.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
@@ -6000,6 +5863,11 @@ msgstr "יש להשלים את הרשאת ה-MCP באפליקציית הווב."
 #: apps/web/src/pages/shell/bots/import-setup-card.tsx
 msgid "Finish setting up"
 msgstr "סיום ההגדרה"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "finished"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: apps/web/src/lib/platform/browser-notifications.ts
@@ -6684,10 +6552,6 @@ msgstr "לא ניתן לפתוח אותו. כדאי לנסות שוב מהסרג
 msgid "It may have been deleted, or it belongs to someone else."
 msgstr "ייתכן שהוא נמחק או שהוא שייך למישהו אחר."
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "It stops working now. What it has done so far is kept."
-msgstr ""
-
 #: apps/mobile/lib/inbox/sections/confirm-delete-section.ts
 #: apps/web/src/pages/shell/shell-dialogs.tsx
 msgid "Its bots and groups are kept and leave the section."
@@ -6708,17 +6572,6 @@ msgstr "הקישור שלו יפסיק לעבוד. אי אפשר לבטל את �
 #: apps/web/src/components/pages/PagesList.tsx
 msgid "Its shared link stops working and its cards in chat show it as deleted. This can't be undone."
 msgstr "הקישור המשותף יפסיק לעבוד והכרטיסים שלו בצ'אט יוצגו כמחוקים. אי אפשר לבטל את הפעולה."
-
-#: apps/mobile/app/_layout.tsx
-#: apps/mobile/app/(settings)/account.tsx
-#: apps/mobile/components/inbox/inbox-header.tsx
-#: apps/mobile/lib/inbox/use-inbox-header.ts
-msgid "Jobs"
-msgstr ""
-
-#: apps/mobile/app/(jobs)/thread-jobs.tsx
-msgid "Jobs in this chat"
-msgstr ""
 
 #: apps/web/src/pages/auth/Invite.tsx
 #: apps/web/src/pages/auth/JoinOrganization.tsx
@@ -6792,10 +6645,6 @@ msgstr "שמירת הזיכרונות"
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Keep tool results whole"
 msgstr "שמירת תוצאות כלים במלואן"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Keep working"
-msgstr ""
 
 #: apps/web/src/pages/routines/routine-editor/trigger-cards.tsx
 msgid "Key options"
@@ -7361,12 +7210,6 @@ msgstr "מזכיר תכונות של OpenClaw"
 msgid "Mentions: {mentions}"
 msgstr "מזכיר: {mentions}"
 
-#: apps/mobile/components/job-row.tsx
-#: apps/mobile/components/job-work.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "merged"
-msgstr ""
-
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/lib/thread/thread-message-text.ts
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -7567,10 +7410,6 @@ msgstr "מודלים מהשרת"
 msgid "Monday"
 msgstr "יום שני"
 
-#: apps/mobile/components/job-work.tsx
-msgid "Monitor"
-msgstr ""
-
 #: packages/i18n/src/billing.ts
 msgid "month"
 msgstr "חודש"
@@ -7619,10 +7458,6 @@ msgstr "פעולות נוספות"
 #: apps/web/src/pages/plugins/plugin-browse.tsx
 msgid "More apps"
 msgstr "עוד אפליקציות"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "More options"
-msgstr ""
 
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
@@ -7766,12 +7601,8 @@ msgstr "נדרשת התחברות"
 msgid "Needs takeover"
 msgstr "נדרשת השתלטות"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/cards/ComputerCard.tsx
-#: apps/mobile/components/job-status.tsx
-#: apps/mobile/components/thread/thread-jobs-pill.tsx
 #: apps/web/src/components/computers/ComputerCard.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/lib/chat/roster-status.ts
 msgid "Needs you"
 msgstr "נדרשת פעולה"
@@ -7988,10 +7819,6 @@ msgstr "עדיין אין תגובות."
 #: packages/i18n/src/computer-usage.ts
 msgid "No computer hours used yet"
 msgstr "עדיין לא נוצלו שעות מחשב"
-
-#: apps/mobile/app/(jobs)/jobs.tsx
-msgid "No jobs yet"
-msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/thread/message-bubble.tsx
@@ -8284,10 +8111,6 @@ msgstr "לא עובד"
 msgid "Nothing remembered yet"
 msgstr "עדיין אין זיכרונות"
 
-#: apps/mobile/app/(jobs)/thread-jobs.tsx
-msgid "Nothing running"
-msgstr ""
-
 #: apps/mobile/app/(settings)/vault.tsx
 msgid "Nothing saved yet."
 msgstr "עדיין לא נשמר כלום."
@@ -8418,10 +8241,6 @@ msgstr "רק הבוט הזה"
 msgid "Only you"
 msgstr "רק את/ה"
 
-#: apps/mobile/components/job-work.tsx
-msgid "open"
-msgstr ""
-
 #: apps/mobile/app/_layout.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/wallet.tsx
@@ -8461,10 +8280,6 @@ msgstr "פתיחת {title}"
 #: apps/web/src/pages/shell/chat/chat-header.tsx
 msgid "Open call"
 msgstr "פתיחת השיחה"
-
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Open chat"
-msgstr ""
 
 #. placeholder {0}: call.botName
 #: apps/web/src/components/call/CallCard.tsx
@@ -8507,12 +8322,6 @@ msgstr "פתיחה בדפדפן"
 msgid "Open in full window"
 msgstr "פתיחה בחלון מלא"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Open in T3"
-msgstr ""
-
 #: apps/web/src/components/pages/SharePopover.tsx
 msgid "Open link"
 msgstr "פתיחת הקישור"
@@ -8527,10 +8336,6 @@ msgstr "פתיחת הניווט"
 #: apps/web/src/pages/SharedPage.tsx
 msgid "Open Rakazo"
 msgstr "פתיחת Rakazo"
-
-#: apps/mobile/components/job-proof.tsx
-msgid "Open screenshot"
-msgstr ""
 
 #: apps/web/src/components/models/SubscriptionSignInSteps.tsx
 msgid "Open settings"
@@ -8982,16 +8787,6 @@ msgstr "פרסום הודעה בצ׳אט כשבדיקה לא מוצאת שינו
 msgid "Post comment"
 msgstr "פרסום תגובה"
 
-#. placeholder {0}: pr.number
-#: apps/mobile/components/job-work.tsx
-msgid "PR #{0}"
-msgstr ""
-
-#: apps/mobile/components/job-row.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "PR #{prNumber}"
-msgstr ""
-
 #: apps/mobile/lib/bots/bot-template-copy.ts
 #: apps/web/src/components/bot-templates/bot-template-copy.ts
 msgid "PR reviewer"
@@ -9137,6 +8932,11 @@ msgstr "פרסום הגרסה"
 #: packages/i18n/src/page-review.ts
 msgid "Published in revision {version}"
 msgstr "פורסם בגרסה {version}"
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "Pull request"
+msgstr ""
 
 #: apps/mobile/app/paywall.tsx
 msgid "Put your bots to work"
@@ -9678,7 +9478,6 @@ msgstr "תשובות ועבודה שהושלמה"
 msgid "Replies to"
 msgstr "משיב ל"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/mobile/components/thread/message-row.tsx
 #: apps/web/src/pages/shell/chat/message-hover-actions.tsx
 #: apps/web/src/pages/shell/chat/quote-selection-button.tsx
@@ -9856,15 +9655,6 @@ msgstr "משחזר…"
 msgid "Resume notifications"
 msgstr "חידוש ההתראות"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Resumes"
-msgstr ""
-
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "Resumes when it's back · since {since}"
-msgstr ""
-
 #: apps/mobile/app/(settings)/ai-data-sharing.tsx
 #: apps/mobile/app/(settings)/bot-template.tsx
 #: apps/mobile/app/(settings)/bot-templates.tsx
@@ -10032,6 +9822,11 @@ msgstr "הרצה עכשיו"
 #: apps/web/src/pages/shell/use-routine-editor.ts
 msgid "Run time must be in the future."
 msgstr "זמן ההרצה חייב להיות בעתיד."
+
+#: apps/mobile/components/thread/special-message-card.tsx
+#: apps/web/src/components/messages/CloudAgentCard.tsx
+msgid "running"
+msgstr ""
 
 #: apps/mobile/app/bot-profile.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
@@ -10419,7 +10214,6 @@ msgstr "באירוח עצמי"
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/mobile/components/composer/thread-composer.tsx
-#: apps/mobile/components/thread/job-owner-actions.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
 #: apps/web/src/pages/shell/composer/composer-parts.tsx
 msgid "Send"
@@ -10486,10 +10280,6 @@ msgstr "שליחה ב-Enter"
 #: apps/web/src/components/vault/VaultItemEditor.tsx
 msgid "Sending…"
 msgstr "שולח…"
-
-#: apps/mobile/components/thread/thread-screen.tsx
-msgid "Sends to the job"
-msgstr ""
 
 #: apps/mobile/components/cards/ToolQuestionCard.tsx
 #: apps/mobile/components/thread/ask-block.tsx
@@ -11170,8 +10960,6 @@ msgstr "התחיל באיחור של {count} שע׳"
 msgid "Started {count}m late"
 msgstr "התחיל באיחור של {count} דק׳"
 
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: packages/i18n/src/activity.ts
 msgid "Starting"
 msgstr "מתחיל"
@@ -11213,10 +11001,6 @@ msgstr "עצירה"
 msgid "Stop dictating"
 msgstr "הפסקת ההכתבה"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stop job"
-msgstr ""
-
 #. js-lingui-explicit-id
 #: packages/i18n/src/meeting.ts
 msgid "Stop joining this series"
@@ -11234,13 +11018,7 @@ msgstr "הפסקת הלימוד"
 msgid "Stop the computer first."
 msgstr "יש לעצור קודם את המחשב."
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stop this job?"
-msgstr ""
-
-#: apps/mobile/components/job-status.tsx
 #: apps/mobile/components/thread/special-message-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/components/messages/SubagentCard.tsx
 msgid "Stopped"
 msgstr "נעצר"
@@ -11249,10 +11027,6 @@ msgstr "נעצר"
 #: apps/web/src/lib/platform/browser-notifications.ts
 msgid "Stopped."
 msgstr "נעצר."
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Stopping…"
-msgstr ""
 
 #: apps/web/src/pages/integrations/McpServerForm.tsx
 msgid "Stored encrypted"
@@ -11267,10 +11041,6 @@ msgstr "הזרמת תשובות"
 #: packages/i18n/src/identity-display.ts
 msgid "subagent"
 msgstr "סוכן משנה"
-
-#: apps/mobile/components/job-work.tsx
-msgid "Subagent"
-msgstr ""
 
 #: apps/mobile/components/cards/OutgoingDraftCard.tsx
 #: apps/web/src/components/messages/OutgoingDraftCard.tsx
@@ -11994,10 +11764,6 @@ msgstr "השבוע"
 msgid "Thread"
 msgstr "שרשור"
 
-#: apps/mobile/app/(jobs)/job.tsx
-msgid "Thread's report"
-msgstr ""
-
 #: packages/i18n/src/cron.ts
 msgid "Thursday"
 msgstr "יום חמישי"
@@ -12054,7 +11820,6 @@ msgstr "כדי לכבות את זה, יש להשתמש ב„ביטול כל הה
 msgid "To:"
 msgstr "אל:"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/app/paywall.tsx
 #: apps/mobile/components/thread/time-separator.tsx
 #: apps/web/src/pages/settings/UsageSettingsPanel.tsx
@@ -12713,12 +12478,6 @@ msgstr "הצגת הכול"
 msgid "View page"
 msgstr "צפייה בדף"
 
-#: apps/mobile/app/(jobs)/job.tsx
-#: apps/mobile/components/thread/cloud-agent-card.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
-msgid "View PR"
-msgstr ""
-
 #: apps/mobile/app/(settings)/plugin.tsx
 #: apps/web/src/components/integrations/plugin-marketplace.tsx
 msgid "View source"
@@ -12797,10 +12556,6 @@ msgstr "הער"
 #: apps/web/src/pages/settings/settings-nav.ts
 msgid "Wallet"
 msgstr "ארנק"
-
-#: apps/mobile/components/job-work.tsx
-msgid "watching"
-msgstr ""
 
 #: apps/web/src/components/billing/CreditChoice.tsx
 msgid "Web, desktop and mobile"
@@ -12997,11 +12752,8 @@ msgstr "לא יבוצע"
 msgid "Work"
 msgstr "עבודה"
 
-#: apps/mobile/app/(jobs)/jobs.tsx
 #: apps/mobile/components/bots/bot-avatar.tsx
 #: apps/mobile/components/inbox/inbox-activity.tsx
-#: apps/mobile/components/job-status.tsx
-#: apps/web/src/components/messages/CloudAgentCard.tsx
 #: apps/web/src/pages/space/ActivityList.tsx
 msgid "Working"
 msgstr "בעבודה"
@@ -13009,10 +12761,6 @@ msgstr "בעבודה"
 #: apps/web/src/pages/shell/bots/agent-import-plan.tsx
 msgid "Working instructions"
 msgstr "הוראות עבודה"
-
-#: apps/mobile/components/job-work.tsx
-msgid "Working on"
-msgstr ""
 
 #: apps/mobile/app/(settings)/integrations.tsx
 #: apps/mobile/app/sign-in.tsx
@@ -13108,10 +12856,6 @@ msgstr "הכול מוכן"
 msgid "Your account"
 msgstr "החשבון שלך"
 
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Your answer"
-msgstr ""
-
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts
 msgid "Your Anthropic"
@@ -13179,10 +12923,6 @@ msgstr "כתובת האימייל"
 #: apps/mobile/app/paywall.tsx
 msgid "Your free trial has started"
 msgstr "תקופת הניסיון החינמית התחילה"
-
-#: apps/mobile/components/thread/job-owner-actions.tsx
-msgid "Your instruction was delivered"
-msgstr ""
 
 #. js-lingui-explicit-id
 #: packages/i18n/src/run-error.ts

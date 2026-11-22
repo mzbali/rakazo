@@ -245,11 +245,6 @@ export default function Account() {
       icon: { ios: "folder", android: "folder-outline" },
     },
     {
-      title: t`Jobs`,
-      href: "/jobs",
-      icon: { ios: "checklist", android: "list-outline" },
-    },
-    {
       title: t`Pages shared with you`,
       href: "/shared-pages",
       icon: { ios: "doc.on.doc", android: "documents-outline" },

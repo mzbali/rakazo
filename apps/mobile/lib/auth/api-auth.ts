@@ -35,7 +35,6 @@ import {
   tokenFromAuthResponse,
 } from "../api/session";
 import { authResponseErrorText, sessionSaveErrorText } from "../api/user-error";
-import { resetCloudJobs } from "../cloud-jobs-store";
 import { getActiveUiLocale } from "../i18n/i18n";
 import { resumeLiveNotifications } from "../notifications/live-notifications";
 
@@ -267,7 +266,6 @@ async function replaceSessionAfterPasswordChange(
   await maybeResume();
 }
 export async function signOut() {
-  resetCloudJobs();
   const apiBase = currentApiBase();
   // A save still running reads as no session, and the clear would delete its token once it lands
   // with no record to revoke it: as in a server switch, the sign-out stops and the user retries.

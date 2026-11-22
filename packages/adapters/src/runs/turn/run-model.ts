@@ -24,7 +24,12 @@ import {
   HostedModelCreditsRequiredError,
   hostedModelCreditObserver,
 } from "../../models/credits/model-credit-observer.js";
-import { resolveDeploymentModel } from "../../models/deployment-model.js";
+import type { SavedDeploymentModel } from "../../models/deployment-model.js";
+import {
+  loadAdminDeploymentModelKey,
+  matchingAdminDeploymentModel,
+  resolveDeploymentModel,
+} from "../../models/deployment-model.js";
 import {
   CLOUDFLARE_AI_GATEWAY_CONFIG_MESSAGE,
   CLOUDFLARE_WORKERS_AI_PROVIDER_ID,
@@ -130,14 +135,10 @@ export async function fleetPrepareDeps(
 
 /**
  * The deployment key is a bearer credential for exactly one vendor, so it is handed out
- * only when the provider that won the resolution above is that vendor. A provider named
- * by deployment settings or a bot override gets no key rather than another vendor's.
+ * only when the provider that won the resolution is that vendor. A provider named by
+ * deployment settings or a bot override gets no key rather than another vendor's.
  */
-function deploymentKeyFor(
-  deps: Pick<ExecutorDeps, "deploymentModelKey">,
-  provider: string,
-): string | undefined {
-  if (!deps.deploymentModelKey) return undefined;
+function operatorModelKey(deps: Pick<ExecutorDeps, "deploymentModelKey">, provider: string) {
   return provider === resolveDeploymentModel().provider ? deps.deploymentModelKey : undefined;
 }
 
@@ -267,7 +268,14 @@ export async function resolveModelKeyMaterial(
   {
     requireStoredSecret = false,
     operatorFunded = false,
-  }: { requireStoredSecret?: boolean; creditOfferingId?: string; operatorFunded?: boolean } = {},
+    adminSettings,
+  }: {
+    requireStoredSecret?: boolean;
+    creditOfferingId?: string;
+    operatorFunded?: boolean;
+    /** The same settings snapshot used to choose the deployment fallback. */
+    adminSettings?: SavedDeploymentModel | null;
+  } = {},
 ): Promise<{
   apiKey?: string;
   accountId?: string;
@@ -316,7 +324,7 @@ export async function resolveModelKeyMaterial(
           throw new UnavailableModelForAuthError(UNKNOWN_PROVIDER_MODEL);
         }
         cloudflareProviderEnv({ provider });
-        return { apiKey: deploymentKeyFor(deps, provider), redact: [] };
+        return { apiKey: operatorModelKey(deps, provider), redact: [] };
       }
       const plaintext = await deps.secretStore.load(row.ciphertext, row.id);
       registerSecrets?.(secretValuesToRedact(parseModelSecret(plaintext)));
@@ -456,7 +464,14 @@ export async function resolveModelKeyMaterial(
     return material!;
   }
   cloudflareProviderEnv({ provider });
-  return { apiKey: deploymentKeyFor(deps, provider), redact: [] };
+  const admin = !operatorFunded && matchingAdminDeploymentModel(adminSettings, provider, modelId);
+  return {
+    apiKey:
+      admin && !(await modelCreditBillingEnabled(deps))
+        ? await loadAdminDeploymentModelKey(deps.secretStore, admin.cipher)
+        : operatorModelKey(deps, provider),
+    redact: [],
+  };
 }
 
 /** Translate resolved credentials and capabilities consistently for every run path. */
@@ -526,9 +541,8 @@ export async function resolveConnectedModelKey(
     );
     return { credential: null, resolved };
   }
-  const hostedProvider = (await modelCreditBillingEnabled(deps))
-    ? resolveDeploymentModel().provider
-    : undefined;
+  const billingEnabled = await modelCreditBillingEnabled(deps);
+  const hostedProvider = billingEnabled ? resolveDeploymentModel().provider : undefined;
   const validationError = await validateConnectedModelChoice(
     deps.prisma,
     deps.secretStore,
@@ -537,6 +551,24 @@ export async function resolveConnectedModelKey(
     modelId,
     { hostedProvider, credentialId, codexCatalog: deps.codexCatalog },
   );
+  if (validationError === PINNED_PROVIDER_NOT_CONNECTED && !credentialId && !billingEnabled) {
+    const adminSettings = await deps.prisma.deploymentSettings.findUnique({
+      where: { id: "default" },
+    });
+    if (matchingAdminDeploymentModel(adminSettings, provider, modelId)) {
+      const resolved = await resolveModelKey(
+        deps,
+        scope.userId,
+        scope.spaceId,
+        null,
+        provider,
+        modelId,
+        registerSecrets,
+        { adminSettings },
+      );
+      return { credential: null, resolved };
+    }
+  }
   if (validationError) throw new Error(validationError);
   const credential = await findConnectedModelCredential(
     deps.prisma,
@@ -658,6 +690,7 @@ export async function resolveRunModel(
     id,
     undefined,
     {
+      adminSettings: settings,
       creditOfferingId: creditOfferingFromConnectionId(selected.connectionId),
       requireStoredSecret: Boolean(
         selected.connectionId && !creditOfferingFromConnectionId(selected.connectionId),

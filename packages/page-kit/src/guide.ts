@@ -172,7 +172,7 @@ One idea per visual. Short numbered prose around it. The page recipes below lead
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
-- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, add a prefilled calculator and use Choices radio for missing preferences. Use ProductRows for linked options.
+- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options.
 - Mix: Pie with a centred total and expandable notes, StackedBars showShares, then ColumnSeries for changes across periods.
 - Trend: Metrics, LineChart with a relevant peak and target, a month Slider and jump buttons, then a compact table.
 - Before/after location: Metrics, Rings with both markers, horizontal Bars, adjustable savings and a route table.

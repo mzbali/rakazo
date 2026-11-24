@@ -65,6 +65,10 @@ type TimelineItem = {
   detail?: ReactNode;
   series?: number;
   open?: boolean;
+  /** A flat list uses date, year or label as the year column. */
+  date?: ReactNode;
+  year?: ReactNode;
+  label?: ReactNode;
 };
 type TimelineGroup = { label?: ReactNode; items?: TimelineItem[] };
 type Choice = string | number | { value?: string | number; label?: ReactNode };
@@ -263,11 +267,29 @@ export function Result({
 }
 
 /** A year column and milestone rows. A row with detail opens it. `focus` highlights that year. */
-export function Timeline({ groups = [], focus }: { groups?: TimelineGroup[]; focus?: ReactNode }) {
-  const listed = objectItems(groups).map((group) => ({
+export function Timeline({
+  groups = [],
+  items,
+  focus,
+}: {
+  groups?: TimelineGroup[];
+  /** One row per entry when `groups` is empty. `date`, `year` or `label` is the year. */
+  items?: TimelineItem[];
+  focus?: ReactNode;
+}) {
+  const fromGroups = objectItems(groups).map((group) => ({
     label: group.label,
     items: objectItems(group.items).filter((item) => plain(item)),
   }));
+  const listed =
+    fromGroups.length > 0
+      ? fromGroups
+      : objectItems(items)
+          .filter((item) => plain(item))
+          .map((item) => ({
+            label: item.date ?? item.year ?? item.label,
+            items: [item],
+          }));
   const seed = listed
     .flatMap((group, groupIndex) =>
       group.items.map((item, itemIndex) =>

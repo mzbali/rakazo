@@ -139,10 +139,16 @@ export function Page({
   );
 }
 
+/** The one line under a picture. A Section places it inside that picture's card. */
+export function Caption({ children }: { children?: ReactNode }) {
+  return <p className="rk-caption">{children}</p>;
+}
+
 const isFigure = (child: ReactNode) => isValidElement(child) && FIGURES.has(child.type);
 const classOf = (child: ReactNode) =>
   isValidElement(child) ? (child.props as { className?: string }).className : undefined;
-const isCaption = (child: ReactNode) => classOf(child) === "rk-caption";
+const isCaption = (child: ReactNode) =>
+  classOf(child) === "rk-caption" || (isValidElement(child) && child.type === Caption);
 const isSource = (child: ReactNode) => classOf(child) === "rk-source";
 
 /** A figure that is not already the whole section gets its own card, caption and source inside. */
@@ -170,6 +176,7 @@ function wrapLooseFigures(blocks: ReactNode[]): ReactNode[] {
 
 export function Section({
   heading,
+  title: namedTitle,
   id,
   caption,
   source,
@@ -179,6 +186,8 @@ export function Section({
   children,
 }: {
   heading?: string;
+  /** The same text as heading. Chat visuals write title. */
+  title?: string;
   id?: string;
   caption?: string;
   /** A muted line under the caption, inside the same card. */
@@ -188,12 +197,12 @@ export function Section({
   defaultOpen?: boolean;
   children?: ReactNode;
 }) {
+  const headingText = heading || (typeof namedTitle === "string" ? namedTitle : "");
   const card = useContext(InGrid);
   const depth = useContext(Depth);
-  const folds = Boolean(collapsible && heading);
+  const folds = Boolean(collapsible && headingText);
   const [open, setOpen] = useState(Boolean(defaultOpen));
-  const anchor =
-    typeof id === "string" && id ? id : typeof heading === "string" ? slugify(heading) : "";
+  const anchor = typeof id === "string" && id ? id : headingText ? slugify(headingText) : "";
   const title = folds ? (
     <button
       type="button"
@@ -214,15 +223,15 @@ export function Section({
           strokeLinejoin="round"
         />
       </svg>
-      <span>{heading}</span>
+      <span>{headingText}</span>
     </button>
   ) : (
-    heading
+    headingText
   );
   const head =
-    heading || actions ? (
+    headingText || actions ? (
       <div className="rk-section-head">
-        {heading
+        {headingText
           ? createElement(`h${Math.min(6, depth + 2)}`, { className: "rk-heading" }, title)
           : null}
         {actions ? <div className="rk-actions">{actions}</div> : null}
@@ -262,7 +271,7 @@ export function Section({
       className="rk-section"
       id={anchor || undefined}
       data-card={carded || undefined}
-      data-headed={heading ? true : undefined}
+      data-headed={headingText ? true : undefined}
       data-collapsible={folds || undefined}
     >
       {head}

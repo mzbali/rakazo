@@ -71,6 +71,10 @@ describe("checkPageSource", () => {
       "const App = () => <Page title='t'><div style={{ display: 'grid' }} onClick={() => {}}><svg viewBox='0 0 10 10'><defs><linearGradient id='g'><stop offset='0' /></linearGradient></defs><path d='M0 0h10' /><circle r='2'><animate attributeName='r' /></circle><text>x</text></svg><img src='data:image/png;base64,AA==' alt='' /></div></Page>;",
     ],
     [
+      "a caption under a picture",
+      "const App = () => <Section title='P inside NP'><Venn nested sets={[{label: 'NP'}, {label: 'P'}]} /><Caption>P is inside NP.</Caption></Section>;",
+    ],
+    [
       "the structure, text and math components and the theme hook",
       "function App() { const t = useTheme(); return <Page title='t'><TableOfContents items={[{ label: 'a', id: 'a' }]} /><Section id='a' heading='A' collapsible><BulletList items={['x']} /><NumberedList items={['y']} /><ProsCons pros={['p']} cons={['c']} /><Quote cite='me'>q</Quote><LinkCards links={[]} /><Legend names={['n']} /><Equation><Frac num='1' den='2' /><Pow base='x' exp='2' /><Sqrt>y</Sqrt><Sum /><Paren>z</Paren></Equation></Section><Divider /><PageMeta>m</PageMeta><Footnote>f</Footnote><Floating><BackToTop /></Floating><span style={{ color: t.text.primary }} /></Page>; }",
     ],

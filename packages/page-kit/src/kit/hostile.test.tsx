@@ -39,7 +39,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   Rows: { rows: ["title", "lead", "detail", "meta", "status"] },
   Steps: { steps: ["title", "detail"] },
   Checklist: { items: ["text", "done", "meta"], sections: ["title", "items"] },
-  Timeline: { groups: ["label", "items"] },
+  Timeline: { groups: ["label", "items"], items: ["date", "title", "detail", "label"] },
   Result: { groups: ["label", "value"], copy: ["label", "text"] },
   Quiz: { questions: ["question", "options", "answer", "explain"] },
   Flashcards: { cards: ["front", "back"] },
@@ -109,6 +109,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
 // Components whose props are all text, numbers, flags, callbacks or children.
 const PLAIN = new Set<PageKitComponentName>([
   "Section",
+  "Caption",
   "Grid",
   "Text",
   "Callout",

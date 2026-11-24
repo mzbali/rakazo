@@ -2,6 +2,7 @@
 export const PAGE_KIT_COMPONENTS = [
   "Page",
   "Section",
+  "Caption",
   "Grid",
   "Text",
   "Callout",

@@ -6,7 +6,7 @@ import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table }
 import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
 import { drawEdges } from "./diagram-layout.js";
 import { inlineMarkup } from "./inline.js";
-import { Callout, Grid, Page, Section, Text } from "./layout.js";
+import { Callout, Caption, Grid, Page, Section, Text } from "./layout.js";
 import { PAGE_STYLES } from "./styles.js";
 
 const html = (element: React.ReactElement) => renderToStaticMarkup(element);
@@ -36,6 +36,14 @@ describe("page kit", () => {
       /<section class="rk-section" id="headline" data-headed="true"><div class="rk-section-head"><h2 class="rk-heading">Headline<\/h2><div class="rk-actions"><fieldset class="rk-segmented"/,
     );
     expect(markup).toContain('x<p class="rk-caption" data-figure="true">As of Oct 31</p>');
+    const titled = html(
+      <Section title="P inside NP">
+        <Text>Sets</Text>
+        <Caption>P sits inside NP.</Caption>
+      </Section>,
+    );
+    expect(titled).toContain('<h2 class="rk-heading">P inside NP</h2>');
+    expect(titled).toContain('<p class="rk-caption">P sits inside NP.</p>');
     expect(markup).toContain(
       'data-card="true" data-headed="true"><div class="rk-section-head"><h2 class="rk-heading">Status',
     );

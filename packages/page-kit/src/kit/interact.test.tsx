@@ -144,6 +144,20 @@ describe("timeline", () => {
     expect(row.getAttribute("aria-expanded")).toBe("true");
     expect(host.textContent).toContain("First landing");
   });
+
+  it("draws a flat items list as one row per date", () => {
+    render(
+      <Timeline
+        items={[
+          { date: "1969", title: "Apollo 11", detail: "First landing" },
+          { date: "1972", title: "Apollo 17", detail: "Last landing" },
+        ]}
+      />,
+    );
+    expect(host.querySelectorAll(".rk-timeline-group")).toHaveLength(2);
+    expect(host.textContent).toContain("1969");
+    expect(host.textContent).toContain("Apollo 11");
+  });
 });
 
 describe("stages and chart marker", () => {

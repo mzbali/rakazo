@@ -210,7 +210,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "show_visual",
     description:
-      'Draw a diagram, chart, comparison or small tool in the chat, without saving a page. Place the embed it returns in your reply where the visual belongs. Pass JSX written against the Rakazo page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
+      'Draw a picture, diagram, chart or small tool in the chat, without saving a page. For a concept, put the picture here, and one control the reader moves when changing a variable shows the point. Place the embed it returns where the visual belongs. Pass JSX against the page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
     inputSchema: {
       type: "object",
       properties: {

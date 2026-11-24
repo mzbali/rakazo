@@ -59,7 +59,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   },
   Heatmap: { rows: [], columns: [], values: [] },
   CalendarHeatmap: { days: ["date", "value"] },
-  Venn: { sets: ["label", "count", "items"] },
+  Venn: { sets: ["label", "count", "items", "note", "tone"] },
   Matrix2x2: { axes: ["x", "y"], quadrants: [], points: ["label", "x", "y"] },
   SourceStamp: { source: ["value", "asOf", "fresh", "updating", "error"] },
   Select: { options: ["value", "label"] },

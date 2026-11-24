@@ -1,9 +1,38 @@
 import type { ReactNode } from "react";
+import type { Words } from "../labels.js";
 import { useWords } from "../labels.js";
 import { describe, finite, seriesColor, text, textWidth, useWidth } from "./shared.js";
 import { EmptyChart } from "./status.js";
 
-type VennSet = { label: ReactNode; count?: number; items?: ReactNode[] };
+type VennSet = {
+  label: ReactNode;
+  count?: number;
+  items?: ReactNode[];
+  /** A second line under the label. Nested circles use it inside the band. */
+  note?: ReactNode;
+  tone?: "success" | "warning" | "danger" | "info" | "accent";
+};
+
+const TONE_VAR: Record<NonNullable<VennSet["tone"]>, string> = {
+  success: "var(--rk-success)",
+  warning: "var(--rk-warning)",
+  danger: "var(--rk-danger)",
+  info: "var(--rk-accent)",
+  accent: "var(--rk-accent)",
+};
+
+function toneColor(tone: unknown): string | undefined {
+  return typeof tone === "string" && Object.hasOwn(TONE_VAR, tone)
+    ? TONE_VAR[tone as NonNullable<VennSet["tone"]>]
+    : undefined;
+}
+
+/** Radii from the outside in, so the first set is the circle the others sit inside. */
+function nestedRadii(count: number, outer: number): number[] {
+  if (count <= 1) return [outer];
+  if (count === 2) return [outer, outer * 0.58];
+  return [outer, outer * 0.74, outer * 0.46];
+}
 
 /** Words in lines no wider than `max`, measured as the chart's labels are. */
 function wrapWords(words: string, max: number): string[] {
@@ -19,14 +48,121 @@ function wrapWords(words: string, max: number): string[] {
   return lines;
 }
 
-/** Two or three overlapping sets, each named outside its circle, with the shared figure inside. */
-export function Venn({ sets = [], overlap }: { sets?: VennSet[]; overlap?: ReactNode }) {
+/** Concentric circles. The first set is the outside one, and each label sits in its own band. */
+function nestedCircles(
+  shown: VennSet[],
+  width: number,
+  count: (set: VennSet) => number | undefined,
+  words: Words,
+) {
+  const outer = Math.max(48, Math.min(120, (width - 24) / 2));
+  const radii = nestedRadii(shown.length, outer);
+  const cx = width / 2;
+  const cy = 10 + outer;
+  const height = Math.round(outer * 2 + 20);
+  const described = shown.map((set) => {
+    const note = text(set.note);
+    const total = count(set);
+    return [text(set.label), note, total !== undefined ? words.number(total) : ""]
+      .filter(Boolean)
+      .join(", ");
+  });
+  return (
+    <svg
+      role="img"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-label={describe(described)}
+    >
+      {radii.map((r, i) => {
+        const color = toneColor(shown[i]?.tone) ?? "var(--foreground)";
+        const innermost = i === radii.length - 1;
+        return (
+          <circle
+            key={i}
+            className="rk-venn-set"
+            cx={cx}
+            cy={cy}
+            r={r}
+            style={{
+              fill: color,
+              stroke: color,
+              fillOpacity: innermost && toneColor(shown[i]?.tone) ? 0.34 : 0.06,
+              strokeWidth: 1.5,
+            }}
+          />
+        );
+      })}
+      {radii.map((r, i) => {
+        const set = shown[i]!;
+        const inner = radii[i + 1] ?? 0;
+        const fromCentre = inner === 0 ? 0 : (r + inner) / 2;
+        const room = Math.max(48, 2 * Math.sqrt(Math.max(0, r * r - fromCentre * fromCentre)) - 16);
+        const name = wrapWords(text(set.label), room).slice(0, 2);
+        const note = wrapWords(text(set.note), room).slice(0, 2);
+        const total = count(set);
+        const lines = name.length + note.length + (total !== undefined ? 1 : 0);
+        const y = cy - fromCentre - ((lines - 1) * 14) / 2;
+        const noteY = y + name.length * 14;
+        const countY = y + (name.length + note.length) * 14;
+        return (
+          <g key={`l${i}`}>
+            {name.length > 0 ? (
+              <text className="rk-venn-name" x={cx} y={y} textAnchor="middle">
+                {name.map((line, index) => (
+                  <tspan key={index} x={cx} dy={index === 0 ? 0 : 14}>
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            ) : null}
+            {note.length > 0 ? (
+              <text className="rk-venn-count" x={cx} y={noteY} textAnchor="middle">
+                {note.map((line, index) => (
+                  <tspan key={index} x={cx} dy={index === 0 ? 0 : 14}>
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            ) : null}
+            {total !== undefined ? (
+              <text className="rk-venn-count" x={cx} y={countY} textAnchor="middle">
+                {words.number(total)}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Two or three overlapping sets, or with `nested` one circle inside the next. */
+export function Venn({
+  sets = [],
+  overlap,
+  nested = false,
+}: {
+  sets?: VennSet[];
+  overlap?: ReactNode;
+  nested?: boolean;
+}) {
   const words = useWords();
   const { ref, width } = useWidth(560);
   const shown = (Array.isArray(sets) ? sets : [])
     .filter((set) => set && set.label != null)
     .slice(0, 3);
   if (shown.length === 0) return <EmptyChart />;
+  const count = (set: VennSet) =>
+    finite(set.count) ? set.count : Array.isArray(set.items) ? set.items.length : undefined;
+  if (nested === true) {
+    return (
+      <div className="rk-chart rk-frame rk-venn" data-layout="nested" ref={ref}>
+        {nestedCircles(shown, width, count, words)}
+      </div>
+    );
+  }
   const r = Math.max(40, Math.min(79, (width - 160) / 3.2));
   const center = width / 2;
   const three = shown.length === 3;
@@ -39,8 +175,6 @@ export function Venn({ sets = [], overlap }: { sets?: VennSet[]; overlap?: React
     { cx: center, cy: cy + r * 0.98 },
   ].slice(0, shown.length);
   const middle = three ? { x: center, y: (cy * 2 + cy + r * 0.98) / 3 } : { x: center, y: cy };
-  const count = (set: VennSet) =>
-    finite(set.count) ? set.count : Array.isArray(set.items) ? set.items.length : undefined;
   return (
     <div className="rk-chart rk-frame rk-venn" ref={ref}>
       <svg

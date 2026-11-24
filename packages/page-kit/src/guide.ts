@@ -12,7 +12,7 @@ A page is JSX source whose default export is a React component. It renders in an
 - Save with save_page {title, source}. To change it later, pass the pageId you got back with edits [{find, replace}] (all apply or none do) or the whole new source; pass only pageId to read the current source.
 
 ## Design rules
-- Show, don't narrate: pick the richest component that fits the data. Numbers become Metrics, trends a LineChart, comparisons Bars, shares a Pie, flows a Diagram, sequences Steps, options ProsCons, statuses toned Status pills. A paragraph is for the one thing a visual cannot say.
+- Show, don't narrate: pick the richest component that fits the data. Numbers become Metrics, trends a LineChart, comparisons Bars, shares a Pie, flows a Diagram, one set inside another a nested Venn, sequences Steps, options ProsCons, statuses toned Status pills. A paragraph is for the one thing a visual cannot say.
 - Lead with the answer: a Callout (lead + tone) or Metrics first, evidence below. The reader should get the point in two seconds.
 - Long pages (five or more sections) start with a TableOfContents whose ids match the Section ids. Number sections in reading order when the order matters.
 - Avoid walls of text and walls of identical cards: mix open sections, a Grid of two or three cells and one or two tables. Break prose into BulletList / NumberedList items.
@@ -69,7 +69,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 - Scatter {points: [{x, y, size?, label?, series?}], x?: {name, unit, format, floor, ceiling}, y?: {...}, size?: {name}, trend?, legend?}: two measures against each other; trend draws a fitted line and labels points far off it.
 - Heatmap {rows: string[], columns: string[], values: number[][], max?}: a grid shaded by value, such as weekday by hour.
 - CalendarHeatmap {days: [{date: "YYYY-MM-DD", value}], from?, to?, max?, note?}: daily activity in week columns.
-- Venn {sets: [{label, count?, items?}], overlap?}: two or three overlapping groups.
+- Venn {sets: [{label, count?, items?, note?, tone?}], overlap?, nested?}: two or three overlapping groups. nested draws them as circles one inside the next (the first set is the outside); each label sits in its band, note is a second line, and tone ("success", "warning", "danger", "info") colours that circle. overlap names the shared part and is not drawn when nested.
 - Matrix2x2 {axes: {x: [low, high], y: [low, high]}, quadrants: [topLeft, topRight, bottomLeft, bottomRight], points: [{label, x, y}]}: items placed from 0 to 1 on two axes.
 - SourceStamp {source}: when data was read, "As of Oct 30, 2026" for a snapshot or "Updated 3 min ago" when live.
 - Diagram {nodes: [{id, label, detail?, kind?: "box" | "terminal", series?: 0..4}], edges: [{from, to, label?, dashed?}], direction?: "vertical" | "horizontal"}: a flow laid out automatically.
@@ -150,11 +150,16 @@ export default Dashboard;
 /** Returned by show_visual {"help": true}: how a visual differs from a page, then the kit guide. */
 export const VISUAL_GUIDE = `# Visuals
 
-A visual is a small piece of page-kit JSX drawn inside the chat: a diagram, a chart, a comparison, a small calculator. Place the embed show_visual returns in your reply where the visual belongs. It is not saved as a page and cannot be changed later; show a new one instead. For something the user will keep, share or update, use save_page.
+A visual is a small piece of page-kit JSX drawn in the chat. Place the embed show_visual returns where it belongs. It is not saved; show a new one to change it. For something the user will keep, share or update, use save_page.
 
-- Call show_visual {title, summary, source}. summary is one or two plain sentences with the visual's point and key figures: it is what the user reads where the visual cannot be drawn, and what you see of it later.
-- The chat shows it at the width of a message (about 360 to 720 pixels) and at most about 560 pixels tall; tapping it opens it full size, where its controls work. Keep it to one idea: a Diagram, one chart, a short Table or a few Metrics. A phone shows about 340 pixels across, so a Diagram of more than two steps reads better vertical.
-- Skip the Page wrapper; give it a Section heading if it needs a title. Size custom SVG with a viewBox and width "100%". Never use vh units: the frame grows to fit its content.
-- The compiled visual must stay under 32 KB; put larger work in a page.
+- Call show_visual {title, summary, source}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
+- It draws at message width, up to about 1000 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
+- Skip the Page wrapper. A Section heading names it, and caption is the one line under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
+- The compiled visual must stay under 32 KB. Put larger work in a page.
+
+## Explaining a concept
+Write short numbered sections of prose. Use show_visual for each picture, and for one control where moving it changes a variable and shows the point. Use a ui fence for a table, steps or a few numbers. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
+
+Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line under each visual. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 ${PAGE_KIT_GUIDE.replace(/^# Pages\n/, "")}`;

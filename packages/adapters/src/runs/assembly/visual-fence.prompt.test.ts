@@ -69,6 +69,8 @@ describe("the ui fence instructions", () => {
     expect(example).not.toContain("Callout");
     const withFences = userTurnInstructions({ ...parts, visualFences: true }).join("\n");
     expect(withFences).toContain("explain a concept");
+    expect(withFences).toContain("compare or decide");
+    expect(withFences).toContain("practice");
     expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });
 });

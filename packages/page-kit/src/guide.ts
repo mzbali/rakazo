@@ -81,6 +81,8 @@ Keep each control's value in useState. A control placed straight in a Section or
 - Button {label, onClick, variant?: "quiet" | "primary", disabled?}: one primary per group.
 - Select {label?, options: [{value, label}], value, onChange, placeholder?, disabled?}. Input {label?, value, onChange, placeholder?, type?: "text" | "number" | "search", min?: number}. Set min={0} on a number that can't go negative.
 - Toggle {label, value, onChange, disabled?}. Checkbox {label, value}: shows a recorded yes or no; the reader cannot change it, so things the reader ticks off are Toggles. A number the reader steps (servings, quantity) is a row of Button "−", the value and Button "+". Input has no Enter or submit event: act on onChange, or put a Button beside it.
+- Quiz {questions: [{question, options: [string], answer: index, explain?}]}: one question at a time. Picking an option shows right or wrong and the explanation, then a score. The reader can try again. answer is the index of the right option, from 0.
+- Flashcards {cards: [{front, back}]}: flip a card, mark it known or not, and shuffle. It shows which card this is and how many are known.
 - LinkButton {label, href, variant?: "button" | "text"} and TextLink {href, children}: web or mail links, opened by the app.
 - CopyButton {label, text?, copiedLabel?}: copies text (else the label) and shows "Copied"; where copying is blocked it shows the text to select. For your own copy buttons call copyText(text), which resolves true once copied; navigator.clipboard is blocked in pages.
 - ReplyButton {label, reply?}: puts reply (or the label), up to 300 characters, in the chat's message box for the reader to send. It is inactive where there is no chat, such as a shared page.
@@ -157,9 +159,16 @@ A visual is a small piece of page-kit JSX drawn in the chat. Place the embed sho
 - Skip the Page wrapper. A Section heading names it, and caption is the one line under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
 - The compiled visual must stay under 32 KB. Put larger work in a page.
 
-## Explaining a concept
-Write short numbered sections of prose. Use show_visual for each picture, and for one control where moving it changes a variable and shows the point. Use a ui fence for a table, steps or a few numbers. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
+## Patterns
+One idea per visual. Short numbered prose around it. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
 
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line under each visual. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
+
+- A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
+- A comparison or a buying decision: lead with the pick. Product rows and a plain table stay in the prose as markdown. show_visual draws the one mechanism that differs, and a calculator prefilled with the figures you found.
+- An interactive diagram: Segmented, or tappable parts, highlights one part and shows its detail.
+- A small tool: a stepper (Button "−", the value, Button "+") or tip buttons recalculates from the figures you found.
+- Learning or revision: Quiz or Flashcards.
+- Plain text when a visual adds nothing. A one-line question gets one line.
 
 ${PAGE_KIT_GUIDE.replace(/^# Pages\n/, "")}`;

@@ -11,6 +11,8 @@ export const PAGE_KIT_COMPONENTS = [
   "Rows",
   "Steps",
   "Checklist",
+  "Quiz",
+  "Flashcards",
   "Table",
   "LineChart",
   "Bars",

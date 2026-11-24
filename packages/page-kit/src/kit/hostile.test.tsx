@@ -12,9 +12,19 @@ import * as dataviz from "./dataviz.js";
 import * as diagram from "./diagram.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as practice from "./practice.js";
 import * as text from "./text.js";
 
-const modules = { ...calendar, ...charts, ...controls, ...data, ...dataviz, ...diagram, ...layout };
+const modules = {
+  ...calendar,
+  ...charts,
+  ...controls,
+  ...data,
+  ...dataviz,
+  ...diagram,
+  ...layout,
+  ...practice,
+};
 const kit = { ...modules, ...media, ...text };
 type Props<K extends PageKitComponentName> = ComponentProps<(typeof kit)[K]>;
 
@@ -27,6 +37,8 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   Rows: { rows: ["title", "lead", "detail", "meta", "status"] },
   Steps: { steps: ["title", "detail"] },
   Checklist: { items: ["text", "done", "meta"] },
+  Quiz: { questions: ["question", "options", "answer", "explain"] },
+  Flashcards: { cards: ["front", "back"] },
   Table: { columns: [], rows: [], align: [] },
   Segmented: { options: ["value", "label", "count"] },
   LineChart: {

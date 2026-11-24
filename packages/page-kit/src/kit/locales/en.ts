@@ -69,6 +69,19 @@ export const en = {
   onThisPage: "On this page",
   showFewer: "Show fewer",
   showAll: "Show all {count}",
+  quizProgress: "Question {n} of {total}",
+  correct: "Correct",
+  incorrect: "Incorrect",
+  next: "Next",
+  tryAgain: "Try again",
+  score: "Score",
+  scoreOf: "{correct} of {total}",
+  cardOf: "{n} of {total}",
+  flip: "Flip",
+  know: "Know",
+  dontKnow: "Don't know",
+  shuffle: "Shuffle",
+  known: { one: "{count} known", other: "{count} known" },
 } satisfies Record<string, Message>;
 
 export type LabelKey = keyof typeof en;

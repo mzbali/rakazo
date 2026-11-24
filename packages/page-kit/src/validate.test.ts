@@ -21,6 +21,12 @@ describe("checkPageSource", () => {
     expect(VISUAL_GUIDE).not.toContain("opens it full size");
     expect(VISUAL_GUIDE).toContain('No "drag me"');
     expect(VISUAL_GUIDE).toContain("<Venn nested");
+    expect(VISUAL_GUIDE).toContain("lead with the pick");
+    expect(VISUAL_GUIDE).toContain("prefilled with the figures");
+    expect(VISUAL_GUIDE).toContain("A one-line question gets one line");
+    expect(VISUAL_GUIDE).toContain("at most one Callout");
+    expect(PAGE_KIT_GUIDE).toContain("Quiz {questions:");
+    expect(PAGE_KIT_GUIDE).toContain("Flashcards {cards:");
     expect(PAGE_KIT_GUIDE).toContain("nested?");
     expect(PAGE_KIT_GUIDE).toContain("one set inside another a nested Venn");
   });

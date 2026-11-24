@@ -9,6 +9,7 @@ import * as dataviz from "./dataviz.js";
 import * as diagram from "./diagram.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as practice from "./practice.js";
 import * as text from "./text.js";
 import * as theme from "./theme.js";
 
@@ -21,6 +22,7 @@ const modules = {
   ...diagram,
   ...layout,
   ...media,
+  ...practice,
   ...text,
   ...theme,
 };

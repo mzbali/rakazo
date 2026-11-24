@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
-import { visualFit } from "@rakazo/core";
+import { MAX_INLINE_VISUAL_HEIGHT, visualFit } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import { PageFrame } from "../pages/PageFrame";
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 
 /** The tallest a visual works in the chat; taller ones show their top and open whole. */
-const MAX_INLINE_HEIGHT = 640;
+const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height, so the chat does not jump much. */
 const PLACEHOLDER_HEIGHT = 160;
 

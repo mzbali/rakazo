@@ -3,11 +3,13 @@ import { tokensForAppearance } from "@rakazo/ui-tokens";
 import type { ReactElement, ReactNode } from "react";
 import { Children, isValidElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Diagram } from "./visual-view.native";
+import { Callout, Diagram } from "./visual-view.native";
 
 vi.mock("react-native", () => ({
   Platform: { select: (options: { ios: string }) => options.ios },
   StyleSheet: { create: (styles: unknown) => styles },
+  View: "view",
+  Text: "text",
 }));
 vi.mock("react-native-svg", () => ({
   default: "svg",
@@ -33,6 +35,16 @@ function textElements(node: ReactNode): ReactElement<Record<string, unknown>>[] 
     return [
       ...(child.type === "text" ? [child] : []),
       ...textElements(child.props.children as ReactNode),
+    ];
+  });
+}
+
+function tagged(node: ReactNode, type: string): ReactElement<Record<string, unknown>>[] {
+  return Children.toArray(node).flatMap((child) => {
+    if (!isValidElement<Record<string, unknown>>(child)) return [];
+    return [
+      ...(child.type === type ? [child] : []),
+      ...tagged(child.props.children as ReactNode, type),
     ];
   });
 }
@@ -64,5 +76,75 @@ describe("native diagram edge labels", () => {
       expect(ink.stroke ?? "none").toBe("none");
       expect(ink.strokeWidth ?? 0).toBe(0);
     }
+  });
+
+  it("stacks a reduction beside its target at a phone width", () => {
+    const parse = parseVisualFence(`<Visual summary="Reduction"><Diagram direction="horizontal"
+      nodes={[{id:"sudoku",label:"Sudoku"},{id:"subset",label:"Subset Sum"},{id:"tsp",label:"Travelling Salesman"},{id:"colour",label:"Graph Colouring"},{id:"sat",label:"SAT solver",detail:"Polynomial time?"}]}
+      edges={[{from:"sudoku",to:"sat"},{from:"subset",to:"sat"},{from:"tsp",to:"sat"},{from:"colour",to:"sat"}]} /></Visual>`);
+    const palette = tokensForAppearance("dark");
+    const drawing = Diagram({
+      element: parse.root!.children[0]!,
+      surface: {
+        palette,
+        colorScheme: "dark",
+        narrow: true,
+        width: 360,
+        unavailable: "Unavailable",
+      },
+    });
+    const texts = textElements(drawing);
+    const label = texts.find((text) => text.props.children === "Travelling Salesman");
+    expect(label?.props.fontSize).toBe(16);
+    const box = Number(String(drawing.props.viewBox).split(" ")[2]);
+    expect((drawing.props.width as number) / box).toBeGreaterThan(0.8);
+    const y = (name: string) => texts.find((text) => text.props.children === name)?.props.y;
+    expect(y("Sudoku")).not.toBe(y("Subset Sum"));
+    const focus = tagged(drawing, "rect").find((rect) => rect.props.strokeWidth === 2);
+    expect(focus?.props.stroke).toBe(palette.foreground);
+  });
+});
+
+describe("native callout", () => {
+  it("uses a hairline and an ink lead, with the tone only on the icon", () => {
+    const parse = parseVisualFence(
+      `<Visual summary="S"><Callout tone="success" lead="P equals NP">One circle.</Callout></Visual>`,
+    );
+    const palette = tokensForAppearance("dark");
+    const view = Callout({
+      element: parse.root!.children[0]!,
+      surface: {
+        palette,
+        colorScheme: "dark",
+        narrow: true,
+        width: 360,
+        unavailable: "Unavailable",
+      },
+    });
+    const box = tagged(view, "view")[0]!;
+    const styles = [box.props.style].flat(2) as {
+      borderWidth?: number;
+      borderColor?: string;
+      backgroundColor?: string;
+    }[];
+    expect(styles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ borderWidth: 1 }),
+        expect.objectContaining({ borderColor: palette.border }),
+      ]),
+    );
+    expect(styles.some((style) => style?.backgroundColor)).toBe(false);
+    const lead = textElements(view).find((text) => text.props.children === "P equals NP");
+    const leadStyles = [lead?.props.style].flat(2);
+    expect(leadStyles).toEqual(
+      expect.arrayContaining([expect.objectContaining({ color: palette.foreground })]),
+    );
+    const icon = [...tagged(view, "path"), ...tagged(view, "circle")].map(
+      (shape) => shape.props.stroke,
+    );
+    expect(icon.length).toBeGreaterThan(0);
+    expect(icon.every((stroke) => stroke !== palette.foreground && stroke !== palette.border)).toBe(
+      true,
+    );
   });
 });

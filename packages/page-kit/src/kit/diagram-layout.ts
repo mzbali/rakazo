@@ -11,12 +11,13 @@ export type DiagramNode = {
 };
 export type DiagramEdge = { from: string; to: string; label?: string; dashed?: boolean };
 
-const LABEL_CHAR = 7.8;
-const DETAIL_CHAR = 6.9;
+// Body-sized label (16px) and a 14px detail. The estimates match those sizes so a line fills its box.
+const LABEL_CHAR = 8.9;
+const DETAIL_CHAR = 7.7;
 const PAD_X = 14;
 export const PAD_Y = 10;
-export const LABEL_LINE = 19;
-export const DETAIL_LINE = 17;
+export const LABEL_LINE = 22;
+export const DETAIL_LINE = 19;
 const MIN_WIDTH = 88;
 const MAX_WIDTH = 208;
 const NODE_GAP = 24;
@@ -165,6 +166,12 @@ export function layoutDiagram(
   for (const node of byId.values()) {
     layers[node.layer] = [...(layers[node.layer] ?? []), node];
   }
+  // One width per layer, the widest label's, so a stack reads as a column rather than a row of pills.
+  for (const layer of layers) {
+    if (!layer) continue;
+    const widest = Math.max(...layer.map((node) => node.width));
+    for (const node of layer) node.width = widest;
+  }
   const rank = new Map<string, number>();
   for (const layer of layers) {
     if (!layer) continue;
@@ -223,6 +230,42 @@ export function layoutDiagram(
     width: horizontal ? extent : longest + (loops ? LOOP_ROOM : 0),
     height: horizontal ? longest + (loops ? LOOP_ROOM : 0) : extent,
   };
+}
+
+export type DiagramLayout = ReturnType<typeof layoutDiagram>;
+
+/**
+ * The author's direction when it fits the column. Otherwise the other direction, when that is
+ * narrower: a phone is wide enough for sources stacked beside one target, and too narrow for
+ * those sources in one row.
+ */
+export function fitDiagramLayout(
+  nodes: DiagramNode[],
+  edges: DiagramEdge[],
+  horizontal: boolean,
+  edgeLabels: boolean,
+  columnWidth: number,
+): DiagramLayout & { horizontal: boolean } {
+  const asked = layoutDiagram(nodes, edges, horizontal, edgeLabels);
+  if (!(columnWidth > 0) || asked.width <= columnWidth) return { ...asked, horizontal };
+  const other = layoutDiagram(nodes, edges, !horizontal, edgeLabels);
+  if (other.width < asked.width) return { ...other, horizontal: !horizontal };
+  return { ...asked, horizontal };
+}
+
+/** The one node a wider layer feeds, when the drawing converges. */
+export function diagramFocusId(nodes: { id: string; layer: number }[]): string | undefined {
+  const byLayer = new Map<number, string[]>();
+  for (const node of nodes) {
+    const list = byLayer.get(node.layer) ?? [];
+    list.push(node.id);
+    byLayer.set(node.layer, list);
+  }
+  const ranks = [...byLayer.keys()].sort((a, b) => a - b);
+  if (ranks.length < 2) return undefined;
+  const last = byLayer.get(ranks.at(-1)!)!;
+  const fansIn = ranks.slice(0, -1).some((rank) => (byLayer.get(rank)?.length ?? 0) > 1);
+  return last.length === 1 && fansIn ? last[0] : undefined;
 }
 
 export type Point = [number, number];

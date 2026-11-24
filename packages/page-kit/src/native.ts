@@ -19,7 +19,9 @@ export type { DiagramEdge, DiagramNode, Placed, Point } from "./kit/diagram-layo
 export {
   curveMid,
   DETAIL_LINE,
+  diagramFocusId,
   edgePoints,
+  fitDiagramLayout,
   ICON_SIZE,
   iconOrigin,
   LABEL_LINE,

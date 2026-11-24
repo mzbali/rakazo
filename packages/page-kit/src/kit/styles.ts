@@ -58,11 +58,9 @@ body{font-size:1rem}
 .rk-text{margin:0;font-size:1rem;line-height:1.5;overflow-wrap:anywhere}
 .rk-link{color:var(--rk-accent);text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);text-underline-offset:2px;overflow-wrap:anywhere}
 .rk-code{padding:.05em .3em;border-radius:4px;background:var(--rk-fill);font:.875em/1 ui-monospace,SFMono-Regular,Menlo,monospace}
-.rk-callout{padding:.875rem 1rem;border-radius:12px;background:var(--rk-fill);font-size:1rem;line-height:1.5;overflow-wrap:anywhere}
+.rk-callout{padding:.75rem .875rem;border:1px solid var(--rk-line);border-radius:12px;background:transparent;font-size:1rem;line-height:1.5;overflow-wrap:anywhere}
 .rk-callout p{margin:0}
-.rk-callout-lead{font-weight:600}
-.rk-callout[data-tone]{background:color-mix(in srgb,var(--rk-tone) 14%,transparent)}
-.rk-callout[data-tone] .rk-callout-lead{color:var(--rk-tone)}
+.rk-callout-lead{font-weight:600;color:var(--foreground)}
 .rk-callout[data-tone="info"]{--rk-tone:var(--rk-accent)}
 .rk-callout[data-tone="success"]{--rk-tone:var(--rk-success)}
 .rk-callout[data-tone="warning"]{--rk-tone:var(--rk-warning)}
@@ -186,8 +184,9 @@ body{font-size:1rem}
 .rk-diagram svg{display:block;width:100%;height:auto;overflow:visible}
 .rk-diagram-node{fill:var(--background);stroke:var(--rk-line);stroke-width:1.25}
 .rk-diagram-icon{color:var(--rk-secondary);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.rk-diagram-label{fill:var(--foreground);font-size:14px;font-weight:500}
-.rk-diagram-detail{fill:var(--rk-secondary);font-size:12.5px}
+.rk-diagram-label{fill:var(--foreground);font-size:16px;font-weight:500}
+.rk-diagram-detail{fill:var(--rk-secondary);font-size:14px}
+.rk-diagram-focus{stroke:var(--foreground);stroke-width:2}
 .rk-diagram-edge{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5}
 .rk-diagram-arrow{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .rk-diagram-edge-label{fill:var(--rk-secondary);font-size:12px;paint-order:stroke;stroke:var(--background);stroke-width:5px;stroke-linejoin:round}

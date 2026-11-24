@@ -3,9 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table } from "./data.js";
-import { Diagram, layoutDiagram, wrapText } from "./diagram.js";
+import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
 import { inlineMarkup } from "./inline.js";
 import { Callout, Grid, Page, Section, Text } from "./layout.js";
+import { PAGE_STYLES } from "./styles.js";
 
 const html = (element: React.ReactElement) => renderToStaticMarkup(element);
 
@@ -113,7 +114,7 @@ describe("page kit", () => {
     }
   });
 
-  it("shows a callout's lead and body in its tone and nothing when it is empty", () => {
+  it("shows a callout's lead and body, with tone only on its icon, and nothing when it is empty", () => {
     const toned = html(
       <Callout lead="Ship first" tone="warning">
         Body *text*
@@ -129,6 +130,14 @@ describe("page kit", () => {
     expect(plain).not.toContain("data-tone");
     expect(plain).not.toContain("<svg");
     expect(html(<Callout />)).toBe("");
+    expect(PAGE_STYLES).toContain(
+      ".rk-callout{padding:.75rem .875rem;border:1px solid var(--rk-line)",
+    );
+    expect(PAGE_STYLES).toContain(".rk-callout-lead{font-weight:600;color:var(--foreground)}");
+    expect(PAGE_STYLES).not.toContain("color-mix(in srgb,var(--rk-tone) 14%,transparent)");
+    expect(PAGE_STYLES).toContain(
+      ".rk-callout-icon{margin-top:.25rem;fill:none;stroke:var(--rk-tone)",
+    );
   });
 
   it("puts a status word in a tinted pill whose tone falls back to neutral", () => {
@@ -434,20 +443,53 @@ describe("page kit", () => {
       true,
       false,
     ).nodes;
-    expect(node!.labelLines.every((line) => [...line].length <= 11)).toBe(true);
-    expect(node!.detailLines.every((line) => [...line].length <= 13)).toBe(true);
-    expect(node!.width).toBe(208);
-    expect(node!.height).toBe(20 + 3 * 19 + 3 * 17);
+    expect(node!.labelLines.every((line) => [...line].length <= 10)).toBe(true);
+    expect(node!.detailLines.every((line) => [...line].length <= 11)).toBe(true);
+    // Ten full-width CJK glyphs at 8.9px, plus the 28px of horizontal padding, stays under the 208 cap.
+    expect(node!.width).toBe(206);
+    expect(node!.height).toBe(20 + 3 * 22 + 3 * 19);
     const [short] = layoutDiagram([{ id: "short", label: "日本語の処理" }], [], false, false).nodes;
-    expect(short!.width).toBe(122);
+    expect(short!.width).toBe(135);
     const [english] = layoutDiagram(
       [{ id: "en", label: "Review changes" }],
       [],
       false,
       false,
     ).nodes;
-    expect(english!.width).toBe(138);
+    expect(english!.width).toBe(153);
     expect(english!.labelLines).toEqual(["Review changes"]);
+  });
+
+  it("stacks sources beside one target on a phone instead of shrinking a row", () => {
+    const nodes = [
+      { id: "sudoku", label: "Sudoku" },
+      { id: "subset", label: "Subset Sum" },
+      { id: "tsp", label: "Travelling Salesman" },
+      { id: "colour", label: "Graph Colouring" },
+      { id: "sat", label: "SAT solver", detail: "Polynomial time?" },
+    ];
+    const edges = ["sudoku", "subset", "tsp", "colour"].map((from) => ({ from, to: "sat" }));
+    const row = layoutDiagram(nodes, edges, false, false);
+    const fitted = fitDiagramLayout(nodes, edges, false, false, 360);
+    expect(fitted.horizontal).toBe(true);
+    expect(fitted.width).toBeLessThan(row.width);
+    const sources = fitted.nodes.filter((node) => node.id !== "sat");
+    expect(new Set(sources.map((node) => node.width)).size).toBe(1);
+    const sat = fitted.nodes.find((node) => node.id === "sat")!;
+    const tsp = fitted.nodes.find((node) => node.id === "tsp")!;
+    expect(sat.x).toBeGreaterThan(tsp.x + tsp.width - 1);
+    expect(tsp.width).toBeGreaterThanOrEqual(160);
+    const chain = ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, label: `Step ${id}` }));
+    const chainEdges = chain
+      .slice(1)
+      .map((node, index) => ({ from: chain[index]!.id, to: node.id }));
+    expect(fitDiagramLayout(chain, chainEdges, true, false, 360).horizontal).toBe(false);
+    const markup = html(
+      <Diagram direction="vertical" nodes={nodes} edges={edges} maxWidth={360} />,
+    );
+    expect(markup).toContain("rk-diagram-focus");
+    expect(markup).toContain('class="rk-diagram-label"');
+    expect(PAGE_STYLES).toContain(".rk-diagram-label{fill:var(--foreground);font-size:16px");
   });
 
   it("marks only the chosen segment pressed and accepts plain string options", () => {

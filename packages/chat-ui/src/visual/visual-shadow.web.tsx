@@ -24,13 +24,10 @@ function useDocumentTheme(): "light" | "dark" {
   return useSyncExternalStore(subscribeTheme, readTheme, () => "dark");
 }
 
-/** Below this width a wide figure lays out as a narrow one. */
-const NARROW_WIDTH = 480;
+const ColumnContext = createContext(0);
 
-const NarrowContext = createContext(false);
-
-/** Whether the column the visual sits in is narrow, as on a phone. */
-export const useNarrowColumn = () => useContext(NarrowContext);
+/** The column width in pixels, once measured. Zero until then. */
+export const useColumnWidth = () => useContext(ColumnContext);
 
 let sheet: CSSStyleSheet | undefined;
 
@@ -64,13 +61,11 @@ export function VisualShadow({
   const theme = useDocumentTheme();
   const [root, setRoot] = useState<ShadowRoot | null>(null);
   const [adopted, setAdopted] = useState(true);
-  const [narrow, setNarrow] = useState(false);
+  const [column, setColumn] = useState(0);
   const attach = useCallback((node: HTMLDivElement | null) => {
     setRoot(node ? (node.shadowRoot ?? node.attachShadow({ mode: "open" })) : null);
     if (!node || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) =>
-      setNarrow((entry?.contentRect.width ?? NARROW_WIDTH) < NARROW_WIDTH),
-    );
+    const observer = new ResizeObserver(([entry]) => setColumn(entry?.contentRect.width ?? 0));
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
@@ -103,12 +98,12 @@ export function VisualShadow({
     >
       {root
         ? createPortal(
-            <NarrowContext.Provider value={narrow}>
+            <ColumnContext.Provider value={column}>
               <div data-inline="card">
                 {adopted ? null : <style>{styles}</style>}
                 {children}
               </div>
-            </NarrowContext.Provider>,
+            </ColumnContext.Provider>,
             root,
           )
         : null}

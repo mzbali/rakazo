@@ -3,12 +3,13 @@ import type { DiagramEdge, DiagramNode, Placed, Point } from "@rakazo/page-kit/n
 import {
   curveMid,
   DETAIL_LINE,
+  diagramFocusId,
   edgePoints,
+  fitDiagramLayout,
   ICON_SIZE,
   iconOrigin,
   iconShapes,
   LABEL_LINE,
-  layoutDiagram,
   PAD_Y,
   SERIES_COLORS,
   TONE_PATHS,
@@ -26,7 +27,7 @@ import { CopyButton, ProsCons, Status, Table } from "./visual-blocks.native";
 import { Bars, LineChart, Pie } from "./visual-charts.native";
 import { drawPlan, hasUnfinishedPart } from "./visual-draw";
 import type { Surface } from "./visual-surface.native";
-import { NARROW_WIDTH, subtle, toneColor, tones } from "./visual-surface.native";
+import { NARROW_WIDTH, toneColor, tones } from "./visual-surface.native";
 
 const MONO = Platform.select({ ios: "ui-monospace", default: "monospace" });
 
@@ -34,17 +35,12 @@ function Note({ surface, children }: { surface: Surface; children: ReactNode }) 
   return <Text style={[styles.note, { color: surface.palette.mutedForeground }]}>{children}</Text>;
 }
 
-function Callout({ element, surface }: { element: VisualElement; surface: Surface }) {
+export function Callout({ element, surface }: { element: VisualElement; surface: Surface }) {
   const tone = element.props.tone as string | undefined;
   const color = toneColor(surface, tone);
   const lead = element.props.lead as string | undefined;
   return (
-    <View
-      style={[
-        styles.callout,
-        { backgroundColor: color ? subtle(color, surface) : surface.palette.muted },
-      ]}
-    >
+    <View style={[styles.callout, { borderColor: surface.palette.border }]}>
       {color && tone ? (
         <Svg width={16} height={16} viewBox="0 0 16 16" style={styles.calloutIcon}>
           {tone === "warning" ? (
@@ -69,9 +65,7 @@ function Callout({ element, surface }: { element: VisualElement; surface: Surfac
       ) : null}
       <View style={styles.calloutText}>
         {lead ? (
-          <Text
-            style={[typeScale.body, styles.lead, { color: color ?? surface.palette.foreground }]}
-          >
+          <Text style={[typeScale.body, styles.lead, { color: surface.palette.foreground }]}>
             {lead}
           </Text>
         ) : null}
@@ -197,14 +191,17 @@ const GRID_GAP = 16;
 export function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
   const nodes = element.props.nodes as DiagramNode[];
   const edges = (element.props.edges ?? []) as DiagramEdge[];
-  // A flow written left to right reads top to bottom in a narrow column.
-  const horizontal = !surface.narrow && element.props.direction === "horizontal";
-  const layout = layoutDiagram(
+  // The author's direction when it fits. A column of sources beside one target fits a phone;
+  // the same sources in a row do not, and scaling that row makes the words unreadably small.
+  const layout = fitDiagramLayout(
     nodes,
     edges,
-    horizontal,
+    element.props.direction === "horizontal",
     edges.some((edge) => edge.label),
+    surface.width,
   );
+  const { horizontal } = layout;
+  const focus = diagramFocusId(layout.nodes);
   const pad = 2;
   const full = layout.width + pad * 2;
   const high = layout.height + pad * 2;
@@ -291,8 +288,8 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
               height={node.height}
               rx={node.kind === "terminal" ? Math.min(node.height / 2, 22) : 10}
               fill={palette.background}
-              stroke={accent ?? palette.border}
-              strokeWidth={1.25}
+              stroke={node.id === focus ? palette.foreground : (accent ?? palette.border)}
+              strokeWidth={node.id === focus ? 2 : 1.25}
             />
             <NodeIcon node={node} color={palette.mutedForeground} />
             {node.labelLines.map((text, index) => (
@@ -300,7 +297,7 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
                 key={`l${index}`}
                 x={textCentre(node)}
                 y={node.y + PAD_Y + LABEL_LINE * (index + 0.5) + 5}
-                fontSize={14}
+                fontSize={16}
                 fontWeight="500"
                 fill={palette.foreground}
                 textAnchor="middle"
@@ -319,7 +316,7 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
                   DETAIL_LINE * (index + 0.5) +
                   4
                 }
-                fontSize={12.5}
+                fontSize={14}
                 fill={palette.mutedForeground}
                 textAnchor="middle"
               >
@@ -540,7 +537,13 @@ const styles = StyleSheet.create({
   root: { gap: 16 },
   note: { fontSize: typeScale.caption.fontSize, lineHeight: typeScale.caption.lineHeight },
   pending: { height: 24, borderRadius: 6 },
-  callout: { flexDirection: "row", gap: 10, padding: 14, borderRadius: 12 },
+  callout: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
   calloutIcon: { marginTop: 3 },
   calloutText: { flex: 1, gap: 2 },
   lead: { fontWeight: "600" },

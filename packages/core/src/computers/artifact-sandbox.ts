@@ -135,6 +135,13 @@ export function pageCopyResult(id: string, ok: boolean) {
 export type VisualFit = "drawing" | "inline" | "preview";
 
 /**
+ * The tallest a visual stays live in the chat, in CSS pixels and in points. An explainer with a
+ * control and a chart fits and works in place. Past this, a report or a dashboard shows its top
+ * and opens whole.
+ */
+export const MAX_INLINE_VISUAL_HEIGHT = 1200;
+
+/**
  * The fit from the first height the visual reports, kept after that: a control that grows the
  * visual while someone uses it must not turn it into a preview under their finger.
  */

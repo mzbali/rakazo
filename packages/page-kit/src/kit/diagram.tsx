@@ -4,11 +4,12 @@ import type { DiagramEdge, DiagramNode } from "./diagram-layout.js";
 import {
   curveMid,
   DETAIL_LINE,
+  diagramFocusId,
   edgePoints,
+  fitDiagramLayout,
   ICON_SIZE,
   iconOrigin,
   LABEL_LINE,
-  layoutDiagram,
   PAD_Y,
   SERIES_COLORS,
   textCentre,
@@ -16,28 +17,35 @@ import {
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
 
-export { layoutDiagram, wrapText } from "./diagram-layout.js";
+export { fitDiagramLayout, layoutDiagram, wrapText } from "./diagram-layout.js";
 export type { DiagramEdge, DiagramNode };
 
 export function Diagram({
   nodes = [],
   edges = [],
   direction = "vertical",
+  maxWidth,
 }: {
   nodes?: DiagramNode[];
   edges?: DiagramEdge[];
   direction?: "horizontal" | "vertical";
+  /** The column the drawing has to fit. When it is set, the other direction is used if it is narrower. */
+  maxWidth?: number;
 }) {
   const arrow = `rk-arrow-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const words = useWords();
-  const horizontal = direction === "horizontal";
   const links = objectItems(edges);
-  const layout = layoutDiagram(
-    objectItems(nodes),
+  const placed = objectItems(nodes);
+  const labeled = links.some((edge) => edge.label);
+  const layout = fitDiagramLayout(
+    placed,
     links,
-    horizontal,
-    links.some((edge) => edge.label),
+    direction === "horizontal",
+    labeled,
+    maxWidth ?? 0,
   );
+  const { horizontal } = layout;
+  const focus = diagramFocusId(layout.nodes);
   if (!layout.nodes.length) return null;
   const pad = 2;
   const name = (id: string) => layout.nodes.find((node) => node.id === id)?.label ?? id;
@@ -110,13 +118,15 @@ export function Diagram({
           return (
             <g key={node.id}>
               <rect
-                className="rk-diagram-node"
+                className={
+                  node.id === focus ? "rk-diagram-node rk-diagram-focus" : "rk-diagram-node"
+                }
                 x={node.x}
                 y={node.y}
                 width={node.width}
                 height={node.height}
                 rx={node.kind === "terminal" ? Math.min(node.height / 2, 22) : 10}
-                style={accent ? { stroke: accent } : undefined}
+                style={node.id === focus || !accent ? undefined : { stroke: accent }}
               />
               {iconShapes(node.icon) ? (
                 <g

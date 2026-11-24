@@ -30,6 +30,7 @@ export function SandboxedHtmlPreview({
   html,
   background = "white",
   scrollEnabled,
+  bounces,
   onMessage,
   appShell = false,
 }: {
@@ -42,6 +43,8 @@ export function SandboxedHtmlPreview({
   /** Pages paint their own themed background; plain HTML is written for a white page. */
   background?: string;
   scrollEnabled?: boolean;
+  /** Off so a web view that is not scrolling does not rubber-band and keep the drag. */
+  bounces?: boolean;
   /** A message the document posted; `answer` posts a reply back into the document. */
   onMessage?: (data: string, answer: (message: object) => void) => void;
 }) {
@@ -56,6 +59,7 @@ export function SandboxedHtmlPreview({
         source={{ html: appShell ? html : withSandboxedArtifactCsp(html), baseUrl: "about:blank" }}
         style={[styles.webview, { backgroundColor: background }]}
         scrollEnabled={scrollEnabled}
+        bounces={bounces}
         injectedJavaScriptBeforeContentLoaded={
           onMessage && !appShell ? FORWARD_WINDOW_MESSAGES : undefined
         }

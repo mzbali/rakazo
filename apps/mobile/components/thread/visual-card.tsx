@@ -2,7 +2,13 @@ import { useLingui } from "@lingui/react/macro";
 import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
-import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@rakazo/core";
+import {
+  MAX_INLINE_VISUAL_HEIGHT,
+  pageCopyRequest,
+  pageCopyResult,
+  pageLinkRequest,
+  visualFit,
+} from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
@@ -18,7 +24,7 @@ import { NativeActionButton } from "../native/native-action-button";
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 
 /** The tallest a visual works in the chat; taller ones show their top and open whole. */
-const MAX_INLINE_HEIGHT = 560;
+const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
 
@@ -117,8 +123,12 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             html={inline}
             background={tokens.background}
             // Classified inline, then grown by its own controls: scroll the card rather than
-            // turning it into a preview under the reader's finger.
+            // turning it into a preview under the reader's finger. While the frame shows the
+            // whole visual, scrolling and bouncing stay off. The iOS web view does not forward
+            // a pan to the chat the way the desktop one does, and a bouncing scroll view keeps
+            // the drag. A control inside still takes its own gesture.
             scrollEnabled={live && height !== null && height > MAX_INLINE_HEIGHT}
+            bounces={live && height !== null && height > MAX_INLINE_HEIGHT}
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {

@@ -13,9 +13,27 @@ export {
   textWidth,
   valueScale,
 } from "./kit/dataviz/scale.js";
+export type {
+  CycleFlowDraw,
+  CycleLayout,
+  CycleNodeDraw,
+  CyclePipe,
+  CycleText,
+  CycleZoneDraw,
+  DiagramFlow,
+  DiagramZone,
+} from "./kit/diagram-cycle.js";
+export { layoutCycle } from "./kit/diagram-cycle.js";
 export type { IconShape } from "./kit/diagram-icons.js";
 export { DIAGRAM_ICONS, iconShapes } from "./kit/diagram-icons.js";
-export type { DiagramEdge, DiagramNode, DrawnEdge, Placed, Point } from "./kit/diagram-layout.js";
+export type {
+  DiagramEdge,
+  DiagramNode,
+  DiagramTone,
+  DrawnEdge,
+  Placed,
+  Point,
+} from "./kit/diagram-layout.js";
 export {
   chevron,
   curveMid,

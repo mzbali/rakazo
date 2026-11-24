@@ -53,6 +53,11 @@ export const DIAGRAM_ICON_NAMES = [
   "shield",
   "bell",
   "clock",
+  "coil",
+  "pump",
+  "valve",
+  "droplet",
+  "sun",
 ] as const;
 
 /** What a tag holds: elements, plain text, or nothing but its props. */
@@ -155,6 +160,8 @@ function metrics(props: VisualObject): Checked {
     : fail("metrics needs 1 to 8 {value, label, delta?, better?, detail?, tone?, trend?} entries");
 }
 
+const DIAGRAM_TONES = ["info", "warning", "danger"];
+
 function diagram(props: VisualObject): Checked {
   const nodes = list(props.nodes, 24, (node) => {
     const series = node.series;
@@ -164,13 +171,14 @@ function diagram(props: VisualObject): Checked {
       text(node.detail) === false ||
       oneOf(node.kind, ["box", "terminal"]) === false ||
       oneOf(node.icon, DIAGRAM_ICON_NAMES) === false ||
+      oneOf(node.tone, DIAGRAM_TONES) === false ||
       (series !== undefined &&
         !(Number.isInteger(series) && (series as number) >= 0 && (series as number) <= 4))
     )
       return undefined;
-    return pick(node, ["id", "label", "detail", "kind", "series", "icon"]);
+    return pick(node, ["id", "label", "detail", "kind", "series", "icon", "tone"]);
   });
-  if (!nodes) return fail("nodes needs 1 to 24 {id, label, detail?, icon?} entries");
+  if (!nodes) return fail("nodes needs 1 to 24 {id, label, detail?, icon?, tone?} entries");
   const ids = new Set(nodes.map((node) => node.id));
   if (ids.size !== nodes.length) return fail("node ids must be unique");
   let edges: VisualObject[] = [];
@@ -186,17 +194,74 @@ function diagram(props: VisualObject): Checked {
               !ids.has(edge.to) ||
               edge.from === edge.to ||
               text(edge.label, 200) === false ||
-              (edge.dashed !== undefined && typeof edge.dashed !== "boolean")
+              (edge.dashed !== undefined && typeof edge.dashed !== "boolean") ||
+              oneOf(edge.tone, DIAGRAM_TONES) === false
             )
               return undefined;
-            return pick(edge, ["from", "to", "label", "dashed"]);
+            return pick(edge, ["from", "to", "label", "dashed", "tone"]);
           });
-    if (!checked) return fail("edges needs up to 40 {from, to, label?} entries naming node ids");
+    if (!checked)
+      return fail("edges needs up to 40 {from, to, label?, tone?} entries naming node ids");
     edges = checked;
   }
   const direction = oneOf(props.direction, ["horizontal", "vertical"]);
   if (direction === false) return fail("direction is horizontal or vertical");
-  return { props: { nodes, edges, ...(direction ? { direction } : {}) } };
+  const layout = oneOf(props.layout, ["flow", "cycle"]);
+  if (layout === false) return fail("layout is flow or cycle");
+  const center = text(props.center, 120);
+  if (center === false) return fail("center is text");
+  const focus = text(props.focus, 80);
+  if (focus === false) return fail("focus is a node id");
+  let zones: VisualObject[] | undefined;
+  if (props.zones !== undefined) {
+    const checked =
+      Array.isArray(props.zones) && props.zones.length === 0
+        ? []
+        : list(props.zones, 6, (zone) => {
+            const names = zone.nodes;
+            const named =
+              Array.isArray(names) &&
+              names.length > 0 &&
+              names.length <= 24 &&
+              names.every((id) => typeof id === "string" && ids.has(id));
+            if (!text(zone.label, 80) || !named || oneOf(zone.tone, DIAGRAM_TONES) === false)
+              return undefined;
+            return pick(zone, ["label", "nodes", "tone"]);
+          });
+    if (!checked) return fail("zones needs up to 6 {label, nodes, tone?} entries naming node ids");
+    zones = checked;
+  }
+  let flows: VisualObject[] | undefined;
+  if (props.flows !== undefined) {
+    const checked =
+      Array.isArray(props.flows) && props.flows.length === 0
+        ? []
+        : list(props.flows, 8, (flow) => {
+            if (
+              typeof flow.node !== "string" ||
+              !ids.has(flow.node) ||
+              !text(flow.label, 80) ||
+              oneOf(flow.direction, ["in", "out"]) === false ||
+              oneOf(flow.tone, DIAGRAM_TONES) === false
+            )
+              return undefined;
+            return pick(flow, ["node", "label", "direction", "tone"]);
+          });
+    if (!checked) return fail("flows needs up to 8 {node, label, direction?, tone?} entries");
+    flows = checked;
+  }
+  return {
+    props: {
+      nodes,
+      edges,
+      ...(direction ? { direction } : {}),
+      ...(layout ? { layout } : {}),
+      ...(center ? { center } : {}),
+      ...(focus ? { focus } : {}),
+      ...(zones ? { zones } : {}),
+      ...(flows ? { flows } : {}),
+    },
+  };
 }
 
 const numberInRange = (value: VisualValue | undefined, low: number, high: number) =>

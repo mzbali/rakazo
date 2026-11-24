@@ -1,6 +1,9 @@
 import { iconShapes } from "./diagram-icons.js";
 import { visualLanguage } from "./visual-language.js";
 
+/** Cold is info, warm is warning, hot is danger. A cycle pipe or node uses it for meaning. */
+export type DiagramTone = "info" | "warning" | "danger";
+
 export type DiagramNode = {
   id: string;
   label: string;
@@ -9,8 +12,17 @@ export type DiagramNode = {
   series?: number;
   /** A name from `DIAGRAM_ICONS`, drawn at the start of the node. */
   icon?: string;
+  /** Tints the node when the diagram is a cycle. Ignored on a flow. */
+  tone?: DiagramTone;
 };
-export type DiagramEdge = { from: string; to: string; label?: string; dashed?: boolean };
+export type DiagramEdge = {
+  from: string;
+  to: string;
+  label?: string;
+  dashed?: boolean;
+  /** Colours that pipe when the diagram is a cycle. Ignored on a flow. */
+  tone?: DiagramTone;
+};
 
 // A 17px label and a 14px detail. The estimates match those sizes so a line fills its box.
 const LABEL_CHAR = 8.6;

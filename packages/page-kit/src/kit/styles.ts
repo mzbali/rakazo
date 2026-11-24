@@ -198,6 +198,17 @@ body{font-size:1rem}
 .rk-diagram-edge{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5}
 .rk-diagram-arrow{fill:none;stroke:var(--rk-tertiary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .rk-diagram-edge-label{fill:var(--rk-secondary);font-size:12px;paint-order:stroke;stroke:var(--background);stroke-width:5px;stroke-linejoin:round}
+.rk-diagram-zone{fill:color-mix(in srgb,var(--rk-tone,var(--rk-tertiary)) 10%,var(--background))}
+.rk-diagram-pipe{fill:none;stroke:var(--rk-tone,var(--rk-tertiary));stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.rk-diagram-pipe-arrow{fill:var(--rk-tone,var(--rk-tertiary))}
+.rk-diagram-node[data-tone]:not(.rk-diagram-focus){fill:color-mix(in srgb,var(--rk-tone) 12%,var(--background));stroke:color-mix(in srgb,var(--rk-tone) 62%,var(--background))}
+.rk-diagram-icon[data-tone]{color:var(--rk-tone)}
+.rk-diagram-cycle-label{fill:var(--foreground);font-size:13px;font-weight:650;paint-order:stroke;stroke:var(--background);stroke-width:4px;stroke-linejoin:round}
+.rk-diagram-centre{fill:var(--rk-secondary);font-size:12px;paint-order:stroke;stroke:var(--background);stroke-width:4px}
+.rk-diagram-flow-label{fill:var(--rk-secondary);font-size:11px;paint-order:stroke;stroke:var(--background);stroke-width:4px}
+.rk-diagram-zone-label{fill:var(--rk-tone,var(--rk-secondary));font-size:12px;font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+.rk-diagram-badge{fill:var(--success)}
+.rk-diagram-badge-num{fill:var(--background);font-size:11px;font-weight:700}
 .rk-sources{margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--rk-hairline);font-size:.8125rem;line-height:1.5;color:var(--rk-secondary)}
 .rk-sources-heading{margin:0 0 .3rem;font-size:.8125rem;font-weight:500;color:var(--foreground)}
 .rk-sources ol{margin:0;padding-left:1.2rem}

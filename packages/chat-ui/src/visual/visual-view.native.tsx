@@ -1,5 +1,11 @@
 import type { VisualElement, VisualParse } from "@rakazo/core/visual-fence";
-import type { DiagramEdge, DiagramNode, Placed } from "@rakazo/page-kit/native";
+import type {
+  DiagramEdge,
+  DiagramFlow,
+  DiagramNode,
+  DiagramZone,
+  Placed,
+} from "@rakazo/page-kit/native";
 import {
   chevron,
   DETAIL_LINE,
@@ -10,6 +16,7 @@ import {
   iconOrigin,
   iconShapes,
   LABEL_LINE,
+  layoutCycle,
   mixHex,
   PAD_Y,
   SERIES_COLORS,
@@ -187,7 +194,278 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
 
 const GRID_GAP = 16;
 
+function paint(surface: Surface, tone: string | undefined): string {
+  return toneColor(surface, tone) ?? surface.palette.faintForeground;
+}
+
+function Halo({
+  x,
+  y,
+  size,
+  color,
+  halo,
+  anchor = "middle",
+  weight = "600",
+  children,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  halo: string;
+  anchor?: "middle" | "start" | "end";
+  weight?: "500" | "600" | "700";
+  children: string;
+}) {
+  const baseline = y + size * 0.35;
+  return (
+    <G>
+      <SvgText
+        x={x}
+        y={baseline}
+        fontSize={size}
+        fontWeight={weight}
+        fill="none"
+        textAnchor={anchor}
+        stroke={halo}
+        strokeWidth={4}
+        strokeLinejoin="round"
+        accessible={false}
+      >
+        {children}
+      </SvgText>
+      <SvgText
+        x={x}
+        y={baseline}
+        fontSize={size}
+        fontWeight={weight}
+        fill={color}
+        textAnchor={anchor}
+      >
+        {children}
+      </SvgText>
+    </G>
+  );
+}
+
+/** The same closed loop the web kit draws, from `layoutCycle`. */
+function CycleDiagram({ element, surface }: { element: VisualElement; surface: Surface }) {
+  const nodes = (Array.isArray(element.props.nodes) ? element.props.nodes : []) as DiagramNode[];
+  const edges = (Array.isArray(element.props.edges) ? element.props.edges : []) as DiagramEdge[];
+  const cycle = layoutCycle(nodes, edges, {
+    zones: Array.isArray(element.props.zones) ? (element.props.zones as DiagramZone[]) : undefined,
+    flows: Array.isArray(element.props.flows) ? (element.props.flows as DiagramFlow[]) : undefined,
+    center: typeof element.props.center === "string" ? element.props.center : undefined,
+    focus: typeof element.props.focus === "string" ? element.props.focus : undefined,
+    width: surface.width > 0 ? surface.width : undefined,
+  });
+  if (!cycle.nodes.length) return null;
+  const pad = 2;
+  const full = cycle.width + pad * 2;
+  const high = cycle.height + pad * 2;
+  const scale = surface.width > 0 ? Math.min(1, surface.width / full) : 1;
+  const palette = surface.palette;
+  const plainFill = mixHex(palette.foreground, palette.background, 6);
+  const focusFill = mixHex(palette.success, palette.background, visualLanguage.focusFill);
+  const focusStroke = mixHex(palette.success, palette.background, visualLanguage.focusStrokeMix);
+  const caption = [
+    cycle.nodes.map((node) => node.lines.map((line) => line.text).join(" ")).join(", "),
+    cycle.center.map((line) => line.text).join(" "),
+    cycle.zones.map((zone) => zone.label.text).join(", "),
+    cycle.flows.map((flow) => flow.label.text).join(", "),
+  ]
+    .filter((part) => part.length > 0)
+    .join(". ");
+  return (
+    <Svg
+      width={full * scale}
+      height={high * scale}
+      viewBox={`${-pad} ${-pad} ${full} ${high}`}
+      accessibilityLabel={caption}
+    >
+      {cycle.zones.map((zone, index) => {
+        const color = toneColor(surface, zone.tone) ?? palette.mutedForeground;
+        return (
+          <G key={`${zone.label.text}-${index}`}>
+            <Rect
+              x={zone.box.x}
+              y={zone.box.y}
+              width={zone.box.width}
+              height={zone.box.height}
+              rx={16}
+              fill={mixHex(color, palette.background, 10)}
+            />
+            <SvgText
+              x={zone.label.x}
+              y={zone.label.y + zone.label.size * 0.35}
+              fontSize={zone.label.size}
+              fontWeight="700"
+              fill={color}
+              textAnchor="middle"
+            >
+              {zone.label.text.toUpperCase()}
+            </SvgText>
+          </G>
+        );
+      })}
+      {cycle.pipes.map((pipe) => {
+        const color = paint(surface, pipe.tone);
+        return (
+          <G key={`${pipe.from}-${pipe.to}`}>
+            <Path
+              d={pipe.d}
+              stroke={color}
+              strokeWidth={4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+            <Path d={pipe.arrow} fill={color} />
+          </G>
+        );
+      })}
+      {cycle.flows.map((flow, index) => {
+        const color = paint(surface, flow.tone);
+        return (
+          <G key={`${flow.label.text}-${index}`}>
+            {flow.shafts.map((d) => (
+              <Path
+                key={d}
+                d={d}
+                stroke={color}
+                strokeWidth={4}
+                strokeLinecap="round"
+                fill="none"
+              />
+            ))}
+            {flow.heads.map((d) => (
+              <Path key={d} d={d} fill={color} />
+            ))}
+            <Halo
+              x={flow.label.x}
+              y={flow.label.y}
+              size={flow.label.size}
+              color={palette.mutedForeground}
+              halo={palette.background}
+              anchor={flow.label.anchor}
+              weight="500"
+            >
+              {flow.label.text}
+            </Halo>
+          </G>
+        );
+      })}
+      {cycle.nodes.map((node) => {
+        const tone = toneColor(surface, node.tone);
+        const fill = node.focused
+          ? focusFill
+          : tone
+            ? mixHex(tone, palette.background, 12)
+            : plainFill;
+        const stroke = node.focused
+          ? focusStroke
+          : tone
+            ? mixHex(tone, palette.background, visualLanguage.focusStrokeMix)
+            : palette.border;
+        return (
+          <G key={node.id}>
+            <Rect
+              x={node.box.x}
+              y={node.box.y}
+              width={node.box.width}
+              height={node.box.height}
+              rx={visualLanguage.nodeRadius}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={node.focused ? visualLanguage.focusStroke : 1.25}
+            />
+            <CycleIcon node={node} color={tone ?? palette.mutedForeground} />
+            {node.lines.map((line) => (
+              <Halo
+                key={line.text}
+                x={line.x}
+                y={line.y}
+                size={line.size}
+                color={palette.foreground}
+                halo={palette.background}
+                anchor={line.anchor}
+              >
+                {line.text}
+              </Halo>
+            ))}
+            {node.badge ? (
+              <G>
+                <Circle
+                  cx={node.badge.cx}
+                  cy={node.badge.cy}
+                  r={node.badge.r}
+                  fill={palette.success}
+                />
+                <SvgText
+                  x={node.badge.cx}
+                  y={node.badge.cy + 4}
+                  fontSize={11}
+                  fontWeight="700"
+                  fill={palette.background}
+                  textAnchor="middle"
+                >
+                  {node.badge.text}
+                </SvgText>
+              </G>
+            ) : null}
+          </G>
+        );
+      })}
+      {cycle.center.map((line) => (
+        <Halo
+          key={line.text}
+          x={line.x}
+          y={line.y}
+          size={line.size}
+          color={palette.mutedForeground}
+          halo={palette.background}
+          anchor={line.anchor}
+          weight="500"
+        >
+          {line.text}
+        </Halo>
+      ))}
+    </Svg>
+  );
+}
+
+function CycleIcon({
+  node,
+  color,
+}: {
+  node: { icon?: string; iconAt: [number, number]; iconSize: number };
+  color: string;
+}) {
+  const shapes = iconShapes(node.icon);
+  if (!shapes || node.iconSize <= 0) return null;
+  return (
+    <G
+      transform={`translate(${node.iconAt[0]} ${node.iconAt[1]}) scale(${node.iconSize / 24})`}
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill="none"
+    >
+      {shapes.map(([tag, attrs], index) => {
+        const props = { ...attrs, ...(attrs.fill === "currentColor" ? { fill: color } : {}) };
+        if (tag === "path") return <Path key={index} {...props} />;
+        if (tag === "circle") return <Circle key={index} {...props} />;
+        if (tag === "rect") return <Rect key={index} {...props} />;
+        if (tag === "line") return <Line key={index} {...props} />;
+        return <Ellipse key={index} {...props} />;
+      })}
+    </G>
+  );
+}
+
 export function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
+  if (element.props.layout === "cycle") return CycleDiagram({ element, surface });
   const nodes = element.props.nodes as DiagramNode[];
   const edges = (element.props.edges ?? []) as DiagramEdge[];
   // The author's direction when it fits. A column of sources beside one target fits a phone;

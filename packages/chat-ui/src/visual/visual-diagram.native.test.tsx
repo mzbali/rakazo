@@ -94,6 +94,8 @@ describe("native diagram edge labels", () => {
         unavailable: "Unavailable",
       },
     });
+    expect(drawing).not.toBeNull();
+    if (!drawing) return;
     const texts = textElements(drawing);
     const label = texts.find((text) => text.props.children === "Travelling Salesman");
     expect(label?.props.fontSize).toBe(17);

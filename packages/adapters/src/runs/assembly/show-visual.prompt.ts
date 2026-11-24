@@ -16,8 +16,8 @@ export const VISUAL_ESSENTIALS = [
 /** App chats, where the reply can also carry a ui fence. The fence text comes first. */
 export const SHOW_VISUAL_INSTRUCTION = [
   "When someone asks to understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections 1. 2. 3.",
-  "When someone asks to compare or decide, or whether to buy, the first sentence is the pick. Then call show_visual: a calculator whose inputs already hold the figures they gave, or one picture of what differs. A web search does not replace that picture.",
-  "Call show_visual with title, summary and source. Do not pass help. Place the embed in the reply. Do not tell the reader to open it. It is not saved.",
+  "When someone asks to compare or decide, or whether to buy or return, call show_visual, then start the reply with the pick. The embed comes after that sentence: a calculator whose inputs already hold the figures they gave, or one picture of what differs. A web search does not replace that picture.",
+  "Call show_visual with title, summary and source. Do not pass help. Never paste the source. Place the embed after the pick. Do not tell the reader to open it. It is not saved.",
   VISUAL_ESSENTIALS,
   "A ui fence is only a table, steps, key numbers or a simple chart of figures. A question that asks for one fact, such as the time in a place, gets one plain sentence and no picture and no fence.",
 ].join("\n\n");

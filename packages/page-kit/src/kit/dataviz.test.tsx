@@ -446,6 +446,54 @@ describe("charts", () => {
     expect(lines.join(" ")).toBe("312 (cookie resets, excluded)");
   });
 
+  it("draws nested sets as circles one inside the next, with each label in its band", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn
+        nested
+        overlap="not shown"
+        sets={[
+          { label: "NP", count: 1200 },
+          { label: "NP-complete" },
+          { label: "P", tone: "success" },
+          { label: "Fourth" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    expect(circles).toHaveLength(3);
+    const radii = circles.map((circle) => Number(circle.getAttribute("r")));
+    expect(radii[0]).toBeGreaterThan(radii[1]!);
+    expect(radii[1]).toBeGreaterThan(radii[2]!);
+    expect(new Set(circles.map((circle) => circle.getAttribute("cx"))).size).toBe(1);
+    expect(circles[0]!.getAttribute("style")).toContain("--foreground");
+    expect(circles[2]!.getAttribute("style")).toContain("--rk-success");
+    expect(root.textContent).toContain("1,200");
+    expect(root.textContent).not.toContain("Fourth");
+    expect(root.textContent).not.toContain("not shown");
+    const names = [...root.querySelectorAll(".rk-venn-name")];
+    expect(names.map((name) => name.textContent)).toEqual(["NP", "NP-complete", "P"]);
+    const tops = names.map((name) => Number(name.getAttribute("y")));
+    expect(tops[0]).toBeLessThan(tops[1]!);
+    expect(tops[1]).toBeLessThan(tops[2]!);
+  });
+
+  it("centres a single nested circle and keeps an unknown tone monochrome", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn nested sets={[{ label: "P = NP", note: "Same set of problems", tone: "success" }]} />,
+    );
+    const circle = root.querySelector(".rk-venn-set")!;
+    const name = root.querySelector(".rk-venn-name")!;
+    expect(name.getAttribute("x")).toBe(circle.getAttribute("cx"));
+    expect(name.getAttribute("text-anchor")).toBe("middle");
+    expect(root.textContent).toContain("Same set of problems");
+    expect(circle.getAttribute("style")).toContain("--rk-success");
+    const plain = mount(<Venn nested sets={[{ label: "A", tone: "loud" as never }]} />);
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).toContain("--foreground");
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).not.toContain("--rk-loud");
+  });
+
   it("places matrix items by their 0 to 1 position, clamped, under four quadrant names", () => {
     const root = mount(
       <Matrix2x2

@@ -61,7 +61,14 @@ describe("the ui fence instructions", () => {
     expect(VISUAL_FENCE_INSTRUCTION).toContain("no markdown and no links");
   });
 
-  it("stay short", () => {
+  it("stay short, keep callouts rare, and send pictures to show_visual", () => {
     expect(VISUAL_FENCE_INSTRUCTION.length).toBeLessThan(4300);
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("show_visual, not a fence");
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("at most one");
+    const example = /```ui\n([\s\S]*?)\n```/.exec(VISUAL_FENCE_INSTRUCTION)?.[1] ?? "";
+    expect(example).not.toContain("Callout");
+    const withFences = userTurnInstructions({ ...parts, visualFences: true }).join("\n");
+    expect(withFences).toContain("explain a concept");
+    expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });
 });

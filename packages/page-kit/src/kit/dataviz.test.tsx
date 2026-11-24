@@ -467,7 +467,7 @@ describe("charts", () => {
     expect(radii[1]).toBeGreaterThan(radii[2]!);
     expect(new Set(circles.map((circle) => circle.getAttribute("cx"))).size).toBe(1);
     expect(circles[0]!.getAttribute("style")).toContain("--foreground");
-    expect(circles[2]!.getAttribute("style")).toContain("--rk-success");
+    expect(circles[2]!.getAttribute("style")).toContain("--success");
     expect(root.textContent).toContain("1,200");
     expect(root.textContent).not.toContain("Fourth");
     expect(root.textContent).not.toContain("not shown");
@@ -488,7 +488,7 @@ describe("charts", () => {
     expect(name.getAttribute("x")).toBe(circle.getAttribute("cx"));
     expect(name.getAttribute("text-anchor")).toBe("middle");
     expect(root.textContent).toContain("Same set of problems");
-    expect(circle.getAttribute("style")).toContain("--rk-success");
+    expect(circle.getAttribute("style")).toContain("--success");
     const plain = mount(<Venn nested sets={[{ label: "A", tone: "loud" as never }]} />);
     expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).toContain("--foreground");
     expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).not.toContain("--rk-loud");
@@ -805,7 +805,7 @@ describe("data display", () => {
         ]}
       />,
     );
-    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("940Users");
+    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("Users940");
     const many = Array.from({ length: 10 }, (_, i) => ({
       label: `P${i}`,
       value: i < 8 ? 100 : 1,

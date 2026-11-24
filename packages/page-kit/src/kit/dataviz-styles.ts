@@ -4,8 +4,8 @@ export const DATAVIZ_CSS = `
 :root{--rk-axis:color-mix(in srgb,var(--foreground) 58%,transparent);--rk-hover:color-mix(in srgb,var(--foreground) 4%,transparent);--rk-hover-strong:color-mix(in srgb,var(--foreground) 12%,transparent);--rk-line-strong:color-mix(in srgb,var(--foreground) 30%,transparent);--rk-hairline-soft:color-mix(in srgb,var(--foreground) 6%,transparent);--rk-fill-strong:${pageKitPalette.dark.fillStrong};--rk-surface:color-mix(in srgb,var(--foreground) 7%,var(--background))}
 [data-theme="light"]{--rk-fill-strong:${pageKitPalette.light.fillStrong};--rk-surface:var(--background)}
 .rk-chart{position:relative}
-.rk-frame{padding:1.25rem;border:1px solid var(--rk-line);border-radius:16px}
-:is(.rk-section[data-card],.rk-grid>*,.rk-frame) .rk-frame{padding:0;border:0;border-radius:0}
+.rk-frame{padding:1rem;border:1px solid var(--rk-line);border-radius:16px;background:transparent}
+:is(.rk-section[data-card],.rk-grid>*,.rk-frame,.rk-figure-card) .rk-frame{padding:0;border:0;border-radius:0}
 .rk-axis-arrow{display:inline-block;width:.7rem;height:.7rem;margin-inline-start:.25rem;vertical-align:-.05rem;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
 .rk-bar[data-negative] .rk-bar-fill{background:var(--rk-negative)}
 .rk-bar[data-negative] .rk-bar-value{color:var(--rk-danger)}
@@ -21,8 +21,9 @@ export const DATAVIZ_CSS = `
 .rk-rows[data-leads] .rk-row{grid-column:1/-1;grid-template-columns:subgrid}
 .rk-plot{position:relative}
 .rk-chart svg text{font-family:var(--rk-font)}
-.rk-tick{fill:var(--rk-axis);font-size:12px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
-.rk-grid-line{stroke:var(--rk-hairline-soft);shape-rendering:crispEdges}
+.rk-tick{fill:color-mix(in srgb,var(--foreground) 65%,transparent);font-size:10px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.rk-grid-line{stroke:color-mix(in srgb,var(--foreground) 10%,transparent);shape-rendering:crispEdges}
+.rk-chart[data-wide] .rk-grid-line{stroke-dasharray:2 4}
 .rk-key{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:.25rem 1rem;font-size:.75rem;line-height:1rem;letter-spacing:.01em;color:var(--rk-secondary)}
 .rk-key-item{display:inline-flex;align-items:center;gap:.375rem;min-width:0}
 .rk-key-dot{flex:none;width:8px;height:8px;border-radius:50%}
@@ -30,7 +31,9 @@ export const DATAVIZ_CSS = `
 .rk-chart .rk-key-line{display:block;flex:none;width:14px;height:2px;overflow:visible}
 .rk-chart>.rk-key+*{margin-top:-.15rem}
 .rk-column-value{fill:var(--rk-axis);font-size:12px;letter-spacing:.01em;font-variant-numeric:tabular-nums}
-[data-emphasis] .rk-column-value,[data-emphasis] .rk-column-label{fill:var(--foreground);font-weight:500}
+.rk-chart[data-wide] .rk-column-value{fill:var(--foreground);font-size:17px;font-weight:650}
+.rk-chart[data-wide] .rk-tick.rk-column-label{fill:var(--foreground);font-size:15px}
+.rk-chart[data-wide] [data-emphasis] .rk-column-value{font-weight:700}
 .rk-reference-line{stroke:var(--rk-secondary);stroke-dasharray:3 3;shape-rendering:crispEdges}
 .rk-reference-label{fill:var(--rk-secondary);font-size:12px;font-weight:500;paint-order:stroke;stroke:var(--background);stroke-width:4px;stroke-linejoin:round}
 .rk-trend{stroke:var(--rk-tertiary);stroke-width:1.5;stroke-dasharray:4 3}
@@ -62,8 +65,11 @@ export const DATAVIZ_CSS = `
 .rk-venn svg{overflow:visible}
 .rk-venn-set{fill-opacity:.24;stroke-width:1}
 [data-theme="light"] .rk-venn-set{fill-opacity:.16}
+.rk-venn[data-layout="nested"] .rk-venn-set{fill-opacity:1;stroke-width:1.5}
 .rk-venn-name{fill:var(--foreground);font-size:12px;font-weight:500}
+.rk-venn[data-layout="nested"] .rk-venn-name{font-size:20px;font-weight:650}
 .rk-venn-count{fill:var(--rk-secondary);font-size:12px;font-variant-numeric:tabular-nums}
+.rk-venn[data-layout="nested"] .rk-venn-count{font-size:14px}
 .rk-venn-overlap{fill:var(--foreground);font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
 .rk-matrix{display:flex;gap:.5rem;min-width:0}
 .rk-chart svg[tabindex]{touch-action:pan-y}
@@ -90,7 +96,7 @@ export const DATAVIZ_CSS = `
 .rk-tip-row{display:flex;align-items:center;gap:.4rem}
 .rk-tip-row b{margin-left:auto;padding-left:.75rem;font-weight:500}
 .rk-tip-swatch{flex:none;width:7px;height:7px;border-radius:50%}
-.rk-crosshair{stroke:var(--rk-line);stroke-width:1;shape-rendering:crispEdges}
+.rk-crosshair{stroke:color-mix(in srgb,var(--foreground) 35%,transparent);stroke-width:1;stroke-dasharray:3 3;shape-rendering:crispEdges}
 .rk-focus-ring:focus-visible{outline:2px solid var(--ring);outline-offset:4px;border-radius:6px}
 .rk-chart [data-dim]{opacity:.45;transition:opacity .14s}
 @media (prefers-reduced-motion:no-preference){

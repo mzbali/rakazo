@@ -1,38 +1,99 @@
 import type { VisualElement } from "@rakazo/core/visual-fence";
-import { axisGutter, finite, formatValue, nativeWords, valueScale } from "@rakazo/page-kit/native";
+import {
+  axisGutter,
+  columnBands,
+  finite,
+  formatValue,
+  nativeWords,
+  valueScale,
+} from "@rakazo/page-kit/native";
 import { typeScale } from "@rakazo/ui-tokens";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Line, Path, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, G, Line, Path, Text as SvgText } from "react-native-svg";
 import type { Surface } from "./visual-surface.native";
 import { tones } from "./visual-surface.native";
 
 const words = nativeWords;
 
-/** Three named hues, then everything else in one neutral grey, as the web kit draws them. */
+/** The series blue, then six muted hues, then one neutral grey, as the web kit draws them. */
 function seriesColor(surface: Surface, index: number): string {
   const palette = tones(surface);
-  return [palette.c1, palette.c2, palette.c3][index] ?? palette.other;
+  return (
+    [palette.c1, palette.c2, palette.c3, palette.c4, palette.c5, palette.c6, palette.c7][index] ??
+    palette.other
+  );
 }
 
 type Bar = { label: string; value: number; display?: string };
+
+function columnPath(x: number, top: number, width: number, bottom: number, round: number) {
+  const radius = Math.max(0, Math.min(round, width / 2, (bottom - top) / 2));
+  return (
+    `M${x + radius} ${top}H${x + width - radius}A${radius} ${radius} 0 0 1 ${x + width} ${top + radius}` +
+    `V${bottom}H${x}V${top + radius}A${radius} ${radius} 0 0 1 ${x + radius} ${top}Z`
+  );
+}
 
 export function Bars({ element, surface }: { element: VisualElement; surface: Surface }) {
   const bars = element.props.bars as Bar[];
   const values = bars.map((bar) => bar.value);
   const max = Math.max(0, ...values.map(Math.abs));
-  const emphasis = element.props.emphasis as number | "none" | undefined;
-  // The longest bar, negative or not, since a bar's length is its size.
-  const chosen = emphasis ?? values.map(Math.abs).indexOf(max);
   const palette = surface.palette;
+  if (values.every((value) => value >= 0) && surface.width > 0) {
+    const width = surface.width;
+    const height = 220;
+    const baseline = height - 28;
+    const tallest = baseline - 28;
+    const peak = Math.max(0, ...values);
+    const bands = columnBands(bars.length, width);
+    const center = (index: number) => index * (bands.slot + bands.gap) + bands.slot / 2;
+    return (
+      <Svg width={width} height={height}>
+        {bars.map((bar, index) => {
+          const barHeight = peak > 0 && bar.value > 0 ? (bar.value / peak) * tallest : 0;
+          const top = baseline - barHeight;
+          const left = center(index) - bands.column / 2;
+          return (
+            <G key={index}>
+              {barHeight > 0 ? (
+                <Path
+                  d={columnPath(left, top, bands.column, baseline, bands.radius)}
+                  fill={tones(surface).c1}
+                />
+              ) : null}
+              <SvgText
+                x={center(index)}
+                y={top - 8}
+                fontSize={17}
+                fontWeight="600"
+                fill={palette.foreground}
+                textAnchor="middle"
+              >
+                {bar.display ?? formatValue(bar.value, undefined, undefined, words)}
+              </SvgText>
+              <SvgText
+                x={center(index)}
+                y={height - 6}
+                fontSize={15}
+                fill={palette.foreground}
+                textAnchor="middle"
+              >
+                {bar.label}
+              </SvgText>
+            </G>
+          );
+        })}
+      </Svg>
+    );
+  }
   return (
     <View style={styles.bars}>
       {bars.map((bar, index) => {
         const share = max > 0 ? Math.min(1, Math.abs(bar.value) / max) : 0;
-        const inked = chosen === "none" || chosen === index;
         return (
           <View key={index} style={styles.bar}>
             <Text
-              style={[typeScale.caption, styles.barLabel, { color: palette.foreground }]}
+              style={[typeScale.body, styles.barLabel, { color: palette.foreground }]}
               numberOfLines={2}
             >
               {bar.label}
@@ -41,14 +102,9 @@ export function Bars({ element, surface }: { element: VisualElement; surface: Su
               <View
                 style={{
                   width: `${share * 100}%`,
-                  height: 8,
+                  height: 10,
                   borderRadius: 4,
-                  backgroundColor:
-                    bar.value < 0
-                      ? tones(surface).negative
-                      : inked
-                        ? palette.foreground
-                        : palette.faintForeground,
+                  backgroundColor: bar.value < 0 ? tones(surface).negative : tones(surface).c1,
                 }}
               />
             </View>
@@ -144,7 +200,7 @@ export function LineChart({ element, surface }: { element: VisualElement; surfac
   const named = series.filter((entry) => entry.name);
   return (
     <View style={styles.chart}>
-      {named.length > 0 ? (
+      {named.length > 1 ? (
         <View style={styles.legend}>
           {series.map((entry, index) =>
             entry.name ? (
@@ -253,8 +309,8 @@ function Gridline({
 
 type PiePart = { label: string; value: number; display?: string };
 
-const PIE_SIZE = 120;
-const PIE_RING = 24;
+const PIE_SIZE = 160;
+const PIE_RING = 28;
 const PIE_GAP = 2;
 /** With many parts, slivers under 2% fold into one "Other" slice, as on the web. */
 const FOLD_OVER = 8;
@@ -284,7 +340,7 @@ export function Pie({ element, surface }: { element: VisualElement; surface: Sur
   let start = 0;
   const slices = parts.map((part, index) => {
     const share = part.value / sum;
-    const slice = { part, share, start, color: seriesColor(surface, index) };
+    const slice = { part, share, start, color: seriesColor(surface, index + 1) };
     start += share;
     return slice;
   });
@@ -325,27 +381,27 @@ export function Pie({ element, surface }: { element: VisualElement; surface: Sur
             transform={`rotate(-90 ${PIE_SIZE / 2} ${PIE_SIZE / 2})`}
           />
         ))}
-        {total !== undefined ? (
-          <SvgText
-            x={PIE_SIZE / 2}
-            y={PIE_SIZE / 2 + (heading ? 0 : 5)}
-            fontSize={15}
-            fontWeight="500"
-            fill={palette.foreground}
-            textAnchor="middle"
-          >
-            {total === true ? formatValue(sum, undefined, undefined, words) : total}
-          </SvgText>
-        ) : null}
         {total !== undefined && heading ? (
           <SvgText
             x={PIE_SIZE / 2}
-            y={PIE_SIZE / 2 + 15}
-            fontSize={11}
+            y={PIE_SIZE / 2 - 8}
+            fontSize={12}
             fill={palette.mutedForeground}
             textAnchor="middle"
           >
             {heading}
+          </SvgText>
+        ) : null}
+        {total !== undefined ? (
+          <SvgText
+            x={PIE_SIZE / 2}
+            y={PIE_SIZE / 2 + (heading ? 16 : 6)}
+            fontSize={28}
+            fontWeight="600"
+            fill={palette.foreground}
+            textAnchor="middle"
+          >
+            {total === true ? formatValue(sum, undefined, undefined, words) : total}
           </SvgText>
         ) : null}
       </Svg>
@@ -364,7 +420,7 @@ export function Pie({ element, surface }: { element: VisualElement; surface: Sur
               ]}
               numberOfLines={2}
             >
-              {part.display ?? formatValue(part.value, undefined, undefined, words)} {part.label}
+              {part.label}
             </Text>
             <Text style={[typeScale.caption, { color: palette.mutedForeground }]}>
               {percent(share)}
@@ -380,7 +436,7 @@ const styles = StyleSheet.create({
   bars: { gap: 10 },
   bar: { flexDirection: "row", alignItems: "center", gap: 10 },
   barLabel: { width: "28%" },
-  track: { flex: 1, height: 8, borderRadius: 4, overflow: "hidden" },
+  track: { flex: 1, height: 9, borderRadius: 6, overflow: "hidden" },
   barValue: { minWidth: 44, textAlign: "right" },
   chart: { gap: 8 },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 12 },

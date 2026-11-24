@@ -80,7 +80,7 @@ describe("Quiz", () => {
       </PageLanguage.Provider>,
     );
     expect(host.textContent).toContain("Question 1 sur 1");
-    click(button("A") ?? null);
+    click(option("A") ?? null);
     expect(host.textContent).toContain("Juste");
     expect(button("Recommencer")).toBeTruthy();
   });

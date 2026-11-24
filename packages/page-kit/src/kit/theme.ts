@@ -35,7 +35,7 @@ function themeFor(kind: Kind) {
   const tone = pageKitPalette[kind];
   const ink = web.foreground.slice(0, 7);
   const alpha = SUBTLE_ALPHA[kind];
-  const categorical = [tone.c1, tone.c2, tone.c3, tone.c4, tone.c5];
+  const categorical = [tone.c1, tone.c2, tone.c3, tone.c4, tone.c5, tone.c6, tone.c7];
   return {
     kind,
     bg: { base: web.background, subtle: web.muted, elevated: web.card },

@@ -1,19 +1,21 @@
 import type { VisualElement, VisualParse } from "@rakazo/core/visual-fence";
-import type { DiagramEdge, DiagramNode, Placed, Point } from "@rakazo/page-kit/native";
+import type { DiagramEdge, DiagramNode, Placed } from "@rakazo/page-kit/native";
 import {
-  curveMid,
+  chevron,
   DETAIL_LINE,
   diagramFocusId,
-  edgePoints,
+  drawEdges,
   fitDiagramLayout,
   ICON_SIZE,
   iconOrigin,
   iconShapes,
   LABEL_LINE,
+  mixHex,
   PAD_Y,
   SERIES_COLORS,
   TONE_PATHS,
   textCentre,
+  visualLanguage,
 } from "@rakazo/page-kit/native";
 import type { ColorTokens, ResolvedAppearance } from "@rakazo/ui-tokens";
 import { typeScale } from "@rakazo/ui-tokens";
@@ -85,8 +87,8 @@ function Steps({ element, surface }: { element: VisualElement; surface: Surface 
     <View style={styles.steps}>
       {steps.map((step, index) => (
         <View key={index} style={styles.step}>
-          <View style={[styles.stepNumber, { backgroundColor: surface.palette.muted }]}>
-            <Text style={[styles.stepNumberText, { color: surface.palette.foreground }]}>
+          <View style={[styles.stepNumber, { borderColor: surface.palette.border }]}>
+            <Text style={[styles.stepNumberText, { color: surface.palette.mutedForeground }]}>
               {index + 1}
             </Text>
           </View>
@@ -137,20 +139,26 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
           {Array.from({ length: columns }, (_, index) => {
             const metric = row[index];
             return (
-              <View key={index} style={styles.metric}>
+              <View key={index} style={[styles.metric, { borderColor: surface.palette.border }]}>
                 {metric ? (
                   <>
+                    <Text style={[styles.metricLabel, { color: surface.palette.mutedForeground }]}>
+                      {metric.label}
+                    </Text>
                     <Text
                       style={[
-                        typeScale.title,
                         styles.metricValue,
-                        { color: surface.palette.foreground },
+                        {
+                          color:
+                            metric.tone === "success" ||
+                            metric.tone === "warning" ||
+                            metric.tone === "danger"
+                              ? (toneColor(surface, metric.tone) ?? surface.palette.foreground)
+                              : surface.palette.foreground,
+                        },
                       ]}
                     >
                       {String(metric.value)}
-                    </Text>
-                    <Text style={[typeScale.caption, { color: surface.palette.foreground }]}>
-                      {metric.label}
                     </Text>
                     {metric.delta !== undefined ? (
                       <Text style={[typeScale.caption, { color: deltaColor(metric, surface) }]}>
@@ -162,15 +170,7 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
                         ) : null}
                       </Text>
                     ) : metric.detail ? (
-                      <Text
-                        style={[
-                          typeScale.caption,
-                          {
-                            color:
-                              toneColor(surface, metric.tone) ?? surface.palette.mutedForeground,
-                          },
-                        ]}
-                      >
+                      <Text style={[typeScale.caption, { color: surface.palette.mutedForeground }]}>
                         {metric.detail}
                       </Text>
                     ) : null}
@@ -185,7 +185,6 @@ function Metrics({ element, surface }: { element: VisualElement; surface: Surfac
   );
 }
 
-const ARROW = 7;
 const GRID_GAP = 16;
 
 export function Diagram({ element, surface }: { element: VisualElement; surface: Surface }) {
@@ -211,6 +210,9 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
   const line = palette.faintForeground;
   const series = tones(surface);
   const seriesColors = [series.c1, series.c2, series.c3, series.c4, series.c5];
+  const nodeFill = mixHex(palette.foreground, palette.background, 6);
+  const focusFill = mixHex(palette.success, palette.background, visualLanguage.focusFill);
+  const focusStroke = mixHex(palette.success, palette.background, visualLanguage.focusStrokeMix);
   return (
     <Svg
       width={full * scale}
@@ -218,67 +220,60 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
       viewBox={`${-pad} ${-pad} ${full} ${high}`}
       accessibilityLabel={layout.nodes.map((node) => node.label).join(", ")}
     >
-      {layout.edges.map(({ edge, from, to, backward }, index) => {
-        const [a, b, c, d] = edgePoints(from, to, backward, horizontal);
-        const label = curveMid(a, b, c, d);
-        const angle = Math.atan2(d[1] - c[1], d[0] - c[0]);
-        const wing = (turn: number): Point => [
-          d[0] - ARROW * Math.cos(angle + turn),
-          d[1] - ARROW * Math.sin(angle + turn),
-        ];
-        const [left, right] = [wing(0.5), wing(-0.5)];
-        return (
-          <G key={index}>
+      {drawEdges(layout.edges, horizontal).map((edge, index) => (
+        <G key={index}>
+          <Path
+            d={edge.d}
+            stroke={line}
+            strokeWidth={visualLanguage.edgeWidth}
+            fill="none"
+            strokeDasharray={edge.dashed ? "5 4" : undefined}
+          />
+          {edge.arrow ? (
             <Path
-              d={`M${a[0]},${a[1]}C${b[0]},${b[1]} ${c[0]},${c[1]} ${d[0]},${d[1]}`}
+              d={chevron(edge.arrow.from, edge.arrow.tip)}
               stroke={line}
-              strokeWidth={1.5}
-              fill="none"
-              strokeDasharray={edge.dashed ? "5 4" : undefined}
-            />
-            <Path
-              d={`M${left[0]},${left[1]}L${d[0]},${d[1]}L${right[0]},${right[1]}`}
-              stroke={line}
-              strokeWidth={1.5}
+              strokeWidth={visualLanguage.edgeWidth}
               strokeLinecap="round"
               strokeLinejoin="round"
               fill="none"
             />
-            {edge.label ? (
-              <G>
-                {/* Native SVG paints strokes over fills: draw the halo before the ink. */}
-                <SvgText
-                  x={label[0]}
-                  y={label[1] + 4}
-                  fontSize={12}
-                  fill="none"
-                  textAnchor="middle"
-                  stroke={palette.background}
-                  strokeWidth={5}
-                  strokeLinejoin="round"
-                  accessible={false}
-                >
-                  {edge.label}
-                </SvgText>
-                <SvgText
-                  x={label[0]}
-                  y={label[1] + 4}
-                  fontSize={12}
-                  fill={palette.mutedForeground}
-                  textAnchor="middle"
-                >
-                  {edge.label}
-                </SvgText>
-              </G>
-            ) : null}
-          </G>
-        );
-      })}
+          ) : null}
+          {edge.label && edge.labelAt ? (
+            <G>
+              {/* Native SVG paints strokes over fills: draw the halo before the ink. */}
+              <SvgText
+                x={edge.labelAt[0]}
+                y={edge.labelAt[1] + 4}
+                fontSize={12}
+                fill="none"
+                textAnchor="middle"
+                stroke={palette.background}
+                strokeWidth={5}
+                strokeLinejoin="round"
+                accessible={false}
+              >
+                {edge.label}
+              </SvgText>
+              <SvgText
+                x={edge.labelAt[0]}
+                y={edge.labelAt[1] + 4}
+                fontSize={12}
+                fill={palette.mutedForeground}
+                textAnchor="middle"
+              >
+                {edge.label}
+              </SvgText>
+            </G>
+          ) : null}
+        </G>
+      ))}
       {layout.nodes.map((node: Placed) => {
         const accent =
           Number.isInteger(node.series) && node.series! >= 0
             ? seriesColors[node.series! % SERIES_COLORS.length]
             : undefined;
+        const focused = node.id === focus;
         return (
           <G key={node.id}>
             <Rect
@@ -286,10 +281,12 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
               y={node.y}
               width={node.width}
               height={node.height}
-              rx={node.kind === "terminal" ? Math.min(node.height / 2, 22) : 10}
-              fill={palette.background}
-              stroke={node.id === focus ? palette.foreground : (accent ?? palette.border)}
-              strokeWidth={node.id === focus ? 2 : 1.25}
+              rx={
+                node.kind === "terminal" ? Math.min(node.height / 2, 22) : visualLanguage.nodeRadius
+              }
+              fill={focused ? focusFill : nodeFill}
+              stroke={focused ? focusStroke : (accent ?? palette.border)}
+              strokeWidth={focused ? visualLanguage.focusStroke : 1.25}
             />
             <NodeIcon node={node} color={palette.mutedForeground} />
             {node.labelLines.map((text, index) => (
@@ -297,8 +294,8 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
                 key={`l${index}`}
                 x={textCentre(node)}
                 y={node.y + PAD_Y + LABEL_LINE * (index + 0.5) + 5}
-                fontSize={16}
-                fontWeight="500"
+                fontSize={visualLanguage.labelSize}
+                fontWeight={node.id === focus ? "700" : "500"}
                 fill={palette.foreground}
                 textAnchor="middle"
               >
@@ -540,28 +537,42 @@ const styles = StyleSheet.create({
   callout: {
     flexDirection: "row",
     gap: 10,
-    padding: 12,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 20,
     borderWidth: 1,
   },
   calloutIcon: { marginTop: 3 },
   calloutText: { flex: 1, gap: 2 },
   lead: { fontWeight: "600" },
-  steps: { gap: 14 },
+  steps: { gap: 18 },
   step: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   stepNumber: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
   },
-  stepNumberText: { fontSize: 13, fontWeight: "500" },
+  stepNumberText: { fontSize: 14, fontWeight: "500" },
   stepText: { flex: 1 },
-  metrics: { gap: 18 },
-  metricRow: { flexDirection: "row", gap: 16 },
-  metric: { flex: 1, minWidth: 0 },
-  metricValue: { fontWeight: "500" },
+  metrics: { gap: 12 },
+  metricRow: { flexDirection: "row", gap: 12 },
+  metric: {
+    flex: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  metricValue: { fontSize: 40, lineHeight: 44, fontWeight: "600", marginTop: 6 },
   gridRow: { flexDirection: "row", gap: GRID_GAP },
   gridCell: { flex: 1, minWidth: 0 },
   formula: { fontSize: 15, lineHeight: 24 },

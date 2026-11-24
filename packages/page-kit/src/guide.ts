@@ -35,7 +35,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 ### Structure
 - Page {title, summary?, width?: "column" | "wide" | "full", lang?, palette?: [colour], sources?: [url]}: the page. "column" (default) for reading, "wide" for dashboards; palette replaces the first chart colours; sources become a footer of links. lang is the content's language tag ("fr", "he"); the kit's own buttons, empty states, dates and numbers follow it, and Hebrew or Arabic read right to left. A PageHero given first sits above the title.
 - PageHero {eyebrow?, eyebrowMark?}: a small label and any art above the title. PageMeta: a byline or date line. Footnote: a small trailing note.
-- Section {heading?, id?, caption?, actions?, collapsible?, defaultOpen?}: a block with a heading; nesting steps the heading down a level; inside a Grid it becomes a card. id (else the heading) is the anchor a TableOfContents links to. caption sits under the first table or chart, else under the first block. actions sits on the heading line (put a Segmented there). collapsible folds it behind its heading, closed unless defaultOpen.
+- Section {heading?, id?, caption?, source?, actions?, collapsible?, defaultOpen?}: a block with a heading; nesting steps the heading down a level; a figure, or a cell in a Grid, is a card. id (else the heading) is the anchor a TableOfContents links to. caption sits inside that card, under the picture. source is the muted line under the caption. actions sits on the heading line (put a Segmented there). collapsible folds it behind its heading, closed unless defaultOpen.
 - TableOfContents {items: [{label, id, depth?}], title?}: "On this page" links that follow the reader's position; long lists fold, phones get a compact menu.
 - Grid {columns}: side by side (1 to 4 columns); stacks on phones.
 - Divider: a hairline between parts. Floating {edge?: "bottom" | "top", align?: "start" | "center" | "end", bar?}: a row of controls pinned while scrolling. BackToTop {label?}: a button back to the top.
@@ -156,13 +156,13 @@ A visual is a small piece of page-kit JSX drawn in the chat. Place the embed sho
 
 - Call show_visual {title, summary, source}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
 - It draws at message width, up to about 1000 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
-- Skip the Page wrapper. A Section heading names it, and caption is the one line under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
+- Skip the Page wrapper. A Section heading names it, and caption is the one line inside the card, under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
 - The compiled visual must stay under 32 KB. Put larger work in a page.
 
 ## Patterns
 One idea per visual. Short numbered prose around it. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
 
-Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line under each visual. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
+Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
 - A comparison or a buying decision: lead with the pick. Product rows and a plain table stay in the prose as markdown. show_visual draws the one mechanism that differs, and a calculator prefilled with the figures you found.

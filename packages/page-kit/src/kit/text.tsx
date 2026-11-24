@@ -289,7 +289,15 @@ export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numb
   );
 }
 
-const SERIES = ["var(--rk-c1)", "var(--rk-c2)", "var(--rk-c3)", "var(--rk-c4)", "var(--rk-c5)"];
+const SERIES = [
+  "var(--rk-c1)",
+  "var(--rk-c2)",
+  "var(--rk-c3)",
+  "var(--rk-c4)",
+  "var(--rk-c5)",
+  "var(--rk-c6)",
+  "var(--rk-c7)",
+];
 
 export function Legend({
   names,

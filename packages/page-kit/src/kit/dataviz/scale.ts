@@ -10,9 +10,9 @@ export const finite = (value: unknown): value is number =>
 export const numbers = (values: unknown): number[] =>
   Array.isArray(values) ? values.filter(finite) : [];
 
-/** Three named hues, then everything else in one neutral grey. */
+/** The series blue, then six muted hues, then one neutral grey. */
 export function seriesColor(index: number): string {
-  return index < 3 ? `var(--rk-c${index + 1})` : "var(--rk-other)";
+  return index >= 0 && index < 7 ? `var(--rk-c${index + 1})` : "var(--rk-other)";
 }
 
 /** Round tick steps (1, 2, 2.5 or 5 times a power of ten) covering the domain. */

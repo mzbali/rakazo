@@ -14,8 +14,8 @@ export const VISUAL_ESSENTIALS = [
 /** App chats also support ui fences. */
 export const SHOW_VISUAL_INSTRUCTION = [
   "Use show_visual to understand something or how it works, for checklists, timelines, bill splits and requested visuals. Practice uses it too. For explanations, number the sections.",
-  "To compare or decide whether to buy, open with the finding or pick. A web search does not replace the chart. Use table + horizontal Bars. For buying trade-offs, add a prefilled calculator and radio questions. ProductRows lists sourced options.",
-  "Pass title, summary and source to show_visual. Do not pass help, paste source or tell the reader to open it.",
+  "To compare or decide whether to buy, open with the finding or pick. A web search does not replace the chart. Use a table and horizontal Bars. Give the prefilled calculator and radio questions separate embeds. ProductRows lists sourced options.",
+  "Pass title, summary and source to show_visual. Split tall visuals so each works inline. Do not pass help, paste source or tell the reader to open it.",
   VISUAL_ESSENTIALS,
   "A ui fence is for a table, steps, key numbers or a simple chart. One fact gets one plain sentence.",
 ].join("\n\n");

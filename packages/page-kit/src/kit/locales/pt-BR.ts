@@ -80,4 +80,10 @@ export const ptBR: Messages = {
   dontKnow: "Não sei",
   shuffle: "Embaralhar",
   known: { one: "{count} sabida", other: "{count} sabidas" },
+  previous: "Anterior",
+  reset: "Redefinir",
+  copy: "Copiar",
+  completedOf: "{done} de {total} concluídos",
+  sectionCount: "{done}/{total}",
+  stageOf: "Etapa {n} de {total}",
 };

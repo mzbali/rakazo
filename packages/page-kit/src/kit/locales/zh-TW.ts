@@ -77,4 +77,10 @@ export const zhTW: Messages = {
   dontKnow: "不會",
   shuffle: "打亂",
   known: { other: "會了 {count}" },
+  previous: "上一步",
+  reset: "重設",
+  copy: "複製",
+  completedOf: "已完成 {done}/{total}",
+  sectionCount: "{done}/{total}",
+  stageOf: "第 {n} 步，共 {total} 步",
 };

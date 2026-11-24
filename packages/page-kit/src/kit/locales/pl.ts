@@ -97,4 +97,10 @@ export const pl: Messages = {
     many: "{count} umiem",
     other: "{count} umiem",
   },
+  previous: "Wstecz",
+  reset: "Resetuj",
+  copy: "Kopiuj",
+  completedOf: "{done} z {total} ukończone",
+  sectionCount: "{done}/{total}",
+  stageOf: "Etap {n} z {total}",
 };

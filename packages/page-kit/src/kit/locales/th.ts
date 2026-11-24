@@ -77,4 +77,10 @@ export const th: Messages = {
   dontKnow: "ไม่รู้",
   shuffle: "สับ",
   known: { other: "รู้ {count}" },
+  previous: "ก่อนหน้า",
+  reset: "รีเซ็ต",
+  copy: "คัดลอก",
+  completedOf: "เสร็จ {done} จาก {total}",
+  sectionCount: "{done}/{total}",
+  stageOf: "ขั้นที่ {n} จาก {total}",
 };

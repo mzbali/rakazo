@@ -82,6 +82,12 @@ export const en = {
   dontKnow: "Don't know",
   shuffle: "Shuffle",
   known: { one: "{count} known", other: "{count} known" },
+  previous: "Previous",
+  reset: "Reset",
+  copy: "Copy",
+  completedOf: "{done} of {total} completed",
+  sectionCount: "{done}/{total}",
+  stageOf: "Stage {n} of {total}",
 } satisfies Record<string, Message>;
 
 export type LabelKey = keyof typeof en;

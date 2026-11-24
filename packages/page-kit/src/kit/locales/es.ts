@@ -80,4 +80,10 @@ export const es: Messages = {
   dontKnow: "No la sé",
   shuffle: "Barajar",
   known: { one: "{count} sabida", other: "{count} sabidas" },
+  previous: "Anterior",
+  reset: "Restablecer",
+  copy: "Copiar",
+  completedOf: "{done} de {total} completados",
+  sectionCount: "{done}/{total}",
+  stageOf: "Etapa {n} de {total}",
 };

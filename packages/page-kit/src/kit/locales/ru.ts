@@ -95,4 +95,10 @@ export const ru: Messages = {
     many: "{count} знаю",
     other: "{count} знаю",
   },
+  previous: "Назад",
+  reset: "Сбросить",
+  copy: "Копировать",
+  completedOf: "{done} из {total} готово",
+  sectionCount: "{done}/{total}",
+  stageOf: "Этап {n} из {total}",
 };

@@ -81,4 +81,10 @@ export const de: Messages = {
   dontKnow: "Nicht gewusst",
   shuffle: "Mischen",
   known: { one: "{count} gewusst", other: "{count} gewusst" },
+  previous: "Zurück",
+  reset: "Zurücksetzen",
+  copy: "Kopieren",
+  completedOf: "{done} von {total} erledigt",
+  sectionCount: "{done}/{total}",
+  stageOf: "Stufe {n} von {total}",
 };

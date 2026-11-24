@@ -77,4 +77,10 @@ export const ko: Messages = {
   dontKnow: "몰라요",
   shuffle: "섞기",
   known: { other: "{count}장 알아요" },
+  previous: "이전",
+  reset: "초기화",
+  copy: "복사",
+  completedOf: "{done} / {total} 완료",
+  sectionCount: "{done}/{total}",
+  stageOf: "{n} / {total} 단계",
 };

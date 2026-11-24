@@ -8,7 +8,8 @@ export const VISUAL_ESSENTIALS = [
   'source is page-kit JSX: one export default, no Page wrapper. One Section and one caption. At most one Callout, only for a real warning. A phone is about 340 pixels wide, so a Diagram of more than two steps is vertical. A grid or board is SVG from useTheme(), with a viewBox and width "100%". Never use vh.',
   'One set inside another, labels of one or two words: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />',
   'A flow: <Diagram direction="vertical" nodes={[{id: "a", label: "Input"}, {id: "b", label: "Output"}]} edges={[{from: "a", to: "b"}]} />',
-  'A value the reader changes: useState, then Input type="number" or Button, and a LineChart or SVG follows that number.',
+  'A value the reader changes: useState, then Slider or Input type="number", a Result, and a LineChart marker that follows that number.',
+  "A year list is Timeline. A stage diagram is Stages around a Diagram. A list the reader ticks is Checklist interactive.",
   'Money they already named: useState for each figure, Input type="number" for each, and the text shows what is left to pay.',
   'Practice: <Quiz questions={[{question: "Q", options: ["A", "B"], answer: 0}]} /> or <Flashcards cards={[{front: "Q", back: "A"}]} />.',
 ].join("\n");

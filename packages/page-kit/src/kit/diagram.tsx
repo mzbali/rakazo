@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createContext, createElement, useContext } from "react";
 import { iconShapes } from "./diagram-icons.js";
 import type { DiagramEdge, DiagramNode } from "./diagram-layout.js";
 import {
@@ -21,19 +21,26 @@ import { visualLanguage } from "./visual-language.js";
 export { fitDiagramLayout, layoutDiagram, wrapText } from "./diagram-layout.js";
 export type { DiagramEdge, DiagramNode };
 
+/** The node id a Stages (or any parent) wants highlighted. A `focus` prop wins when it names a node. */
+export const DiagramFocus = createContext<string | undefined>(undefined);
+
 export function Diagram({
   nodes = [],
   edges = [],
   direction = "vertical",
   maxWidth,
+  focus,
 }: {
   nodes?: DiagramNode[];
   edges?: DiagramEdge[];
   direction?: "horizontal" | "vertical";
   /** The column the drawing has to fit. When it is set, the other direction is used if it is narrower. */
   maxWidth?: number;
+  /** Highlights this node. Otherwise a parent DiagramFocus, otherwise the layout's own focus. */
+  focus?: string;
 }) {
   const words = useWords();
+  const fromParent = useContext(DiagramFocus);
   const links = objectItems(edges);
   const placed = objectItems(nodes);
   const labeled = links.some((edge) => edge.label);
@@ -45,7 +52,10 @@ export function Diagram({
     maxWidth ?? 0,
   );
   const { horizontal } = layout;
-  const focus = diagramFocusId(layout.nodes);
+  const named = [focus, fromParent].find(
+    (id) => typeof id === "string" && layout.nodes.some((node) => node.id === id),
+  );
+  const focusId = named ?? diagramFocusId(layout.nodes);
   if (!layout.nodes.length) return null;
   const drawn = drawEdges(layout.edges, horizontal);
   const pad = 2;
@@ -100,7 +110,7 @@ export function Diagram({
             Number.isInteger(node.series) && node.series! >= 0
               ? `var(${SERIES_COLORS[node.series! % SERIES_COLORS.length]})`
               : undefined;
-          const focused = node.id === focus;
+          const focused = node.id === focusId;
           return (
             <g key={node.id}>
               <rect

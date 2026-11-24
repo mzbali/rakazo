@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Fragment } from "react";
+import { Fragment, isValidElement } from "react";
 import type { Formatter, LegendItem } from "./dataviz.js";
 import {
   axisGutter,
@@ -99,6 +99,8 @@ export function LineChart({
   labels,
   annotations,
   legend = true,
+  marker,
+  reference,
 }: {
   points?: LinePoint[];
   floor?: number;
@@ -110,6 +112,10 @@ export function LineChart({
   labels?: ReactNode[];
   annotations?: Annotation[];
   legend?: boolean;
+  /** The point index of the dashed guide and outlined dot. Hover still wins. */
+  marker?: number;
+  /** A dashed horizontal line, named at its right end. */
+  reference?: { value: number; label?: ReactNode };
 }) {
   const words = useWords();
   const { ref, width } = useWidth(560);
@@ -191,6 +197,34 @@ export function LineChart({
     )
     .slice(0, 3 * Math.max(1, count));
   const active = hover.active;
+  const asked = marker !== undefined && marker !== null;
+  const markerNumber = Number(marker);
+  const markerIndex =
+    asked &&
+    finite(markerNumber) &&
+    Number.isInteger(markerNumber) &&
+    markerNumber >= 0 &&
+    markerNumber < count
+      ? markerNumber
+      : undefined;
+  const pinned = asked
+    ? (markerIndex ?? null)
+    : !multi && finite(primary[lastIndex])
+      ? lastIndex
+      : null;
+  const at = active ?? pinned;
+  const referenceRecord =
+    reference && typeof reference === "object" && !Array.isArray(reference) ? reference : undefined;
+  const referenceValue = finite(Number(referenceRecord?.value))
+    ? Number(referenceRecord?.value)
+    : undefined;
+  const referenceLabel = referenceRecord?.label;
+  const referenceText =
+    typeof referenceLabel === "string" ||
+    (typeof referenceLabel === "number" && Number.isFinite(referenceLabel)) ||
+    isValidElement(referenceLabel)
+      ? referenceLabel
+      : null;
   const description = series
     .map(
       (s, index) =>
@@ -330,17 +364,19 @@ export function LineChart({
               </g>
             );
           })}
-          {active !== null || (!multi && finite(primary[lastIndex])) ? (
+          {referenceValue !== undefined ? (
+            <ReferenceLine
+              y={y(referenceValue)}
+              left={left}
+              right={right}
+              end={right}
+              label={referenceText}
+            />
+          ) : null}
+          {at !== null ? (
             <g className="rk-hover">
-              <line
-                className="rk-crosshair"
-                x1={x(active ?? lastIndex)}
-                x2={x(active ?? lastIndex)}
-                y1={PLOT.top}
-                y2={baseline}
-              />
+              <line className="rk-crosshair" x1={x(at)} x2={x(at)} y1={PLOT.top} y2={baseline} />
               {(active !== null ? series : [series[0]!]).map((s, index) => {
-                const at = active ?? lastIndex;
                 const v = s.values[at];
                 return finite(v) ? (
                   <circle

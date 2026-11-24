@@ -409,13 +409,13 @@ a.rk-link-text:hover,.rk-text-link:hover{text-decoration:underline;text-underlin
 .rk-field[data-inline]{display:inline-flex;justify-self:start;max-width:100%}
 .rk-field-label{font-size:12px;line-height:16px;letter-spacing:.12px;color:var(--rk-secondary)}
 .rk-select{position:relative;display:flex;align-items:center;max-width:100%}
-.rk-select select{appearance:none;-webkit-appearance:none;width:100%;max-width:100%;height:40px;margin:0;padding:8px 32px 8px 14px;border:1px solid var(--rk-hairline);border-radius:999px;background:color-mix(in srgb,var(--foreground) 6%,var(--background));color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s}
+.rk-select select{appearance:none;-webkit-appearance:none;width:100%;max-width:100%;height:40px;margin:0;padding:8px 32px 8px 14px;border:1px solid var(--rk-line);border-radius:999px;background:transparent;color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s}
 .rk-select select:hover:not(:disabled){background:var(--rk-control-hover)}
 .rk-select select[data-empty]{color:var(--rk-secondary)}
 .rk-select select:disabled{cursor:not-allowed;opacity:.5}
 .rk-select option{background:var(--rk-option);color:var(--foreground)}
 .rk-select-chevron{position:absolute;right:8px;width:12px;height:12px;pointer-events:none;fill:none;stroke:var(--rk-secondary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.rk-input{display:block;width:100%;height:40px;margin:0;padding:8px 14px;border:1px solid var(--rk-hairline);border-radius:999px;background:color-mix(in srgb,var(--foreground) 6%,var(--background));color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px}
+.rk-input{display:block;width:100%;height:40px;margin:0;padding:8px 14px;border:1px solid var(--rk-line);border-radius:999px;background:transparent;color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px}
 .rk-input::placeholder{color:var(--rk-secondary);opacity:1}
 .rk-input,.rk-select select{caret-color:var(--rk-accent);accent-color:var(--rk-accent)}
 .rk-input::-webkit-search-cancel-button{-webkit-appearance:none}

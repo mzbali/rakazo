@@ -8,6 +8,7 @@ import {
 import { CALENDAR_CSS } from "./calendar.js";
 import { CONTROLS_CSS } from "./controls.js";
 import { DATAVIZ_CSS } from "./dataviz-styles.js";
+import { INTERACT_CSS } from "./interact.js";
 import { MEDIA_CSS } from "./media.js";
 import { PRACTICE_CSS } from "./practice.js";
 import { TEXT_KIT_CSS } from "./text.js";
@@ -108,7 +109,8 @@ body{font-size:1rem}
 .rk-step-detail{font-size:1rem;line-height:1.45;color:var(--rk-secondary)}
 .rk-checklist li{padding:.55rem 0;border-top:1px solid var(--rk-hairline)}
 .rk-checklist li:first-child{border-top:0;padding-top:0}
-.rk-check input{position:absolute;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
+.rk-check input{position:absolute;width:1px;height:1px;margin:0;opacity:0}
+.rk-check input:focus-visible+.rk-check-mark{outline:2px solid var(--ring);outline-offset:3px;border-radius:999px}
 .rk-check{position:relative;display:flex;align-items:flex-start;gap:.65rem;font-size:1rem;line-height:1.45}
 .rk-check-mark{flex:none;width:1.1rem;height:1.1rem;margin-top:.13rem;fill:none;stroke:var(--rk-tertiary);stroke-width:1.5}
 .rk-check[data-done="true"] .rk-check-mark circle{fill:var(--rk-success);stroke:var(--rk-success)}
@@ -243,4 +245,4 @@ const RHYTHM_CSS = `
 .rk-section>.rk-section-head+.rk-section-fold:not([data-open]){margin-top:0}
 `;
 
-export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;
+export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${INTERACT_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;

@@ -415,6 +415,32 @@ function Tabs({ element, surface }: { element: VisualElement; surface: Surface }
   );
 }
 
+/** The web fence cards a figure with `.rk-frame`: padding 16, radius 16, a 1px 15% line. */
+function framed(surface: Surface): Surface {
+  const inset = visualLanguage.cardPadding * 2 + 2;
+  return { ...surface, width: Math.max(0, surface.width - inset) };
+}
+
+function figureCard(surface: Surface, caption: string, children: ReactNode) {
+  return (
+    <View
+      style={[
+        styles.figure,
+        {
+          borderColor: mixHex(surface.palette.foreground, surface.palette.background, 15),
+        },
+      ]}
+    >
+      {children}
+      {caption ? (
+        <Text style={[styles.figureCaption, { color: surface.palette.mutedForeground }]}>
+          {caption}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function Draw({ element, surface }: { element: VisualElement; surface: Surface }): ReactNode {
   const plan = drawPlan(element);
   if (plan === "skip") return null;
@@ -460,15 +486,15 @@ function Draw({ element, surface }: { element: VisualElement; surface: Surface }
     case "Metrics":
       return <Metrics element={element} surface={surface} />;
     case "Diagram":
-      return <Diagram element={element} surface={surface} />;
+      return figureCard(surface, element.text, Diagram({ element, surface: framed(surface) }));
     case "Formula":
       return <Formula tex={element.props.tex as string} surface={surface} />;
     case "Bars":
-      return <Bars element={element} surface={surface} />;
+      return figureCard(surface, element.text, Bars({ element, surface: framed(surface) }));
     case "LineChart":
-      return <LineChart element={element} surface={surface} />;
+      return figureCard(surface, element.text, LineChart({ element, surface: framed(surface) }));
     case "Pie":
-      return <Pie element={element} surface={surface} />;
+      return figureCard(surface, element.text, Pie({ element, surface: framed(surface) }));
     case "Table":
       return <Table element={element} surface={surface} />;
     case "ProsCons":
@@ -484,6 +510,11 @@ function Draw({ element, surface }: { element: VisualElement; surface: Surface }
     default:
       return null;
   }
+}
+
+/** One fence tag, so a test can check the card without mounting the chat host. */
+export function drawVisual(element: VisualElement, surface: Surface) {
+  return Draw({ element, surface });
 }
 
 /** The visual a ```ui fence describes, drawn with native views on the chat background. */
@@ -575,6 +606,16 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 40, lineHeight: 44, fontWeight: "600", marginTop: 6 },
   gridRow: { flexDirection: "row", gap: GRID_GAP },
   gridCell: { flex: 1, minWidth: 0 },
+  figure: {
+    padding: visualLanguage.cardPadding,
+    borderRadius: visualLanguage.cardRadius,
+    borderWidth: 1,
+    gap: 12,
+  },
+  figureCaption: {
+    fontSize: typeScale.caption.fontSize,
+    lineHeight: typeScale.caption.lineHeight,
+  },
   formula: { fontSize: 15, lineHeight: 24 },
   tabs: {
     flexDirection: "row",

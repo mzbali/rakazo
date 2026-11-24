@@ -77,4 +77,10 @@ export const ja: Messages = {
   dontKnow: "わからない",
   shuffle: "シャッフル",
   known: { other: "{count}枚わかった" },
+  previous: "前へ",
+  reset: "リセット",
+  copy: "コピー",
+  completedOf: "{done} / {total} 完了",
+  sectionCount: "{done}/{total}",
+  stageOf: "段階 {n} / {total}",
 };

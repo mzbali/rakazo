@@ -80,4 +80,10 @@ export const nl: Messages = {
   dontKnow: "Niet geweten",
   shuffle: "Schudden",
   known: { one: "{count} geweten", other: "{count} geweten" },
+  previous: "Vorige",
+  reset: "Reset",
+  copy: "Kopieer",
+  completedOf: "{done} van {total} af",
+  sectionCount: "{done}/{total}",
+  stageOf: "Stap {n} van {total}",
 };

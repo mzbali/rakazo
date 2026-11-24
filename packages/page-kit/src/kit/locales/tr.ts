@@ -77,4 +77,10 @@ export const tr: Messages = {
   dontKnow: "Bilmiyorum",
   shuffle: "Karıştır",
   known: { other: "{count} biliniyor" },
+  previous: "Önceki",
+  reset: "Sıfırla",
+  copy: "Kopyala",
+  completedOf: "{done} / {total} tamam",
+  sectionCount: "{done}/{total}",
+  stageOf: "Aşama {n} / {total}",
 };

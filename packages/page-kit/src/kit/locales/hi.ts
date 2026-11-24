@@ -77,4 +77,10 @@ export const hi: Messages = {
   dontKnow: "पता नहीं",
   shuffle: "फेंटें",
   known: { other: "{count} पता है" },
+  previous: "पिछला",
+  reset: "रीसेट",
+  copy: "कॉपी",
+  completedOf: "{done} में से {total} पूरे",
+  sectionCount: "{done}/{total}",
+  stageOf: "चरण {n} / {total}",
 };

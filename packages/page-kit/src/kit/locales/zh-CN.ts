@@ -77,4 +77,10 @@ export const zhCN: Messages = {
   dontKnow: "不会",
   shuffle: "打乱",
   known: { other: "会了 {count}" },
+  previous: "上一步",
+  reset: "重置",
+  copy: "复制",
+  completedOf: "已完成 {done}/{total}",
+  sectionCount: "{done}/{total}",
+  stageOf: "第 {n} 步，共 {total} 步",
 };

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { isValidElement, useCallback, useContext, useState } from "react";
+import { Button, CopyButton } from "./controls.js";
 import { finite } from "./dataviz.js";
 import { Inline } from "./inline.js";
 import { objectItems } from "./items.js";
@@ -247,29 +248,183 @@ export function Steps({ steps = [] }: { steps?: Step[] }) {
 }
 
 type ChecklistItem = { text: ReactNode; done?: boolean; meta?: ReactNode };
+type ChecklistSection = { title?: ReactNode; items?: ChecklistItem[] };
 
-export function Checklist({ items = [] }: { items?: ChecklistItem[] }) {
+function checkItems(list: unknown): ChecklistItem[] {
+  return objectItems(list as ChecklistItem[] | undefined).filter(
+    (item) => item && typeof item === "object" && !Array.isArray(item),
+  );
+}
+
+function CheckRow({
+  item,
+  done,
+  live,
+  onToggle,
+}: {
+  item: ChecklistItem;
+  done: boolean;
+  live: boolean;
+  onToggle?: () => void;
+}) {
   return (
-    <ul className="rk-checklist">
-      {objectItems(items).map((item, index) => (
-        <li key={index}>
-          {/* Read-only: it shows recorded progress, the reader cannot tick it. */}
-          <label className="rk-check" data-done={item.done === true}>
-            <input type="checkbox" disabled checked={item.done === true} />
-            <svg className="rk-check-mark" viewBox="0 0 20 20" aria-hidden="true">
-              <circle cx="10" cy="10" r="9" />
-              {item.done === true ? <path d="M6 10.4l2.6 2.6L14 7.6" /> : null}
-            </svg>
-            <span className="rk-check-text">
-              <Inline>{item.text}</Inline>
-            </span>
-          </label>
-          {item.meta != null && item.meta !== "" ? (
-            <div className="rk-check-meta">{item.meta}</div>
-          ) : null}
-        </li>
-      ))}
-    </ul>
+    <li>
+      <label className="rk-check" data-done={done}>
+        <input
+          type="checkbox"
+          disabled={live ? undefined : true}
+          checked={done}
+          onChange={live ? () => onToggle?.() : undefined}
+        />
+        <svg className="rk-check-mark" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="9" />
+          {done ? <path d="M6 10.4l2.6 2.6L14 7.6" /> : null}
+        </svg>
+        <span className="rk-check-text">
+          <Inline>{item.text}</Inline>
+        </span>
+      </label>
+      {item.meta != null && item.meta !== "" ? (
+        <div className="rk-check-meta">{item.meta}</div>
+      ) : null}
+    </li>
+  );
+}
+
+function ChecklistLive({
+  groups,
+  sectioned,
+  live,
+  label,
+  onChange,
+}: {
+  groups: { title?: ReactNode; items: ChecklistItem[] }[];
+  sectioned: boolean;
+  live: boolean;
+  label?: ReactNode;
+  onChange?: (done: boolean[]) => void;
+}) {
+  const words = useWords();
+  const flat = groups.flatMap((group) => group.items);
+  const seed = flat.map((item) => item.done === true);
+  const seedKey = seed.map((done) => (done ? "1" : "0")).join("");
+  const [done, setDone] = useState(seed);
+  const [seen, setSeen] = useState(seedKey);
+  if (seen !== seedKey) {
+    setSeen(seedKey);
+    setDone(seed);
+  }
+  const current = seen === seedKey ? done : seed;
+  const tell = (next: boolean[]) => {
+    setSeen(seedKey);
+    setDone(next);
+    onChange?.(next);
+  };
+  const count = current.filter(Boolean).length;
+  const name = typeof label === "string" || typeof label === "number" ? String(label) : undefined;
+  let cursor = 0;
+  return (
+    <div className="rk-checks">
+      <div className="rk-check-head">
+        <span>
+          {words.number(flat.length === 0 ? 0 : count / flat.length, {
+            style: "percent",
+            maximumFractionDigits: 0,
+          })}
+        </span>
+        <span>{words.t("completedOf", { done: count, total: flat.length })}</span>
+      </div>
+      {groups.map((group, groupIndex) => {
+        const start = cursor;
+        cursor += group.items.length;
+        const doneInGroup = current.slice(start, cursor).filter(Boolean).length;
+        return (
+          <div key={groupIndex}>
+            {sectioned ? (
+              <div className="rk-check-section">
+                <span>
+                  <Inline>{group.title}</Inline>
+                </span>
+                <span>
+                  {words.t("sectionCount", { done: doneInGroup, total: group.items.length })}
+                </span>
+              </div>
+            ) : null}
+            <ul className="rk-checklist" data-live={live || undefined} aria-label={name}>
+              {group.items.map((item, index) => {
+                const at = start + index;
+                return (
+                  <CheckRow
+                    key={index}
+                    item={item}
+                    done={current[at] === true}
+                    live={live}
+                    onToggle={() => tell(current.map((value, i) => (i === at ? !value : value)))}
+                  />
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+      {live ? (
+        <div className="rk-check-actions">
+          <Button label={words.t("reset")} onClick={() => tell(seed)} />
+          <CopyButton
+            label={words.t("copy")}
+            text={flat
+              .map((item, index) => {
+                const body =
+                  typeof item.text === "string" || typeof item.text === "number"
+                    ? String(item.text)
+                    : "";
+                return `${current[index] ? "[x]" : "[ ]"}${body ? ` ${body}` : ""}`;
+              })
+              .join("\n")}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function Checklist({
+  items = [],
+  sections,
+  label,
+  interactive,
+  onChange,
+}: {
+  items?: ChecklistItem[];
+  sections?: ChecklistSection[];
+  label?: ReactNode;
+  interactive?: boolean;
+  onChange?: (done: boolean[]) => void;
+}) {
+  const grouped = objectItems(sections).flatMap((section) =>
+    section && typeof section === "object" && !Array.isArray(section)
+      ? [{ title: section.title, items: checkItems(section.items) }]
+      : [],
+  );
+  const live = interactive === true || typeof onChange === "function";
+  // Read-only flat lists keep the markup they have always had.
+  if (!live && grouped.length === 0) {
+    return (
+      <ul className="rk-checklist">
+        {checkItems(items).map((item, index) => (
+          <CheckRow key={index} item={item} done={item.done === true} live={false} />
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ChecklistLive
+      groups={grouped.length > 0 ? grouped : [{ items: checkItems(items) }]}
+      sectioned={grouped.length > 0}
+      live={live}
+      label={label}
+      onChange={typeof onChange === "function" ? onChange : undefined}
+    />
   );
 }
 

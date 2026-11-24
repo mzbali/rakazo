@@ -80,4 +80,10 @@ export const he: Messages = {
   dontKnow: "לא יודע",
   shuffle: "ערבוב",
   known: { one: "{count} ידועה", other: "{count} ידועות" },
+  previous: "הקודם",
+  reset: "איפוס",
+  copy: "העתקה",
+  completedOf: "{done} מתוך {total} הושלמו",
+  sectionCount: "{done}/{total}",
+  stageOf: "שלב {n} מתוך {total}",
 };

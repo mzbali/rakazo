@@ -1,9 +1,10 @@
 import { parseVisualFence } from "@rakazo/core/visual-fence";
+import { mixHex } from "@rakazo/page-kit/native";
 import { tokensForAppearance } from "@rakazo/ui-tokens";
 import type { ReactElement, ReactNode } from "react";
 import { Children, isValidElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Callout, Diagram } from "./visual-view.native";
+import { Callout, Diagram, drawVisual } from "./visual-view.native";
 
 vi.mock("react-native", () => ({
   Platform: { select: (options: { ios: string }) => options.ios },
@@ -103,6 +104,36 @@ describe("native diagram edge labels", () => {
     const focus = tagged(drawing, "rect").find((rect) => rect.props.strokeWidth === 2);
     expect(focus?.props.stroke).not.toBe(palette.foreground);
     expect(focus?.props.fill).not.toBe(palette.background);
+  });
+});
+
+describe("native figure card", () => {
+  it("draws a diagram inside a hairline card with the caption inside", () => {
+    const parse = parseVisualFence(
+      `<Visual summary="Flow"><Diagram nodes={[{id:"a",label:"Input"},{id:"b",label:"Output"}]} edges={[{from:"a",to:"b"}]} /></Visual>`,
+    );
+    const palette = tokensForAppearance("dark");
+    const card = drawVisual(
+      { ...parse.root!.children[0]!, text: "How it moves" },
+      { palette, colorScheme: "dark", narrow: true, width: 360, unavailable: "Unavailable" },
+    ) as ReactElement<Record<string, unknown>>;
+    expect(card.type).toBe("view");
+    const styles = [card.props.style].flat(2) as {
+      padding?: number;
+      borderRadius?: number;
+      borderWidth?: number;
+      borderColor?: string;
+    }[];
+    expect(styles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ padding: 16, borderRadius: 16, borderWidth: 1 }),
+        expect.objectContaining({
+          borderColor: mixHex(palette.foreground, palette.background, 15),
+        }),
+      ]),
+    );
+    expect(tagged(card, "svg").length).toBeGreaterThan(0);
+    expect(textElements(card).some((text) => text.props.children === "How it moves")).toBe(true);
   });
 });
 

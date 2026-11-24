@@ -1,11 +1,11 @@
-import { createElement, useId } from "react";
+import { createElement } from "react";
 import { iconShapes } from "./diagram-icons.js";
 import type { DiagramEdge, DiagramNode } from "./diagram-layout.js";
 import {
-  curveMid,
+  chevron,
   DETAIL_LINE,
   diagramFocusId,
-  edgePoints,
+  drawEdges,
   fitDiagramLayout,
   ICON_SIZE,
   iconOrigin,
@@ -16,6 +16,7 @@ import {
 } from "./diagram-layout.js";
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
+import { visualLanguage } from "./visual-language.js";
 
 export { fitDiagramLayout, layoutDiagram, wrapText } from "./diagram-layout.js";
 export type { DiagramEdge, DiagramNode };
@@ -32,7 +33,6 @@ export function Diagram({
   /** The column the drawing has to fit. When it is set, the other direction is used if it is narrower. */
   maxWidth?: number;
 }) {
-  const arrow = `rk-arrow-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const words = useWords();
   const links = objectItems(edges);
   const placed = objectItems(nodes);
@@ -47,6 +47,7 @@ export function Diagram({
   const { horizontal } = layout;
   const focus = diagramFocusId(layout.nodes);
   if (!layout.nodes.length) return null;
+  const drawn = drawEdges(layout.edges, horizontal);
   const pad = 2;
   const name = (id: string) => layout.nodes.find((node) => node.id === id)?.label ?? id;
   const description = [
@@ -60,7 +61,7 @@ export function Diagram({
     ),
   ].join(". ");
   return (
-    <div className="rk-diagram">
+    <div className="rk-diagram rk-frame">
       <svg
         role="img"
         viewBox={`${-pad} ${-pad} ${layout.width + pad * 2} ${layout.height + pad * 2}`}
@@ -71,62 +72,49 @@ export function Diagram({
         }}
       >
         <title>{description}</title>
-        <defs>
-          <marker
-            id={arrow}
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path className="rk-diagram-arrow" d="M1 1L9 5L1 9" />
-          </marker>
-        </defs>
-        {layout.edges.map(({ edge, from, to, backward }, index) => {
-          const points = edgePoints(from, to, backward, horizontal);
-          const [a, b, c, d] = points;
-          const label = curveMid(a, b, c, d);
-          return (
-            <g key={index}>
-              <path
-                className="rk-diagram-edge"
-                d={`M${a[0]},${a[1]}C${b[0]},${b[1]} ${c[0]},${c[1]} ${d[0]},${d[1]}`}
-                strokeDasharray={edge.dashed ? "5 4" : undefined}
-                markerEnd={`url(#${arrow})`}
-              />
-              {edge.label ? (
-                <text
-                  className="rk-diagram-edge-label"
-                  x={label[0]}
-                  y={label[1]}
-                  dy="0.32em"
-                  textAnchor="middle"
-                >
-                  {edge.label}
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
+        {drawn.map((edge, index) => (
+          <g key={index}>
+            <path
+              className="rk-diagram-edge"
+              d={edge.d}
+              strokeDasharray={edge.dashed ? "5 4" : undefined}
+            />
+            {edge.arrow ? (
+              <path className="rk-diagram-arrow" d={chevron(edge.arrow.from, edge.arrow.tip)} />
+            ) : null}
+            {edge.label && edge.labelAt ? (
+              <text
+                className="rk-diagram-edge-label"
+                x={edge.labelAt[0]}
+                y={edge.labelAt[1]}
+                dy="0.32em"
+                textAnchor="middle"
+              >
+                {edge.label}
+              </text>
+            ) : null}
+          </g>
+        ))}
         {layout.nodes.map((node) => {
           const accent =
             Number.isInteger(node.series) && node.series! >= 0
               ? `var(${SERIES_COLORS[node.series! % SERIES_COLORS.length]})`
               : undefined;
+          const focused = node.id === focus;
           return (
             <g key={node.id}>
               <rect
-                className={
-                  node.id === focus ? "rk-diagram-node rk-diagram-focus" : "rk-diagram-node"
-                }
+                className={focused ? "rk-diagram-node rk-diagram-focus" : "rk-diagram-node"}
                 x={node.x}
                 y={node.y}
                 width={node.width}
                 height={node.height}
-                rx={node.kind === "terminal" ? Math.min(node.height / 2, 22) : 10}
-                style={node.id === focus || !accent ? undefined : { stroke: accent }}
+                rx={
+                  node.kind === "terminal"
+                    ? Math.min(node.height / 2, 22)
+                    : visualLanguage.nodeRadius
+                }
+                style={focused || !accent ? undefined : { stroke: accent }}
               />
               {iconShapes(node.icon) ? (
                 <g
@@ -141,7 +129,9 @@ export function Diagram({
               {node.labelLines.map((line, index) => (
                 <text
                   key={`l${index}`}
-                  className="rk-diagram-label"
+                  className={
+                    focused ? "rk-diagram-label rk-diagram-focus-label" : "rk-diagram-label"
+                  }
                   x={textCentre(node)}
                   y={node.y + PAD_Y + LABEL_LINE * (index + 0.5)}
                   dy="0.35em"

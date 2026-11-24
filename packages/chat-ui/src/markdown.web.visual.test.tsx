@@ -144,7 +144,7 @@ describe("a ```ui fence", () => {
 </Visual>`),
         { visuals: true },
       );
-      expect(shadow()?.querySelectorAll(".rk-bar")).toHaveLength(2);
+      expect(shadow()?.querySelectorAll(".rk-column")).toHaveLength(2);
       expect(shadow()?.querySelector("svg.rk-focus-ring")).not.toBeNull();
       expect(shadow()?.querySelector(".rk-pie-total")?.textContent).toBe("4 GB");
       expect(shadow()?.querySelectorAll(".rk-table tbody tr")).toHaveLength(2);

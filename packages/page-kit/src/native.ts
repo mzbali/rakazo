@@ -15,11 +15,13 @@ export {
 } from "./kit/dataviz/scale.js";
 export type { IconShape } from "./kit/diagram-icons.js";
 export { DIAGRAM_ICONS, iconShapes } from "./kit/diagram-icons.js";
-export type { DiagramEdge, DiagramNode, Placed, Point } from "./kit/diagram-layout.js";
+export type { DiagramEdge, DiagramNode, DrawnEdge, Placed, Point } from "./kit/diagram-layout.js";
 export {
+  chevron,
   curveMid,
   DETAIL_LINE,
   diagramFocusId,
+  drawEdges,
   edgePoints,
   fitDiagramLayout,
   ICON_SIZE,
@@ -33,3 +35,4 @@ export {
 } from "./kit/diagram-layout.js";
 export { nativeWords } from "./kit/native-words.js";
 export { TONE_PATHS } from "./kit/tone-icon.js";
+export { columnBands, mixHex, standsAsColumns, visualLanguage } from "./kit/visual-language.js";

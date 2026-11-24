@@ -10,7 +10,6 @@ const VISUAL_CSS = `
 .rkv-formula-display{display:block}
 .rkv-formula-display .katex-display{margin:0}
 .rkv-formula-source{font:.9375rem/1.5rem ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--rk-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
-.rk-frame{padding:0;border:0;border-radius:0}
 /* Reading table: the prose column, hairline rows, no box and no vertical rules. The fade mask hides the last letters of a header, so a table that must scroll shows its words instead. */
 .rkv-root .rk-table-box{border:0;border-radius:0;background:transparent;overflow:visible}
 .rkv-root .rk-table-scroll{mask-image:none;-webkit-mask-image:none}

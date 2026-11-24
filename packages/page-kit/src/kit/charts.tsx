@@ -4,6 +4,7 @@ import type { Formatter, LegendItem } from "./dataviz.js";
 import {
   axisGutter,
   ChartTip,
+  Columns,
   EmptyChart,
   finite,
   formatValue,
@@ -18,6 +19,7 @@ import {
 } from "./dataviz.js";
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
+import { standsAsColumns } from "./visual-language.js";
 
 const PLOT = { top: 10, bottom: 22, right: 4 };
 
@@ -199,7 +201,7 @@ export function LineChart({
     .join(". ");
   return (
     <div className="rk-chart rk-frame" ref={ref}>
-      {legend !== false && keyItems.length > 0 ? <SeriesLegend items={keyItems} /> : null}
+      {legend !== false && keyItems.length > 1 ? <SeriesLegend items={keyItems} /> : null}
       <div className="rk-plot">
         <svg
           role="img"
@@ -328,25 +330,26 @@ export function LineChart({
               </g>
             );
           })}
-          {active !== null ? (
+          {active !== null || (!multi && finite(primary[lastIndex])) ? (
             <g className="rk-hover">
               <line
                 className="rk-crosshair"
-                x1={x(active)}
-                x2={x(active)}
+                x1={x(active ?? lastIndex)}
+                x2={x(active ?? lastIndex)}
                 y1={PLOT.top}
                 y2={baseline}
               />
-              {series.map((s, index) => {
-                const v = s.values[active];
+              {(active !== null ? series : [series[0]!]).map((s, index) => {
+                const at = active ?? lastIndex;
+                const v = s.values[at];
                 return finite(v) ? (
                   <circle
                     key={index}
                     className="rk-hover-dot"
-                    cx={x(active)}
+                    cx={x(at)}
                     cy={y(v)}
-                    r={4}
-                    style={{ fill: seriesColor(index) }}
+                    r={5}
+                    style={{ stroke: seriesColor(active !== null ? index : 0) }}
                   />
                 ) : null;
               })}
@@ -411,6 +414,14 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   // The longest bar, negative or not, since a bar's length is its size.
   const chosen = emphasis === undefined ? values.map(Math.abs).indexOf(max) : emphasis;
   if (rows.length === 0) return null;
+  if (standsAsColumns(rows)) {
+    return (
+      <Columns
+        points={rows.map((bar) => ({ label: bar.label, value: bar.value, display: bar.display }))}
+        emphasis={emphasis}
+      />
+    );
+  }
   return (
     <ul className="rk-bars rk-frame">
       {rows.map((bar, index) => {
@@ -440,8 +451,8 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
 
 type PiePart = { label: ReactNode; value: number; display?: ReactNode };
 
-const PIE_SIZE = 120;
-const PIE_RING = 24;
+const PIE_SIZE = 160;
+const PIE_RING = 28;
 /** The track shows between slices. */
 const PIE_GAP = 2;
 /** With many parts, slivers under 2% fold into one "Other" slice. */
@@ -483,7 +494,7 @@ export function Pie({
   let start = 0;
   const slices = shown.map((part, index) => {
     const share = part.value / sum;
-    const slice = { part, share, start, color: seriesColor(index) };
+    const slice = { part, share, start, color: seriesColor(index + 1) };
     start += share;
     return slice;
   });
@@ -532,10 +543,10 @@ export function Pie({
         </svg>
         {showTotal ? (
           <div className="rk-pie-total" aria-hidden="true">
-            <span className="rk-pie-total-figure">{totalText}</span>
             {label != null && label !== "" ? (
               <span className="rk-pie-total-label">{label}</span>
             ) : null}
+            <span className="rk-pie-total-figure">{totalText}</span>
           </div>
         ) : null}
       </div>
@@ -546,10 +557,8 @@ export function Pie({
             style={{ "--rk-swatch": color } as CSSProperties}
             data-emphasis={index === largest || undefined}
           >
-            <span className="rk-pie-value">
-              {part.display ?? formatValue(part.value, undefined, undefined, words)}
-            </span>
             <span className="rk-pie-label">{part.label}</span>
+            {part.display != null ? <span className="rk-pie-value">{part.display}</span> : null}
             <span className="rk-pie-share">{percent(share)}</span>
           </li>
         ))}

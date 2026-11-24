@@ -14,9 +14,9 @@ type VennSet = {
 };
 
 const TONE_VAR: Record<NonNullable<VennSet["tone"]>, string> = {
-  success: "var(--rk-success)",
+  success: "var(--success)",
   warning: "var(--rk-warning)",
-  danger: "var(--rk-danger)",
+  danger: "var(--destructive)",
   info: "var(--rk-accent)",
   accent: "var(--rk-accent)",
 };
@@ -27,11 +27,45 @@ function toneColor(tone: unknown): string | undefined {
     : undefined;
 }
 
-/** Radii from the outside in, so the first set is the circle the others sit inside. */
-function nestedRadii(count: number, outer: number): number[] {
-  if (count <= 1) return [outer];
-  if (count === 2) return [outer, outer * 0.58];
-  return [outer, outer * 0.74, outer * 0.46];
+const NESTED_NAME = 20;
+const NESTED_NOTE = 14;
+
+/** How tall a set's label is, so the circle inside it can leave that band clear. */
+function nestedReserve(set: VennSet, room: number, counted: boolean): number {
+  const nameLines = Math.min(2, Math.max(1, wrapWords(text(set.label), room).length));
+  const noteLines = Math.min(2, wrapWords(text(set.note), room).length);
+  const extra = (noteLines + (counted ? 1 : 0)) * NESTED_NOTE;
+  return nameLines * NESTED_NAME + extra + 22;
+}
+
+/**
+ * Circles from the outside in. An inner circle keeps the ratio when the ring already
+ * holds the label, and shrinks and drops when the ring would swallow it.
+ */
+function nestedLayout(
+  shown: VennSet[],
+  outer: number,
+  count: (set: VennSet) => number | undefined,
+): { r: number; cy: number }[] {
+  const placed: { r: number; cy: number }[] = [];
+  let radius = outer;
+  let centre = 10 + outer;
+  const room = Math.max(48, outer * 1.4);
+  for (let index = 0; index < shown.length; index++) {
+    placed.push({ r: radius, cy: centre });
+    if (index === shown.length - 1) break;
+    const reserve = nestedReserve(shown[index]!, room, count(shown[index]!) !== undefined);
+    const ratio = shown.length === 2 ? 0.48 : index === 0 ? 0.66 : 0.42;
+    const cap = radius - (reserve + 8) / 2;
+    const inner = Math.min(radius * ratio, Math.max(radius * 0.34, cap), radius - 14);
+    const next = Math.max(12, inner);
+    const space = Math.max(0, radius - next - 8);
+    const needed = Math.max(0, reserve - (radius - next));
+    const shift = Math.min(space, Math.max(needed, space * 0.35));
+    centre += shift;
+    radius = next;
+  }
+  return placed;
 }
 
 /** Words in lines no wider than `max`, measured as the chart's labels are. */
@@ -48,17 +82,16 @@ function wrapWords(words: string, max: number): string[] {
   return lines;
 }
 
-/** Concentric circles. The first set is the outside one, and each label sits in its own band. */
+/** Nested circles. The first set is the outside one, and each label sits in its own band. */
 function nestedCircles(
   shown: VennSet[],
   width: number,
   count: (set: VennSet) => number | undefined,
   words: Words,
 ) {
-  const outer = Math.max(48, Math.min(120, (width - 24) / 2));
-  const radii = nestedRadii(shown.length, outer);
+  const outer = Math.max(48, (width - 16) / 2);
+  const placed = nestedLayout(shown, outer, count);
   const cx = width / 2;
-  const cy = 10 + outer;
   const height = Math.round(outer * 2 + 20);
   const described = shown.map((set) => {
     const note = text(set.note);
@@ -75,9 +108,18 @@ function nestedCircles(
       viewBox={`0 0 ${width} ${height}`}
       aria-label={describe(described)}
     >
-      {radii.map((r, i) => {
-        const color = toneColor(shown[i]?.tone) ?? "var(--foreground)";
-        const innermost = i === radii.length - 1;
+      {placed.map(({ r, cy }, i) => {
+        const tone = toneColor(shown[i]?.tone);
+        const innermost = i === placed.length - 1;
+        const emphasised = Boolean(innermost && tone);
+        const stroke = emphasised
+          ? `color-mix(in srgb, ${tone} 62%, var(--background))`
+          : tone
+            ? `color-mix(in srgb, ${tone} 40%, var(--background))`
+            : "color-mix(in srgb, var(--foreground) 28%, transparent)";
+        const fill = emphasised
+          ? `color-mix(in srgb, ${tone} 10%, var(--background))`
+          : "color-mix(in srgb, var(--foreground) 4%, var(--background))";
         return (
           <circle
             key={i}
@@ -86,41 +128,56 @@ function nestedCircles(
             cy={cy}
             r={r}
             style={{
-              fill: color,
-              stroke: color,
-              fillOpacity: innermost && toneColor(shown[i]?.tone) ? 0.34 : 0.06,
-              strokeWidth: 1.5,
+              fill,
+              stroke,
+              fillOpacity: 1,
+              strokeWidth: emphasised ? 2 : 1.5,
             }}
           />
         );
       })}
-      {radii.map((r, i) => {
+      {placed.map(({ r, cy: centre }, i) => {
         const set = shown[i]!;
-        const inner = radii[i + 1] ?? 0;
-        const fromCentre = inner === 0 ? 0 : (r + inner) / 2;
-        const room = Math.max(48, 2 * Math.sqrt(Math.max(0, r * r - fromCentre * fromCentre)) - 16);
+        const room = Math.max(48, r * 1.6);
         const name = wrapWords(text(set.label), room).slice(0, 2);
         const note = wrapWords(text(set.note), room).slice(0, 2);
         const total = count(set);
+        const nameSize = outer >= 56 ? 20 : 16;
+        const noteSize = 14;
         const lines = name.length + note.length + (total !== undefined ? 1 : 0);
-        const y = cy - fromCentre - ((lines - 1) * 14) / 2;
-        const noteY = y + name.length * 14;
-        const countY = y + (name.length + note.length) * 14;
+        const block = name.length * nameSize + (lines - name.length) * noteSize;
+        const last = i === placed.length - 1;
+        // Outer names sit in the top of their circle. The innermost name is centred.
+        const y = (last ? centre - block / 2 : centre - r + 8) + nameSize * 0.8;
+        const noteY = y + name.length * nameSize;
+        const countY = noteY + note.length * noteSize;
         return (
           <g key={`l${i}`}>
             {name.length > 0 ? (
-              <text className="rk-venn-name" x={cx} y={y} textAnchor="middle">
+              <text
+                className="rk-venn-name"
+                x={cx}
+                y={y}
+                textAnchor="middle"
+                style={{ fontSize: nameSize }}
+              >
                 {name.map((line, index) => (
-                  <tspan key={index} x={cx} dy={index === 0 ? 0 : 14}>
+                  <tspan key={index} x={cx} dy={index === 0 ? 0 : nameSize}>
                     {line}
                   </tspan>
                 ))}
               </text>
             ) : null}
             {note.length > 0 ? (
-              <text className="rk-venn-count" x={cx} y={noteY} textAnchor="middle">
+              <text
+                className="rk-venn-count"
+                x={cx}
+                y={noteY}
+                textAnchor="middle"
+                style={{ fontSize: noteSize }}
+              >
                 {note.map((line, index) => (
-                  <tspan key={index} x={cx} dy={index === 0 ? 0 : 14}>
+                  <tspan key={index} x={cx} dy={index === 0 ? 0 : noteSize}>
                     {line}
                   </tspan>
                 ))}

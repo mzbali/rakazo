@@ -112,10 +112,18 @@ export function Metrics({ metrics = [] }: { metrics?: Metric[] }) {
     >
       {shown.map((metric, index) => (
         <div className="rk-metric" key={index}>
-          <div className="rk-metric-value" title={textOf(metric.value) || undefined}>
+          <div className="rk-metric-label">{metric.label}</div>
+          <div
+            className={cx(
+              "rk-metric-value",
+              metric.tone === "success" || metric.tone === "warning" || metric.tone === "danger"
+                ? toneClass(metric.tone)
+                : undefined,
+            )}
+            title={textOf(metric.value) || undefined}
+          >
             {metric.value}
           </div>
-          <div className="rk-metric-label">{metric.label}</div>
           {finite(metric.delta) || (typeof metric.delta === "string" && metric.delta !== "") ? (
             <div className="rk-metric-detail">
               <Delta delta={metric.delta} better={metric.better} />
@@ -124,7 +132,7 @@ export function Metrics({ metrics = [] }: { metrics?: Metric[] }) {
               ) : null}
             </div>
           ) : metric.detail != null && metric.detail !== "" ? (
-            <div className={cx("rk-metric-detail", toneClass(metric.tone))}>{metric.detail}</div>
+            <div className="rk-metric-detail">{metric.detail}</div>
           ) : null}
           {Array.isArray(metric.trend) ? <Sparkline values={metric.trend} /> : null}
         </div>

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table } from "./data.js";
 import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
+import { drawEdges } from "./diagram-layout.js";
 import { inlineMarkup } from "./inline.js";
 import { Callout, Grid, Page, Section, Text } from "./layout.js";
 import { PAGE_STYLES } from "./styles.js";
@@ -131,7 +132,7 @@ describe("page kit", () => {
     expect(plain).not.toContain("<svg");
     expect(html(<Callout />)).toBe("");
     expect(PAGE_STYLES).toContain(
-      ".rk-callout{padding:.75rem .875rem;border:1px solid var(--rk-line)",
+      ".rk-callout{padding:1.25rem 1.375rem;border:1px solid var(--rk-hairline);border-radius:20px",
     );
     expect(PAGE_STYLES).toContain(".rk-callout-lead{font-weight:600;color:var(--foreground)}");
     expect(PAGE_STYLES).not.toContain("color-mix(in srgb,var(--rk-tone) 14%,transparent)");
@@ -196,7 +197,7 @@ describe("page kit", () => {
     );
   });
 
-  it("shows each figure above its label, at most four to a row, with tone on the detail", () => {
+  it("shows each label above its figure, at most four to a row, with tone on the value", () => {
     const markup = html(
       <Metrics
         metrics={[
@@ -209,7 +210,7 @@ describe("page kit", () => {
       />,
     );
     expect(markup).toContain(
-      '<div class="rk-metric-value" title="2.1%">2.1%</div><div class="rk-metric-label">Churn</div><div class="rk-metric-detail rk-tone-warning">up from 1.8%</div>',
+      '<div class="rk-metric-label">Churn</div><div class="rk-metric-value rk-tone-warning" title="2.1%">2.1%</div><div class="rk-metric-detail">up from 1.8%</div>',
     );
     expect(markup).toContain('<div class="rk-metric-detail">flat</div>');
     expect(markup).toContain("--rk-columns:4");
@@ -337,19 +338,19 @@ describe("page kit", () => {
     expect(html(<LineChart points={[{ value: 42 }, { value: 71 }]} />)).toContain(">80</text>");
   });
 
-  it("scales bars to the largest, inks the largest by default, the chosen one, or all for none", () => {
+  it("draws non-negative bars as one series of columns and emphasises the longest", () => {
     const bars = [
       { label: "Search", value: 25, display: "25%" },
       { label: "Direct", value: 50 },
     ];
-    const emphasised = (markup: string) =>
-      [...markup.matchAll(/data-emphasis="(true|false)"/g)].map((m) => m[1]);
+    const emphasised = (markup: string) => markup.match(/data-emphasis="true"/g)?.length ?? 0;
     const auto = html(<Bars bars={bars} />);
-    expect(emphasised(auto)).toEqual(["false", "true"]);
-    expect(auto).toMatch(/data-emphasis="false">.*?style="width:50.00%"/);
-    expect(auto).toContain('<span class="rk-bar-value">25%</span>');
-    expect(emphasised(html(<Bars bars={bars} emphasis={0} />))).toEqual(["true", "false"]);
-    expect(emphasised(html(<Bars bars={bars} emphasis="none" />))).toEqual(["true", "true"]);
+    expect(auto).toContain("rk-column");
+    expect(auto).toContain("25%");
+    expect(auto).not.toContain("rk-bar-fill");
+    expect(emphasised(auto)).toBe(1);
+    expect(emphasised(html(<Bars bars={bars} emphasis={0} />))).toBe(1);
+    expect(emphasised(html(<Bars bars={bars} emphasis="none" />))).toBe(2);
   });
 
   it("splits a donut by each part's share of the total and lists the shares", () => {
@@ -379,7 +380,7 @@ describe("page kit", () => {
     expect((Number(arcs[1]![1]) + gap) / ring).toBeCloseTo(310 / 940);
     expect(-Number(arcs[2]![3]) / ring).toBeCloseTo(850 / 940);
     expect(markup).toContain(
-      '<span class="rk-pie-value">540 users</span><span class="rk-pie-label">Starter</span><span class="rk-pie-share">57%</span>',
+      '<span class="rk-pie-label">Starter</span><span class="rk-pie-value">540 users</span><span class="rk-pie-share">57%</span>',
     );
     expect(markup).toContain('style="stroke:var(--rk-c2)"');
     expect(markup).toContain('style="--rk-swatch:var(--rk-c2)"');
@@ -449,19 +450,19 @@ describe("page kit", () => {
       false,
     ).nodes;
     expect(node!.labelLines.every((line) => [...line].length <= 10)).toBe(true);
-    expect(node!.detailLines.every((line) => [...line].length <= 11)).toBe(true);
-    // Ten full-width CJK glyphs at 8.9px, plus the 28px of horizontal padding, stays under the 208 cap.
-    expect(node!.width).toBe(206);
-    expect(node!.height).toBe(20 + 3 * 22 + 3 * 19);
+    expect(node!.detailLines.every((line) => [...line].length <= 12)).toBe(true);
+    // Ten full-width CJK glyphs at 8.6px, plus the 28px of horizontal padding.
+    expect(node!.width).toBe(201);
+    expect(node!.height).toBe(32 + 3 * 24 + 3 * 20);
     const [short] = layoutDiagram([{ id: "short", label: "日本語の処理" }], [], false, false).nodes;
-    expect(short!.width).toBe(135);
+    expect(short!.width).toBe(132);
     const [english] = layoutDiagram(
       [{ id: "en", label: "Review changes" }],
       [],
       false,
       false,
     ).nodes;
-    expect(english!.width).toBe(153);
+    expect(english!.width).toBe(149);
     expect(english!.labelLines).toEqual(["Review changes"]);
   });
 
@@ -484,6 +485,7 @@ describe("page kit", () => {
     const tsp = fitted.nodes.find((node) => node.id === "tsp")!;
     expect(sat.x).toBeGreaterThan(tsp.x + tsp.width - 1);
     expect(tsp.width).toBeGreaterThanOrEqual(160);
+    expect(drawEdges(fitted.edges, true).filter((edge) => edge.arrow)).toHaveLength(1);
     const chain = ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, label: `Step ${id}` }));
     const chainEdges = chain
       .slice(1)
@@ -494,7 +496,7 @@ describe("page kit", () => {
     );
     expect(markup).toContain("rk-diagram-focus");
     expect(markup).toContain('class="rk-diagram-label"');
-    expect(PAGE_STYLES).toContain(".rk-diagram-label{fill:var(--foreground);font-size:16px");
+    expect(PAGE_STYLES).toContain(".rk-diagram-label{fill:var(--foreground);font-size:17px");
   });
 
   it("marks only the chosen segment pressed and accepts plain string options", () => {

@@ -95,13 +95,14 @@ describe("native diagram edge labels", () => {
     });
     const texts = textElements(drawing);
     const label = texts.find((text) => text.props.children === "Travelling Salesman");
-    expect(label?.props.fontSize).toBe(16);
+    expect(label?.props.fontSize).toBe(17);
     const box = Number(String(drawing.props.viewBox).split(" ")[2]);
     expect((drawing.props.width as number) / box).toBeGreaterThan(0.8);
     const y = (name: string) => texts.find((text) => text.props.children === name)?.props.y;
     expect(y("Sudoku")).not.toBe(y("Subset Sum"));
     const focus = tagged(drawing, "rect").find((rect) => rect.props.strokeWidth === 2);
-    expect(focus?.props.stroke).toBe(palette.foreground);
+    expect(focus?.props.stroke).not.toBe(palette.foreground);
+    expect(focus?.props.fill).not.toBe(palette.background);
   });
 });
 

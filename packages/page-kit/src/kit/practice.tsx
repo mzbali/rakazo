@@ -92,6 +92,7 @@ export function Quiz({ questions }: { questions?: unknown }) {
               : index === picked
                 ? "wrong"
                 : undefined;
+          const letter = index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
           return (
             <button
               key={index}
@@ -99,6 +100,7 @@ export function Quiz({ questions }: { questions?: unknown }) {
               type="button"
               className="rk-quiz-option"
               data-mark={mark}
+              data-dim={answered && mark !== "correct" ? true : undefined}
               // Stays in the tab order so the right and wrong options can still be read.
               aria-disabled={answered || undefined}
               aria-pressed={index === picked ? true : undefined}
@@ -113,7 +115,19 @@ export function Quiz({ questions }: { questions?: unknown }) {
                   {words.t(mark === "correct" ? "correct" : "incorrect")}{" "}
                 </span>
               ) : null}
-              <Inline>{option}</Inline>
+              <span className="rk-quiz-letter" aria-hidden="true">
+                {letter}
+              </span>
+              <span className="rk-quiz-copy">
+                <span className="rk-quiz-choice">
+                  <Inline>{option}</Inline>
+                </span>
+                {mark === "correct" && item.explain ? (
+                  <span className="rk-quiz-explain">
+                    <Inline>{item.explain}</Inline>
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
@@ -123,7 +137,7 @@ export function Quiz({ questions }: { questions?: unknown }) {
           <p className="rk-quiz-verdict" data-mark={right ? "correct" : "wrong"}>
             {words.t(right ? "correct" : "incorrect")}
           </p>
-          {item.explain ? (
+          {item.explain && !right ? (
             <p className="rk-quiz-explain">
               <Inline>{item.explain}</Inline>
             </p>
@@ -277,15 +291,18 @@ export function Flashcards({ cards }: { cards?: unknown }) {
 
 export const PRACTICE_CSS = `
 .rk-quiz,.rk-flash{display:flex;flex-direction:column;gap:.75rem;min-width:0}
+.rk-quiz{padding:1.15rem 1.25rem;border:1px solid var(--rk-line);border-radius:24px;gap:1rem}
 .rk-quiz-progress,.rk-flash-progress{margin:0;font-size:.875rem;line-height:1.25rem;color:var(--rk-secondary);font-variant-numeric:tabular-nums}
 .rk-flash-progress{display:flex;justify-content:space-between;gap:1rem}
 .rk-quiz-question{margin:0;font-size:1rem;line-height:1.45;font-weight:500;overflow-wrap:anywhere}
 .rk-quiz-options{display:flex;flex-direction:column;gap:.5rem;min-width:0;margin:0;padding:0;border:0;min-inline-size:0}
 .rk-quiz-option,.rk-flash-card{position:relative;appearance:none;width:100%;margin:0;border:1px solid var(--rk-line);border-radius:12px;background:transparent;color:inherit;font:inherit;font-size:1rem;line-height:1.4;text-align:start;cursor:pointer;overflow-wrap:anywhere}
-.rk-quiz-option{display:block;min-height:2.75rem;padding:.625rem .75rem}
-.rk-quiz-option:hover:not([aria-disabled="true"]){background:var(--rk-fill)}
-.rk-quiz-option[data-mark="correct"]{border-color:var(--rk-success);color:var(--rk-success)}
-.rk-quiz-option[data-mark="wrong"]{border-color:var(--rk-danger);color:var(--rk-danger)}
+.rk-quiz-option{display:flex;align-items:flex-start;gap:.75rem;min-height:0;padding:.35rem 0;border:0;border-radius:0}
+.rk-quiz-letter{display:flex;flex:none;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--rk-line);border-radius:999px;color:var(--rk-secondary);font-size:13px;font-weight:600}
+.rk-quiz-copy{display:flex;flex-direction:column;gap:.15rem;min-width:0;padding-top:.2rem}
+.rk-quiz-option:hover:not([aria-disabled="true"]) .rk-quiz-letter{border-color:var(--foreground);color:var(--foreground)}
+.rk-quiz-option[data-mark="correct"] .rk-quiz-letter{background:var(--success);border-color:var(--success);color:var(--background)}
+.rk-quiz-option[data-dim]{opacity:.45}
 .rk-quiz-option[aria-disabled="true"]{cursor:default}
 .rk-quiz-option:focus-visible,.rk-flash-card:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .rk-quiz-feedback{display:flex;flex-direction:column;gap:.35rem}

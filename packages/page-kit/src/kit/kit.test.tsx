@@ -249,7 +249,7 @@ describe("page kit", () => {
     expect(markup).toContain('<th scope="col" class="rk-align-end">Plan</th>');
     for (const column of ["Account", "Status", "Note"])
       expect(markup).toContain(`<th scope="col">${column}</th>`);
-    // Six columns scroll sideways, so the label column keeps a readable width.
+    // Six columns keep a readable label floor and can take keyboard focus to scroll.
     expect(markup).toContain('<table class="rk-table" data-wide="true">');
     const told = html(
       <Table columns={["Area", "Path"]} align={["center", "start"]} rows={[["Core", "x"]]} />,
@@ -281,6 +281,11 @@ describe("page kit", () => {
       />,
     );
     expect(phrases).toContain('<th scope="col">Rebate</th>');
+    // A hyphenated word stays whole, so the column is at least that word. Plain words stay text.
+    const classes = html(<Table columns={["Class"]} rows={[["NP-complete"], ["P"]]} />);
+    expect(classes).toContain('<span class="rk-word">NP-complete</span>');
+    expect(classes).toContain('<th scope="col">Class</th>');
+    expect(classes).toContain("<td>P</td>");
   });
 
   it("renders table sort controls only for columns with headers", () => {

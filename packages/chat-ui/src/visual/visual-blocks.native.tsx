@@ -5,13 +5,16 @@ import { useContext } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { CodeCopyButtonContext } from "../native/code";
 import type { Surface } from "./visual-surface.native";
-import { NARROW_WIDTH, subtle, toneColor, tones } from "./visual-surface.native";
+import { subtle, toneColor, tones } from "./visual-surface.native";
+import {
+  columnFloor,
+  columnsNeedScroll,
+  TABLE_COLUMN_GAP,
+  TABLE_FONT_SIZE,
+} from "./visual-table-layout";
 
 const words = nativeWords;
 const MONO = Platform.select({ ios: "ui-monospace", default: "monospace" });
-/** A table of this many columns or more scrolls sideways on a phone. */
-const WIDE_COLUMNS = 5;
-const WIDE_COLUMN_WIDTH = 112;
 // Amounts written as text ("$1,200", "4.8%", "12k") line up with the figures, as on the web.
 const FIGURE = /^[-+−±]?[$€£¥₹]?\d[\d,.]*(%|[kKMB])?$/;
 
@@ -38,19 +41,26 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
   });
   const textAlign = (index: number) =>
     align[index] === "center" ? "center" : ends[index] ? "right" : "left";
-  // A grid cell is narrower than the column, so the cell's own width decides.
-  const wide = columns.length >= WIDE_COLUMNS && surface.width < NARROW_WIDTH;
-  const cell = () => [styles.cell, wide ? { width: WIDE_COLUMN_WIDTH } : null];
+  // Each column is at least its longest word, then shares whatever width is left.
+  // Sideways scroll is only for a word that cannot fit the column.
+  const floors = columns.map((column, index) =>
+    columnFloor([column, ...rows.map((row) => cellText(row[index]))], TABLE_FONT_SIZE),
+  );
+  const scroll = columnsNeedScroll(floors, surface.width);
+  const cell = (index: number) =>
+    scroll
+      ? { width: floors[index], flexGrow: 0, flexShrink: 0 }
+      : { flexGrow: 1, flexShrink: 0, flexBasis: floors[index], minWidth: floors[index] };
   const table = (
-    <View style={styles.table}>
+    <View style={scroll ? styles.tableScroll : styles.table}>
       <View style={[styles.row, { borderBottomColor: palette.border }]}>
         {columns.map((column, index) => (
-          <View key={index} style={cell()}>
+          <View key={index} style={cell(index)}>
             <Text
               style={[
-                typeScale.footnote,
+                typeScale.secondary,
                 styles.head,
-                { color: palette.mutedForeground, textAlign: textAlign(index) },
+                { color: palette.foreground, textAlign: textAlign(index) },
               ]}
             >
               {column}
@@ -59,7 +69,14 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
         ))}
       </View>
       {rows.map((row, rowIndex) => (
-        <View key={rowIndex} style={[styles.row, { borderBottomColor: palette.border }]}>
+        <View
+          key={rowIndex}
+          style={[
+            styles.row,
+            rowIndex === rows.length - 1 ? styles.rowLast : null,
+            { borderBottomColor: palette.border },
+          ]}
+        >
           {columns.map((_, index) => {
             const value = row[index];
             const color =
@@ -68,7 +85,7 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
                   palette.foreground)
                 : palette.foreground;
             return (
-              <View key={index} style={cell()}>
+              <View key={index} style={cell(index)}>
                 <Text
                   style={[
                     typeScale.secondary,
@@ -88,8 +105,8 @@ export function Table({ element, surface }: { element: VisualElement; surface: S
       ))}
     </View>
   );
-  return wide ? (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+  return scroll ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroller}>
       {table}
     </ScrollView>
   ) : (
@@ -184,15 +201,18 @@ export function CopyButton({ element, surface }: { element: VisualElement; surfa
 }
 
 const styles = StyleSheet.create({
+  scroller: { alignSelf: "stretch" },
   table: { alignSelf: "stretch" },
+  tableScroll: { alignSelf: "flex-start" },
   row: {
     flexDirection: "row",
-    gap: 12,
-    paddingVertical: 8,
+    alignItems: "flex-start",
+    gap: TABLE_COLUMN_GAP,
+    paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cell: { flex: 1, minWidth: 0 },
-  head: { fontWeight: "500" },
+  rowLast: { borderBottomWidth: 0 },
+  head: { fontWeight: "600" },
   proscons: { gap: 12 },
   prosconsWide: { flexDirection: "row" },
   card: { borderRadius: 12, padding: 14, gap: 8 },

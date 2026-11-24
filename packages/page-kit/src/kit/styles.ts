@@ -112,6 +112,7 @@ body{font-size:1rem}
 .rk-check[data-done="true"] .rk-check-mark path{stroke:var(--background);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .rk-check[data-done="true"] .rk-check-text{color:var(--rk-secondary)}
 .rk-check-meta{margin:.1rem 0 0 1.75rem;font-size:.8125rem;line-height:1.4;color:var(--rk-secondary)}
+/* A column is at least its longest word and wraps at spaces. Chat sets overflow-wrap:anywhere on the prose, and that value is inherited into this shadow tree: anywhere counts every character toward min-content, so a short nowrap header becomes the column and words break mid-word. */
 .rk-table-wrap{display:flex;flex-direction:column;gap:.5rem;min-width:0}
 .rk-table-filter{align-self:flex-start;width:min(16rem,100%);height:1.75rem;padding:0 .625rem;border:1px solid var(--rk-line);border-radius:8px;background:transparent;color:inherit;font:inherit;font-size:.8125rem}
 .rk-table-filter::placeholder{color:var(--rk-secondary)}
@@ -124,9 +125,10 @@ body{font-size:1rem}
 .rk-table-scroll[data-long]{max-height:34rem;overflow-y:auto}
 .rk-table-box:has(.rk-table-scroll:focus-visible){outline:2px solid var(--ring);outline-offset:2px}
 .rk-table-scroll:focus-visible{outline:0}
-.rk-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.9375rem;line-height:1.375rem;letter-spacing:.006em}
-.rk-table th,.rk-table td{padding:.5rem .625rem;border-left:1px solid var(--rk-line);border-top:1px solid var(--rk-line);text-align:left;vertical-align:middle}
-.rk-table th{font-size:.875rem;line-height:1.25rem;font-weight:500;white-space:nowrap;border-top:0;background:var(--background)}
+.rk-table{width:100%;min-width:min-content;border-collapse:separate;border-spacing:0;font-size:.9375rem;line-height:1.375rem;letter-spacing:.006em}
+.rk-table th,.rk-table td{min-width:min-content;padding:.5rem .625rem;border-left:1px solid var(--rk-line);border-top:1px solid var(--rk-line);text-align:left;vertical-align:top;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:manual}
+.rk-table .rk-word{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.rk-table th{font-size:.875rem;line-height:1.25rem;font-weight:600;border-top:0;background:var(--background)}
 .rk-table-scroll[data-long] thead th{position:sticky;top:0;z-index:1;box-shadow:0 1px 0 var(--rk-line)}
 .rk-table tr>:first-child{border-left:0}
 .rk-table tbody tr:hover td{background:var(--rk-hover)}
@@ -134,9 +136,9 @@ body{font-size:1rem}
 .rk-table .rk-align-center{text-align:center}
 .rk-table .rk-emphasis{font-weight:500}
 .rk-table-none{color:var(--rk-axis);text-align:center!important}
-.rk-sort{all:unset;display:inline-flex;align-items:center;gap:.25rem;cursor:pointer;border-radius:4px}
+.rk-sort{all:unset;display:inline;cursor:pointer;border-radius:4px;white-space:normal}
 .rk-sort:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
-.rk-sort-mark{opacity:0;color:var(--rk-tertiary);transition:opacity .14s,transform .14s}
+.rk-sort-mark{display:inline-block;margin-inline-start:.25rem;vertical-align:middle;opacity:0;color:var(--rk-tertiary);transition:opacity .14s,transform .14s}
 .rk-sort:hover .rk-sort-mark,.rk-sort-mark[data-on]{opacity:1}
 .rk-table-more{display:flex;align-items:center;justify-content:space-between;gap:1rem;font-size:.8125rem;color:var(--rk-secondary)}
 .rk-table-more button{height:1.75rem;padding:0 .75rem;border:0;border-radius:8px;background:var(--rk-fill-strong);color:var(--foreground);font:inherit;cursor:pointer}
@@ -208,7 +210,6 @@ body{font-size:1rem}
 .rk-section[data-card]{padding:1rem .875rem 1.125rem}
 .rk-grid{grid-template-columns:minmax(0,1fr)}
 .rk-properties{grid-template-columns:fit-content(45%) minmax(0,1fr)}
-.rk-table th,.rk-table[data-wide] td{white-space:nowrap}
 .rk-metrics{gap:1.25rem 1rem;--rk-columns:2!important}
 }
 @media print{

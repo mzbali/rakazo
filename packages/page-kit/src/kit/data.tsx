@@ -273,13 +273,42 @@ export type TableCell =
   | ReactNode
   | { text: ReactNode; tone?: Tone };
 
+// A hyphen is a line-break opportunity, so a cell's min-content would be "complete" and the
+// column would split "NP-complete". Holding that token keeps the column at least as wide as the
+// whole word. Spaces stay break points, and a word with neither is left as text.
+const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014/-]/;
+
+function holdWords(value: string): ReactNode {
+  if (!WORD_BREAK.test(value)) return value;
+  const parts = value.split(/(\s+)/);
+  return parts.map((part, index) =>
+    part === "" || /^\s+$/.test(part) || !WORD_BREAK.test(part) ? (
+      part
+    ) : (
+      <span key={index} className="rk-word">
+        {part}
+      </span>
+    ),
+  );
+}
+
+function hold(node: ReactNode): ReactNode {
+  if (typeof node === "number") {
+    const text = String(node);
+    return WORD_BREAK.test(text) ? holdWords(text) : node;
+  }
+  return typeof node === "string" ? holdWords(node) : node;
+}
+
 function cellContent(cell: TableCell): ReactNode {
+  if (typeof cell === "string" || typeof cell === "number") return hold(cell);
   if (cell === null || typeof cell !== "object" || isValidElement(cell) || Array.isArray(cell)) {
     return cell as ReactNode;
   }
   if (!("text" in cell)) return null;
   const tone = toneClass(cell.tone);
-  return tone ? <span className={tone}>{cell.text}</span> : cell.text;
+  const text = hold(cell.text);
+  return tone ? <span className={tone}>{text}</span> : text;
 }
 
 // Amounts written as text ("$1,200", "4.8%", "12k") read as figures too.
@@ -507,7 +536,7 @@ export function Table({
                     >
                       {canSort ? (
                         <button type="button" className="rk-sort" onClick={() => press(index)}>
-                          {column}
+                          {hold(column)}
                           <span
                             className="rk-sort-mark"
                             aria-hidden="true"
@@ -517,7 +546,7 @@ export function Table({
                           </span>
                         </button>
                       ) : (
-                        column
+                        hold(column)
                       )}
                     </th>
                   );

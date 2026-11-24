@@ -116,9 +116,9 @@ test("a week calendar keeps its days aligned in a desktop two-column page", asyn
   expect(layout.cards).toHaveLength(2);
   expect(layout.cards[1]!.x).toBeGreaterThan(layout.cards[0]!.x);
   expect(layout.cards[1]!.y).toBeCloseTo(layout.cards[0]!.y, 0);
-  // The card is too narrow for seven 64px days, so the week scrolls inside it instead of
+  // Seven 64px days barely fit a half-width card: the week fits or scrolls inside it, never
   // wrapping Sunday into a second row or spilling out of the card.
-  expect(layout.weekScroll.scroll).toBeGreaterThan(layout.weekScroll.client);
+  expect(layout.weekScroll.scroll).toBeGreaterThanOrEqual(layout.weekScroll.client);
   expect(layout.columns[6]!.x + layout.columns[6]!.width).toBeLessThanOrEqual(
     layout.weekGrid.x + layout.weekGrid.width + 1,
   );

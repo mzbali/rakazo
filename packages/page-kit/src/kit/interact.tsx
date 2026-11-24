@@ -73,6 +73,7 @@ type TimelineItem = {
 type TimelineGroup = { label?: ReactNode; items?: TimelineItem[] };
 type Choice = string | number | { value?: string | number; label?: ReactNode };
 type Stage = { id?: string; label?: ReactNode; title?: ReactNode; detail?: ReactNode };
+type StageGroup = { label?: ReactNode; stages?: Stage[] };
 
 function rowsOf(value: unknown): ResultRow[][] {
   if (!Array.isArray(value)) return [];
@@ -433,22 +434,30 @@ export function Choices({
 }
 
 /**
- * Pill choices for each stage, then the children (a Diagram whose node ids match the stage ids),
- * then the stage's title, text and Previous / Next.
+ * A sequence with a shared detail panel. Groups draw their own selectable path;
+ * a flat list can highlight a matching node in a child Diagram.
  */
 export function Stages({
   stages = [],
+  groups,
   value,
   onChange,
   children,
 }: {
   stages?: Stage[];
+  groups?: StageGroup[];
   value?: string;
   onChange?: (id: string) => void;
   children?: ReactNode;
 }) {
   const words = useWords();
-  const list = objectItems(stages).flatMap((stage, index) => {
+  const groupId = useId();
+  const grouped = objectItems(groups).flatMap((group) => {
+    const entries = objectItems(group.stages).filter(plain);
+    return entries.length ? [{ label: show(group.label), entries }] : [];
+  });
+  const entries = grouped.length ? grouped.flatMap((group) => group.entries) : objectItems(stages);
+  const list = entries.flatMap((stage, index) => {
     if (!plain(stage)) return [];
     const id = text(stage.id) || String(index);
     return [{ id, label: show(stage.label) ?? show(stage.title) ?? id, stage }];
@@ -465,23 +474,65 @@ export function Stages({
   };
   if (list.length === 0) return <>{children}</>;
   const stage = list[index]!;
+  const title = show(stage.stage.title) ?? (grouped.length ? stage.label : null);
+  const position = words.t("stageOf", { n: index + 1, total: list.length });
+  let cursor = 0;
   return (
     <div className="rk-stages">
-      <Choices
-        label={words.t("stageOf", { n: index + 1, total: list.length })}
-        options={list.map((item) => ({ value: item.id, label: item.label }))}
-        value={stage.id}
-        columns={Math.min(2, list.length)}
-        onChange={(id) => pick(list.findIndex((item) => item.id === id))}
-      />
+      {grouped.length ? (
+        <>
+          <div className="rk-stage-progress">
+            <span id={groupId}>{position}</span>
+            <progress
+              className="rk-progress"
+              aria-labelledby={groupId}
+              value={index + 1}
+              max={list.length}
+            />
+          </div>
+          <div className="rk-stage-path">
+            {grouped.map((group, groupIndex) => {
+              const start = cursor;
+              cursor += group.entries.length;
+              const labelId = `${groupId}-${groupIndex}`;
+              return (
+                <div className="rk-stage-group" key={groupIndex}>
+                  {group.label != null ? <p id={labelId}>{group.label}</p> : null}
+                  <ol start={start + 1} aria-labelledby={group.label != null ? labelId : undefined}>
+                    {list.slice(start, cursor).map((item, offset) => {
+                      const at = start + offset;
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            className="rk-stage-stop"
+                            aria-current={at === index ? "step" : undefined}
+                            onClick={() => pick(at)}
+                          >
+                            {item.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <Choices
+          label={position}
+          options={list.map((item) => ({ value: item.id, label: item.label }))}
+          value={stage.id}
+          columns={Math.min(2, list.length)}
+          onChange={(id) => pick(list.findIndex((item) => item.id === id))}
+        />
+      )}
       <DiagramFocus.Provider value={stage.id}>{children}</DiagramFocus.Provider>
       <div className="rk-stage">
-        <div className="rk-stage-kicker">
-          {words.t("stageOf", { n: index + 1, total: list.length })}
-        </div>
-        {show(stage.stage.title) != null ? (
-          <div className="rk-stage-title">{rich(stage.stage.title)}</div>
-        ) : null}
+        {!grouped.length ? <div className="rk-stage-kicker">{position}</div> : null}
+        {title != null ? <div className="rk-stage-title">{rich(title)}</div> : null}
         {show(stage.stage.detail) != null ? (
           <div className="rk-stage-body">{rich(stage.stage.detail)}</div>
         ) : null}
@@ -548,6 +599,18 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-choices{display:grid;gap:8px;width:100%;margin:0;padding:0;border:0;min-width:0}
 .rk-choices .rk-button{width:100%;max-width:none;align-self:stretch}
 .rk-stages{display:flex;flex-direction:column;gap:16px}
+.rk-progress{display:block;width:100%;height:.5rem;accent-color:var(--rk-accent)}
+.rk-stage-progress{display:flex;flex-direction:column;gap:.375rem;color:var(--rk-secondary);font-size:.8125rem}
+.rk-stage-path{display:grid;gap:1.25rem}
+.rk-stage-group{position:relative;padding:.5rem .75rem;background:var(--rk-fill);border-radius:8px}
+.rk-stage-group + .rk-stage-group::before{content:"";position:absolute;inset-block-start:-.875rem;inset-inline-start:1.25rem;width:.4rem;height:.4rem;border-bottom:1px solid var(--rk-tertiary);border-right:1px solid var(--rk-tertiary);transform:rotate(45deg)}
+.rk-stage-group > p{margin:0 0 .25rem;font-size:.8125rem;color:var(--rk-secondary)}
+.rk-stage-group ol{margin:0;padding-inline-start:1.5rem}
+.rk-stage-group li::marker{font-size:.8125rem;color:var(--rk-secondary);font-variant-numeric:tabular-nums}
+.rk-stage-stop{display:block;width:100%;min-height:2.25rem;padding:.25rem .5rem;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:start;overflow-wrap:anywhere;cursor:pointer}
+.rk-stage-stop:hover{background:var(--rk-track)}
+.rk-stage-stop[aria-current="step"]{background:var(--rk-primary);color:var(--rk-primary-ink)}
+.rk-stage-stop:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .rk-stage{display:flex;flex-direction:column;gap:6px}
 .rk-stage-kicker{font-size:13px;line-height:18px;color:var(--rk-secondary)}
 .rk-stage-title{font-size:20px;line-height:26px;font-weight:650}
@@ -557,6 +620,12 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-check-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:14px;line-height:20px;color:var(--rk-secondary)}
 .rk-check-section{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:16px 0 4px;font-size:15px;line-height:20px;font-weight:600}
 .rk-check-section span:last-child{color:var(--rk-secondary);font-weight:500;font-variant-numeric:tabular-nums}
+.rk-check-disclosure summary{justify-content:flex-start;cursor:pointer}
+.rk-check-disclosure summary::-webkit-details-marker{display:none}
+.rk-check-disclosure summary::before{content:"";align-self:center;width:.35rem;height:.35rem;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(-45deg)}
+.rk-check-disclosure[open] summary::before{transform:rotate(45deg)}
+.rk-check-disclosure:dir(rtl):not([open]) summary::before{transform:rotate(135deg)}
+.rk-check-disclosure summary span:last-child{margin-inline-start:auto}
 .rk-check-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .rk-checklist[data-live] .rk-check{cursor:pointer}
 `;

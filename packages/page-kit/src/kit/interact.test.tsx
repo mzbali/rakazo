@@ -101,6 +101,9 @@ describe("checklist", () => {
       />,
     );
     expect(host.querySelector(".rk-check-head")!.textContent).toContain("1 of 3 completed");
+    const progress = host.querySelector("progress")!;
+    expect(progress.value).toBe(1);
+    expect(progress.max).toBe(3);
     expect([...host.querySelectorAll(".rk-check-section")].map((row) => row.textContent)).toEqual([
       "Before1/2",
       "After0/1",
@@ -109,6 +112,7 @@ describe("checklist", () => {
     expect(boxes[0]!.disabled).toBe(false);
     act(() => boxes[1]!.click());
     expect(host.querySelector(".rk-check-head")!.textContent).toContain("2 of 3 completed");
+    expect(progress.value).toBe(2);
     expect(host.querySelectorAll(".rk-check-section")[0]!.textContent).toBe("Before2/2");
     expect(onChange).toHaveBeenCalledWith([true, true, false]);
     act(() => {
@@ -117,7 +121,34 @@ describe("checklist", () => {
         .click();
     });
     expect(host.querySelector(".rk-check-head")!.textContent).toContain("1 of 3 completed");
+    expect(progress.value).toBe(1);
     expect(onChange).toHaveBeenLastCalledWith([true, false, false]);
+  });
+
+  it("keeps the overall count while a section is closed", () => {
+    render(
+      <Checklist
+        interactive
+        collapsible
+        sections={[
+          { title: "Training", items: [{ text: "Run steadily" }] },
+          { title: "Race day", items: [{ text: "Pack shoes" }] },
+        ]}
+      />,
+    );
+    const [training, race] = [...host.querySelectorAll("details")];
+    expect(training?.open).toBe(true);
+    expect(race?.open).toBe(false);
+    expect(race?.name).toBe(training?.name);
+    act(() => training?.querySelector("input")?.click());
+    act(() => {
+      training!.open = false;
+      race!.open = true;
+      race?.querySelector("input")?.click();
+    });
+    expect(host.querySelector("progress")?.value).toBe(2);
+    expect(training?.open).toBe(false);
+    expect(training?.querySelector("summary")?.textContent).toBe("Training1/1");
   });
 });
 
@@ -161,6 +192,46 @@ describe("timeline", () => {
 });
 
 describe("stages and chart marker", () => {
+  it("selects and advances through grouped stages with one progress count", () => {
+    const onChange = vi.fn();
+    render(
+      <Stages
+        groups={[
+          {
+            label: "First House",
+            stages: [
+              { id: "first", label: "First reading", detail: "Introduce the bill." },
+              { id: "vote", label: "Final vote", detail: "Pass the bill to the next House." },
+            ],
+          },
+          {
+            label: "Second House",
+            stages: [{ id: "review", label: "Review", detail: "Review the text." }],
+          },
+        ]}
+        onChange={onChange}
+      />,
+    );
+    const progress = host.querySelector("progress")!;
+    const groups = [...host.querySelectorAll("ol")];
+    const stages = [...host.querySelectorAll<HTMLButtonElement>(".rk-stage-stop")];
+    const [previous, next] = [...host.querySelectorAll<HTMLButtonElement>(".rk-stage-nav button")];
+    expect(groups.map((group) => group.start)).toEqual([1, 3]);
+    expect(progress.max).toBe(3);
+    expect(progress.value).toBe(1);
+    expect(previous?.disabled).toBe(true);
+    act(() => stages[1]?.click());
+    expect(progress.value).toBe(2);
+    expect(stages[1]?.getAttribute("aria-current")).toBe("step");
+    expect(host.querySelector(".rk-stage-body")?.textContent).toBe(
+      "Pass the bill to the next House.",
+    );
+    act(() => next?.click());
+    expect(progress.value).toBe(3);
+    expect(next?.disabled).toBe(true);
+    expect(onChange.mock.calls).toEqual([["vote"], ["review"]]);
+  });
+
   it("moves the stage and the diagram focus together", () => {
     render(
       <Stages

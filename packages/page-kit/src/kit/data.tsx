@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { isValidElement, useCallback, useContext, useState } from "react";
+import { isValidElement, useCallback, useContext, useId, useState } from "react";
 import { Button, CopyButton } from "./controls.js";
 import { finite } from "./dataviz.js";
 import { Inline } from "./inline.js";
@@ -294,17 +294,20 @@ function CheckRow({
 function ChecklistLive({
   groups,
   sectioned,
+  collapsible,
   live,
   label,
   onChange,
 }: {
   groups: { title?: ReactNode; items: ChecklistItem[] }[];
   sectioned: boolean;
+  collapsible: boolean;
   live: boolean;
   label?: ReactNode;
   onChange?: (done: boolean[]) => void;
 }) {
   const words = useWords();
+  const disclosureGroup = useId();
   const flat = groups.flatMap((group) => group.items);
   const seed = flat.map((item) => item.done === true);
   const seedKey = seed.map((done) => (done ? "1" : "0")).join("");
@@ -321,6 +324,7 @@ function ChecklistLive({
     onChange?.(next);
   };
   const count = current.filter(Boolean).length;
+  const progress = words.t("completedOf", { done: count, total: flat.length });
   const name = typeof label === "string" || typeof label === "number" ? String(label) : undefined;
   let cursor = 0;
   return (
@@ -332,38 +336,58 @@ function ChecklistLive({
             maximumFractionDigits: 0,
           })}
         </span>
-        <span>{words.t("completedOf", { done: count, total: flat.length })}</span>
+        <span>{progress}</span>
       </div>
+      {live && flat.length > 0 ? (
+        <progress className="rk-progress" aria-label={progress} value={count} max={flat.length} />
+      ) : null}
       {groups.map((group, groupIndex) => {
         const start = cursor;
         cursor += group.items.length;
         const doneInGroup = current.slice(start, cursor).filter(Boolean).length;
-        return (
+        const title = (
+          <>
+            <span>
+              <Inline>{group.title}</Inline>
+            </span>
+            <span>{words.t("sectionCount", { done: doneInGroup, total: group.items.length })}</span>
+          </>
+        );
+        const items = (
+          <ul
+            key={groupIndex}
+            className="rk-checklist"
+            data-live={live || undefined}
+            aria-label={name}
+          >
+            {group.items.map((item, index) => {
+              const at = start + index;
+              return (
+                <CheckRow
+                  key={index}
+                  item={item}
+                  done={current[at] === true}
+                  live={live}
+                  onToggle={() => tell(current.map((value, i) => (i === at ? !value : value)))}
+                />
+              );
+            })}
+          </ul>
+        );
+        return collapsible && group.title != null ? (
+          <details
+            key={groupIndex}
+            className="rk-check-disclosure"
+            name={disclosureGroup}
+            open={groupIndex === 0}
+          >
+            <summary className="rk-check-section">{title}</summary>
+            {items}
+          </details>
+        ) : (
           <div key={groupIndex}>
-            {sectioned ? (
-              <div className="rk-check-section">
-                <span>
-                  <Inline>{group.title}</Inline>
-                </span>
-                <span>
-                  {words.t("sectionCount", { done: doneInGroup, total: group.items.length })}
-                </span>
-              </div>
-            ) : null}
-            <ul className="rk-checklist" data-live={live || undefined} aria-label={name}>
-              {group.items.map((item, index) => {
-                const at = start + index;
-                return (
-                  <CheckRow
-                    key={index}
-                    item={item}
-                    done={current[at] === true}
-                    live={live}
-                    onToggle={() => tell(current.map((value, i) => (i === at ? !value : value)))}
-                  />
-                );
-              })}
-            </ul>
+            {sectioned ? <div className="rk-check-section">{title}</div> : null}
+            {items}
           </div>
         );
       })}
@@ -393,12 +417,14 @@ export function Checklist({
   sections,
   label,
   interactive,
+  collapsible,
   onChange,
 }: {
   items?: ChecklistItem[];
   sections?: ChecklistSection[];
   label?: ReactNode;
   interactive?: boolean;
+  collapsible?: boolean;
   onChange?: (done: boolean[]) => void;
 }) {
   const grouped = objectItems(sections).flatMap((section) =>
@@ -421,6 +447,7 @@ export function Checklist({
     <ChecklistLive
       groups={grouped.length > 0 ? grouped : [{ items: checkItems(items) }]}
       sectioned={grouped.length > 0}
+      collapsible={collapsible === true}
       live={live}
       label={label}
       onChange={typeof onChange === "function" ? onChange : undefined}

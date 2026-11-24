@@ -58,7 +58,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 - Properties {items: [{label, value}]}: label and value pairs; value may be a Status.
 - Status {tone?}: a short status word in a tinted pill, e.g. <Status tone="success">Shipped</Status>; tone "neutral" or none is grey.
 - Rows {rows: [{title, lead?, detail?, meta?, status?: {label, tone}}]}: a list; lead sits in a narrow column before the title, the status follows the title in its tone, meta sits at the right.
-- Steps {steps: [{title, detail?}]}: a numbered sequence. Checklist {items: [{text, done, meta?}], sections?: [{title, items}], label?, interactive?, onChange?}: recorded ticks. interactive (or onChange) lets the reader check them and shows progress, Reset and Copy. sections replace items and show a count on each.
+- Steps {steps: [{title, detail?}]}: a sequence. Checklist {items: [{text, done?, meta?}], sections?: [{title, items}], label?, interactive?, collapsible?, onChange?}: interactive adds ticks, progress, Reset and Copy. sections replace items; collapsible shows one section at a time.
 - Timeline {groups: [{label, items: [{title, note?, detail?, series?, open?}]}], items?: [{date?, title, detail?}], focus?}: a year column and rows that open their detail. focus highlights the group with that label. A flat items list draws one row each, using date, year or label as the year. A Slider beside it can set focus.
 - Table {columns: string[], rows: cell[][], align?: ("auto" | "start" | "end" | "center")[], emphasis?: column, sortable?: boolean}: a cell is text, a number, {text, tone?} or a Status. Figures and single short words align to the end. Wide tables scroll sideways; long ones get a filter box and a sticky header; sortable makes headers sort.
 
@@ -76,7 +76,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 - Matrix2x2 {axes: {x: [low, high], y: [low, high]}, quadrants: [topLeft, topRight, bottomLeft, bottomRight], points: [{label, x, y}]}: items placed from 0 to 1 on two axes.
 - SourceStamp {source}: when data was read, "As of Oct 30, 2026" for a snapshot or "Updated 3 min ago" when live.
 - Diagram {nodes: [{id, label, detail?, kind?: "box" | "terminal", series?: 0..4}], edges: [{from, to, label?, dashed?}], direction?: "vertical" | "horizontal", focus?}: a flow laid out automatically. focus highlights that node.
-- Stages {stages: [{id, label, title, detail}], value?, onChange?}: pill choices, then the children, then "Stage n of total" with Previous and Next. Put a Diagram inside whose node ids match the stage ids.
+- Stages {stages: [{id, label, title?, detail}], groups?: [{label, stages}], value?, onChange?}: groups replace stages with a connected path and progress. Both show selected detail with Previous/Next. For a flat list, a child Diagram highlights matching node ids.
 LineChart, Columns, ColumnSeries, Scatter, Heatmap and CalendarHeatmap show exact values on hover and with the arrow keys once focused; Bars, Pie, StackedBars, Venn, Matrix2x2 and Diagram print theirs, so put every figure a reader needs in their labels or display text. Give each a Section heading and say the unit in the heading, caption or unit prop.
 
 ### Controls
@@ -87,7 +87,7 @@ Keep each control's value in useState. A control placed straight in a Section or
 - Button {label, onClick, variant?: "quiet" | "primary", disabled?}: one primary per group.
 - Select {label?, options: [{value, label}], value, onChange, placeholder?, disabled?}. Input {label?, value, onChange, placeholder?, type?: "text" | "number" | "search", min?: number}. Set min={0} on a number that can't go negative.
 - Toggle {label, value, onChange, disabled?}. Checkbox {label, value}: shows a recorded yes or no; the reader cannot change it. Things the reader ticks off are Checklist interactive. A number the reader steps (servings, quantity) is a row of Button "−", the value and Button "+", or a Slider. Input has no Enter or submit event: act on onChange, or put a Button beside it.
-- Quiz {questions: [{question, options: [string], answer: index, explain?}]}: one question at a time. Picking an option shows right or wrong and the explanation, then a score. The reader can try again. answer is the index of the right option, from 0.
+- Quiz {questions: [{question, options: [string], answer: index, explain?}]}: each pick reveals feedback and enables Next. The last answer shows a score and retry. answer is the correct option's zero-based index.
 - Flashcards {cards: [{front, back}]}: flip a card, mark it known or not, and shuffle. It shows which card this is and how many are known.
 - LinkButton {label, href, variant?: "button" | "text"} and TextLink {href, children}: web or mail links, opened by the app.
 - CopyButton {label, text?, copiedLabel?}: copies text (else the label) and shows "Copied"; where copying is blocked it shows the text to select. For your own copy buttons call copyText(text), which resolves true once copied; navigator.clipboard is blocked in pages.

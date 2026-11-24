@@ -5,21 +5,22 @@
 
 /** Shapes that draw without a help call. A rejected visual gets the same text back. */
 export const VISUAL_ESSENTIALS = [
-  'source is page-kit JSX: one export default, no Page wrapper. One Section (heading or title) and one Caption. At most one Callout, only for a real warning. A Diagram of more than two steps is vertical. SVG uses useTheme(), a viewBox and width "100%". Never use vh.',
-  'Nested sets, plus one Slider that changes a variable: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />',
-  'How something works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram direction="vertical" focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>',
-  'A number they change: useState, Slider or Input type="number", <Result label="Each" value={n} />, LineChart marker={index}.',
-  'A year list: <Timeline items={[{date: "1969", title: "Landing", detail: "Moon"}]} />. Ticks: <Checklist interactive items={[{text: "Shoes"}]} />.',
-  'Practice: <Quiz questions={[{question: "Q", options: ["A", "B"], answer: 0}]} /> or <Flashcards cards={[{front: "Q", back: "A"}]} />.',
+  'JSX: export default, Section, no Page. SVG: viewBox, width="100%", useTheme(), no vh. Split tall visuals.',
+  'Grid: Venn nested sets={[{label:"NP"},{label:"P"}]} vs one equal set. Diagram the reduction. Slider and LineChart marker for growth; Slider/Input and Result for calculators.',
+  "For multi-route flows: Choices selects the route; Stages groups={[{label,stages:[{id,label,detail}]}]} shows each step. Diagram outcomes; table differences. Short flows wrap Diagram in Stages.",
+  "For timelines: year Slider updates the SVG scene, Metrics, and Timeline groups={[{label,items:[{title,detail}]}]}. Then grouped ColumnSeries labels/series[{name,values}].",
+  'Fixed split: one Result with label, value, tone="success", groups={[[{label,value}]]}, copy={{text}}. Amount first.',
+  "Checklist interactive collapsible sections={[{title,items:[{text}]}]}, plus Bars bars={[{label,value}]} for progression.",
+  "Quiz questions={[{question,options,answer:0,explain}]} or Flashcards cards={[{front,back}]}.",
 ].join("\n");
 
 /** App chats, where the reply can also carry a ui fence. The fence text comes first. */
 export const SHOW_VISUAL_INSTRUCTION = [
-  "When someone asks to understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections 1. 2. 3.",
-  "When someone asks to compare or decide, or whether to buy or return, call show_visual, then start the reply with the pick. The embed comes after that sentence: a calculator whose inputs already hold the figures they gave, or one picture of what differs. A web search does not replace that picture.",
-  "Call show_visual with title, summary and source. Do not pass help. Never paste the source. Place the embed after the pick. Do not tell the reader to open it. It is not saved.",
+  "Call show_visual for explanations, diagrams, timelines, checklists, bill splits and practice. Follow the relevant recipe below. Open with the visual or a one-sentence answer.",
+  "For a decision, give the pick first, then the visual: prefill the calculator or draw what differs. A search does not replace the visual.",
+  "Pass title, summary and source, then place the returned embed. No help on the first call. No pasted JSX or instructions to open it.",
   VISUAL_ESSENTIALS,
-  "A ui fence is only a table, steps, key numbers or a simple chart of figures. A question that asks for one fact, such as the time in a place, gets one plain sentence and no picture and no fence.",
+  "Use ui fences for tables, steps, figures or simple charts. A one-fact question gets a plain sentence.",
 ].join("\n\n");
 
 /** Channels whose reply is not drawn in the app. */

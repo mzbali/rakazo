@@ -29,13 +29,31 @@ function toneColor(tone: unknown): string | undefined {
 
 const NESTED_NAME = 20;
 const NESTED_NOTE = 14;
+const NESTED_MIN = 11;
+/** Weight 650 is wider than the chart measure, which assumes regular type. */
+const NESTED_BOLD = 1.15;
+/** Space between a nested label and the stroke, so a name does not sit on the ring. */
+const NESTED_PAD = 8;
+
+function chordWidth(radius: number, fromCentre: number): number {
+  const distance = Math.min(Math.abs(fromCentre), radius);
+  return 2 * Math.sqrt(Math.max(0, radius * radius - distance * distance));
+}
 
 /** How tall a set's label is, so the circle inside it can leave that band clear. */
-function nestedReserve(set: VennSet, room: number, counted: boolean): number {
-  const nameLines = Math.min(2, Math.max(1, wrapWords(text(set.label), room).length));
-  const noteLines = Math.min(2, wrapWords(text(set.note), room).length);
+function nestedReserve(set: VennSet, radius: number, counted: boolean): number {
+  const size = radius >= 56 ? NESTED_NAME : 16;
+  const room = Math.max(
+    16,
+    chordWidth(radius, radius - (NESTED_PAD + size * 0.8)) - NESTED_PAD * 2,
+  );
+  const nameLines = Math.min(
+    4,
+    Math.max(1, wrapWords(text(set.label), room, size * NESTED_BOLD).length),
+  );
+  const noteLines = Math.min(2, wrapWords(text(set.note), room, NESTED_NOTE).length);
   const extra = (noteLines + (counted ? 1 : 0)) * NESTED_NOTE;
-  return nameLines * NESTED_NAME + extra + 22;
+  return nameLines * size + extra + 22;
 }
 
 /**
@@ -50,11 +68,10 @@ function nestedLayout(
   const placed: { r: number; cy: number }[] = [];
   let radius = outer;
   let centre = 10 + outer;
-  const room = Math.max(48, outer * 1.4);
   for (let index = 0; index < shown.length; index++) {
     placed.push({ r: radius, cy: centre });
     if (index === shown.length - 1) break;
-    const reserve = nestedReserve(shown[index]!, room, count(shown[index]!) !== undefined);
+    const reserve = nestedReserve(shown[index]!, radius, count(shown[index]!) !== undefined);
     const ratio = shown.length === 2 ? 0.48 : index === 0 ? 0.66 : 0.42;
     const cap = radius - (reserve + 8) / 2;
     const inner = Math.min(radius * ratio, Math.max(radius * 0.34, cap), radius - 14);
@@ -68,18 +85,60 @@ function nestedLayout(
   return placed;
 }
 
-/** Words in lines no wider than `max`, measured as the chart's labels are. */
-function wrapWords(words: string, max: number): string[] {
+/** Words in lines no wider than `max`. `size` is the font size the line will be drawn at. */
+function wrapWords(words: string, max: number, size = 12): string[] {
   const lines: string[] = [];
   for (const word of words.split(/\s+/).filter(Boolean)) {
     const last = lines[lines.length - 1];
-    if (last !== undefined && textWidth(`${last} ${word}`) <= max) {
+    if (last !== undefined && textWidth(`${last} ${word}`, size) <= max) {
       lines[lines.length - 1] = `${last} ${word}`;
     } else {
       lines.push(word);
     }
   }
   return lines;
+}
+
+/**
+ * Wrap a nested name to the chord where it sits, then shrink until every line is inside the ring.
+ * Outer names sit at the top, where the chord is short. The innermost name is centred.
+ */
+function fitNestedLines(
+  label: string,
+  radius: number,
+  cy: number,
+  last: boolean,
+  start: number,
+  weight: number,
+): { lines: string[]; size: number; y: number; room: number } {
+  const words = label.trim();
+  if (!words) return { lines: [], size: start, y: cy, room: radius };
+  let size = start;
+  let chosen = { lines: [words], size, y: cy, room: radius * 2 };
+  while (size >= NESTED_MIN) {
+    const measure = size * weight;
+    const fromCentre = last ? 0 : radius - (NESTED_PAD + size * 0.8);
+    const room = Math.max(16, chordWidth(radius, fromCentre) - NESTED_PAD * 2);
+    const lines = wrapWords(words, room, measure);
+    const block = Math.max(lines.length, 1) * size;
+    const y = last ? cy - block / 2 + size * 0.8 : cy - radius + NESTED_PAD + size * 0.8;
+    chosen = { lines, size, y, room };
+    const inside = lines.every((line, index) => {
+      const baseline = y + index * size;
+      const top = baseline - size * 0.8;
+      const bottom = baseline + size * 0.22;
+      if (top < cy - radius + 1 || bottom > cy + radius - 1) return false;
+      const tight = Math.min(
+        chordWidth(radius, top - cy),
+        chordWidth(radius, baseline - cy),
+        chordWidth(radius, bottom - cy),
+      );
+      return textWidth(line, measure) <= tight - NESTED_PAD * 2 + 0.5;
+    });
+    if (inside) return chosen;
+    size -= 1;
+  }
+  return chosen;
 }
 
 /** Nested circles. The first set is the outside one, and each label sits in its own band. */
@@ -138,31 +197,33 @@ function nestedCircles(
       })}
       {placed.map(({ r, cy: centre }, i) => {
         const set = shown[i]!;
-        const room = Math.max(48, r * 1.6);
-        const name = wrapWords(text(set.label), room).slice(0, 2);
-        const note = wrapWords(text(set.note), room).slice(0, 2);
-        const total = count(set);
-        const nameSize = outer >= 56 ? 20 : 16;
-        const noteSize = 14;
-        const lines = name.length + note.length + (total !== undefined ? 1 : 0);
-        const block = name.length * nameSize + (lines - name.length) * noteSize;
         const last = i === placed.length - 1;
-        // Outer names sit in the top of their circle. The innermost name is centred.
-        const y = (last ? centre - block / 2 : centre - r + 8) + nameSize * 0.8;
-        const noteY = y + name.length * nameSize;
+        const name = fitNestedLines(
+          text(set.label),
+          r,
+          centre,
+          last,
+          outer >= 56 ? NESTED_NAME : 16,
+          NESTED_BOLD,
+        );
+        const note = wrapWords(text(set.note), name.room, NESTED_NOTE).slice(0, 2);
+        const total = count(set);
+        const noteSize = NESTED_NOTE;
+        const y = name.y;
+        const noteY = y + name.lines.length * name.size;
         const countY = noteY + note.length * noteSize;
         return (
           <g key={`l${i}`}>
-            {name.length > 0 ? (
+            {name.lines.length > 0 ? (
               <text
                 className="rk-venn-name"
                 x={cx}
                 y={y}
                 textAnchor="middle"
-                style={{ fontSize: nameSize }}
+                style={{ fontSize: name.size }}
               >
-                {name.map((line, index) => (
-                  <tspan key={index} x={cx} dy={index === 0 ? 0 : nameSize}>
+                {name.lines.map((line, index) => (
+                  <tspan key={index} x={cx} dy={index === 0 ? 0 : name.size}>
                     {line}
                   </tspan>
                 ))}

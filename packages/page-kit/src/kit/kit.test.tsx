@@ -6,6 +6,7 @@ import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table }
 import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
 import { drawEdges } from "./diagram-layout.js";
 import { inlineMarkup } from "./inline.js";
+import { Result, Slider } from "./interact.js";
 import { Callout, Caption, Grid, Page, Section, Text } from "./layout.js";
 import { PAGE_STYLES } from "./styles.js";
 
@@ -55,6 +56,20 @@ describe("page kit", () => {
     expect(html(<Properties items={[]} />)).toBe('<dl class="rk-properties"></dl>');
     // A grid wider than four columns would squeeze every card unreadably thin.
     expect(markup).toContain("--rk-columns:4");
+  });
+
+  it("keeps a result inset on the section instead of framing it a second time", () => {
+    const markup = html(
+      <Section heading="Mortgage payment vs interest rate">
+        <Slider label="Interest rate" value={4.5} min={0} max={10} step={0.25} suffix="%" />
+        <Result label="Monthly payment" value="£1,754" />
+      </Section>,
+    );
+    expect(markup).not.toContain("rk-figure-card");
+    expect(markup).toContain('class="rk-result" data-inset=""');
+    expect(markup).toContain("£1,754");
+    expect(markup).toContain(">4.50%<");
+    expect(markup).toContain("Interest rate");
   });
 
   it("fails, instead of recursing forever, when a page renders its own Page again", () => {

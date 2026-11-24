@@ -489,10 +489,46 @@ type PiePart = { label: ReactNode; value: number; display?: ReactNode };
 
 const PIE_SIZE = 160;
 const PIE_RING = 28;
+/** Inner diameter. The stroke is centred on the ring, so the hole is the size minus two strokes. */
+const PIE_HOLE = PIE_SIZE - PIE_RING * 2;
+/** Clear of the stroke, matching the 8px padding on the centre. */
+const PIE_ROOM = PIE_HOLE - 16;
 /** The track shows between slices. */
 const PIE_GAP = 2;
 /** With many parts, slivers under 2% fold into one "Other" slice. */
 const FOLD_OVER = 8;
+
+/**
+ * Lines that stay inside the donut hole. A short figure keeps `start`. A long one shrinks, then
+ * wraps, so it does not cross the ring.
+ */
+function fitCentreText(
+  value: string,
+  start: number,
+  min: number,
+  weight: number,
+  maxLines: number,
+): { size: number; lines: string[] } {
+  const words = value.trim();
+  if (!words) return { size: start, lines: [] };
+  let size = start;
+  let lines = [words];
+  while (size >= min) {
+    const measure = size * weight;
+    const wrapped: string[] = [];
+    for (const word of words.split(/\s+/)) {
+      const last = wrapped[wrapped.length - 1];
+      if (last !== undefined && textWidth(`${last} ${word}`, measure) <= PIE_ROOM) {
+        wrapped[wrapped.length - 1] = `${last} ${word}`;
+      } else wrapped.push(word);
+    }
+    lines = wrapped;
+    const widest = wrapped.reduce((max, line) => Math.max(max, textWidth(line, measure)), 0);
+    if (wrapped.length <= maxLines && widest <= PIE_ROOM) return { size, lines };
+    size -= 1;
+  }
+  return { size: min, lines };
+}
 
 /** A donut of parts of one whole, with each part's value and share listed beside it. */
 export function Pie({
@@ -540,6 +576,8 @@ export function Pie({
       : words.number(share, { style: "percent", maximumFractionDigits: 0 });
   const showTotal = total !== undefined && total !== false && total !== null;
   const totalText = total === true ? formatValue(sum, undefined, undefined, words) : total;
+  // Weight 600 is wider than the chart measure. One line, shrunk until it clears the ring.
+  const figureFit = fitCentreText(text(totalText), 28, 14, 1.15, 1);
   const description = `${text(label) ? `${text(label)}: ` : ""}${slices
     .map(
       ({ part, share }) =>
@@ -578,11 +616,26 @@ export function Pie({
           ))}
         </svg>
         {showTotal ? (
-          <div className="rk-pie-total" aria-hidden="true">
+          <div
+            className="rk-pie-total"
+            style={{ width: PIE_HOLE, maxHeight: PIE_HOLE }}
+            aria-hidden="true"
+          >
             {label != null && label !== "" ? (
               <span className="rk-pie-total-label">{label}</span>
             ) : null}
-            <span className="rk-pie-total-figure">{totalText}</span>
+            <span
+              className="rk-pie-total-figure"
+              style={text(totalText) ? { fontSize: figureFit.size } : undefined}
+            >
+              {text(totalText) && figureFit.lines.length > 1
+                ? figureFit.lines.map((line, index) => (
+                    <span key={index} style={{ display: "block" }}>
+                      {line}
+                    </span>
+                  ))
+                : totalText}
+            </span>
           </div>
         ) : null}
       </div>

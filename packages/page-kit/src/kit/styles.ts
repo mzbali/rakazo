@@ -38,7 +38,8 @@ body{font-size:1rem}
 .rk-page[data-width="wide"]{max-width:calc(1280px + 6rem)}
 .rk-page[data-width="full"]{max-width:none}
 [data-inline] #root{display:flex;flex-direction:column;gap:.75rem;padding:1rem}
-[data-inline="card"] #root{padding:0}
+/* 12px clears the chat card's 24px corner. None left the heading's first letter under that clip. */
+[data-inline="card"] #root{padding:0.75rem}
 [data-inline] .rk-page{max-width:none;padding:0}
 [data-inline="card"] .rk-diagram svg,[data-inline="card"] .rk-chart svg{min-width:0!important;max-width:100%}
 [data-inline="card"],[data-still]{scrollbar-width:none}
@@ -178,9 +179,9 @@ body{font-size:1rem}
 .rk-pie{display:flex;flex-wrap:wrap;align-items:center;gap:1rem 1.5rem}
 .rk-pie-ring{position:relative;flex:none;width:160px;height:160px}
 .rk-pie svg{display:block;width:160px;height:160px}
-.rk-pie-total{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;pointer-events:none}
-.rk-pie-total-label{font-size:.75rem;line-height:1rem;color:var(--rk-secondary)}
-.rk-pie-total-figure{font-size:1.75rem;line-height:1.1;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rk-pie-total{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-sizing:border-box;padding:0 8px;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.rk-pie-total-label{max-width:100%;font-size:.75rem;line-height:1rem;color:var(--rk-secondary);overflow-wrap:anywhere}
+.rk-pie-total-figure{max-width:100%;font-size:1.75rem;line-height:1.05;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .rk-pie-legend{display:flex;flex-direction:column;gap:.35rem;margin:0;padding:0;list-style:none;font-size:1rem;line-height:1.35;flex:1;min-width:10rem}
 .rk-pie-legend li{display:flex;align-items:baseline;gap:.5rem;font-variant-numeric:tabular-nums;color:var(--foreground)}
 .rk-pie-legend li::before{content:"";flex:none;align-self:center;width:8px;height:8px;border-radius:50%;background:var(--rk-swatch)}

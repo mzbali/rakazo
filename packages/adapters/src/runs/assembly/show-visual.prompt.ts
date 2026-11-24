@@ -5,10 +5,10 @@
 
 /** Shapes that draw without a help call. A rejected visual gets the same text back. */
 export const VISUAL_ESSENTIALS = [
-  'source is page-kit JSX: one export default, no Page wrapper. One Section (heading or title) and one Caption. At most one Callout, only for a real warning. A Diagram of more than two steps is vertical. SVG uses useTheme(), a viewBox and width "100%". Never use vh.',
+  'source is page-kit JSX: one export default, no Page wrapper. One Section (heading or title) and one Caption. At most one Callout, only for a real warning. SVG uses useTheme(), a viewBox and width "100%". Never use vh.',
   'Nested sets, plus one Slider that changes a variable: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />',
   'How something works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram direction="vertical" focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>',
-  'A number they change: useState, Slider or Input type="number", <Result label="Each" value={n} />, LineChart marker={index}.',
+  'A number they change: useState, <Slider label="Interest rate" value={rate} step={0.25} suffix="%" />, <Result label="Each" value={n} />, LineChart marker={index}.',
   'A year list: <Timeline items={[{date: "1969", title: "Landing", detail: "Moon"}]} />. Ticks: <Checklist interactive items={[{text: "Shoes"}]} />.',
   'Practice: <Quiz questions={[{question: "Q", options: ["A", "B"], answer: 0}]} /> or <Flashcards cards={[{front: "Q", back: "A"}]} />.',
 ].join("\n");

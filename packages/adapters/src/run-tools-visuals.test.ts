@@ -88,6 +88,10 @@ describe("show_visual", () => {
     });
     expect(rejected.error).toMatch(/problems/);
     expect(rejected.problems).toEqual(expect.arrayContaining([expect.stringMatching(/script/)]));
+    expect(rejected.patterns).toContain("<Venn nested");
+    expect(rejected.patterns).not.toMatch(/^# Pages/);
+    const missingSource = await show({ title: "Flow", summary: "x", source: "  " });
+    expect(missingSource.patterns).toContain("<Venn nested");
     expect(publishMessage).not.toHaveBeenCalled();
   });
 

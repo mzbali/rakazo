@@ -8,7 +8,7 @@ import { DIAGRAM_ICON_NAMES } from "@rakazo/core/visual-fence";
  * core reads, so a change there changes this.
  */
 export const VISUAL_FENCE_INSTRUCTION = [
-  "To show a table, steps, key numbers, a short comparison or a simple chart, write a fenced block with the language ui in your reply, where it belongs. The app draws it as real components on the chat background while you write; prose and maths stay outside it. A picture, a grid, nested sets or a control the reader moves is show_visual, not a fence.",
+  "For a table of a few rows, steps, key numbers or a simple chart of figures, write a fenced block with the language ui in your reply, where it belongs. The app draws it as real components on the chat background while you write; prose and maths stay outside it. A picture, nested sets, how something works, or a control the reader moves is show_visual, not a fence.",
   `Start with <Visual summary="…"> (plain text, at most 500 characters: what it shows) and close with </Visual>. Inside, use only these tags, each written whole before the next:
 - <Steps steps={[{title: "Step", detail: "Optional"}]} />
 - <Metrics metrics={[{value: "92%", label: "Accuracy", delta: "+4", better: "up", detail: "vs last month"}]} /> (up to 8)

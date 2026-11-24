@@ -46,6 +46,7 @@ describe("built-in tool bridge", () => {
       "schedule_list",
       "search_history",
       "shell",
+      "show_visual",
       "skill_read",
       "update_bot",
       "update_preferences",
@@ -62,16 +63,13 @@ describe("built-in tool bridge", () => {
     // whether a routine runs in its chat, and takes the events (webhook, Git, chat, email) a
     // routine can start on, saying a Git event needs no connected app; schedule_list reaches a
     // managed bot's routines; update_bot carries the settings its owner can change.
+    // show_visual is listed so a picture is one call; its patterns stay in the turn instructions,
+    // and message_user keeps only the cutoff the reply guidance already states.
     expect(definitionBytes(listed)).toBeLessThanOrEqual(36_176);
     expect(deferred.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining([
-        "render_plot",
-        "show_visual",
-        "create_space",
-        "generate_secret",
-        "scratchpad_add",
-      ]),
+      expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
     );
+    expect(deferred.map((tool) => tool.name)).not.toContain("show_visual");
   });
 
   it("exposes a pinned deferred tool only for the run that pins it", () => {

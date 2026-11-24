@@ -113,8 +113,9 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "message_user",
     // Read lazily: the cap comes from process.env, which may be filled after import.
+    // The reply guidance says what belongs here. This names the cutoff so show_visual can be listed.
     get description() {
-      return `Post a short progress update to the user in this chat immediately. Does not end your turn. Use sparingly during long work for high-signal beats (what you are checking, then a result). Do not dump tool logs, thinking, or a play-by-play of every call. HARD LIMIT: cut off silently at ${messageUserMaxLength()} characters, so never put your final answer, a report, or any long-form content here \u2014 it will arrive mangled and the user will never see the rest. Always write your complete final answer in your normal reply, not here.`;
+      return `Post a short progress update in this chat. Does not end your turn: cut off silently at ${messageUserMaxLength()} characters.`;
     },
     get inputSchema() {
       return {
@@ -210,18 +211,14 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "show_visual",
     description:
-      'Draw a picture, diagram, chart or small tool in the chat, without saving a page. Use it for a concept, a comparison or decision, or practice, and put one control in it when moving that control shows the point. Place the embed it returns where the visual belongs. Pass JSX against the page kit; call with {"help": true} first for the guide. Problems come back with line numbers and nothing is shown. It cannot be changed later; show a new one instead.',
+      "Draw one picture in this chat. Pass title, summary and source. Do not pass help. Patterns are in the turn instructions.",
     inputSchema: {
       type: "object",
       properties: {
-        help: { type: "boolean", description: "Return the visual guide instead of drawing." },
-        title: { type: "string", description: "A short title shown on the visual." },
-        summary: {
-          type: "string",
-          description:
-            "One or two plain sentences (up to 500 characters) with the visual's point and key figures, shown wherever it cannot be drawn.",
-        },
-        source: { type: "string", description: "The visual as JSX." },
+        help: { type: "boolean", description: "Not on the first call." },
+        title: { type: "string", description: "Short title." },
+        summary: { type: "string", description: "Up to 500 characters." },
+        source: { type: "string" },
       },
     },
   },

@@ -9,6 +9,7 @@ import { containsSecret, embedLine } from "@rakazo/core";
 import { checkPageSource, VISUAL_GUIDE } from "@rakazo/page-kit/validate";
 import type { RunContext } from "./runs/assembly/run-context.js";
 import { publishMessage } from "./runs/assembly/run-messages.js";
+import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
 import type { ToolCall, ToolHandlers } from "./runs/tools/run-tool-gate.js";
 
 /** The summary is one paragraph of plain text: every run of whitespace folds into a space. */
@@ -35,12 +36,19 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
       error: `summary must be plain text of 1 to ${VISUAL_SUMMARY_MAX_LENGTH} characters.`,
     };
   }
-  if (typeof args.source !== "string" || !args.source.trim())
-    return { error: "source must be the visual as JSX." };
+  if (typeof args.source !== "string" || !args.source.trim()) {
+    return { error: "source must be the visual as JSX.", patterns: VISUAL_ESSENTIALS };
+  }
   const source = args.source;
   const check = checkPageSource(source);
-  if (!check.ok)
-    return { error: "The visual has problems; nothing was shown.", problems: check.errors };
+  if (!check.ok) {
+    return {
+      error:
+        "The visual has problems; nothing was shown. Follow patterns and call again with source.",
+      problems: check.errors,
+      patterns: VISUAL_ESSENTIALS,
+    };
+  }
   const { code } = check;
   const bytes = pageSourceBytes(code);
   if (bytes > VISUAL_CODE_MAX_BYTES) {

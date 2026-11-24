@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Fragment, isValidElement } from "react";
+import { chartShare } from "./dataviz/scale.js";
 import type { Formatter, LegendItem } from "./dataviz.js";
 import {
   axisGutter,
@@ -340,10 +341,12 @@ export function LineChart({
               );
             }
             const neighbours = [primary[at - 1], primary[at + 1]].filter(finite);
-            const above =
-              neighbours.length === 0 ||
-              v >= neighbours.reduce((a, b) => a + b, 0) / neighbours.length;
             const cy = y(v);
+            const above =
+              cy + 26 > baseline ||
+              (cy >= 28 &&
+                (neighbours.length === 0 ||
+                  v >= neighbours.reduce((a, b) => a + b, 0) / neighbours.length));
             return (
               <g key={index} className="rk-annotation">
                 <line x1={cx} x2={cx} y1={above ? cy - 5 : cy + 5} y2={above ? cy - 11 : cy + 11} />
@@ -442,7 +445,15 @@ export type Bar = { label: ReactNode; value: number; display?: ReactNode };
  * Without a choice the longest bar is inked and the rest recede; "none" inks every bar.
  * A negative value draws in the negative colour, scaled against the largest size either way.
  */
-export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number | "none" }) {
+export function Bars({
+  bars = [],
+  emphasis,
+  horizontal,
+}: {
+  bars?: Bar[];
+  emphasis?: number | "none";
+  horizontal?: boolean;
+}) {
   const words = useWords();
   const rows = objectItems(bars);
   const values = rows.map((bar) => (finite(bar.value) ? bar.value : 0));
@@ -450,7 +461,7 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   // The longest bar, negative or not, since a bar's length is its size.
   const chosen = emphasis === undefined ? values.map(Math.abs).indexOf(max) : emphasis;
   if (rows.length === 0) return null;
-  if (standsAsColumns(rows)) {
+  if (!horizontal && standsAsColumns(rows)) {
     return (
       <Columns
         points={rows.map((bar) => ({ label: bar.label, value: bar.value, display: bar.display }))}
@@ -485,7 +496,7 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   );
 }
 
-type PiePart = { label: ReactNode; value: number; display?: ReactNode };
+type PiePart = { label: ReactNode; value: number; display?: ReactNode; detail?: string };
 
 const PIE_SIZE = 160;
 const PIE_RING = 28;
@@ -499,10 +510,14 @@ export function Pie({
   parts = [],
   total,
   label,
+  unit,
+  percentDigits,
 }: {
   parts?: PiePart[];
   total?: boolean | ReactNode;
   label?: ReactNode;
+  unit?: ReactNode;
+  percentDigits?: number;
 }) {
   const words = useWords();
   const valid = (Array.isArray(parts) ? parts : []).filter(
@@ -510,7 +525,7 @@ export function Pie({
   );
   const sum = valid.reduce((acc, part) => acc + part.value, 0);
   let shown: PiePart[] = valid;
-  if (valid.length > FOLD_OVER) {
+  if (valid.length > FOLD_OVER && !valid.some((part) => part.detail)) {
     const small = valid.filter((part) => part.value / sum < 0.02);
     if (small.length > 1) {
       shown = [
@@ -534,13 +549,13 @@ export function Pie({
     start += share;
     return slice;
   });
-  const percent = (share: number) =>
-    share < 0.01
-      ? `<${words.number(0.01, { style: "percent" })}`
-      : words.number(share, { style: "percent", maximumFractionDigits: 0 });
+  const percent = (share: number) => chartShare(share, words, percentDigits);
   const showTotal = total !== undefined && total !== false && total !== null;
   const totalText = total === true ? formatValue(sum, undefined, undefined, words) : total;
-  const description = `${text(label) ? `${text(label)}: ` : ""}${slices
+  const totalDescription = showTotal
+    ? [text(label), text(totalText), text(unit)].filter(Boolean).join(" ")
+    : text(label);
+  const description = `${totalDescription ? `${totalDescription}: ` : ""}${slices
     .map(
       ({ part, share }) =>
         `${text(part.label)} ${text(part.display ?? part.value)}, ${percent(share)}`,
@@ -583,21 +598,37 @@ export function Pie({
               <span className="rk-pie-total-label">{label}</span>
             ) : null}
             <span className="rk-pie-total-figure">{totalText}</span>
+            {unit != null ? <span className="rk-pie-total-label">{unit}</span> : null}
           </div>
         ) : null}
       </div>
       <ul className="rk-pie-legend">
-        {slices.map(({ part, share, color }, index) => (
-          <li
-            key={index}
-            style={{ "--rk-swatch": color } as CSSProperties}
-            data-emphasis={index === largest || undefined}
-          >
-            <span className="rk-pie-label">{part.label}</span>
-            {part.display != null ? <span className="rk-pie-value">{part.display}</span> : null}
-            <span className="rk-pie-share">{percent(share)}</span>
-          </li>
-        ))}
+        {slices.map(({ part, share, color }, index) => {
+          const detail = typeof part.detail === "string" ? part.detail.trim() : "";
+          const cells = (
+            <>
+              <span className="rk-pie-label">{part.label}</span>
+              {part.display != null ? <span className="rk-pie-value">{part.display}</span> : null}
+              <span className="rk-pie-share">{percent(share)}</span>
+            </>
+          );
+          return (
+            <li
+              key={index}
+              style={{ "--rk-swatch": color } as CSSProperties}
+              data-emphasis={index === largest || undefined}
+            >
+              {detail ? (
+                <details className="rk-pie-detail">
+                  <summary className="rk-pie-row">{cells}</summary>
+                  <p>{detail}</p>
+                </details>
+              ) : (
+                <div className="rk-pie-row">{cells}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

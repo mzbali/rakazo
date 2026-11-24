@@ -46,6 +46,16 @@ export function valueScale(values: number[], floor?: number, ceiling?: number) {
 
 export type Formatter = (value: number) => ReactNode;
 
+export function chartShare(share: number, words: Pick<Words, "number">, digits = 0): string {
+  const maximumFractionDigits = Number.isInteger(digits) ? Math.max(0, Math.min(2, digits)) : 0;
+  const minimum = 10 ** (-2 - maximumFractionDigits);
+  const formatted = words.number(Math.max(share, minimum), {
+    style: "percent",
+    maximumFractionDigits,
+  });
+  return share < minimum ? `<${formatted}` : formatted;
+}
+
 /** A caller's format wins; otherwise the figure, then the unit after a thin gap ("30 %"). */
 export function formatValue(
   value: number,

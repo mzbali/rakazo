@@ -58,6 +58,7 @@ for (const name of [
   "Heatmap",
   "CalendarHeatmap",
   "Venn",
+  "Rings",
   "Matrix2x2",
 ] as const) {
   layout.FIGURES.add(kit[name]);

@@ -388,13 +388,16 @@ export function Choices({
   onChange,
   columns = 2,
   label,
+  radio,
 }: {
   options?: Choice[];
   value?: string | number;
   onChange?: (value: string) => void;
   columns?: number;
   label?: ReactNode;
+  radio?: boolean;
 }) {
+  const group = useId();
   const current = value === undefined || value === null ? undefined : String(value);
   const items = (Array.isArray(options) ? options : []).flatMap((option) => {
     if (typeof option === "string" || typeof option === "number") {
@@ -410,11 +413,27 @@ export function Choices({
   return (
     <fieldset
       className="rk-choices"
-      style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${radio ? 1 : count}, minmax(0, 1fr))` }}
     >
-      {name ? <legend className="rk-visually-hidden">{name}</legend> : null}
+      {name ? (
+        <legend className={radio ? "rk-choice-question" : "rk-visually-hidden"}>{name}</legend>
+      ) : null}
       {items.map((item) => {
         const selected = item.value === current;
+        if (radio) {
+          return (
+            <label className="rk-choice-radio" key={item.value}>
+              <input
+                type="radio"
+                name={group}
+                value={item.value}
+                checked={selected}
+                onChange={() => onChange?.(item.value)}
+              />
+              <span>{item.label}</span>
+            </label>
+          );
+        }
         return (
           <button
             key={item.value}
@@ -547,6 +566,9 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-timeline-row[aria-expanded="true"] .rk-timeline-chevron{transform:rotate(90deg)}
 .rk-choices{display:grid;gap:8px;width:100%;margin:0;padding:0;border:0;min-width:0}
 .rk-choices .rk-button{width:100%;max-width:none;align-self:stretch}
+.rk-choice-question{padding:0;margin-bottom:.35rem;font-weight:600}
+.rk-choice-radio{display:flex;align-items:flex-start;gap:.55rem;cursor:pointer;color:var(--foreground);overflow-wrap:anywhere}
+.rk-choice-radio input{flex:none;accent-color:var(--rk-primary);margin:.2rem 0 0;width:1rem;height:1rem}
 .rk-stages{display:flex;flex-direction:column;gap:16px}
 .rk-stage{display:flex;flex-direction:column;gap:6px}
 .rk-stage-kicker{font-size:13px;line-height:18px;color:var(--rk-secondary)}

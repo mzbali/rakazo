@@ -51,6 +51,7 @@ export const PAGE_KIT_COMPONENTS = [
   "Heatmap",
   "CalendarHeatmap",
   "Venn",
+  "Rings",
   "Matrix2x2",
   "SourceStamp",
   "Button",

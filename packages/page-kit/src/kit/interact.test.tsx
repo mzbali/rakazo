@@ -217,6 +217,31 @@ describe("stages and chart marker", () => {
 });
 
 describe("choices, result and raw range", () => {
+  it("uses separately named radio groups with visible question labels", () => {
+    const onChange = vi.fn();
+    render(
+      <>
+        <Choices
+          radio
+          label="Ownership"
+          options={["Rent", "Buy"]}
+          value="Buy"
+          onChange={onChange}
+        />
+        <Choices radio label="Duration" options={["Short", "Long"]} />
+      </>,
+    );
+    const [rent, buy, short, long] = host.querySelectorAll<HTMLInputElement>('input[type="radio"]');
+    expect(buy!.checked).toBe(true);
+    expect(short!.checked).toBe(false);
+    expect(rent!.name).toBe(buy!.name);
+    expect(short!.name).toBe(long!.name);
+    expect(rent!.name).not.toBe(short!.name);
+    expect(host.querySelector("legend")?.textContent).toBe("Ownership");
+    act(() => rent!.click());
+    expect(onChange).toHaveBeenCalledWith("Rent");
+  });
+
   it("fills the chosen pill and stacks a result with a full-width copy", () => {
     const onChange = vi.fn();
     render(

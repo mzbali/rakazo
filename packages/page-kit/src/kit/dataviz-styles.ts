@@ -46,6 +46,10 @@ export const DATAVIZ_CSS = `
 .rk-stacked-bar{display:flex;gap:2px;height:10px;min-width:2px}
 .rk-stacked-part{display:block;min-width:2px;border-radius:2px}
 .rk-stacked-part:first-child{border-radius:0 2px 2px 0}
+.rk-stacked[data-shares] .rk-stacked-bar{height:24px}
+.rk-stacked[data-shares] .rk-stacked-part{display:grid;place-items:center;flex-basis:0;container-type:inline-size;overflow:hidden}
+.rk-stacked-share{display:none;padding:0 .2rem;border-radius:3px;background:var(--background);color:var(--foreground);font-size:.75rem;line-height:1.25;white-space:nowrap;font-variant-numeric:tabular-nums}
+@container (min-width:2.65rem){.rk-stacked-share{display:block}}
 .rk-stacked-value{flex:none;font-variant-numeric:tabular-nums;white-space:nowrap}
 .rk-ramp{display:flex;align-items:center;gap:4px;font-size:.75rem;line-height:1rem;color:var(--rk-secondary)}
 .rk-ramp-step{width:16px;height:10px;border-radius:2px}
@@ -112,6 +116,14 @@ export const DATAVIZ_CSS = `
 .rk-table-scroll{-webkit-mask-image:none;mask-image:none;max-height:none!important;overflow:visible}
 .rk-draw{animation:none!important;stroke-dasharray:none;stroke-dashoffset:0}
 .rk-heatmap-scroll,.rk-calendar-scroll{overflow:visible}
+.rk-rings{display:block;width:min(100%,27rem);margin-inline:auto}
+.rk-rings text{fill:var(--foreground);font-size:13px;text-anchor:middle}
+.rk-rings .rk-rings-label{fill:var(--rk-secondary);font-size:12px}
+.rk-rings .rk-rings-location{font-weight:600;paint-order:stroke;stroke:var(--background);stroke-width:3px;stroke-linejoin:round}
+.rk-rings-band{fill:var(--rk-fill);stroke:var(--rk-line)}
+.rk-rings-center{fill:var(--foreground)}
+.rk-rings-guide{stroke:var(--rk-secondary);stroke-dasharray:3 4}
+.rk-rings-pin{stroke:var(--background);stroke-width:1.5}
 .rk-frame,.rk-matrix,.rk-calendar,.rk-venn,.rk-stacked{break-inside:avoid}
 }
 `;

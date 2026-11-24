@@ -75,6 +75,10 @@ describe("the ui fence instructions", () => {
     const pictureAt = withFences.indexOf(SHOW_VISUAL_INSTRUCTION);
     expect(fenceAt).toBeGreaterThan(-1);
     expect(pictureAt).toBeGreaterThan(fenceAt);
+    expect(withFences).toContain(
+      "Use render_plot for a PNG or a chart the chat components cannot draw.",
+    );
+    expect(withFences).not.toContain("For charts and data visualization, use the render_plot tool");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("understand something");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("how it works");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("compare or decide");

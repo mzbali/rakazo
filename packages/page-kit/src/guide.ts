@@ -64,15 +64,16 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 
 ### Charts
 - LineChart {points: [{label, value}], floor?, ceiling?, unit?, format?: (n) => string, labels?: [seriesName], lines?: [{label, values}], secondary?: {label, values}, annotations?: [{at: index | "zero", label}], marker?: index, reference?: {value, label}, legend?}: a trend; one series gets an area fill, lines add series, secondary adds a grey dashed comparison. A missing value leaves a gap. marker pins the dashed vertical guide and outlined dot (a Slider's index). reference is a dashed horizontal line.
-- Bars {bars: [{label, value, display?}], emphasis?: index | "none"}: horizontal bars; the longest is highlighted unless you choose. Negative values draw red.
+- Bars {bars: [{label, value, display?}], emphasis?: index | "none", horizontal?}: horizontal rows with values at the end. Short positive labels default to columns unless horizontal is true.
 - Columns {points: [{label, value, display?}], emphasis?}: vertical columns with their value on top, for a few periods or categories; values are 0 or more, so chart losses or other negatives with Bars.
 - ColumnSeries {labels: string[], series: [{name, values}], stacked?, unit?, format?, ceiling?, reference?: {value, label}, legend?}: several series per label, side by side or stacked.
-- StackedBars {series: string[], bars: [{label, values, display?}]}: one horizontal bar per row split into named parts.
-- Pie {parts: [{label, value, display?}], total?: true | text, label?}: a donut of the parts of one whole, listed with their share; total puts the sum (or your text) in the middle over label.
+- StackedBars {series: string[], bars: [{label, values, display?}], showShares?}: rows split into named parts. showShares labels parts with their percentages.
+- Pie {parts: [{label, value, display?, detail?}], total?: true | text, label?, unit?, percentDigits?}: doughnut and legend. Put a note in detail to make that row expandable. total centres the sum or your text with label and unit.
 - Scatter {points: [{x, y, size?, label?, series?}], x?: {name, unit, format, floor, ceiling}, y?: {...}, size?: {name}, trend?, legend?}: two measures against each other; trend draws a fitted line and labels points far off it.
 - Heatmap {rows: string[], columns: string[], values: number[][], max?}: a grid shaded by value, such as weekday by hour.
 - CalendarHeatmap {days: [{date: "YYYY-MM-DD", value}], from?, to?, max?, note?}: daily activity in week columns.
 - Venn {sets: [{label, count?, items?, note?, tone?}], overlap?, nested?}: two or three overlapping groups. nested draws them as circles one inside the next (the first set is the outside); each label sits in its band, note is a second line, and tone ("success", "warning", "danger", "info") colours that circle. overlap names the shared part and is not drawn when nested.
+- Rings {rings: string[], center?, markers: [{ring, label}]}: two to four nested zones, outside first. Up to two locations, each with a zero-based ring index and short label.
 - Matrix2x2 {axes: {x: [low, high], y: [low, high]}, quadrants: [topLeft, topRight, bottomLeft, bottomRight], points: [{label, x, y}]}: items placed from 0 to 1 on two axes.
 - SourceStamp {source}: when data was read, "As of Oct 30, 2026" for a snapshot or "Updated 3 min ago" when live.
 - Diagram {nodes: [{id, label, detail?, kind?: "box" | "terminal", series?: 0..4, icon?, tone?}], edges: [{from, to, label?, dashed?, tone?}], direction?: "vertical" | "horizontal", layout?: "cycle", zones?: [{label, nodes, tone?}], flows?: [{node, label, direction?: "in" | "out", tone?}], center?, focus?}: a flow, or a closed loop when layout is "cycle". Loop nodes go clockwise from the left. zones tint the regions they name. tone is info (cold), warning (warm) or danger (hot). flows are labelled arrows into or out of a node. center is the words in the middle. focus highlights that node.
@@ -83,7 +84,7 @@ LineChart, Columns, ColumnSeries, Scatter, Heatmap and CalendarHeatmap show exac
 ### Controls
 - Segmented {options: (string | {value, label, count?})[], value, onChange}: plain text tabs. The chosen tab is foreground. Wraps onto more lines; the chosen tab always shows.
 - Slider {label, value, min, max, step, format?: (n) => string, ticks?: [{value, label}], onChange}: the value sits at the right of the label. ticks are the small captions under the rail.
-- Choices {options: (string | {value, label})[], value, onChange, columns?, label?}: a grid of pill buttons. The chosen one is filled.
+- Choices {options: (string | {value, label})[], value, onChange, columns?, label?, radio?}: a grid of pills, or a radio group with a visible question.
 Keep each control's value in useState. A control placed straight in a Section or Grid is compact; inside your own element it is full size.
 - Button {label, onClick, variant?: "quiet" | "primary", disabled?}: one primary per group.
 - Select {label?, options: [{value, label}], value, onChange, placeholder?, disabled?}. Input {label?, value, onChange, placeholder?, type?: "text" | "number" | "search", min?: number}. Set min={0} on a number that can't go negative.
@@ -172,7 +173,10 @@ One idea per visual. Short numbered prose around it. The page recipes below lead
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
-- A comparison or a buying decision: lead with the pick. Product rows and a plain table stay in the prose as markdown. show_visual draws the one mechanism that differs, and a calculator prefilled with the figures you found.
+- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options.
+- Mix: Pie with a centred total and expandable notes, StackedBars showShares, then ColumnSeries for changes across periods.
+- Trend: Metrics, LineChart with a relevant peak and target, a month Slider and jump buttons, then a compact table.
+- Before/after location: Metrics, Rings with both markers, horizontal Bars, adjustable savings and a route table.
 - An interactive diagram: Segmented, or tappable parts, highlights one part and shows its detail.
 - A calculator: one Grid columns={1} around one Section, then inputs, Slider, Result and a LineChart with marker. The Grid keeps them one card.
 - A year list: Timeline. A stage explainer: Stages around a Diagram. A cycle explainer: Stages around a Diagram with layout="cycle" (nodes clockwise from the left; info is cold, warning or danger is hot). A list the reader ticks: Checklist interactive, with sections.

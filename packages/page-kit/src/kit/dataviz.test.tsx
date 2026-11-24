@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Metrics, Status, Table } from "./data.js";
+import { Rings } from "./dataviz/rings.js";
 import {
   CalendarHeatmap,
   ColumnSeries,
@@ -764,6 +765,103 @@ describe("columns", () => {
 });
 
 describe("data display", () => {
+  it("labels each location in its own ring and omits invalid locations", () => {
+    const root = mount(
+      <Rings
+        rings={["Outer", "Middle", "Inner"]}
+        center="Destination"
+        markers={[
+          { label: "Before", ring: 0 },
+          { label: "Unknown", ring: -1 },
+          { label: "After", ring: 2 },
+        ]}
+      />,
+    );
+    const title = root.querySelector("title")!;
+    expect(title.textContent).toBe(
+      "Destination, Outer, Middle, Inner, Before (Outer), After (Inner)",
+    );
+    expect(root.querySelector("svg")?.getAttribute("aria-labelledby")).toBe(title.id);
+    const pins = [...root.querySelectorAll(".rk-rings-pin")];
+    expect(Number(pins[0]?.getAttribute("cx"))).toBeLessThan(160);
+    expect(Number(pins[1]?.getAttribute("cx"))).toBeGreaterThan(160);
+    expect(Number(pins[0]?.getAttribute("cy"))).toBeGreaterThan(
+      Number(pins[1]?.getAttribute("cy")),
+    );
+  });
+
+  it("keeps short categories horizontal when requested", () => {
+    const root = mount(
+      <Bars
+        horizontal
+        bars={[
+          { label: "Buy", value: 6, display: "£6" },
+          { label: "Lease", value: 3, display: "£3" },
+        ]}
+      />,
+    );
+    expect([...root.querySelectorAll(".rk-bar-value")].map((node) => node.textContent)).toEqual([
+      "£6",
+      "£3",
+    ]);
+    expect(root.querySelector(".rk-chart")).toBeNull();
+  });
+
+  it("shows localized segment shares and the underlying figures", () => {
+    const root = mount(
+      <Page title="Generation" lang="fr">
+        <StackedBars
+          showShares
+          series={["Wind", "Gas"]}
+          bars={[{ label: "Mix", values: [0.06, 0.02] }]}
+        />
+      </Page>,
+    );
+    const number = new Intl.NumberFormat("fr", { style: "percent" });
+    const shares = [number.format(0.75), number.format(0.25)];
+    expect([...root.querySelectorAll(".rk-stacked-share")].map((node) => node.textContent)).toEqual(
+      shares,
+    );
+    expect(root.querySelector(".rk-stacked-part")?.getAttribute("style")).toContain("75");
+    expect(root.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      `Mix: Wind 0,06 (${shares[0]}), Gas 0,02 (${shares[1]})`,
+    );
+  });
+
+  it("discloses notes for the named pie parts and keeps small annotated sources", () => {
+    const parts = Array.from({ length: 10 }, (_, i) => ({
+      label: `Source ${i}`,
+      value: i < 8 ? 100 : 1,
+      detail: i === 9 ? "A small source" : undefined,
+    }));
+    const root = mount(
+      <Pie total="802" label="Generation" unit="TWh" parts={parts} percentDigits={1} />,
+    );
+    expect(root.querySelector(".rk-pie-total")?.textContent).toBe("Generation802TWh");
+    expect(root.querySelector("svg > title")?.textContent).toContain("Generation 802 TWh");
+    expect(root.querySelectorAll(".rk-pie-legend li")).toHaveLength(10);
+    const details = root.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toBe("Source 90.1%");
+    act(() => details.querySelector("summary")!.click());
+    expect(details.open).toBe(true);
+    expect(details.querySelector("p")?.textContent).toBe("A small source");
+  });
+
+  it("keeps a peak annotation in the chart at its explicit ceiling", () => {
+    const root = mount(
+      <LineChart
+        ceiling={10}
+        points={[{ value: 2 }, { value: 10 }]}
+        annotations={[{ at: 1, label: "Peak" }]}
+      />,
+    );
+    const marker = root.querySelector(".rk-annotation")!;
+    expect(Number(marker.querySelector("text")?.getAttribute("y"))).toBeGreaterThan(
+      Number(marker.querySelector("circle")?.getAttribute("cy")),
+    );
+  });
+
   it("draws a negative bar in the negative colour at its size", () => {
     const root = mount(
       <Bars

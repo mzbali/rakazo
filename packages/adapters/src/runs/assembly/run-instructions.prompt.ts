@@ -513,7 +513,9 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "render_plot",
-      'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. When it returns embed, place that line in your reply where the chart belongs. Call render_plot with {"help": true} before your first chart to read the full guide.',
+      parts.visualFences && builtinOffered(parts.disabledBuiltinTools, "show_visual")
+        ? 'Use render_plot for a PNG or a chart the chat components cannot draw. Call with {"help": true} first, then place the embed in your reply.'
+        : 'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. When it returns embed, place that line in your reply where the chart belongs. Call render_plot with {"help": true} before your first chart to read the full guide.',
     ),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,

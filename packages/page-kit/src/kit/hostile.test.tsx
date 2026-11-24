@@ -56,7 +56,8 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
     reference: ["value", "label"],
   },
   Bars: { bars: ["label", "value", "display"] },
-  Pie: { parts: ["label", "value", "display"] },
+  Pie: { parts: ["label", "value", "display", "detail"] },
+  Rings: { rings: [], markers: ["ring", "label"] },
   Diagram: {
     nodes: ["id", "label", "detail", "kind", "series", "icon", "tone"],
     edges: ["from", "to", "label", "dashed", "tone"],

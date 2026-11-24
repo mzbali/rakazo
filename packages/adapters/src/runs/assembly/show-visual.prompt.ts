@@ -1,25 +1,23 @@
-/**
- * How a bot draws a picture in chat. The full kit stays behind show_visual help, so a turn does
- * not pay for it. These lines are what a run sees instead, and what a rejected visual gets back.
- */
-
-/** Shapes that draw without a help call. A rejected visual gets the same text back. */
+/** Shared by run instructions and rejected visuals. */
 export const VISUAL_ESSENTIALS = [
-  'source is page-kit JSX: one export default, no Page wrapper. One Section (heading or title) and one Caption. At most one Callout, only for a real warning. A Diagram of more than two steps is vertical. SVG uses useTheme(), a viewBox and width "100%". Never use vh.',
+  'JSX: export default, no Page. Section heading, short Caption. Callout only for warnings. Diagrams over two steps go vertical. SVG: useTheme(), viewBox, width "100%", no vh.',
   'Nested sets, plus one Slider that changes a variable: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />',
   'How something works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram direction="vertical" focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>',
-  'A number they change: useState, Slider or Input type="number", <Result label="Each" value={n} />, LineChart marker={index}.',
+  "Calculator: useState, Slider/Input, Bars horizontal bars=[{label,value,display}], Result. Choices radio {label,options,value,onChange} asks for preferences.",
+  "Mix: Pie parts=[{label,value,detail}] total label unit percentDigits={1}; StackedBars showShares, ColumnSeries across periods.",
+  "Trend: Metrics, LineChart with month Slider marker, annotations=[{at,label}], reference={value,label}, jump Buttons and history table.",
+  "Before/after location: Metrics, Rings {rings,center,markers:[{ring:0,label}]}, horizontal Bars, savings sliders and route table.",
   'A year list: <Timeline items={[{date: "1969", title: "Landing", detail: "Moon"}]} />. Ticks: <Checklist interactive items={[{text: "Shoes"}]} />.',
   'Practice: <Quiz questions={[{question: "Q", options: ["A", "B"], answer: 0}]} /> or <Flashcards cards={[{front: "Q", back: "A"}]} />.',
 ].join("\n");
 
-/** App chats, where the reply can also carry a ui fence. The fence text comes first. */
+/** App chats also support ui fences. */
 export const SHOW_VISUAL_INSTRUCTION = [
-  "When someone asks to understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections 1. 2. 3.",
-  "When someone asks to compare or decide, or whether to buy or return, call show_visual, then start the reply with the pick. The embed comes after that sentence: a calculator whose inputs already hold the figures they gave, or one picture of what differs. A web search does not replace that picture.",
-  "Call show_visual with title, summary and source. Do not pass help. Never paste the source. Place the embed after the pick. Do not tell the reader to open it. It is not saved.",
+  "Use show_visual to understand something or how it works, for checklists, timelines, bill splits and requested visuals. Practice uses it too. For explanations, number the sections.",
+  "To compare or decide whether to buy, open with the finding or pick. A web search does not replace the chart. Use a table and horizontal Bars. Give the prefilled calculator and radio questions separate embeds. ProductRows lists sourced options.",
+  "Pass title, summary and source to show_visual. Split tall visuals so each works inline. Do not pass help, paste source or tell the reader to open it.",
   VISUAL_ESSENTIALS,
-  "A ui fence is only a table, steps, key numbers or a simple chart of figures. A question that asks for one fact, such as the time in a place, gets one plain sentence and no picture and no fence.",
+  "A ui fence is for a table, steps, key numbers or a simple chart. One fact gets one plain sentence.",
 ].join("\n\n");
 
 /** Channels whose reply is not drawn in the app. */

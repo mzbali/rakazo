@@ -131,7 +131,7 @@ body{font-size:1rem}
 .rk-table{width:100%;min-width:min-content;border-collapse:separate;border-spacing:0;font-size:1rem;line-height:1.4;letter-spacing:.006em}
 .rk-table th,.rk-table td{min-width:min-content;padding:.8rem .5rem;border:0;border-bottom:1px solid var(--rk-hairline);text-align:left;vertical-align:top;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:manual}
 .rk-table .rk-word{white-space:nowrap;overflow-wrap:normal;word-break:normal}
-.rk-table th{font-size:1rem;line-height:1.3;font-weight:650;color:var(--foreground);background:var(--background)}
+.rk-table th{font-size:1rem;line-height:1.3;font-weight:600;color:var(--foreground);background:var(--background)}
 .rk-table-scroll[data-long] thead th{position:sticky;top:0;z-index:1;box-shadow:0 1px 0 var(--rk-line)}
 .rk-table tr>:first-child{border-left:0}
 .rk-table tbody tr:hover td{background:var(--rk-hover)}

@@ -24,7 +24,7 @@ A page is JSX source whose default export is a React component. It renders in an
 
 ## Recipes
 - Dashboard (width "wide"): Section with a Segmented period switch in actions -> Metrics -> Grid of two charts -> Table with toned Status cells -> Callout with the takeaway.
-- Report or research dossier: TableOfContents -> Callout summary (lead + tone) -> numbered Sections, each a short Text plus a Table, Bars or BulletList -> Quote for primary evidence -> ProsCons for trade-offs -> Divider -> LinkCards (numbered) of sources -> Footnote for method notes.
+- Report or research dossier: TableOfContents -> Callout summary (lead + tone) -> numbered Sections, each a short Text plus a Table, Bars or BulletList -> Quote -> ProsCons -> Divider -> LinkCards (numbered) of sources -> Footnote for method notes.
 - Tracker: Metrics of progress -> Checklist or Rows with Status -> Steps for what is next -> Properties for owners and dates.
 - Plan: Callout with the goal -> Steps or a Diagram of the phases -> Table of milestones with Status -> NumberedList of open questions.
 - Long reference: TableOfContents -> collapsible Sections (collapsible, defaultOpen for the first) so the reader opens what they need.
@@ -35,7 +35,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 ### Structure
 - Page {title, summary?, width?: "column" | "wide" | "full", lang?, palette?: [colour], sources?: [url]}: the page. "column" (default) for reading, "wide" for dashboards; palette replaces the first chart colours; sources become a footer of links. lang is the content's language tag ("fr", "he"); the kit's own buttons, empty states, dates and numbers follow it, and Hebrew or Arabic read right to left. A PageHero given first sits above the title.
 - PageHero {eyebrow?, eyebrowMark?}: a small label and any art above the title. PageMeta: a byline or date line. Footnote: a small trailing note.
-- Section {heading? or title?, id?, caption?, source?, actions?, collapsible?, defaultOpen?}: a block with a heading; title is the same text as heading. Nesting steps the heading down a level; a figure, or a cell in a Grid, is a card. id (else the heading) is the anchor a TableOfContents links to. caption sits inside that card, under the picture. source is the muted line under the caption. actions sits on the heading line (put a Segmented there). collapsible folds it behind its heading, closed unless defaultOpen.
+- Section {heading? or title?, id?, caption?, source?, actions?, collapsible?, defaultOpen?}: a block with a heading; title is the same text as heading. Nesting steps the heading down a level; a figure, or a cell in a Grid, is a card. caption sits inside that card, under the picture. actions sits on the heading line. collapsible folds it behind its heading, closed unless defaultOpen.
 - Caption: the one line under a picture. Write it inside the Section, after the picture.
 - TableOfContents {items: [{label, id, depth?}], title?}: "On this page" links that follow the reader's position; long lists fold, phones get a compact menu.
 - Grid {columns}: side by side (1 to 4 columns); stacks on phones.
@@ -72,7 +72,7 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 - Scatter {points: [{x, y, size?, label?, series?}], x?: {name, unit, format, floor, ceiling}, y?: {...}, size?: {name}, trend?, legend?}: two measures against each other; trend draws a fitted line and labels points far off it.
 - Heatmap {rows: string[], columns: string[], values: number[][], max?}: a grid shaded by value, such as weekday by hour.
 - CalendarHeatmap {days: [{date: "YYYY-MM-DD", value}], from?, to?, max?, note?}: daily activity in week columns.
-- Venn {sets: [{label, count?, items?, note?, tone?}], overlap?, nested?}: two or three overlapping groups. nested draws them as circles one inside the next (the first set is the outside); each label sits in its band, note is a second line, and tone ("success", "warning", "danger", "info") colours that circle. overlap names the shared part and is not drawn when nested.
+- Venn {sets: [{label, count?, items?, note?, tone?}], overlap?, nested?}: two or three overlapping groups. nested draws them as circles one inside the next (the first set is the outside); each label sits in its band. Keep a label to a few words so it stays inside the circle. note is a second line, and tone ("success", "warning", "danger", "info") colours that circle. overlap names the shared part and is not drawn when nested.
 - Rings {rings: string[], center?, markers: [{ring, label}]}: two to four nested zones, outside first. Up to two locations, each with a zero-based ring index and short label.
 - Matrix2x2 {axes: {x: [low, high], y: [low, high]}, quadrants: [topLeft, topRight, bottomLeft, bottomRight], points: [{label, x, y}]}: items placed from 0 to 1 on two axes.
 - SourceStamp {source}: when data was read, "As of Oct 30, 2026" for a snapshot or "Updated 3 min ago" when live.
@@ -83,8 +83,8 @@ LineChart, Columns, ColumnSeries, Scatter, Heatmap and CalendarHeatmap show exac
 
 ### Controls
 - Segmented {options: (string | {value, label, count?})[], value, onChange}: plain text tabs. The chosen tab is foreground. Wraps onto more lines; the chosen tab always shows.
-- Slider {label, value, min, max, step, format?: (n) => string, ticks?: [{value, label}], onChange}: the value sits at the right of the label. ticks are the small captions under the rail.
-- Choices {options: (string | {value, label})[], value, onChange, columns?, label?, radio?}: a grid of pills, or a radio group with a visible question.
+- Slider {label, value, min, max, step, prefix?, suffix?, format?: string | (n) => string, ticks?: [{value, label}], onChange}: the label is the name only. The value sits at the right. suffix "%" and step 0.25 show 4.50% beside "Interest rate". A format string ("£0,0", "0.00%") or a function also prints it. ticks sit under the rail.
+- Choices {options: (string | {value, label})[], value, onChange, columns?, label?, radio?}: a grid of pills, or a radio group with a visible question. The chosen pill is filled.
 Keep each control's value in useState. A control placed straight in a Section or Grid is compact; inside your own element it is full size.
 - Button {label, onClick, variant?: "quiet" | "primary", disabled?}: one primary per group.
 - Select {label?, options: [{value, label}], value, onChange, placeholder?, disabled?}. Input {label?, value, onChange, placeholder?, type?: "text" | "number" | "search", min?: number}. Set min={0} on a number that can't go negative.

@@ -82,6 +82,23 @@ describe("slider", () => {
     key(host.querySelector("input")!, "ArrowRight");
     expect(host.querySelector(".rk-slider-value")!.textContent).toBe("3");
   });
+
+  it("prints a prefix, a suffix or a format string from the step", () => {
+    render(
+      <>
+        <Slider label="Interest rate" value={4.5} min={0} max={10} step={0.25} suffix="%" />
+        <Slider label="Loan" value={300000} min={0} max={800000} step={1000} prefix="£" />
+        <Slider label="Amount" value={300000} min={0} max={800000} format="£0,0" />
+        <Slider label="Rate" value={5} format="0.00%" />
+      </>,
+    );
+    const values = [...host.querySelectorAll(".rk-slider-value")].map((node) => node.textContent);
+    expect(values).toEqual(["4.50%", "£300,000", "£300,000", "5.00%"]);
+    expect(host.querySelector(".rk-slider-label")!.textContent).toBe("Interest rate");
+    expect(host.querySelector("input")!.getAttribute("aria-valuetext")).toBe("4.50%");
+    expect(PAGE_STYLES).toContain("white-space:normal");
+    expect(PAGE_STYLES).toContain(".rk-choices .rk-button{width:100%;max-width:100%;min-width:0");
+  });
 });
 
 describe("checklist", () => {
@@ -336,6 +353,27 @@ describe("choices, result and raw range", () => {
     expect(host.querySelector(".rk-result")!.hasAttribute("data-inset")).toBe(false);
     expect(host.querySelector(".rk-result-value")!.textContent).toBe("£41.85");
     expect(host.querySelector(".rk-result-copy .rk-button")!.textContent).toBe("Copy amount");
+  });
+
+  it("keeps a long choice inside the same pill grid as a stage", () => {
+    render(
+      <Choices
+        columns={2}
+        options={["Lowest total cost", "Lowest monthly bill / new car often"]}
+        value="Lowest total cost"
+      />,
+    );
+    const grid = host.querySelector(".rk-choices") as HTMLElement;
+    const buttons = [...host.querySelectorAll(".rk-choices button")];
+    expect(grid.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Lowest total cost",
+      "Lowest monthly bill / new car often",
+    ]);
+    expect(PAGE_STYLES).toContain("min-inline-size:0");
+    expect(PAGE_STYLES).toContain(
+      ".rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:anywhere;text-align:center}",
+    );
   });
 
   it("styles a hand-rolled range like the slider", () => {

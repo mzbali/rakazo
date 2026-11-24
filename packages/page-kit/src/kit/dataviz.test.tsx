@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Metrics, Status, Table } from "./data.js";
 import { Rings } from "./dataviz/rings.js";
+import { textWidth } from "./dataviz/scale.js";
 import {
   CalendarHeatmap,
   ColumnSeries,
@@ -479,6 +480,40 @@ describe("charts", () => {
     expect(tops[1]).toBeLessThan(tops[2]!);
   });
 
+  it("wraps a long nested label inside its circle", () => {
+    stubWidth(358);
+    const root = mount(
+      <Venn
+        nested
+        sets={[
+          { label: "NP: answers are quick to check" },
+          { label: "P: also quick to solve", tone: "success" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    const names = [...root.querySelectorAll<SVGTextElement>(".rk-venn-name")];
+    expect(names[0]!.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    names.forEach((name, index) => {
+      const circle = circles[index]!;
+      const radius = Number(circle.getAttribute("r"));
+      const cy = Number(circle.getAttribute("cy"));
+      const size = Number.parseFloat(name.style.fontSize);
+      let baseline = Number(name.getAttribute("y"));
+      for (const [lineIndex, line] of [...name.querySelectorAll("tspan")].entries()) {
+        const dy = Number(line.getAttribute("dy") ?? 0);
+        baseline = lineIndex === 0 ? baseline + dy : baseline + dy;
+        const half = Math.sqrt(Math.max(0, radius * radius - (baseline - cy) ** 2));
+        // Weight 650 is wider than the chart's regular measure.
+        expect(textWidth(line.textContent ?? "", size * 1.15) / 2).toBeLessThanOrEqual(half - 6);
+      }
+    });
+    const linesOf = (name: Element) =>
+      [...name.querySelectorAll("tspan")].map((line) => line.textContent).join(" ");
+    expect(linesOf(names[0]!)).toBe("NP: answers are quick to check");
+    expect(linesOf(names[1]!)).toBe("P: also quick to solve");
+  });
+
   it("centres a single nested circle and keeps an unknown tone monochrome", () => {
     stubWidth(560);
     const root = mount(
@@ -904,6 +939,10 @@ describe("data display", () => {
       />,
     );
     expect(root.querySelector(".rk-pie-total")!.textContent).toBe("Users940");
+    expect((root.querySelector(".rk-pie-total") as HTMLElement).style.width).toBe("104px");
+    expect(
+      Number.parseFloat((root.querySelector(".rk-pie-total-figure") as HTMLElement).style.fontSize),
+    ).toBe(28);
     const many = Array.from({ length: 10 }, (_, i) => ({
       label: `P${i}`,
       value: i < 8 ? 100 : 1,
@@ -923,6 +962,28 @@ describe("data display", () => {
     );
     expect(huge.innerHTML).not.toContain("NaN");
     expect(huge.querySelector("svg")).toBeNull();
+  });
+
+  it("shrinks a long donut total until it fits the hole", () => {
+    const root = mount(
+      <Pie
+        label="Supplied in 2025"
+        total="289 TWh"
+        parts={[
+          { label: "Wind", value: 30 },
+          { label: "Gas", value: 27 },
+        ]}
+      />,
+    );
+    const total = root.querySelector(".rk-pie-total") as HTMLElement;
+    const figure = root.querySelector(".rk-pie-total-figure") as HTMLElement;
+    expect(total.style.width).toBe("104px");
+    expect(total.style.maxHeight).toBe("104px");
+    expect(figure.textContent).toBe("289 TWh");
+    expect(root.querySelector(".rk-pie-total-label")!.textContent).toBe("Supplied in 2025");
+    const size = Number.parseFloat(figure.style.fontSize);
+    expect(size).toBeLessThan(28);
+    expect(textWidth("289 TWh", size * 1.15)).toBeLessThanOrEqual(88);
   });
 
   it("marks a delta up or down, coloured by which way is good, and draws an optional trend", () => {

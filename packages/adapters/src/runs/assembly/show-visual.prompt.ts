@@ -3,7 +3,7 @@ export const VISUAL_ESSENTIALS = [
   'JSX: export default, Section, no Page. Short Caption. Callout only for warnings. SVG: useTheme(), viewBox, width "100%", no vh. Split tall visuals.',
   'Nested sets: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />, plus one Slider; Diagram a reduction.',
   'How it works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>. A loop: Diagram layout="cycle" zones flows. Routes: Stages groups={[{label,stages}]}.',
-  'Calculator: useState, Slider/Input, Bars horizontal bars=[{label,value,display}], Result. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success" groups copy, amount first.',
+  'Calculator: useState, Slider (label is the name only; prefix, suffix or format "£0,0" prints the value once), Bars horizontal bars=[{label,value,display}], Result. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success" groups copy, amount first.',
   "Mix: Pie parts=[{label,value,detail}] total label unit percentDigits={1}; StackedBars showShares, ColumnSeries across periods.",
   "Trend: Metrics, LineChart with month Slider marker, annotations=[{at,label}], reference={value,label}, jump Buttons and history table.",
   "Before/after location: Metrics, Rings {rings,center,markers:[{ring:0,label}]}, horizontal Bars, savings sliders and route table.",

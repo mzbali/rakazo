@@ -47,7 +47,6 @@ for (const name of [
   "Pie",
   "Diagram",
   "Timeline",
-  "Result",
   "Stages",
   "Grid",
   "ProsCons",

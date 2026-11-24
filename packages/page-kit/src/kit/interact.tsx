@@ -39,6 +39,35 @@ function number(value: unknown, fallback: number): number {
   return finite(parsed) ? parsed : fallback;
 }
 
+/** Decimals a step needs: 0.25 shows two, 0.1 shows one, and a whole step shows none. */
+function fractionDigits(step: number): number {
+  if (!(step > 0) || step >= 1) return 0;
+  const written = String(step);
+  const exp = /e-(\d+)$/.exec(written);
+  return Math.min(6, exp?.[1] ? Number(exp[1]) : (written.split(".")[1]?.length ?? 0));
+}
+
+/**
+ * A format string the page can write: "£0,0" or "0.00%". The zeros set the fraction, a comma
+ * groups thousands, and the characters around them are the prefix and suffix.
+ */
+function readingFromPattern(
+  pattern: string,
+  value: number,
+  words: { number: (value: number, options?: Intl.NumberFormatOptions) => string },
+): string | undefined {
+  const match = /^(.*?)(0(?:,0)*(?:\.0+)?)(.*)$/.exec(pattern.trim());
+  if (!match) return undefined;
+  const skeleton = match[2] ?? "0";
+  const decimals = skeleton.includes(".") ? (skeleton.split(".")[1]?.length ?? 0) : 0;
+  const body = words.number(value, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: skeleton.includes(","),
+  });
+  return `${match[1] ?? ""}${body}${match[3] ?? ""}`;
+}
+
 function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
 }
@@ -94,6 +123,8 @@ export function Slider({
   max = 100,
   step = 1,
   format,
+  prefix,
+  suffix,
   ticks,
   onChange,
 }: {
@@ -102,7 +133,10 @@ export function Slider({
   min?: number;
   max?: number;
   step?: number;
-  format?: (value: number) => string;
+  /** A function, or a pattern such as "£0,0" or "0.00%". Either one replaces prefix and suffix. */
+  format?: ((value: number) => string) | string;
+  prefix?: string;
+  suffix?: string;
   ticks?: Tick[];
   onChange?: (value: number) => void;
 }) {
@@ -112,6 +146,8 @@ export function Slider({
   const high = Math.max(low, number(max, 100));
   const size = number(step, 1) > 0 ? number(step, 1) : 1;
   const shown = snap(number(value, low), low, high, size);
+  const lead = text(prefix);
+  const tail = text(suffix);
   let formatted = words.number(shown);
   if (typeof format === "function") {
     try {
@@ -120,6 +156,14 @@ export function Slider({
     } catch {
       // A bad formatter still leaves a number the reader can see.
     }
+  } else if (typeof format === "string" && format.trim() !== "") {
+    formatted = readingFromPattern(format, shown, words) ?? formatted;
+  } else if (lead !== "" || tail !== "") {
+    const digits = fractionDigits(size);
+    formatted = `${lead}${words.number(shown, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })}${tail}`;
   }
   const name = text(label);
   const move = (next: number) => onChange?.(snap(next, low, high, size));
@@ -615,8 +659,10 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-timeline-detail{padding:2px 12px 4px 30px}
 .rk-timeline-chevron{flex:none;width:16px;height:16px;margin-top:2px;fill:none;stroke:var(--rk-secondary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .rk-timeline-row[aria-expanded="true"] .rk-timeline-chevron{transform:rotate(90deg)}
-.rk-choices{display:grid;gap:8px;width:100%;margin:0;padding:0;border:0;min-width:0}
-.rk-choices .rk-button{width:100%;max-width:none;align-self:stretch}
+.rk-choices{display:grid;gap:8px;width:100%;margin:0;padding:0;border:0;min-width:0;min-inline-size:0}
+/* A nowrap pill kept its full label as min-content and slid out of its cell. */
+.rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:anywhere;text-align:center}
+@media (pointer:coarse){.rk-choices .rk-button{min-height:44px;height:auto}}
 .rk-choice-question{padding:0;margin-bottom:.35rem;font-weight:600}
 .rk-choice-radio{display:flex;align-items:flex-start;gap:.55rem;cursor:pointer;color:var(--foreground);overflow-wrap:anywhere}
 .rk-choice-radio input{flex:none;accent-color:var(--rk-primary);margin:.2rem 0 0;width:1rem;height:1rem}

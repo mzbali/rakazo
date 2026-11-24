@@ -390,8 +390,8 @@ describe("page kit", () => {
     expect(markup).toContain(
       '<span class="rk-pie-label">Starter</span><span class="rk-pie-value">540 users</span><span class="rk-pie-share">57%</span>',
     );
-    expect(markup).toContain('style="stroke:var(--rk-c2)"');
-    expect(markup).toContain('style="--rk-swatch:var(--rk-c2)"');
+    expect(markup).toContain('style="stroke:var(--rk-c1)"');
+    expect(markup).toContain('style="--rk-swatch:var(--rk-c1)"');
     expect(markup).not.toContain("Refunded");
   });
 

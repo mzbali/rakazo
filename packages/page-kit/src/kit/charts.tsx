@@ -545,7 +545,7 @@ export function Pie({
   let start = 0;
   const slices = shown.map((part, index) => {
     const share = part.value / sum;
-    const slice = { part, share, start, color: seriesColor(index + 1) };
+    const slice = { part, share, start, color: seriesColor(index) };
     start += share;
     return slice;
   });

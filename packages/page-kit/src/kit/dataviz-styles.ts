@@ -110,12 +110,6 @@ export const DATAVIZ_CSS = `
 @media (max-width:720px){
 .rk-matrix-plot{height:14rem}
 }
-@media print{
-:root,[data-theme]{--rk-fill-strong:${pageKitPalette.light.fillStrong};--rk-surface:${pageKitPalette.shared.paper}}
-.rk-tip,.rk-table-filter,.rk-table-more button{display:none}
-.rk-table-scroll{-webkit-mask-image:none;mask-image:none;max-height:none!important;overflow:visible}
-.rk-draw{animation:none!important;stroke-dasharray:none;stroke-dashoffset:0}
-.rk-heatmap-scroll,.rk-calendar-scroll{overflow:visible}
 .rk-rings{display:block;width:min(100%,27rem);margin-inline:auto}
 .rk-rings text{fill:var(--foreground);font-size:13px;text-anchor:middle}
 .rk-rings .rk-rings-label{fill:var(--rk-secondary);font-size:12px}
@@ -124,6 +118,12 @@ export const DATAVIZ_CSS = `
 .rk-rings-center{fill:var(--foreground)}
 .rk-rings-guide{stroke:var(--rk-secondary);stroke-dasharray:3 4}
 .rk-rings-pin{stroke:var(--background);stroke-width:1.5}
+@media print{
+:root,[data-theme]{--rk-fill-strong:${pageKitPalette.light.fillStrong};--rk-surface:${pageKitPalette.shared.paper}}
+.rk-tip,.rk-table-filter,.rk-table-more button{display:none}
+.rk-table-scroll{-webkit-mask-image:none;mask-image:none;max-height:none!important;overflow:visible}
+.rk-draw{animation:none!important;stroke-dasharray:none;stroke-dashoffset:0}
+.rk-heatmap-scroll,.rk-calendar-scroll{overflow:visible}
 .rk-frame,.rk-matrix,.rk-calendar,.rk-venn,.rk-stacked{break-inside:avoid}
 }
 `;

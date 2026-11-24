@@ -58,8 +58,10 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   Bars: { bars: ["label", "value", "display"] },
   Pie: { parts: ["label", "value", "display"] },
   Diagram: {
-    nodes: ["id", "label", "detail", "kind", "series"],
-    edges: ["from", "to", "label", "dashed"],
+    nodes: ["id", "label", "detail", "kind", "series", "icon", "tone"],
+    edges: ["from", "to", "label", "dashed", "tone"],
+    zones: ["label", "nodes", "tone"],
+    flows: ["node", "label", "direction", "tone"],
   },
   Stages: { stages: ["id", "label", "title", "detail"] },
   TableOfContents: { items: ["label", "id", "depth"] },

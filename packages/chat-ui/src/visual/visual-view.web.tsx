@@ -73,6 +73,11 @@ function Draw({
           nodes={props.nodes as ComponentProps<typeof kit.Diagram>["nodes"]}
           edges={props.edges as ComponentProps<typeof kit.Diagram>["edges"]}
           direction={props.direction as "horizontal" | "vertical" | undefined}
+          layout={props.layout as "flow" | "cycle" | undefined}
+          zones={props.zones as ComponentProps<typeof kit.Diagram>["zones"]}
+          flows={props.flows as ComponentProps<typeof kit.Diagram>["flows"]}
+          center={props.center as string | undefined}
+          focus={props.focus as string | undefined}
           maxWidth={columnWidth}
         />
       );

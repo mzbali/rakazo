@@ -48,19 +48,24 @@ describe("Quiz", () => {
     render(<Quiz questions={questions} />);
     expect(host.textContent).toContain("Question 1 of 2");
     expect(host.querySelector("strong")?.textContent).toBe("P");
-    expect(button("Next")).toBeUndefined();
+    expect(button("Next")?.disabled).toBe(true);
+    click(button("Next") ?? null);
+    expect(host.textContent).toContain("Question 1 of 2");
 
     click(option("No") ?? null);
     expect(host.querySelector(".rk-quiz-verdict")?.textContent).toBe("Incorrect");
     expect(host.querySelector('[data-mark="wrong"]')?.textContent).toContain("No");
     expect(host.querySelector('[data-mark="correct"]')?.textContent).toContain("Yes");
     expect(host.textContent).toContain("What is fast to solve is fast to check.");
+    expect(host.querySelectorAll(".rk-quiz-explain")).toHaveLength(1);
     expect(option("No")?.getAttribute("aria-disabled")).toBe("true");
+    expect(button("Next")?.disabled).toBe(false);
     click(option("Yes") ?? null);
     expect(host.querySelector(".rk-quiz-verdict")?.textContent).toBe("Incorrect");
 
     click(button("Next") ?? null);
     expect(host.textContent).toContain("Question 2 of 2");
+    expect(button("Next")?.disabled).toBe(true);
     expect(host.querySelector(".rk-quiz-verdict")).toBeNull();
     click(option("No") ?? null);
     expect(host.querySelector(".rk-quiz-verdict")?.textContent).toBe("Correct");

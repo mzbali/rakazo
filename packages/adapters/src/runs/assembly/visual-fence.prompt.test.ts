@@ -88,6 +88,8 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Practice");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("one plain sentence");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("<Venn nested");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Stages groups=");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Checklist interactive collapsible");
     expect(SHOW_VISUAL_INSTRUCTION).not.toContain('{"help": true}');
     expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });

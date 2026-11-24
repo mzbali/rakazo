@@ -137,11 +137,6 @@ export function Quiz({ questions }: { questions?: unknown }) {
           <p className="rk-quiz-verdict" data-mark={right ? "correct" : "wrong"}>
             {words.t(right ? "correct" : "incorrect")}
           </p>
-          {item.explain && !right ? (
-            <p className="rk-quiz-explain">
-              <Inline>{item.explain}</Inline>
-            </p>
-          ) : null}
           {last ? (
             <p className="rk-quiz-score">
               <span className="rk-visually-hidden">{words.t("score")} </span>
@@ -150,27 +145,25 @@ export function Quiz({ questions }: { questions?: unknown }) {
           ) : null}
         </div>
       ) : null}
-      {answered ? (
-        <button
-          type="button"
-          className="rk-button"
-          data-variant="primary"
-          onClick={() => {
-            focusNext.current = true;
-            if (last) {
-              setRound((value) => value + 1);
-              setStep(0);
-              setPicked(null);
-              setCorrectCount(0);
-            } else {
-              setStep(at + 1);
-              setPicked(null);
-            }
-          }}
-        >
-          {words.t(last ? "tryAgain" : "next")}
-        </button>
-      ) : null}
+      <button
+        type="button"
+        className="rk-button"
+        data-variant="primary"
+        disabled={!answered}
+        onClick={() => {
+          focusNext.current = true;
+          setPicked(null);
+          if (last) {
+            setRound((value) => value + 1);
+            setStep(0);
+            setCorrectCount(0);
+          } else {
+            setStep(at + 1);
+          }
+        }}
+      >
+        {words.t(last && answered ? "tryAgain" : "next")}
+      </button>
     </div>
   );
 }

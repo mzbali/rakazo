@@ -230,12 +230,14 @@ html{font-size:14px}
  */
 const RHYTHM_CSS = `
 .rk-section,.rk-section-body{gap:0;--rk-lead:.75rem;--rk-prose:1rem;--rk-block:1.25rem;--rk-sub:1.75rem}
-.rk-section[data-card]{--rk-prose:.75rem;--rk-block:1rem;--rk-sub:1.25rem}
+.rk-section[data-card]{gap:0;--rk-prose:.75rem;--rk-block:1rem;--rk-sub:1.25rem}
 @media (max-width:720px){.rk-section,.rk-section-body{--rk-lead:.625rem;--rk-block:1rem;--rk-sub:1.5rem}.rk-section[data-card]{--rk-block:.875rem}}
 :is(.rk-section,.rk-section-body)>*+*{margin-top:var(--rk-block)}
 :is(.rk-section,.rk-section-body)>:is(.rk-text,.rk-list)+:is(.rk-text,.rk-list){margin-top:var(--rk-prose)}
 :is(.rk-section,.rk-section-body)>:is(.rk-segmented,.rk-section-head)+*{margin-top:var(--rk-lead)}
 :is(.rk-section,.rk-section-body,.rk-figure-card)>.rk-caption[data-figure]{margin-top:.75rem}
+:is(.rk-section,.rk-section-body)>.rk-caption+.rk-source{margin-top:.25rem}
+.rk-figure-card>.rk-caption+.rk-source{margin-top:-.75rem}
 :is(.rk-section,.rk-section-body)>*+.rk-section{margin-top:var(--rk-sub)}
 .rk-section>.rk-section-head+.rk-section-fold:not([data-open]){margin-top:0}
 `;

@@ -30,6 +30,23 @@ export const visualLanguage = {
   vennNote: 14,
 } as const;
 
+/**
+ * A few positive bars with short names stand as columns, values on top. Long names or many
+ * bars stay horizontal rows, where a name has the width it needs.
+ */
+export function standsAsColumns(bars: readonly { label: unknown; value: number }[]) {
+  return (
+    bars.length > 0 &&
+    bars.length <= 8 &&
+    bars.every(
+      (bar) =>
+        bar.value >= 0 &&
+        (typeof bar.label === "string" || typeof bar.label === "number") &&
+        String(bar.label).length <= 10,
+    )
+  );
+}
+
 /** Column slots. A handful of bars are wide; a dense plot keeps the narrow measure. */
 export function columnBands(count: number, width: number) {
   const safe = Math.max(1, count);

@@ -314,7 +314,7 @@ export const pageTileBars = ["#5AC078", "#E9993A", "#E87031", "#3E82F4"] as cons
  */
 export const pageKitPalette = {
   dark: {
-    c1: "#1084FE",
+    c1: "#3B73D1",
     c2: "#C4844A",
     c3: "#2F9B90",
     c4: "#8D79B8",
@@ -330,9 +330,9 @@ export const pageKitPalette = {
     seq3: "#1084FE",
     seq4: "#459FFE",
     seq5: "#80BEFE",
-    success: "#38D591",
+    success: "#55B96A",
     warning: "#FFAF38",
-    danger: "#FF5667",
+    danger: "#E0564C",
     accent: "#459FFE",
     accentDeep: "#80befe",
     successDeep: "#78e2b4",
@@ -356,7 +356,7 @@ export const pageKitPalette = {
     checkedFill: "#5a5a5a",
   },
   light: {
-    c1: "#1084FE",
+    c1: "#2F62BD",
     c2: "#9A6230",
     c3: "#1C756C",
     c4: "#65548C",

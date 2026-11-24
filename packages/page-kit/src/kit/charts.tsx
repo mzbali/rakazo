@@ -19,6 +19,7 @@ import {
 } from "./dataviz.js";
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
+import { standsAsColumns } from "./visual-language.js";
 
 const PLOT = { top: 10, bottom: 22, right: 4 };
 
@@ -413,7 +414,7 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   // The longest bar, negative or not, since a bar's length is its size.
   const chosen = emphasis === undefined ? values.map(Math.abs).indexOf(max) : emphasis;
   if (rows.length === 0) return null;
-  if (values.every((value) => value >= 0)) {
+  if (standsAsColumns(rows)) {
     return (
       <Columns
         points={rows.map((bar) => ({ label: bar.label, value: bar.value, display: bar.display }))}
@@ -557,9 +558,7 @@ export function Pie({
             data-emphasis={index === largest || undefined}
           >
             <span className="rk-pie-label">{part.label}</span>
-            <span className="rk-pie-value">
-              {part.display ?? formatValue(part.value, undefined, undefined, words)}
-            </span>
+            {part.display != null ? <span className="rk-pie-value">{part.display}</span> : null}
             <span className="rk-pie-share">{percent(share)}</span>
           </li>
         ))}

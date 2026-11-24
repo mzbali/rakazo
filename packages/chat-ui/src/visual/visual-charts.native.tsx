@@ -5,6 +5,7 @@ import {
   finite,
   formatValue,
   nativeWords,
+  standsAsColumns,
   valueScale,
 } from "@rakazo/page-kit/native";
 import { typeScale } from "@rakazo/ui-tokens";
@@ -39,7 +40,7 @@ export function Bars({ element, surface }: { element: VisualElement; surface: Su
   const values = bars.map((bar) => bar.value);
   const max = Math.max(0, ...values.map(Math.abs));
   const palette = surface.palette;
-  if (values.every((value) => value >= 0) && surface.width > 0) {
+  if (standsAsColumns(bars) && surface.width > 0) {
     const width = surface.width;
     const height = 220;
     const baseline = height - 28;

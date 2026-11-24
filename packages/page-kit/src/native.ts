@@ -35,4 +35,4 @@ export {
 } from "./kit/diagram-layout.js";
 export { nativeWords } from "./kit/native-words.js";
 export { TONE_PATHS } from "./kit/tone-icon.js";
-export { columnBands, mixHex, visualLanguage } from "./kit/visual-language.js";
+export { columnBands, mixHex, standsAsColumns, visualLanguage } from "./kit/visual-language.js";

@@ -7,6 +7,7 @@ import {
   pageCopyRequest,
   pageCopyResult,
   pageLinkRequest,
+  VISUAL_PREVIEW_HEIGHT,
   visualFit,
 } from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
@@ -107,7 +108,10 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [sheet, runtime, block.code, theme, errorTitle, tokens.background],
   );
 
-  const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const shown = Math.min(
+    height ?? PLACEHOLDER_HEIGHT,
+    fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
+  );
   const frame = (
     <View
       pointerEvents={live ? "auto" : "none"}

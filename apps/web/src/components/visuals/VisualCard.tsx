@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
-import { MAX_INLINE_VISUAL_HEIGHT, visualFit } from "@rakazo/core";
+import { MAX_INLINE_VISUAL_HEIGHT, VISUAL_PREVIEW_HEIGHT, visualFit } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -71,10 +71,13 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   useEffect(() => {
     if (!live) setDrawn(false);
   }, [live]);
-  const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const shown = Math.min(
+    height ?? PLACEHOLDER_HEIGHT,
+    fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
+  );
   const inline = fit === "inline";
   // An inline visual that grew past the card scrolls in its frame instead of fading out.
-  const clipped = !inline && height !== null && height > MAX_INLINE_HEIGHT;
+  const clipped = !inline && height !== null && height > shown;
   return (
     <div
       data-testid="visual-card"

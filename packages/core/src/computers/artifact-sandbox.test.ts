@@ -171,7 +171,8 @@ describe("visualFit", () => {
     expect(visualFit("drawing", 1000, cap)).toBe("inline");
     expect(visualFit("drawing", cap, cap)).toBe("inline");
     expect(visualFit("drawing", cap + 1, cap)).toBe("preview");
-    expect(visualFit("drawing", 2400, cap)).toBe("preview");
+    expect(visualFit("drawing", 1800, cap)).toBe("inline");
+    expect(visualFit("drawing", cap * 2, cap)).toBe("preview");
   });
 
   it("waits for a real height", () => {

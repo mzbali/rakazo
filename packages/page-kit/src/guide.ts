@@ -163,7 +163,7 @@ export const VISUAL_GUIDE = `# Visuals
 A visual is a small piece of page-kit JSX drawn in the chat. Place the embed show_visual returns where it belongs. It is not saved; show a new one to change it. For something the user will keep, share or update, use save_page.
 
 - Call show_visual {title, summary, source}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
-- It draws at message width, up to about 1000 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
+- It draws at message width, up to about 2000 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
 - Skip the Page wrapper. A Section heading names it, and caption is the one line inside the card, under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
 - The compiled visual must stay under 32 KB. Put larger work in a page.
 

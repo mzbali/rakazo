@@ -22,7 +22,7 @@ const REPORT = `function Report() {
       <p>Count: {count}</p>
       <Button label="Add one" onClick={() => setCount(count + 1)} />
       <Text>Notes: https://example.com/report</Text>
-      <div style={{ height: 1600 }}>Every team, week by week.</div>
+      <div style={{ height: 2800 }}>Every team, week by week.</div>
     </Section>
   );
 }

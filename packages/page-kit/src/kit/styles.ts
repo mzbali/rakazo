@@ -41,7 +41,8 @@ body{font-size:1rem}
 /* 12px clears the chat card's 24px corner. None left the heading's first letter under that clip. */
 [data-inline="card"] #root{padding:0.75rem}
 [data-inline] .rk-page{max-width:none;padding:0}
-[data-inline="card"] .rk-diagram svg,[data-inline="card"] .rk-chart svg{min-width:0!important;max-width:100%}
+/* Charts are drawn at the measured width, so they can shrink to the card. A diagram's text is real type in its viewBox: shrinking the svg shrinks the words, so a row that does not fit reflows instead, and the svg keeps its own floor. */
+[data-inline="card"] .rk-chart svg{min-width:0!important;max-width:100%}
 [data-inline="card"],[data-still]{scrollbar-width:none}
 [data-inline="card"]::-webkit-scrollbar,[data-still]::-webkit-scrollbar{display:none}
 [data-still]{overflow:hidden}

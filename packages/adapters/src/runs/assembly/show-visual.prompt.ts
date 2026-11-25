@@ -13,7 +13,8 @@ export const VISUAL_ESSENTIALS = [
 
 /** App chats also support ui fences. */
 export const SHOW_VISUAL_INSTRUCTION = [
-  "To understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
+  "To understand something or how it works, or for a checklist, a timeline, a bill to split or data you found, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
+  "Once the data is in hand, draw it with show_visual; a series over time is a LineChart with marker and annotations. Use render_plot only for a chart it cannot draw or an image file the user asks for.",
   "To compare or decide, or whether to buy or return, call show_visual, then open with the pick. Next is a prefilled calculator, or one picture of what differs. A web search does not replace it.",
   "Pass title, summary and source to show_visual, then place the returned embed. A long explanation is short prose between two and four focused visuals, each doing one job; split a tall visual so each works inline. Do not pass help, paste source or tell the reader to open it.",
   VISUAL_ESSENTIALS,

@@ -280,6 +280,86 @@ describe("stages and chart marker", () => {
     expect(host.textContent).toContain("Stage 2 of 2");
   });
 
+  it("keeps a long flat stage list compact: progress and the stage title, not a pill grid", () => {
+    const readings = [
+      ["first", "First reading", "The bill is introduced and its title is read out."],
+      ["second", "Second reading", "The main principles are debated."],
+      ["committee", "Committee stage", "Detailed line-by-line scrutiny."],
+      ["report", "Report stage", "The whole House reviews the amended bill."],
+      ["third", "Third reading", "Final debate and vote in the first House."],
+      ["other", "Second House", "The bill repeats all five stages."],
+      ["pingpong", "Ping-pong", "It goes back and forth until both Houses agree."],
+      ["assent", "Royal Assent", "The monarch formally agrees to the bill."],
+      ["act", "Act of Parliament", "The bill is now law."],
+    ] as const;
+    const stages = readings.map(([id, title, detail], at) => ({
+      id,
+      label: String(at + 1),
+      title,
+      detail,
+    }));
+    render(<Stages stages={stages} />);
+    // No wall of nine numbered pills: the picker is the progress the grouped path already uses.
+    expect(host.querySelector(".rk-choices")).toBeNull();
+    // The progress label is caption size. Smaller type was the unreadable "Stage n of 9".
+    expect(PAGE_STYLES).toContain(
+      ".rk-stage-progress{display:flex;flex-direction:column;gap:.375rem;color:var(--rk-secondary);font-size:1rem}",
+    );
+    const progress = host.querySelector("progress")!;
+    expect(progress.max).toBe(9);
+    expect(progress.value).toBe(1);
+    expect(host.querySelector(".rk-stage-kicker")).toBeNull();
+    expect(host.querySelector(".rk-stage-title")!.textContent).toBe("First reading");
+    const [previous, next] = [...host.querySelectorAll<HTMLButtonElement>(".rk-stage-nav button")];
+    expect(previous?.disabled).toBe(true);
+    act(() => next?.click());
+    expect(progress.value).toBe(2);
+    expect(host.querySelector(".rk-stage-title")!.textContent).toBe("Second reading");
+  });
+
+  it("still draws the pill grid for a short flat list, and never titles a stage by its number", () => {
+    render(
+      <Stages
+        stages={[
+          { id: "a", label: "1", title: "One", detail: "First" },
+          { id: "b", label: "2", title: "Two", detail: "Second" },
+          { id: "c", label: "3", title: "Three", detail: "Third" },
+        ]}
+      />,
+    );
+    expect(host.querySelector(".rk-choices")).not.toBeNull();
+    expect(host.querySelector("progress")).toBeNull();
+    expect(host.querySelector(".rk-stage-kicker")!.textContent).toBe("Stage 1 of 3");
+    // A stage the author only numbered gets no title from that number; a real label names it.
+    render(<Stages stages={[1, 2, 3, 4, 5].map((at) => ({ id: `s${at}`, label: String(at) }))} />);
+    expect(host.querySelector(".rk-stage-title")).toBeNull();
+    // Nor does a stage with no id or label get its fallback position id as a title.
+    render(<Stages stages={[1, 2, 3, 4, 5].map((at) => ({ detail: `Step ${at}` }))} />);
+    expect(host.querySelector(".rk-stage-title")).toBeNull();
+    // A year is a name, not a position.
+    render(
+      <Stages
+        stages={[1961, 1965, 1969, 1972, 1975].map((year) => ({
+          id: `y${year}`,
+          label: String(year),
+        }))}
+      />,
+    );
+    expect(host.querySelector(".rk-stage-title")!.textContent).toBe("1961");
+    render(
+      <Stages
+        stages={[
+          { id: "a", label: "First reading" },
+          { id: "b", label: "Second reading" },
+          { id: "c", label: "Committee" },
+          { id: "d", label: "Report" },
+          { id: "e", label: "Third reading" },
+        ]}
+      />,
+    );
+    expect(host.querySelector(".rk-stage-title")!.textContent).toBe("First reading");
+  });
+
   it("pins the chart guide on the chosen point and draws the reference", () => {
     const xAt = (marker: number) => {
       render(

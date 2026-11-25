@@ -208,7 +208,7 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "attach_file",
     description:
-      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. It stays in place and opens from the message and the Artifacts tab. Set made true for a file you wrote or generated (screenshots too), false for one you downloaded or found. For a page or document meant to be viewed on its own, give name and description: a title and a one-line summary; skip them for a log or export. To UPDATE an artifact, attach again with the exact same name: it becomes a new version; a different name starts a new artifact.",
+      "Attach a workspace file from this bot's home to the chat thread as an image or common file. The user sees it; you do not. It opens from the message and the Artifacts tab. Set made true for a file you wrote or generated (screenshots too), false for one you downloaded or found. For a page or document meant to be viewed on its own, give name and description: a title and a one-line summary; skip them for a log or export. To UPDATE an artifact, attach again with the exact same name: it becomes a new version; a different name starts a new artifact.",
     inputSchema: {
       type: "object",
       properties: {
@@ -362,7 +362,7 @@ export const computerTools: ConnectorTool[] = [
   {
     name: "connect_app",
     description:
-      "Show an inline card to connect an app in this chat when you need an unconnected app or the user asks to connect one. Then wait for the user instead of directing them elsewhere.",
+      "Show an inline card to connect an app when you need an unconnected app or the user asks to connect one, then wait for them.",
     inputSchema: {
       type: "object",
       properties: { app: { type: "string", minLength: 1, maxLength: 100 } },

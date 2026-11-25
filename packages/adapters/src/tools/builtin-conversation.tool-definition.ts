@@ -7,6 +7,7 @@ import {
   LOGIN_FIELD_LIMIT,
   SecretAskPurpose,
   SecretHttpRequest,
+  VISUAL_IMAGE_MAX_COUNT,
 } from "@rakazo/contracts";
 import { z } from "zod";
 import { messageUserMaxLength } from "../runs/lifecycle/user-progress.js";
@@ -93,7 +94,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "ask_user",
     description:
-      "Ask the user one short multiple-choice question with tappable options, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough. Put the content the user is deciding about, such as a draft email, in `detail`.",
+      "Ask the user one short multiple-choice question, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough. Put the content the user is deciding about, such as a draft email, in `detail`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -211,7 +212,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "show_visual",
     description:
-      "Draw one picture in this chat. Pass title, summary and source. Do not pass help. Patterns are in the turn instructions.",
+      "Draw one picture in this chat. Pass title, summary and source. Patterns are in the turn instructions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -219,6 +220,17 @@ export const conversationTools: ConnectorTool[] = [
         title: { type: "string", description: "Short title." },
         summary: { type: "string", description: "Up to 500 characters." },
         source: { type: "string" },
+        images: {
+          type: "array",
+          maxItems: VISUAL_IMAGE_MAX_COUNT,
+          description:
+            "Web photos the visual shows; a picture's src is rakazo-image:<n>, its 1-based place in this list.",
+          items: {
+            type: "object",
+            properties: { url: { type: "string" }, alt: { type: "string" } },
+            required: ["url", "alt"],
+          },
+        },
       },
     },
   },

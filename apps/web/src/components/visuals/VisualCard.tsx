@@ -24,16 +24,24 @@ function OpenedVisual({
   code,
   title,
   dialog,
+  images,
 }: {
   code: string;
   title: string;
   dialog: HTMLDialogElement | null;
+  images?: ReadonlyArray<{ id: string }>;
 }) {
   const viewer = usePageDocument(code, "background", false, 0, { inline: "full" });
   if (viewer.document === null) return null;
   return (
     <div className="absolute inset-x-0" style={{ top: 56, bottom: 0 }}>
-      <PageFrame portalContainer={dialog} document={viewer.document} title={title} interactive />
+      <PageFrame
+        portalContainer={dialog}
+        document={viewer.document}
+        title={title}
+        interactive
+        images={images}
+      />
     </div>
   );
 }
@@ -128,10 +136,18 @@ export function VisualCard({ block }: { block: VisualBlock }) {
                 title={block.title}
                 interactive={inline}
                 onHeight={onHeight}
+                images={block.images}
               />
             </div>
           ) : null}
-          {open ? <OpenedVisual code={block.code} title={block.title} dialog={dialog} /> : null}
+          {open ? (
+            <OpenedVisual
+              code={block.code}
+              title={block.title}
+              dialog={dialog}
+              images={block.images}
+            />
+          ) : null}
         </dialog>
         {drawn ? null : (
           <div

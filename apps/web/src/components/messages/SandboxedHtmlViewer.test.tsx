@@ -196,6 +196,54 @@ it("vouches for one click or key the guard saw, never a forged, stale or inactiv
   vi.restoreAllMocks();
 });
 
+it("passes a picture id up without a gesture, and only an embedded picture back down", () => {
+  const script = shell.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  if (!script) throw new Error("shell script missing");
+  const preview = { srcdoc: "", contentWindow: {} };
+  const posted: unknown[] = [];
+  const parent = {
+    postMessage: (message: unknown) => {
+      posted.push(message);
+      return undefined;
+    },
+  };
+  let listener: ((event: { source: unknown; data: unknown }) => void) | undefined;
+  new Function("addEventListener", "parent", "window", "document", script)(
+    (_type: string, handler: typeof listener) => {
+      listener = handler;
+    },
+    parent,
+    {},
+    { getElementById: () => preview },
+  );
+  const page = (data: object) => listener?.({ source: preview.contentWindow, data });
+
+  // A picture is a read, so no click or key vouches for it; the id passes up as it was asked.
+  page({ type: "rakazo-page:image", id: "art-1" });
+  page({ type: "rakazo-page:image", id: "x".repeat(65) });
+  page({ type: "rakazo-page:image", id: "https://evil.example/pixel.png" });
+  page({ type: "rakazo-page:image", id: "" });
+  expect(posted).toEqual([{ type: "rakazo-page:image", id: "art-1" }]);
+
+  const down = (message: Record<string, unknown>) => listener?.({ source: parent, data: message });
+  const passed: { type?: string; id?: string; src?: string | null }[] = [];
+  preview.contentWindow = {
+    postMessage: (message: (typeof passed)[number]) => passed.push(message),
+  };
+  const PICTURE = "data:image/webp;base64,UGV0aWdv";
+  // Only a bounded embedded picture comes back down; anything else answers no picture.
+  down({ type: "rakazo-page:image-data", id: "art-1", src: PICTURE });
+  down({ type: "rakazo-page:image-data", id: "art-1", src: "https://evil.example/pixel.png" });
+  down({ type: "rakazo-page:image-data", id: "art-1", src: `data:text/html;base64,PGI+` });
+  down({ type: "rakazo-page:image-data", id: "art-1", src: `${PICTURE}${"x".repeat(700_000)}` });
+  expect(passed).toEqual([
+    { type: "rakazo-page:image-data", id: "art-1", src: PICTURE },
+    { type: "rakazo-page:image-data", id: "art-1", src: null },
+    { type: "rakazo-page:image-data", id: "art-1", src: null },
+    { type: "rakazo-page:image-data", id: "art-1", src: null },
+  ]);
+});
+
 it("lets the shell load the nested srcdoc preview and rejects http(s) navigations", () => {
   const policy = shellContentSecurityPolicy(shell);
   const sources = operativeFrameSources(policy);

@@ -4,23 +4,20 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_CSS, DayView, MonthView, parseDay, WeekView } from "./calendar.js";
+import { HostBridgeContext } from "./host-bridge.js";
+import { Audio, aspectRatio, Gallery, Image, Video } from "./media.js";
 import {
-  Audio,
   Avatar,
   AvatarStack,
-  aspectRatio,
   CardCarousel,
   CardGrid,
-  Gallery,
-  Image,
   initials,
   PhotoStrip,
   ProductCard,
   ProductRows,
   RatingSummary,
-  Video,
   WatchCard,
-} from "./media.js";
+} from "./products.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -118,6 +115,103 @@ describe("media", () => {
     });
     expect(q('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("draws a picture the host resolves by id, and a missing one stays blank", async () => {
+    const asked: string[] = [];
+    const bridge = {
+      openLink: () => {},
+      copy: () => Promise.resolve(false),
+      image: (id: string) => {
+        asked.push(id);
+        return Promise.resolve(id === "art-1" ? PNG : null);
+      },
+    };
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <HostBridgeContext.Provider value={bridge}>
+          <ProductCard title="Aeroblend" image="rakazo-image:art-1" price="$49" />
+          <Image src="rakazo-image:missing" alt="Gone" />
+          <Image src="https://example.com/a.png" alt="remote" />
+        </HostBridgeContext.Provider>,
+      );
+    });
+    // Only the ids the visual carried were asked; a network address still never renders.
+    expect(asked).toEqual(["art-1", "missing"]);
+    const images = all("img");
+    expect(images).toHaveLength(1);
+    expect(images[0]!.getAttribute("src")).toBe(PNG);
+    expect(images[0]!.getAttribute("alt")).toBe("Aeroblend");
+    act(() => root.unmount());
+  });
+
+  it("asks its parent frame for an id and accepts only a data URI back", async () => {
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <>
+          <Image src="rakazo-image:art-7" alt="Blender" />
+          <Image src="rakazo-image:art-8" alt="Poisoned" />
+        </>,
+      );
+    });
+    expect(posted).toEqual([
+      { type: "rakazo-page:image", id: "art-7" },
+      { type: "rakazo-page:image", id: "art-8" },
+    ]);
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            type: "rakazo-page:image-data",
+            id: "art-8",
+            src: "https://evil.example/pixel.png",
+          },
+        }),
+      );
+    });
+    // An answer that is not an embedded picture draws nothing.
+    expect(q("img")).toBeNull();
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "rakazo-page:image-data", id: "art-7", src: PNG },
+        }),
+      );
+    });
+    const drawn = all("img");
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]!.getAttribute("src")).toBe(PNG);
+    expect(drawn[0]!.getAttribute("alt")).toBe("Blender");
+    act(() => root.unmount());
+  });
+
+  it("shows an embedded picture without asking the host, and a video poster an id resolves", async () => {
+    const asked: string[] = [];
+    const bridge = {
+      openLink: () => {},
+      copy: () => Promise.resolve(false),
+      image: (id: string) => {
+        asked.push(id);
+        return Promise.resolve(id === "still-1" ? PNG : null);
+      },
+    };
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <HostBridgeContext.Provider value={bridge}>
+          <Image src={PNG} alt="Embedded" />
+          <Video src="https://example.com/a.webm" poster="rakazo-image:still-1" alt="Clip" />
+        </HostBridgeContext.Provider>,
+      );
+    });
+    expect(asked).toEqual(["still-1"]);
+    const frame = q('[role="img"]')!;
+    expect(frame.getAttribute("aria-label")).toBe("Clip");
+    await act(async () => {});
+    expect(q('[role="img"] img')!.getAttribute("src")).toBe(PNG);
+    act(() => root.unmount());
   });
 
   it("keeps a gallery to eight photos and moves its marker with the dots and arrow keys", () => {

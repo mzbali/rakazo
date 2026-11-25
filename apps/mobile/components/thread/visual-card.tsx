@@ -6,6 +6,8 @@ import {
   MAX_INLINE_VISUAL_HEIGHT,
   pageCopyRequest,
   pageCopyResult,
+  pageImageRequest,
+  pageImageResult,
   pageLinkRequest,
   VISUAL_PREVIEW_HEIGHT,
   visualFit,
@@ -19,6 +21,7 @@ import { HEADER_CONTROL_SIZE } from "../../lib/native/native-controls";
 import { usePageTapGate } from "../../lib/page-tap-gate";
 import { loadPageRuntime } from "../../lib/pages/page-runtime";
 import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages/pages";
+import { visualImageSrc } from "../../lib/pages/visual-images";
 import { SandboxedHtmlPreview } from "../media/sandboxed-html-preview";
 import { NativeActionButton } from "../native/native-action-button";
 
@@ -28,6 +31,14 @@ type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
+
+/** A picture the visual's own message carries, answered from the artifact store; never a URL. */
+function answerImage(block: VisualBlock, data: string, answer: (message: object) => void) {
+  const image = pageImageRequest(pageMessage(data), block.images);
+  if (!image) return false;
+  void visualImageSrc(image.id).then((src) => answer(pageImageResult(image.id, src)));
+  return true;
+}
 
 /** The page runtime from the user's server, loaded once per card; null until it loads. */
 function usePageRuntime() {
@@ -136,6 +147,8 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {
+                // A picture is a read of the message's own data, not an action: no tap is needed.
+                if (answerImage(block, data, answer)) return;
                 if (live) actions.act(data, answer);
                 return;
               }
@@ -214,7 +227,9 @@ function VisualSheet({
           <SandboxedHtmlPreview
             html={document}
             background={tokens.background}
-            onMessage={actions.act}
+            onMessage={(data, answer) => {
+              if (!answerImage(block, data, answer)) actions.act(data, answer);
+            }}
           />
         ) : (
           <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>

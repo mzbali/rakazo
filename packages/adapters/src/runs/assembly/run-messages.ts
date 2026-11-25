@@ -70,6 +70,14 @@ export function redactBlocks(blocks: MessageBlock[], secrets: string[]): Message
         ...block,
         title: redactSecrets(block.title, secrets),
         text: redactSecrets(block.text, secrets),
+        ...(block.images?.length
+          ? {
+              images: block.images.map((image) => ({
+                ...image,
+                alt: redactSecrets(image.alt, secrets),
+              })),
+            }
+          : {}),
       };
     }
     if (block.kind === "sources") {

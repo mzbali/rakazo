@@ -1,10 +1,18 @@
 import { useExternalLinkOpener } from "@rakazo/chat-ui/web";
 import type { PageSectionAnchor } from "@rakazo/contracts";
-import { pageCopyRequest, pageCopyResult, pageLinkRequest, pageReviewSections } from "@rakazo/core";
+import {
+  pageCopyRequest,
+  pageCopyResult,
+  pageImageRequest,
+  pageImageResult,
+  pageLinkRequest,
+  pageReviewSections,
+} from "@rakazo/core";
 import type { CSSProperties } from "react";
 import { useCallback, useRef, useState } from "react";
 import { writeClipboard } from "../../lib/copy-text";
 import { pageFrameHeight } from "../../lib/pages/page-cards";
+import { visualImageSrc } from "../../lib/pages/visual-images";
 import { SandboxedHtmlViewer } from "../messages/SandboxedHtmlViewer";
 
 /**
@@ -23,6 +31,7 @@ export function PageFrame({
   onReply,
   portalContainer,
   onSections,
+  images,
 }: {
   portalContainer?: HTMLElement | null;
   document: string;
@@ -32,6 +41,11 @@ export function PageFrame({
   /** Where a page's reply button puts its text; without it the page offers no replies. */
   onReply?: (text: unknown) => void;
   onSections?: (sections: PageSectionAnchor[]) => void;
+  /**
+   * The pictures this frame's own message carries. A frame may ask for these ids and nothing
+   * else, and the answer is a data URI, so the sandbox never loads from the network.
+   */
+  images?: ReadonlyArray<{ id: string }>;
 }) {
   const { open, dialog } = useExternalLinkOpener(portalContainer);
   const box = useRef<HTMLDivElement>(null);
@@ -46,6 +60,12 @@ export function PageFrame({
         text?: unknown;
         gesture?: unknown;
       };
+      // A picture is a read of the message's own data, not an action: it needs no click or key.
+      const image = images ? pageImageRequest(data, images) : null;
+      if (image) {
+        void visualImageSrc(image.id).then((src) => answer(pageImageResult(image.id, src)));
+        return;
+      }
       if (message.type === "rakazo-page:height" && typeof message.height === "number") {
         const height = pageFrameHeight(message.height);
         if (interactive && box.current) {
@@ -71,7 +91,7 @@ export function PageFrame({
       else if (url) open(url);
       else if (reply) reply(message.text);
     },
-    [interactive, onHeight, onReply, onSections, open],
+    [interactive, onHeight, onReply, onSections, open, images],
   );
   return (
     <>

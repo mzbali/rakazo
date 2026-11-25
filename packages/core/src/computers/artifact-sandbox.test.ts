@@ -3,6 +3,8 @@ import {
   MAX_INLINE_VISUAL_HEIGHT,
   PAGE_COPY_MAX_LENGTH,
   pageCopyRequest,
+  pageImageRequest,
+  pageImageResult,
   pageLinkRequest,
   pageReplyText,
   pageViewerDocument,
@@ -156,6 +158,48 @@ describe("pageLinkRequest", () => {
     }
     expect(pageLinkRequest(ask("https://example.com", "rakazo-page:other"))).toBeNull();
     expect(pageLinkRequest(null)).toBeNull();
+  });
+});
+
+describe("pageImageRequest", () => {
+  const carried = [
+    { id: "art-1", alt: "Aeroblend box", size: 12_000 },
+    { id: "art-2", alt: "Mixwell box", size: 9_000 },
+  ];
+
+  it("passes a picture id the message carries, and nothing else", () => {
+    const ask = { type: "rakazo-page:image", id: "art-2" };
+    expect(pageImageRequest(ask, carried)).toEqual({ id: "art-2" });
+    // Only ids from the frame's own message answer: another message's, a guess, or no list at all.
+    expect(pageImageRequest({ ...ask, id: "art-3" }, carried)).toBeNull();
+    expect(pageImageRequest(ask, undefined)).toBeNull();
+    expect(pageImageRequest(ask, [{ id: "other" }])).toBeNull();
+  });
+
+  it("refuses anything but a well-formed id, so a frame can never ask for a URL", () => {
+    const ask = { type: "rakazo-page:image", id: "art-1" };
+    expect(pageImageRequest({ ...ask, id: "" }, carried)).toBeNull();
+    expect(pageImageRequest({ ...ask, id: "x".repeat(65) }, carried)).toBeNull();
+    expect(
+      pageImageRequest({ type: "rakazo-page:image", id: "https://evil.example/pixel" }, carried),
+    ).toBeNull();
+    expect(pageImageRequest({ type: "rakazo-page:open-link", id: "art-1" }, carried)).toBeNull();
+    expect(pageImageRequest([ask], carried)).toBeNull();
+    expect(pageImageRequest("rakazo-page:image", carried)).toBeNull();
+    expect(pageImageRequest(null, carried)).toBeNull();
+  });
+
+  it("answers with the picture's bytes as a data URI, or null when it has none", () => {
+    expect(pageImageResult("art-1", "data:image/webp;base64,UGs=")).toEqual({
+      type: "rakazo-page:image-data",
+      id: "art-1",
+      src: "data:image/webp;base64,UGs=",
+    });
+    expect(pageImageResult("art-1", null)).toEqual({
+      type: "rakazo-page:image-data",
+      id: "art-1",
+      src: null,
+    });
   });
 });
 

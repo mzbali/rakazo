@@ -16,6 +16,7 @@ import {
   HISTORY_ATTACHMENTS_PER_RESPONSE,
   MCP_APP_MIME_TYPE,
   stepScreenshotMimeType,
+  VISUAL_IMAGE_MIME_TYPE,
 } from "@rakazo/contracts";
 import {
   attachmentComputerPath,
@@ -496,6 +497,19 @@ export function storeMcpAppHtml(
     name: `${input.server} app.html`,
     mimeType: MCP_APP_MIME_TYPE,
     bytes: new TextEncoder().encode(input.html),
+  });
+}
+
+/** Keeps a picture a chat visual shows, so its host can read it back for the frame. */
+export function storeVisualImage(
+  deps: { prisma: PrismaClient; artifacts: ArtifactStore },
+  input: HiddenArtifactOwner,
+  image: { bytes: Uint8Array },
+): Promise<string> {
+  return storeHiddenArtifact(deps, input, {
+    name: "visual-image.webp",
+    mimeType: VISUAL_IMAGE_MIME_TYPE,
+    bytes: image.bytes,
   });
 }
 

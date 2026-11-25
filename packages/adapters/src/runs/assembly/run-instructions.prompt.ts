@@ -6,7 +6,7 @@ import type { UserComputerState } from "../tools/run-tools-user-computer.js";
 import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "../turn/takeover-resume.prompt.js";
 import { replyGuidanceForOfferedTools } from "./run-replies.prompt.js";
 import { SHOW_VISUAL_BRIEF, SHOW_VISUAL_INSTRUCTION } from "./show-visual.prompt.js";
-import { VISUAL_FENCE_INSTRUCTION } from "./visual-fence.prompt.js";
+import { visualFenceInstruction } from "./visual-fence.prompt.js";
 
 /** Added to the turn prompt when the user spoke this message on a live voice call. */
 const VOICE_CALL_BASE_INSTRUCTION =
@@ -526,7 +526,7 @@ export function userTurnInstructions(parts: {
     // it comes first and the picture rules follow it. Elsewhere there is no fence to outrank.
     ...(parts.visualFences
       ? [
-          VISUAL_FENCE_INSTRUCTION,
+          visualFenceInstruction(builtinOffered(parts.disabledBuiltinTools, "show_visual")),
           offeredBuiltinClause(parts.disabledBuiltinTools, "show_visual", SHOW_VISUAL_INSTRUCTION),
         ]
       : [offeredBuiltinClause(parts.disabledBuiltinTools, "show_visual", SHOW_VISUAL_BRIEF)]),

@@ -1,4 +1,5 @@
 import { PAGE_SOURCE_MAX_BYTES } from "@rakazo/contracts";
+import { MAX_INLINE_VISUAL_HEIGHT } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { pageViewerCode } from "./compile.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "./components.js";
@@ -25,6 +26,9 @@ describe("checkPageSource", () => {
     expect(VISUAL_GUIDE).toContain("prefilled with the figures");
     expect(VISUAL_GUIDE).toContain("A one-line question gets one line");
     expect(VISUAL_GUIDE).toContain("at most one Callout");
+    expect(VISUAL_GUIDE).toContain(`about ${MAX_INLINE_VISUAL_HEIGHT} pixels`);
+    expect(PAGE_KIT_GUIDE).not.toMatch(/Bars \{[^}]*emphasis/);
+    expect(PAGE_KIT_GUIDE).not.toMatch(/Columns \{[^}]*emphasis/);
     expect(PAGE_KIT_GUIDE).toContain("Quiz {questions:");
     expect(PAGE_KIT_GUIDE).toContain("Flashcards {cards:");
     expect(PAGE_KIT_GUIDE).toContain("nested?");

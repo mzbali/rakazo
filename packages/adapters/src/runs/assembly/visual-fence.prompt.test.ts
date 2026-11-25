@@ -79,18 +79,35 @@ describe("the ui fence instructions", () => {
       "Use render_plot for a PNG or a chart the chat components cannot draw.",
     );
     expect(withFences).not.toContain("For charts and data visualization, use the render_plot tool");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("call show_visual before you reply");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("understand something");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("how it works");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("bill to split");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("compare or decide");
-    expect(SHOW_VISUAL_INSTRUCTION).toContain("whether to buy");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("whether to buy or return");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("prefilled calculator");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("LineChart marker");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("not a table");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("web search does not replace");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("number the sections");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Practice");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("one plain sentence");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("time in a place");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("no picture");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("<Venn nested");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Stages groups=");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Checklist interactive collapsible");
     expect(SHOW_VISUAL_INSTRUCTION).not.toContain('{"help": true}');
     expect(withFences).not.toContain("only for what a ui fence cannot draw");
+  });
+
+  it("does not name show_visual in the fence when that tool is off", () => {
+    const text = userTurnInstructions({
+      ...parts,
+      visualFences: true,
+      disabledBuiltinTools: new Set(["show_visual"]),
+    }).join("\n");
+    expect(text).toContain("fenced block");
+    expect(text).not.toContain("show_visual");
   });
 });

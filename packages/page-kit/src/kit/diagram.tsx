@@ -235,12 +235,15 @@ export function Diagram({
   const labeled = links.some((edge) => edge.label);
   // The column the drawing has to fit: the author's maxWidth, else the measured card. Fitting it
   // reflows a row too wide to read into a stack, instead of letting the card scale its text down.
+  // The viewBox adds `pad` on every side, so the layout uses the room inside that pad.
+  const pad = 2;
+  const outer = typeof maxWidth === "number" && maxWidth > 0 ? maxWidth : measured.width;
   const layout = fitDiagramLayout(
     placed,
     links,
     direction === "horizontal",
     labeled,
-    typeof maxWidth === "number" && maxWidth > 0 ? maxWidth : measured.width,
+    Math.max(0, outer - pad * 2),
   );
   const { horizontal } = layout;
   const named = [focus, fromParent].find(
@@ -248,8 +251,8 @@ export function Diagram({
   );
   const focusId = named ?? diagramFocusId(layout.nodes);
   if (!layout.nodes.length) return null;
-  const drawn = drawEdges(layout.edges, horizontal);
-  const pad = 2;
+  const drawn = drawEdges(layout.edges, horizontal, layout.width);
+
   const name = (id: string) => layout.nodes.find((node) => node.id === id)?.label ?? id;
   const description = [
     layout.nodes.map((node) => node.label).join(", "),
@@ -283,16 +286,32 @@ export function Diagram({
             {edge.arrow ? (
               <path className="rk-diagram-arrow" d={chevron(edge.arrow.from, edge.arrow.tip)} />
             ) : null}
+          </g>
+        ))}
+        {drawn.map((edge, index) => (
+          <g key={`label-${index}`}>
             {edge.label && edge.labelAt ? (
-              <text
-                className="rk-diagram-edge-label"
-                x={edge.labelAt[0]}
-                y={edge.labelAt[1]}
-                dy="0.32em"
-                textAnchor="middle"
-              >
-                {edge.label}
-              </text>
+              <>
+                {edge.labelBox ? (
+                  <rect
+                    className="rk-label-back"
+                    x={edge.labelBox.x}
+                    y={edge.labelBox.y}
+                    width={edge.labelBox.width}
+                    height={edge.labelBox.height}
+                    rx={4}
+                  />
+                ) : null}
+                <text
+                  className="rk-diagram-edge-label"
+                  x={edge.labelAt[0]}
+                  y={edge.labelAt[1]}
+                  dy="0.32em"
+                  textAnchor={edge.labelAnchor ?? "middle"}
+                >
+                  {edge.label}
+                </text>
+              </>
             ) : null}
           </g>
         ))}

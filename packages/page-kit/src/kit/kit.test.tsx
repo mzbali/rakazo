@@ -649,6 +649,86 @@ describe("page kit", () => {
     expect(Number(/viewBox="-2 -2 ([\d.]+) /.exec(cycle)?.[1])).toBeLessThanOrEqual(324);
   });
 
+  it("keeps edge labels out of the loop-back lane and draws every stroke before any label", () => {
+    const nodes = [
+      { id: "a", label: "Third reading", detail: "Final Commons vote" },
+      { id: "b", label: "House of Lords", detail: "Same five stages" },
+      { id: "c", label: "Ping-pong", detail: "Agree identical text" },
+    ];
+    const edges = [
+      { from: "a", to: "b", label: "passes to" },
+      { from: "b", to: "c", label: "if amended" },
+      { from: "c", to: "a" },
+    ];
+    const fitted = fitDiagramLayout(nodes, edges, true, true, 360);
+    expect(fitted.horizontal).toBe(false);
+    const labelled = drawEdges(fitted.edges, false, fitted.width).filter((edge) => edge.label);
+    expect(labelled).toHaveLength(2);
+    for (const edge of labelled) expect(edge.labelAnchor).toBe("end");
+    const markup = html(
+      <Diagram direction="vertical" nodes={nodes} edges={edges} maxWidth={360} />,
+    );
+    expect(markup.lastIndexOf('rk-diagram-edge"')).toBeLessThan(
+      markup.indexOf("rk-diagram-edge-label"),
+    );
+  });
+
+  it("centres a stacked column on one width and keeps an edge label off the arrow", () => {
+    const nodes = [
+      { id: "third", label: "Third reading", detail: "Final Commons vote" },
+      { id: "lords", label: "House of Lords", detail: "Same five stages" },
+      { id: "ping", label: "Ping-pong", detail: "Agree identical text" },
+    ];
+    const edges = [
+      { from: "third", to: "lords", label: "passes to" },
+      { from: "lords", to: "ping", label: "if amended" },
+    ];
+    const fitted = fitDiagramLayout(nodes, edges, true, true, 360);
+    expect(fitted.horizontal).toBe(false);
+    const widths = fitted.nodes.map((node) => node.width);
+    expect(new Set(widths).size).toBe(1);
+    const width = widths[0]!;
+    expect(width).toBeGreaterThan(96);
+    expect(width).toBeLessThanOrEqual(360);
+    expect(fitted.width).toBeGreaterThan(width);
+    for (const node of fitted.nodes) {
+      expect(node.x).toBeCloseTo((fitted.width - width) / 2, 0);
+    }
+    const lineX = fitted.nodes[0]!.x + width / 2;
+    const labelled = drawEdges(fitted.edges, false, fitted.width).filter((edge) => edge.label);
+    expect(labelled).toHaveLength(2);
+    for (const edge of labelled) {
+      const textWidth = edge.label!.length * 6.6;
+      const anchor = edge.labelAnchor ?? "middle";
+      const left =
+        anchor === "start"
+          ? edge.labelAt![0]
+          : anchor === "end"
+            ? edge.labelAt![0] - textWidth
+            : edge.labelAt![0] - textWidth / 2;
+      expect(left > lineX + 2 || left + textWidth < lineX - 2).toBe(true);
+      expect(edge.labelBox).toBeTruthy();
+    }
+    const narrow = fitDiagramLayout(nodes, edges, true, true, 140);
+    expect(new Set(narrow.nodes.map((node) => node.width)).size).toBe(1);
+    expect(narrow.nodes.every((node) => node.width <= 140)).toBe(true);
+    const markup = html(
+      <Diagram direction="horizontal" maxWidth={360} nodes={nodes} edges={edges} />,
+    );
+    expect(markup).toContain('class="rk-label-back"');
+    const drawn = [
+      ...markup.matchAll(
+        /<rect class="rk-diagram-node(?: rk-diagram-focus)?" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g,
+      ),
+    ].map((rect) => ({ x: Number(rect[1]), width: Number(rect[2]) }));
+    expect(drawn).toHaveLength(3);
+    expect(new Set(drawn.map((node) => node.width)).size).toBe(1);
+    const view = Number(/viewBox="-2 -2 ([\d.]+) /.exec(markup)?.[1]);
+    for (const node of drawn) {
+      expect(Math.abs(node.x + node.width / 2 - (view - 4) / 2)).toBeLessThan(2);
+    }
+  });
+
   it("marks only the chosen segment pressed and accepts plain string options", () => {
     const markup = html(
       <Segmented options={["7d", { value: "30d", label: "Last 30 days" }]} value="30d" />,

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useWords } from "../labels.js";
 import { columnBands } from "../visual-language.js";
+import type { LabelAnchor } from "./label-place.js";
+import { labelBack } from "./label-place.js";
 import { chartShare } from "./scale.js";
 import type { Formatter } from "./shared.js";
 import {
@@ -329,6 +331,7 @@ export function ColumnSeries({
               right={right}
               end={right}
               label={reference?.label}
+              limit={width}
               above
             />
           ) : null}
@@ -368,6 +371,11 @@ export function ReferenceLine({
   end,
   label,
   above = false,
+  part = "both",
+  labelX,
+  labelY,
+  labelAnchor,
+  limit,
 }: {
   y: number;
   left: number;
@@ -376,20 +384,42 @@ export function ReferenceLine({
   label?: ReactNode;
   /** The label sits on the line's right end, above it, instead of in a gutter after it. */
   above?: boolean;
+  /** Draw the line, its name, or both. A chart draws the line first so notes can cover it. */
+  part?: "line" | "label" | "both";
+  labelX?: number;
+  labelY?: number;
+  labelAnchor?: LabelAnchor;
+  /** The drawing's width. A name wider than it is left off rather than run past the edge. */
+  limit?: number;
 }) {
+  const words = typeof label === "string" || typeof label === "number" ? String(label) : "";
+  const anchor = labelAnchor ?? "end";
+  const width = words ? textWidth(words) : 0;
+  const fits = limit === undefined || width + 6 <= limit;
+  const x = labelX ?? Math.min(limit ?? Number.POSITIVE_INFINITY, Math.max(width, end - 4));
+  const baseline = labelY ?? (above ? y - 6 : y + 4);
+  const back = width > 0 ? labelBack(x, baseline, anchor, width) : null;
   return (
     <g className="rk-reference">
-      <line x1={left} x2={right} y1={y} y2={y} className="rk-reference-line" />
-      {label != null && label !== "" ? (
-        <text
-          className="rk-reference-label"
-          x={end}
-          y={above ? y - 6 : y}
-          dy={above ? undefined : "0.35em"}
-          textAnchor="end"
-        >
-          {label}
-        </text>
+      {part !== "label" ? (
+        <line x1={left} x2={right} y1={y} y2={y} className="rk-reference-line" />
+      ) : null}
+      {part !== "line" && label != null && label !== "" && fits ? (
+        <>
+          {back ? (
+            <rect
+              className="rk-label-back"
+              x={back.x}
+              y={back.y}
+              width={back.width}
+              height={back.height}
+              rx={4}
+            />
+          ) : null}
+          <text className="rk-reference-label" x={x} y={baseline} textAnchor={anchor}>
+            {label}
+          </text>
+        </>
       ) : null}
     </g>
   );

@@ -451,7 +451,12 @@ async function storeHiddenArtifact(
     groupId: input.groupId ?? null,
   };
   const existing = await deps.prisma.artifact.findFirst({
-    where: { ...owner, hash, mimeType: file.mimeType },
+    where: {
+      ...owner,
+      hash,
+      mimeType: file.mimeType,
+      ...(file.mimeType === VISUAL_IMAGE_MIME_TYPE ? { runId: input.runId } : {}),
+    },
     select: { id: true },
   });
   if (existing) return existing.id;

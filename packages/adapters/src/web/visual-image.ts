@@ -22,6 +22,7 @@ export type VisualImageOptions = {
   fetch?: typeof globalThis.fetch;
   resolveHostname?: ResolveHostname;
   signal?: AbortSignal;
+  allowUrl?: (url: string) => boolean;
   /** Test seam for the re-encode; defaults to `encodeVisualImage`. */
   decode?: (bytes: Uint8Array) => Promise<ResolvedVisualImage | null>;
 };
@@ -42,6 +43,7 @@ export async function fetchVisualImage(
     timeoutMs: FETCH_TIMEOUT_MS,
     maxRedirects: MAX_REDIRECTS,
     allowedPorts: ALLOWED_PORTS,
+    allowUrl: options.allowUrl,
     maxBytes: INPUT_MAX_BYTES,
     headers: { accept: "image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5" },
   });

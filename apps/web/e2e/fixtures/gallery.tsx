@@ -1,5 +1,5 @@
 import { I18nProvider } from "@lingui/react";
-import { BOT_COLOR_LIST } from "@rakazo/contracts";
+import { BOT_COLOR_LIST, VISUAL_IMAGE_MIME_TYPE } from "@rakazo/contracts";
 import { instructionUpdateDiff } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ import "../../src/styles.css";
 import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
 import type { Scenario } from "./gallery-messages";
 import { bot, maths, message, say, user } from "./gallery-messages";
-import { VISUAL_SCENARIOS } from "./gallery-visuals";
+import { VISUAL_PHOTO, VISUAL_SCENARIOS } from "./gallery-visuals";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
 // Every chat surface over fake data; state lives in the URL (?scenario=&theme=&width=&tools=).
@@ -892,6 +892,14 @@ const SCENARIOS: Scenario[] = [
 const realFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+  if (url.pathname === "/rpc/artifacts/getById" && input instanceof Request) {
+    const body = await input.clone().json();
+    if (body.json?.artifactId === VISUAL_PHOTO.id) {
+      return Response.json({
+        json: { contentBase64: VISUAL_PHOTO.contentBase64, mimeType: VISUAL_IMAGE_MIME_TYPE },
+      });
+    }
+  }
   if (url.pathname === "/rpc/artifacts/get")
     return Response.json({
       json: { contentBase64: btoa(IMAGE_SVG), mimeType: "image/svg+xml" },

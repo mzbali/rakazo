@@ -44,6 +44,19 @@ test("gallery shows routine changes as small rows", async ({ page }, testInfo) =
   await captureScreenshot(page, testInfo, "routine-change-rows");
 });
 
+test("gallery draws a product photo in its sandboxed chat visual", async ({ page }, testInfo) => {
+  await page.goto("/e2e/fixtures/gallery.html?scenario=visual-photos&theme=light");
+  const visual = page
+    .frameLocator('iframe[title="Countertop blender"]:visible')
+    .frameLocator("iframe#preview");
+  const photo = visual.getByRole("img", { name: "Blend Mini blender" });
+  await expect(photo).toBeVisible();
+  await expect
+    .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBe(160);
+  await captureScreenshot(page, testInfo, "visual-product-photo");
+});
+
 test("gallery renders every chat scenario in both themes", async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

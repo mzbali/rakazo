@@ -76,7 +76,33 @@ const CUTS: [string, number][] = [
 
 const big = `<Visual summary="Too big">${'<Callout lead="x">filler text</Callout>'.repeat(1100)}</Visual>`;
 
+// A stored raster fixture for the gallery artifact reader.
+export const VISUAL_PHOTO = {
+  id: "blender-photo",
+  contentBase64:
+    "UklGRpIBAABXRUJQVlA4IIYBAACQDwCdASqgAHgAPm02lkekIyIhKHtoaIANiWlu3V9rSaRLmQLVoNwQEliaw28We05t6+JG1iWm8OILmrulYKfLKM9RkiykinWJeAFItPzu88mP3oSVs+Z/RhZ9gkzPj0jJ8eoGIGl3bwCThJdjjlTiYx9oNsrZaNHN/nFJfNaCSxNYcPAAAP73bFOwGIYAIBVFn+AHIhpFQ2iVGat1ev9qAC21+mrYCHklqnXkB9n9xiU0oDsF17loz4PgE31XeH1MLPHPFZsMS+wTHE+QiVSokp6X/tU9KgPNfGBruQ4fpDSV8VqjnEhKdbVB5nE9Lvm6OXrgSr5TBzYEmkOveKhAdQuYY1ANdOjuFEob4E4/w99I4m60NN3+J51f+UnknVgZiIToca2tVj8/LCFJGDE5ud3ad/O81r6Xb5Mykz4dSje00dCFF+i1ubF3GJHPcucBA/CixlX0dlzPDQKRbYK9+4xrV7nt7C9UGKAcN9qvSx3oqCCbjrMXkj4+Lb2Y1ijJvEAAAAA=",
+};
+
 export const VISUAL_SCENARIOS: VisualScenario[] = [
+  {
+    id: "visual-photos",
+    label: "Product photos",
+    messages: [
+      row("user", [{ kind: "text", text: "Show me the blender under £50." }]),
+      row("bot", [
+        {
+          kind: "visual",
+          title: "Countertop blender",
+          text: "The Blend Mini costs £49.",
+          code: `exports.default = () => React.createElement(ProductCard, {
+          title: "Blend Mini", price: "£49", image: "rakazo-image:${VISUAL_PHOTO.id}",
+          alt: "Blend Mini blender"
+        });`,
+          images: [{ id: VISUAL_PHOTO.id, alt: "Blend Mini blender", size: 410 }],
+        },
+      ]),
+    ],
+  },
   { id: "visual-nce", label: "Visual: NCE", messages: [ask, answer(fenced(NCE_FENCE))] },
   ...CUTS.map(([id, at]) => ({
     id: `visual-${id}`,

@@ -94,7 +94,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "ask_user",
     description:
-      "Ask the user one short multiple-choice question, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough. Put the content the user is deciding about, such as a draft email, in `detail`.",
+      "Ask the user one short multiple-choice question with tappable options, then wait for their selection. Use this instead of asking them to type when two to four concise choices are enough. Put the content the user is deciding about, such as a draft email, in `detail`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -223,8 +223,6 @@ export const conversationTools: ConnectorTool[] = [
         images: {
           type: "array",
           maxItems: VISUAL_IMAGE_MAX_COUNT,
-          description:
-            "Web photos the visual shows; a picture's src is rakazo-image:<n>, its 1-based place in this list.",
           items: {
             type: "object",
             properties: { url: { type: "string" }, alt: { type: "string" } },

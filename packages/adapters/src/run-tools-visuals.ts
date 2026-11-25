@@ -60,39 +60,25 @@ function imageReferences(code: string): { places: number[]; malformed: boolean }
 /** A picture the visual carries: its place, the stored artifact's id, and what the message keeps. */
 type CarriedImage = { place: number; id: string; alt: string; size: number };
 
-/**
- * Once outside text entered this run, a picture whose site the run was not given is refused, as a
- * fetch would be: injected text must not choose where a request goes. The owner's own words are
- * the request, so an untainted run fetches its pictures like any page it reads.
- */
-async function imageSiteGates(
-  ctx: RunContext,
-  images: VisualImageArg[],
-): Promise<Map<string, string>> {
-  const gates = new Map<string, string>();
-  if (!(await isRunTainted(ctx))) return gates;
-  const [rules, trustedSites] = await Promise.all([
+/** Apply the run’s outbound policy before each request, including redirected requests. */
+async function imageUrlGate(ctx: RunContext) {
+  const [tainted, rules, trustedSites] = await Promise.all([
+    isRunTainted(ctx),
     ctx.trust.loadApprovalRules(),
     ctx.trust.loadTrustedSites(),
   ]);
-  for (const image of images) {
-    const site = urlSite(image.url);
-    if (!site) {
-      gates.set(image.url, "the url names no site");
-      continue;
-    }
+  return (rawUrl: string) => {
+    const url = normalizedHttpUrl(rawUrl);
+    const site = url && urlSite(url);
+    if (!url || !site || containsSecret([rawUrl, url], ctx.secrets)) return false;
     const trusted =
-      ctx.trust.searchResultUrls.has(image.url) ||
-      ctx.trust.pageImageUrls.has(image.url) ||
+      !tainted ||
+      ctx.trust.searchResultUrls.has(url) ||
+      ctx.trust.pageImageUrls.has(url) ||
       trustedSites.has(site);
-    if (outboundSiteGate({ site, trusted, rules }) !== "allow") {
-      gates.set(image.url, `the site ${site} is not approved for this run`);
-    }
-  }
-  return gates;
+    return outboundSiteGate({ site, trusted, rules }) === "allow";
+  };
 }
-
-type CarriedResult = CarriedImage | { place: number; error: string };
 
 /**
  * Fetch, check and store each picture the visual names. One that cannot load fails the whole
@@ -111,42 +97,39 @@ async function carryImages(
   if (isBackgroundRunTrigger(ctx.run.trigger))
     return "A background run's visual is never shown, so its pictures are not fetched. Call without images.";
   const wanted = places.map((place) => images[place - 1]!);
-  const gates = await imageSiteGates(ctx, wanted);
-  const carried = await Promise.all(
-    wanted.map(async (image): Promise<CarriedResult> => {
-      const gate = gates.get(image.url);
-      if (gate) return { place: image.place, error: gate };
-      try {
-        const resolved = await fetchVisualImage(image.url);
-        const id = await storeVisualImage(
-          { prisma: ctx.deps.prisma, artifacts },
-          {
-            spaceId: ctx.run.spaceId,
-            userId: ctx.run.userId,
-            botId: ctx.bot.id,
-            groupId: ctx.thread.groupId ?? undefined,
-            runId: ctx.runId,
-            operationId: call.executionId,
-          },
-          { bytes: resolved.bytes },
-        );
-        return { place: image.place, id, alt: image.alt, size: resolved.bytes.byteLength };
-      } catch (error) {
-        return {
-          place: image.place,
-          error: error instanceof Error ? error.message : "the picture could not be fetched",
-        };
-      }
+  const allowUrl = await imageUrlGate(ctx);
+  const fetched = await Promise.allSettled(
+    wanted.map(async (image) => {
+      if (!allowUrl(image.url)) throw new Error("the destination is not approved for this run");
+      return fetchVisualImage(image.url, { allowUrl, signal: ctx.context.signal });
     }),
   );
-  const failed = carried.find(
-    (entry): entry is { place: number; error: string } => "error" in entry,
-  );
-  if (failed) {
-    const image = images[failed.place - 1]!;
-    return `rakazo-image:${failed.place} (${image.url}) could not be shown: ${failed.error}. Nothing was shown. Drop that picture or try another URL, then call again.`;
+  const owner = {
+    spaceId: ctx.run.spaceId,
+    userId: ctx.run.userId,
+    botId: ctx.bot.id,
+    groupId: ctx.thread.groupId ?? undefined,
+    runId: ctx.runId,
+    operationId: call.executionId,
+  };
+  const ready = [];
+  for (const [index, result] of fetched.entries()) {
+    const { place, alt } = wanted[index]!;
+    if (result.status === "rejected") {
+      const error =
+        result.reason instanceof Error ? result.reason.message : "the picture could not be fetched";
+      return `rakazo-image:${place} could not be shown: ${error}. Nothing was shown. Drop that picture or try another URL, then call again.`;
+    }
+    ready.push({ place, alt, bytes: result.value.bytes });
   }
-  return carried.flatMap((entry) => ("error" in entry ? [] : [entry]));
+  return Promise.all(
+    ready.map(async ({ place, alt, bytes }) => ({
+      place,
+      alt,
+      id: await storeVisualImage({ prisma: ctx.deps.prisma, artifacts }, owner, { bytes }),
+      size: bytes.byteLength,
+    })),
+  );
 }
 
 /**
@@ -207,10 +190,13 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
         'The source shows no picture, so images would never appear. Give each picture src="rakazo-image:<its 1-based place in images>", or leave images out.',
     };
   }
+  if (places.length !== images.length) {
+    return { error: "Reference every image in the visual or remove it from images." };
+  }
   // The message stays in the chat and its history, so it never holds a value this run keeps secret.
   if (
     containsSecret(
-      [title.data, summary, source, code, ...images.map((image) => image.alt)],
+      [title.data, summary, source, code, ...images.flatMap(({ url, alt }) => [url, alt])],
       ctx.secrets,
     )
   ) {

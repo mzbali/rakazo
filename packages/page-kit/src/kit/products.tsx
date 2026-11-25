@@ -23,7 +23,7 @@ function PriceLine({ price, note }: { price?: unknown; note?: unknown }) {
   return (
     <p className="rk-card-price">
       {amount ? <span>{amount}</span> : null}
-      {amount && extra ? " · " : null}
+
       {extra}
     </p>
   );
@@ -183,7 +183,7 @@ function StoreLine({ item }: { item: ProductItem }) {
           <span>{store}</span>
         </>
       ) : null}
-      {store && score !== undefined ? <span aria-hidden="true">·</span> : null}
+
       {score !== undefined ? (
         <>
           <Stars rating={score} />
@@ -541,7 +541,7 @@ export const PRODUCTS_CSS = `
 .rk-card-title{flex:1;min-width:0;margin:0;font-size:14px;line-height:20px;font-weight:500;overflow-wrap:anywhere}
 .rk-card-title[data-large]{font-size:16px;line-height:24px;font-weight:600}
 .rk-badge{display:flex;flex:none;align-items:center;padding:2px 8px;border-radius:9999px;background:color-mix(in srgb,var(--rk-accent) 17%,transparent);color:var(--rk-accent);font-size:11px;line-height:16px;font-weight:500}
-.rk-card-price{margin:0;font-size:14px;line-height:20px;color:var(--rk-secondary);overflow-wrap:anywhere}
+.rk-card-price{display:flex;flex-wrap:wrap;column-gap:6px;margin:0;font-size:14px;line-height:20px;color:var(--rk-secondary);overflow-wrap:anywhere}
 .rk-card-price>span{color:var(--foreground);font-weight:500}
 .rk-card-action{padding-top:12px}
 .rk-card-action .rk-link-button{text-align:center}

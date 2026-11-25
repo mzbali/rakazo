@@ -54,6 +54,7 @@ const IMAGES = [
 const context = (secrets: string[] = [], extra: Record<string, unknown> = {}) =>
   ({
     deps: { artifacts: {}, prisma: {} },
+    context: { signal: new AbortController().signal },
     run: {
       id: "run-1",
       spaceId: "space-1",
@@ -174,6 +175,12 @@ describe("show_visual", () => {
         title: "Flow",
         summary: "x",
         source: PRODUCTS,
+        images: [{ url: `https://cdn.example.com/x.png?key=${secret}`, alt: "X" }, IMAGES[1]],
+      },
+      {
+        title: "Flow",
+        summary: "x",
+        source: PRODUCTS,
         images: [
           { url: "https://cdn.example.com/x.png", alt: secret },
           { url: "https://cdn.example.com/y.png", alt: "Y" },
@@ -263,12 +270,10 @@ describe("show_visual", () => {
       });
       expect(result.shown).toBeUndefined();
       expect(result.error).toContain("rakazo-image:1");
-      expect(result.error).toContain("https://cdn.example.com/aeroblend.png");
       expect(result.error).toContain("HTTP 404");
       expect(result.error).toContain("Nothing was shown");
       expect(publishMessage).not.toHaveBeenCalled();
-      // The picture that did load was still stored, but nothing was posted with it.
-      expect(storeVisualImage).toHaveBeenCalled();
+      expect(storeVisualImage).not.toHaveBeenCalled();
     });
 
     it("refuses a picture the source names but images does not carry", async () => {

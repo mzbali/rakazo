@@ -112,7 +112,7 @@ export const fleetTools: ConnectorTool[] = [
   {
     name: "run_subagent",
     description:
-      "Delegate a task to an independent subagent. Returns immediately; its result comes back later. You remain available to the user. If the user asked to create a bot, that is spawn_bot; never this.",
+      "Delegate a task to an independent subagent. Returns immediately; its result comes back later. You remain available to the user. Never call this because the user asked to create a bot — that is spawn_bot, and spawn_bot alone.",
     inputSchema: {
       type: "object",
       properties: {

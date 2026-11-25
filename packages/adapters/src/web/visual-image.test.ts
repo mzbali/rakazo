@@ -122,6 +122,21 @@ describe("fetchVisualImage", () => {
     ).rejects.toThrow(/too large/i);
   });
 
+  it("checks outbound policy again before following a redirect", async () => {
+    routes.set("shop.example.com/moved", {
+      status: 302,
+      headers: { location: "https://cdn.example.com/photo.png" },
+    });
+    await expect(
+      fetchVisualImage("https://shop.example.com/moved", {
+        fetch: testFetch,
+        resolveHostname: publicResolver,
+        allowUrl: (url) => new URL(url).hostname === "shop.example.com",
+      }),
+    ).rejects.toThrow(/not approved/);
+    expect(hits).toEqual(["shop.example.com/moved"]);
+  });
+
   it("follows a redirect to the picture, and stops after the bounded hops", async () => {
     routes.set("shop.example.com/moved", {
       status: 302,

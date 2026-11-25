@@ -64,8 +64,8 @@ Text props and list items accept **bold**, *italic* or _italic_, \`code\` and ba
 
 ### Charts
 - LineChart {points: [{label, value}], floor?, ceiling?, unit?, format?: (n) => string, labels?: [seriesName], lines?: [{label, values}], secondary?: {label, values}, annotations?: [{at: index | "zero", label}], marker?: index, reference?: {value, label}, legend?}: a trend; one series gets an area fill, lines add series, secondary adds a grey dashed comparison. A missing value leaves a gap. marker pins the dashed vertical guide and outlined dot (a Slider's index). reference is a dashed horizontal line.
-- Bars {bars: [{label, value, display?}], emphasis?: index | "none", horizontal?}: horizontal rows with values at the end. Short positive labels default to columns unless horizontal is true.
-- Columns {points: [{label, value, display?}], emphasis?}: vertical columns with their value on top, for a few periods or categories; values are 0 or more, so chart losses or other negatives with Bars.
+- Bars {bars: [{label, value, display?}], horizontal?}: horizontal rows with values at the end. Short positive labels default to columns unless horizontal is true.
+- Columns {points: [{label, value, display?}]}: vertical columns with their value on top, for a few periods or categories; values are 0 or more, so chart losses or other negatives with Bars.
 - ColumnSeries {labels: string[], series: [{name, values}], stacked?, unit?, format?, ceiling?, reference?: {value, label}, legend?}: several series per label, side by side or stacked.
 - StackedBars {series: string[], bars: [{label, values, display?}], showShares?}: rows split into named parts. showShares labels parts with their percentages.
 - Pie {parts: [{label, value, display?, detail?}], total?: true | text, label?, unit?, percentDigits?}: doughnut and legend. Put a note in detail to make that row expandable. total centres the sum or your text with label and unit.
@@ -163,7 +163,7 @@ export const VISUAL_GUIDE = `# Visuals
 A visual is a small piece of page-kit JSX drawn in the chat. Place the embed show_visual returns where it belongs. It is not saved; show a new one to change it. For something the user will keep, share or update, use save_page.
 
 - Call show_visual {title, summary, source}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
-- It draws at message width, up to about 2000 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
+- It draws at message width, up to about 2400 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
 - Skip the Page wrapper. A Section heading names it, and caption is the one line inside the card, under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
 - The compiled visual must stay under 32 KB. Put larger work in a page.
 

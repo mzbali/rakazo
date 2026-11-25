@@ -3,7 +3,7 @@ export const VISUAL_ESSENTIALS = [
   'JSX: export default, Section, no Page. Short Caption. Callout only for warnings. SVG: useTheme(), viewBox, width "100%", no vh. Split tall visuals.',
   'Nested sets: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />, plus one Slider; Diagram a reduction.',
   'How it works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>. A loop: Diagram layout="cycle" zones flows. Routes: Stages groups={[{label,stages}]}.',
-  'Calculator: useState, Slider (label is the name only; prefix, suffix or format "£0,0" prints the value once), Bars horizontal bars=[{label,value,display}], Result. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success" groups copy, amount first.',
+  'Calculator: useState, Slider (label is the name only; prefix, suffix or format "£0,0" prints the value once), Result, LineChart marker={index}. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success", amount first.',
   "Mix: Pie parts=[{label,value,detail}] total label unit percentDigits={1}; StackedBars showShares, ColumnSeries across periods.",
   "Trend: Metrics, LineChart with month Slider marker, annotations=[{at,label}], reference={value,label}, jump Buttons and history table.",
   "Before/after location: Metrics, Rings {rings,center,markers:[{ring:0,label}]}, horizontal Bars, savings sliders and route table.",
@@ -13,11 +13,11 @@ export const VISUAL_ESSENTIALS = [
 
 /** App chats also support ui fences. */
 export const SHOW_VISUAL_INSTRUCTION = [
-  "Use show_visual to understand something or how it works, for checklists, timelines, bill splits and requested visuals. Practice uses it too. For explanations, number the sections.",
-  "To compare or decide whether to buy, open with the finding or pick, then the visual. A web search does not replace the chart. Use a table and horizontal Bars. Give the prefilled calculator and radio questions separate embeds. ProductRows lists sourced options.",
+  "To understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
+  "To compare or decide, or whether to buy or return, call show_visual, then open with the pick. Next is a prefilled calculator, or one picture of what differs. A web search does not replace it.",
   "Pass title, summary and source to show_visual, then place the returned embed. Split tall visuals so each works inline. Do not pass help, paste source or tell the reader to open it.",
   VISUAL_ESSENTIALS,
-  "A ui fence is for a table, steps, key numbers or a simple chart. One fact gets one plain sentence.",
+  "A ui fence is for a table, steps, key numbers or a simple chart. A bill split is one Result, not a table. One fact, such as the time in a place, gets one plain sentence and no picture.",
 ].join("\n\n");
 
 /** Channels whose reply is not drawn in the app. */

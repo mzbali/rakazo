@@ -96,7 +96,7 @@ Keep each control's value in useState. A control placed straight in a Section or
 - ReplyButton {label, reply?}: puts reply (or the label), up to 300 characters, in the chat's message box for the reader to send. It is inactive where there is no chat, such as a shared page.
 
 ### Media
-Pictures, sound and video are embedded as data: URIs (a blob: the page makes itself also works for sound and video); web addresses never load and the component is left out. The one exception is show_visual with images: [{url, alt}] (at most 4, alt text required), which fetches and checks each photo server-side. Give such a picture src="rakazo-image:<its 1-based place in images>"; one that cannot load refuses the call, so drop it and call again.
+Use data: URIs for media, or a local blob: for audio and video. For fetched photos, pass images: [{url, alt}] to show_visual (max 4). Use <Image src="rakazo-image:1" alt="Description" caption="Name" />, counting from 1. Retry without failed photos.
 - Image {src, alt, caption?, fit?: "cover" | "contain", width?, height?, ratio?: number | "16/9"}: click to enlarge.
 - Gallery {photos: [{src, alt}], height?}: up to 8 photos the reader swipes or steps through.
 - PhotoStrip {items: [{image, alt?, title?, price?, note?, href?}], tileWidth?, imageHeight?}: a sideways row of small cards.
@@ -173,7 +173,7 @@ One idea per visual. A long answer is short numbered prose between two and four 
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
-- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options.
+- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options. Put a Grid with one or two Images in a Section. Use short captions and omit fixed sizes. Put the comparison Table directly in a Section.
 - Mix: Pie with a centred total and expandable notes, StackedBars showShares, then ColumnSeries for changes across periods.
 - Trend: Metrics, LineChart with a relevant peak and target, a month Slider and jump buttons, then a compact table.
 - Before/after location: Metrics, Rings with both markers, horizontal Bars, adjustable savings and a route table.

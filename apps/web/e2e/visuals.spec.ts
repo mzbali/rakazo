@@ -53,15 +53,44 @@ async function showVisual(page: Page, title: string, summary: string, source: st
   ).toBeVisible({ timeout: 30_000 });
 }
 
-test("draws a stored product photo in a sandboxed chat visual", async ({ page }, testInfo) => {
-  await page.goto("/e2e/fixtures/gallery.html?scenario=visual-photos&theme=light");
-  const visual = visualFrame(page.getByTestId("visual-card"), "Countertop blender");
-  const photo = visual.getByRole("img", { name: "Blend Mini blender" });
-  await expect(photo).toBeVisible();
-  await expect
-    .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
-    .toBe(160);
-  await captureScreenshot(page, testInfo, "visual-product-photo");
+// A phone has no hover, so the action rail sits below the answer and the card keeps the full column.
+test.describe("on a phone", () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test("draws a product comparison across a phone-width visual", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/e2e/fixtures/gallery.html?embed&scenario=visual-photos&theme=dark");
+    const card = page.getByTestId("visual-card");
+    const visual = visualFrame(card, "Countertop blenders");
+    const mini = visual.getByRole("img", { name: "Blend Mini blender" });
+    const plus = visual.getByRole("img", { name: "Blend Plus blender" });
+    for (const photo of [mini, plus]) {
+      await expect(photo).toBeVisible();
+      await expect
+        .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+        .toBe(160);
+      expect((await photo.boundingBox())!.width).toBeGreaterThan(130);
+    }
+    expect((await mini.boundingBox())!.y).toBe((await plus.boundingBox())!.y);
+    const photoGrid = visual.locator(".rk-grid").first();
+    const scroll = visual.locator(".rk-table-scroll");
+    expect((await scroll.boundingBox())!.width).toBeCloseTo(
+      (await photoGrid.boundingBox())!.width,
+      0,
+    );
+    await expect
+      .poll(() => scroll.evaluate((node) => node.scrollWidth - node.clientWidth))
+      .toBeGreaterThan(0);
+    const leadingCell = visual.getByRole("cell", { name: "Price" });
+    await expect(leadingCell).toHaveCSS("position", "sticky");
+    await captureScreenshot(page, testInfo, "visual-product-photo-phone");
+    const initial = (await leadingCell.boundingBox())!.x;
+    await scroll.evaluate((node) => {
+      node.scrollLeft = node.scrollWidth;
+    });
+    await expect.poll(() => scroll.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
+    expect((await leadingCell.boundingBox())!.x).toBeCloseTo(initial, 0);
+  });
 });
 
 test("a visual that fits works in the chat; a tall one opens full screen", async ({

@@ -1,7 +1,7 @@
 /** Shared by run instructions and rejected visuals. */
 export const VISUAL_ESSENTIALS = [
   'JSX: export default, Section, no Page. Short Caption. Callout only for warnings. SVG: useTheme(), viewBox, width "100%", no vh. Split tall visuals.',
-  'Photos: pass images=[{url, alt}] (at most 4) and give a picture src="rakazo-image:<its 1-based place in images>"; each is fetched and checked server-side, and one that fails refuses the call, so drop it and call again.',
+  'Photos: images=[{url, alt}] (max 4), then <Image src="rakazo-image:1" alt="Photo" caption="Name" />. Count from 1. Use Grid with 1 or 2 columns. Omit fixed sizes. Retry without failed photos.',
   'Nested sets: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />, plus one Slider; Diagram a reduction.',
   'How it works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>. A loop: Diagram layout="cycle" zones flows. Routes: Stages groups={[{label,stages}]}.',
   'Calculator: useState, Slider (label is the name only; prefix, suffix or format "£0,0" prints the value once), Result, LineChart marker={index}. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success", amount first.',

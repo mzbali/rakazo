@@ -74,9 +74,12 @@ describe("built-in tool bridge", () => {
 
   it("lets a long answer hold several pictures, one per call", () => {
     const picture = builtinAgentTools.find((tool) => tool.name === "show_visual")!;
-    expect(picture.description).toContain("Draw one picture per call");
-    expect(picture.description).toContain("a long answer may hold several");
-    expect(picture.description).not.toContain("Draw one picture in this chat");
+    expect(picture.description).toContain("one JSX visual per call");
+    expect(picture.inputSchema).toMatchObject({
+      properties: {
+        images: { description: expect.stringContaining('<Image src="rakazo-image:1" />') },
+      },
+    });
   });
 
   it("exposes a pinned deferred tool only for the run that pins it", () => {

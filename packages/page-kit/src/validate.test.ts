@@ -27,6 +27,13 @@ describe("checkPageSource", () => {
     expect(VISUAL_GUIDE).toContain("A one-line question gets one line");
     expect(VISUAL_GUIDE).toContain("at most one Callout");
     expect(VISUAL_GUIDE).toContain(`about ${MAX_INLINE_VISUAL_HEIGHT} pixels`);
+    expect(VISUAL_GUIDE).toContain(
+      '<Image src="rakazo-image:1" alt="Description" caption="Name" />',
+    );
+    expect(VISUAL_GUIDE).toContain("Put a Grid with one or two Images in a Section");
+    expect(VISUAL_GUIDE).toContain("omit fixed sizes");
+    expect(VISUAL_GUIDE).toContain("Put the comparison Table directly in a Section");
+    expect(VISUAL_GUIDE).not.toContain("<Picture");
     expect(PAGE_KIT_GUIDE).not.toMatch(/Bars \{[^}]*emphasis/);
     expect(PAGE_KIT_GUIDE).not.toMatch(/Columns \{[^}]*emphasis/);
     expect(PAGE_KIT_GUIDE).toContain("Quiz {questions:");
@@ -138,6 +145,11 @@ describe("checkPageSource", () => {
       "an unknown component",
       "function App() {\n  return <Page title='t'>\n    <Card />\n  </Page>;\n}",
       "line 3: <Card> is not a kit component",
+    ],
+    [
+      "a Picture tag where a stored photo belongs",
+      "const App = () => <Picture src='rakazo-image:1' />;",
+      'line 1: <Picture> is not a kit component. Use <Image src="rakazo-image:1" /> for a show_visual photo.',
     ],
     [
       "an unknown member component",

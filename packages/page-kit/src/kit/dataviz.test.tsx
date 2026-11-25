@@ -1051,6 +1051,7 @@ describe("data display", () => {
     vi.spyOn(window, "getComputedStyle").mockReturnValue({ direction } as CSSStyleDeclaration);
     const container = mount(<Table columns={["Name"]} rows={[["Alpha"]]} />);
     const scroll = container.querySelector<HTMLDivElement>(".rk-table-scroll")!;
+    expect(scroll.tabIndex).toBe(0);
     const edges = () => [
       scroll.hasAttribute("data-fade-start"),
       scroll.hasAttribute("data-fade-end"),

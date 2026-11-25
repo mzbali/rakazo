@@ -189,7 +189,7 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   if (images.length > 0 && places.length === 0) {
     return {
       error:
-        'The source shows no picture, so images would never appear. Give each picture src="rakazo-image:<its 1-based place in images>", or leave images out.',
+        'The source shows no picture. Use <Image src="rakazo-image:1" /> for the first item in images.',
     };
   }
   if (places.length !== images.length) {

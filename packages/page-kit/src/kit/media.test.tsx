@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_CSS, DayView, MonthView, parseDay, WeekView } from "./calendar.js";
 import { HostBridgeContext } from "./host-bridge.js";
-import { Audio, aspectRatio, Gallery, Image, Video } from "./media.js";
+import { Audio, aspectRatio, Gallery, Image, MEDIA_CSS, Video } from "./media.js";
 import {
   Avatar,
   AvatarStack,
@@ -51,6 +51,32 @@ const all = (selector: string) => [...host.querySelectorAll<HTMLElement>(selecto
 const click = (element: Element | null) => act(() => (element as HTMLElement).click());
 
 describe("media", () => {
+  it("marks responsive stored photos for the comparison grid and keeps their captions", () => {
+    render(
+      <>
+        <Image src="rakazo-image:first" caption="Blend Mini" />
+        <Image src="rakazo-image:second" width={96} />
+        <Image src={PNG} />
+      </>,
+    );
+    expect(all("figure[data-stored-photo]")).toHaveLength(1);
+    expect(q("figure[data-stored-photo] figcaption")?.textContent).toBe("Blend Mini");
+    expect(all("figure")[1]?.style.maxWidth).toBe("96px");
+    const full = MEDIA_CSS.match(
+      /\[data-inline\] \.rk-grid:has\(>\.rk-figure\[data-stored-photo\]:only-child\)\{[^}]*\}/,
+    )?.[0];
+    expect(full).toContain("grid-template-columns:minmax(0,1fr)");
+    const cell = MEDIA_CSS.match(
+      /\[data-inline\] \.rk-grid>\.rk-figure\[data-stored-photo\] \.rk-picture\{[^}]*\}/,
+    )?.[0];
+    expect(cell).toContain("aspect-ratio:3/2");
+    expect(cell).toContain("width:100%");
+    expect(MEDIA_CSS).toContain(
+      "[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img{height:100%;width:100%}",
+    );
+    expect(MEDIA_CSS).not.toContain("width:96px");
+  });
+
   it("shows only embedded pictures and sound, never a network address", () => {
     render(
       <>

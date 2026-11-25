@@ -129,6 +129,10 @@ body{font-size:1rem}
 .rk-table-scroll{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;--rk-fade-start:${pageKitPalette.shared.mask};--rk-fade-end:${pageKitPalette.shared.mask};-webkit-mask-image:linear-gradient(to right,var(--rk-fade-start),${pageKitPalette.shared.mask} 2.5rem,${pageKitPalette.shared.mask} calc(100% - 2.5rem),var(--rk-fade-end));mask-image:linear-gradient(to right,var(--rk-fade-start),${pageKitPalette.shared.mask} 2.5rem,${pageKitPalette.shared.mask} calc(100% - 2.5rem),var(--rk-fade-end))}
 .rk-table-scroll[data-fade-start]{--rk-fade-start:transparent}
 .rk-table-scroll[data-fade-end]{--rk-fade-end:transparent}
+[data-inline] :is(.rk-section[data-card] .rk-section[data-card],.rk-section:has(>.rk-grid)>.rk-grid>.rk-section[data-card]):has(>.rk-table-wrap){padding:0;border:0;border-radius:0}
+[data-inline] .rk-table-scroll{mask-image:none;-webkit-mask-image:none}
+[data-inline] .rk-table-scroll[data-fade-start] tr>:first-child:not([colspan]),[data-inline] .rk-table-scroll[data-fade-end] tr>:first-child:not([colspan]){position:sticky;inset-inline-start:0;z-index:1;background:var(--background)}
+[data-inline] .rk-table-scroll[data-long] thead tr>:first-child{z-index:2}
 .rk-table-scroll[data-long]{max-height:34rem;overflow-y:auto}
 .rk-table-box:has(.rk-table-scroll:focus-visible){outline:2px solid var(--ring);outline-offset:2px}
 .rk-table-scroll:focus-visible{outline:0}

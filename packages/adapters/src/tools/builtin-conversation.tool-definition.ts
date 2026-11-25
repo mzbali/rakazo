@@ -211,18 +211,18 @@ export const conversationTools: ConnectorTool[] = [
   },
   {
     name: "show_visual",
-    description:
-      "Draw one picture per call; a long answer may hold several. Patterns are in the turn instructions.",
+    description: "Draw one JSX visual per call. See turn patterns.",
     inputSchema: {
       type: "object",
       properties: {
-        help: { type: "boolean", description: "Not on the first call." },
+        help: { type: "boolean" },
         title: { type: "string", description: "Short title." },
         summary: { type: "string", description: "Up to 500 characters." },
         source: { type: "string" },
         images: {
           type: "array",
           maxItems: VISUAL_IMAGE_MAX_COUNT,
+          description: 'Use <Image src="rakazo-image:1" /> for the first photo.',
           items: {
             type: "object",
             properties: { url: { type: "string" }, alt: { type: "string" } },

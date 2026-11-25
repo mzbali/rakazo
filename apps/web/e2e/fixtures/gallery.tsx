@@ -13,7 +13,7 @@ import "../../src/styles.css";
 import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
 import type { Scenario } from "./gallery-messages";
 import { bot, maths, message, say, user } from "./gallery-messages";
-import { VISUAL_PHOTO, VISUAL_SCENARIOS } from "./gallery-visuals";
+import { VISUAL_PHOTO, VISUAL_PHOTO_PLUS, VISUAL_SCENARIOS } from "./gallery-visuals";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
 // Every chat surface over fake data; state lives in the URL (?scenario=&theme=&width=&tools=).
@@ -894,9 +894,10 @@ window.fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input), location.href);
   if (url.pathname === "/rpc/artifacts/getById" && input instanceof Request) {
     const body = await input.clone().json();
-    if (body.json?.artifactId === VISUAL_PHOTO.id) {
+    const photo = [VISUAL_PHOTO, VISUAL_PHOTO_PLUS].find(({ id }) => id === body.json?.artifactId);
+    if (photo) {
       return Response.json({
-        json: { contentBase64: VISUAL_PHOTO.contentBase64, mimeType: VISUAL_IMAGE_MIME_TYPE },
+        json: { contentBase64: photo.contentBase64, mimeType: VISUAL_IMAGE_MIME_TYPE },
       });
     }
   }

@@ -142,7 +142,15 @@ export function Image({
   const style = boxStyle({ width, height, ratio });
   const name = text(alt);
   return (
-    <figure className="rk-figure" style={{ maxWidth: style.maxWidth }}>
+    <figure
+      className="rk-figure"
+      data-stored-photo={
+        imageRefId(source) && !style.maxWidth && !style.height && !style.aspectRatio
+          ? true
+          : undefined
+      }
+      style={{ maxWidth: style.maxWidth }}
+    >
       <button
         type="button"
         className="rk-zoom"
@@ -416,6 +424,9 @@ export const MEDIA_CSS = `
 .rk-zoom>.rk-picture:not([style*="height"]):not([style*="aspect-ratio"]) img{height:auto}
 .rk-zoom{display:block;width:100%;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:inherit;cursor:zoom-in;border-radius:16px}
 @container (min-width:560px){.rk-zoom{border-radius:8px}.rk-zoom>.rk-picture{border-radius:8px}}
+[data-inline] .rk-grid:has(>.rk-figure[data-stored-photo]:only-child){grid-template-columns:minmax(0,1fr)}
+[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture{aspect-ratio:3/2;width:100%}
+[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img{height:100%;width:100%}
 .rk-zoom:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .rk-lightbox{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--background) 92%,transparent);cursor:zoom-out;animation:rk-fade .18s ease-out}
 .rk-lightbox img{max-width:100%;max-height:100%;border-radius:12px;object-fit:contain}

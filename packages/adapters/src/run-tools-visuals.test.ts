@@ -1,6 +1,7 @@
 import { MessageBlock, pageSourceBytes, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
 import { checkPageSource } from "@rakazo/page-kit/validate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
 import * as storage from "./storage/thread-artifacts.js";
 
 const publishMessage = vi.fn();
@@ -230,6 +231,20 @@ describe("show_visual", () => {
       storeVisualImage.mockImplementation(async () => ({ id: "artifact-1", discard }));
     };
 
+    it("publishes the turn instruction photo example in one call", async () => {
+      fetchesPictures();
+      const example = VISUAL_ESSENTIALS.match(/<Image src="rakazo-image:1" [^>]+>/)?.[0];
+      expect(example).toBeDefined();
+      const result = await show({
+        title: "Pick",
+        summary: "One blender.",
+        source: `export default () => ${example};`,
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.shown).toBe(true);
+      expect(postedBlock().code).toContain('src: "rakazo-image:artifact-1"');
+    });
+
     it("fetches the named pictures and ships ids, alt text and sizes, never bytes or urls", async () => {
       fetchesPictures();
       const result = await show({
@@ -435,6 +450,18 @@ describe("show_visual", () => {
       expect(publishMessage).not.toHaveBeenCalled();
     });
 
+    it("points an unrecognized Picture tag to the supported photo component", async () => {
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: 'export default () => <Picture src="rakazo-image:1" />;',
+        images: IMAGES,
+      });
+      expect(result.problems).toEqual([expect.stringContaining('<Image src="rakazo-image:1" />')]);
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
     it("refuses images the source never shows, rather than dropping them silently", async () => {
       const result = await show({
         title: "Picks",
@@ -442,7 +469,7 @@ describe("show_visual", () => {
         source: FLOW,
         images: IMAGES,
       });
-      expect(result.error).toMatch(/shows no picture/);
+      expect(result.error).toContain('<Image src="rakazo-image:1" />');
       expect(fetchVisualImage).not.toHaveBeenCalled();
       expect(publishMessage).not.toHaveBeenCalled();
     });

@@ -709,7 +709,7 @@ export function Table({
           data-fade-start={scroll.edges.start || undefined}
           data-fade-end={scroll.edges.end || undefined}
           // Keyboard users can scroll a wide table once it has focus.
-          tabIndex={width >= 5 ? 0 : undefined}
+          tabIndex={width >= 5 || scroll.edges.start || scroll.edges.end ? 0 : undefined}
         >
           <table className="rk-table" data-wide={width >= 5 || undefined}>
             <thead>

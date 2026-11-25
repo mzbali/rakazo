@@ -171,7 +171,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "render_plot",
     description:
-      'Render a chart from tabular data as a PNG and attach it to the chat. When the result includes embed, place that line in your reply where the chart belongs. Backed by Observable Plot: bar, line, area, scatter, histogram, heatmap, box plot, facets, and more via a declarative JSON spec. Call with {"charts": true} FIRST to list every chart type with a complete runnable example spec ({"charts": "<keyword>"} searches), then copy the closest example and substitute your rows and columns. {"help": true} returns the full guide. Pass rows inline as data, or data_path for a .csv/.tsv/.json file in your home.',
+      'A chart the chat components cannot draw, or a PNG when the user asks for an image file. Attach it. When the result includes embed, place that line in your reply. Observable Plot JSON: bar, line, scatter, histogram, heatmap, box plot, facets. {"charts": true} lists chart types with examples ({"charts": "<keyword>"} searches). {"help": true} returns the guide. Pass data, or data_path for a .csv/.tsv/.json file.',
     inputSchema: {
       type: "object",
       properties: {

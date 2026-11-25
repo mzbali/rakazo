@@ -471,8 +471,8 @@ export const TOOL_CHOICE_DEFINITIONS: ToolChoiceCase[] = [
     id: "lazy-plot",
     area: "lazy-tools",
     kind: "guard",
-    purpose: "Find the plot tool, then run it.",
-    prompt: "Draw a bar chart of these sales: Mon 3, Tue 5, Wed 2.",
+    purpose: "Find the plot tool for a PNG the user asked for, or a chart the chat cannot draw.",
+    prompt: "Save a PNG image file of a box plot of these five numbers: 2, 3, 3, 7, 9.",
     expect: { order: ["find_tool", "render_plot"] },
   },
   {

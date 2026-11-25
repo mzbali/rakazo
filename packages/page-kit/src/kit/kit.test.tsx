@@ -3,12 +3,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table } from "./data.js";
+import { Venn } from "./dataviz.js";
 import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
 import { drawEdges } from "./diagram-layout.js";
 import { inlineMarkup } from "./inline.js";
 import { Result, Slider } from "./interact.js";
 import { Callout, Caption, Grid, Page, Section, Text } from "./layout.js";
 import { PAGE_STYLES } from "./styles.js";
+import "./index.js";
 
 const html = (element: React.ReactElement) => renderToStaticMarkup(element);
 
@@ -65,11 +67,48 @@ describe("page kit", () => {
         <Result label="Monthly payment" value="£1,754" />
       </Section>,
     );
+    // The controls are one idea, so the section itself is the card; the heading sits inside it.
+    expect(markup).toMatch(
+      /<section class="rk-section" id="mortgage-payment-vs-interest-rate" data-card="true"/,
+    );
     expect(markup).not.toContain("rk-figure-card");
     expect(markup).toContain('class="rk-result" data-inset=""');
     expect(markup).toContain("£1,754");
     expect(markup).toContain(">4.50%<");
     expect(markup).toContain("Interest rate");
+  });
+
+  it("cards a section of one idea's controls as it cards a figure section, heading inside", () => {
+    const markup = html(
+      <>
+        <Section title="1. The map">
+          <Venn nested sets={[{ label: "NP: quick to check" }, { label: "P: quick to find" }]} />
+          <Caption>P sits inside NP.</Caption>
+        </Section>
+        <Section title="2. Why it feels different">
+          <Slider label="Yes or no choices" min={1} max={60} value={20} />
+          <Result label="Steps to check one answer" value="20" />
+          <Result label="Steps to try every possibility" value="1,048,576" tone="warning" />
+          <Caption>Checking grows in a straight line; brute force doubles per choice.</Caption>
+        </Section>
+      </>,
+    );
+    // Both sections read the same way: the heading sits inside the card, not floating beside it.
+    const sections = [...markup.matchAll(/<section class="rk-section"[^>]*>[\s\S]*?<\/section>/g)];
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expect(section[0]).toMatch(/^<section class="rk-section"[^>]* data-card="true"/);
+      expect(section[0]).toContain("rk-heading");
+    }
+    // Prose between the controls keeps the section open, exactly as before.
+    const mixed = html(
+      <Section title="Reading">
+        <Text>Try a few sizes.</Text>
+        <Slider label="Choices" min={1} max={60} value={20} />
+      </Section>,
+    );
+    expect(mixed).not.toContain('data-card="true"');
+    expect(mixed).not.toContain("rk-figure-card");
   });
 
   it("fails, instead of recursing forever, when a page renders its own Page again", () => {
@@ -531,6 +570,83 @@ describe("page kit", () => {
     expect(markup).toContain("rk-diagram-focus");
     expect(markup).toContain('class="rk-diagram-label"');
     expect(PAGE_STYLES).toContain(".rk-diagram-label{fill:var(--foreground);font-size:17px");
+  });
+
+  it("reflows a row diagram too wide for its column instead of scaling its text", () => {
+    // The phone-width reduction row a real chat drew: four wide boxes in one line.
+    const nodes = [
+      { id: "any", label: "Any NP problem", detail: "Sudoku, scheduling, routes, protein folding" },
+      { id: "translate", label: "Translate (fast)", detail: "A polynomial-time reduction" },
+      {
+        id: "sat",
+        label: "SAT",
+        detail: "Is there a true/false assignment satisfying this formula?",
+      },
+      { id: "answer", label: "Answer", detail: "Yes or no, mapped back" },
+    ];
+    const edges = [
+      { from: "any", to: "translate" },
+      { from: "translate", to: "sat" },
+      { from: "sat", to: "answer" },
+    ];
+    const row = layoutDiagram(nodes, edges, true, false);
+    expect(row.width).toBeGreaterThan(360);
+    // No maxWidth and no ResizeObserver, so the drawing fits the 360px column it measures.
+    const markup = html(<Diagram direction="horizontal" nodes={nodes} edges={edges} />);
+    const drawn = Number(/viewBox="[^"]* (\d+) \d+"/.exec(markup)?.[1]);
+    expect(drawn).toBeLessThanOrEqual(360);
+    // Stacked: the boxes pile up downward inside the column instead of shrinking into a row.
+    const placed = [
+      ...markup.matchAll(
+        /<rect class="rk-diagram-node(?: rk-diagram-focus)?" x="(-?[\d.]+)" y="(-?[\d.]+)" width="([\d.]+)"/g,
+      ),
+    ].map((rect) => ({ x: Number(rect[1]), y: Number(rect[2]), width: Number(rect[3]) }));
+    expect(placed).toHaveLength(4);
+    for (const node of placed) {
+      expect(node.x).toBeGreaterThanOrEqual(0);
+      expect(node.x + node.width).toBeLessThanOrEqual(drawn);
+    }
+    expect(placed.map((node) => node.y)).toEqual(
+      [...placed.map((node) => node.y)].sort((a, b) => a - b),
+    );
+    expect(placed.at(-1)!.y).toBeGreaterThan(placed[0]!.y + 3 * 48);
+    // A row that does fit the column keeps its direction.
+    const small = html(
+      <Diagram
+        direction="horizontal"
+        nodes={[
+          { id: "a", label: "Your message" },
+          { id: "b", label: "Bot reply" },
+        ]}
+        edges={[{ from: "a", to: "b" }]}
+      />,
+    );
+    expect(Number(/viewBox="[^"]* (\d+) \d+"/.exec(small)?.[1])).toBeGreaterThan(250);
+    // A chat card may shrink a chart to the column. It must not do that to a diagram: the words
+    // would shrink with the viewBox. A cycle is laid out at the column, so its viewBox is that wide.
+    expect(PAGE_STYLES).toContain(
+      '[data-inline="card"] .rk-chart svg{min-width:0!important;max-width:100%}',
+    );
+    expect(PAGE_STYLES).not.toContain('[data-inline="card"] .rk-diagram svg');
+    const cycle = html(
+      <Diagram
+        layout="cycle"
+        maxWidth={320}
+        nodes={[
+          { id: "a", label: "Cold inlet" },
+          { id: "b", label: "Warm" },
+          { id: "c", label: "Hot" },
+          { id: "d", label: "Out" },
+        ]}
+        edges={[
+          { from: "a", to: "b" },
+          { from: "b", to: "c" },
+          { from: "c", to: "d" },
+          { from: "d", to: "a" },
+        ]}
+      />,
+    );
+    expect(Number(/viewBox="-2 -2 ([\d.]+) /.exec(cycle)?.[1])).toBeLessThanOrEqual(324);
   });
 
   it("marks only the chosen segment pressed and accepts plain string options", () => {

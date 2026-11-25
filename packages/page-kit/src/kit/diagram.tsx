@@ -233,12 +233,14 @@ export function Diagram({
   const links = objectItems(edges);
   const placed = objectItems(nodes);
   const labeled = links.some((edge) => edge.label);
+  // The column the drawing has to fit: the author's maxWidth, else the measured card. Fitting it
+  // reflows a row too wide to read into a stack, instead of letting the card scale its text down.
   const layout = fitDiagramLayout(
     placed,
     links,
     direction === "horizontal",
     labeled,
-    maxWidth ?? 0,
+    typeof maxWidth === "number" && maxWidth > 0 ? maxWidth : measured.width,
   );
   const { horizontal } = layout;
   const named = [focus, fromParent].find(
@@ -260,7 +262,7 @@ export function Diagram({
     ),
   ].join(". ");
   return (
-    <div className="rk-diagram rk-frame">
+    <div className="rk-diagram rk-frame" ref={measured.ref}>
       <svg
         role="img"
         viewBox={`${-pad} ${-pad} ${layout.width + pad * 2} ${layout.height + pad * 2}`}

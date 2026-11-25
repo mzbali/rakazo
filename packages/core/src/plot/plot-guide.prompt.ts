@@ -1,9 +1,9 @@
 export const PLOT_TOOL_GUIDE = `# render_plot — deep data visualization skill
 
-You can produce publication-quality charts with the render_plot tool, backed by
-Observable Plot (the grammar behind the Observable Plot gallery). You describe
-the chart as a JSON spec; the tool renders it to a PNG in your workspace and
-attaches it to the chat.
+render_plot draws a chart the chat components cannot draw, or a PNG when the
+user asks for an image file. You describe the chart as a JSON spec; the tool
+renders it to a PNG and attaches it to the chat. Do not plot a chart on the
+computer.
 
 ## How to use the tool
 

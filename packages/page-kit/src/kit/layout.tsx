@@ -21,6 +21,13 @@ import { TONE_PATHS } from "./tone-icon.js";
  */
 export const FIGURES = new Set<unknown>();
 
+/**
+ * Blocks that are one idea's interactive controls rather than prose or a picture. A section
+ * made only of these, with its caption, is one card like a figure section, so its heading sits
+ * inside the card instead of floating beside the controls. Filled in by the kit index.
+ */
+export const CONTROLS = new Set<unknown>();
+
 // A section or property list placed in a grid sits beside others, so it becomes a bordered card.
 export const InGrid = createContext(false);
 // Nested sections step down a heading level: h2 at the top of the page, then h3, and so on.
@@ -145,6 +152,8 @@ export function Caption({ children }: { children?: ReactNode }) {
 }
 
 const isFigure = (child: ReactNode) => isValidElement(child) && FIGURES.has(child.type);
+const isControl = (child: ReactNode) => isValidElement(child) && CONTROLS.has(child.type);
+const isFigureOrControl = (child: ReactNode) => isFigure(child) || isControl(child);
 const classOf = (child: ReactNode) =>
   isValidElement(child) ? (child.props as { className?: string }).className : undefined;
 const isCaption = (child: ReactNode) =>
@@ -261,10 +270,13 @@ export function Section({
       </p>,
     );
   }
-  const figureOnly =
-    blocks.some((child) => isFigure(child)) &&
-    blocks.every((child) => isFigure(child) || isCaption(child) || isSource(child));
-  const carded = card || figureOnly;
+  // One idea's own blocks, figures or controls, make the whole section its card, so the
+  // heading sits inside it; prose sections keep open blocks with loose figures carded.
+  const selfContained =
+    blocks.length > 0 &&
+    blocks.some(isFigureOrControl) &&
+    blocks.every((child) => isFigureOrControl(child) || isCaption(child) || isSource(child));
+  const carded = card || selfContained;
   const presented = carded ? blocks : wrapLooseFigures(blocks);
   return (
     <section

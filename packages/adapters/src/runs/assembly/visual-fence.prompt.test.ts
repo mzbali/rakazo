@@ -76,12 +76,19 @@ describe("the ui fence instructions", () => {
     expect(fenceAt).toBeGreaterThan(-1);
     expect(pictureAt).toBeGreaterThan(fenceAt);
     expect(withFences).toContain(
-      "Use render_plot for a PNG or a chart the chat components cannot draw.",
+      "Use render_plot only for a chart the chat components cannot draw, or a PNG when the user asks for an image file.",
     );
     expect(withFences).not.toContain("For charts and data visualization, use the render_plot tool");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("call show_visual before you reply");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("understand something");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("how it works");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("data you found");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      "Once the data is in hand, draw it with show_visual: LineChart with marker and annotations.",
+    );
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      "A PNG is only when the user asks for an image file. Do not plot it on the computer.",
+    );
     expect(SHOW_VISUAL_INSTRUCTION).toContain("bill to split");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("compare or decide");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("whether to buy or return");

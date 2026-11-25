@@ -499,6 +499,13 @@ export function Choices({
 }
 
 /**
+ * Past this many stages a flat pill grid stops being a picker and becomes a wall of buttons. The
+ * grouped path's progress bar with Previous and Next, plus the stage's own title, stays compact
+ * and readable on a narrow card.
+ */
+const STAGE_GRID_MAX = 4;
+
+/**
  * A sequence with a shared detail panel. Groups draw their own selectable path;
  * a flat list can highlight a matching node in a child Diagram.
  */
@@ -539,53 +546,57 @@ export function Stages({
   };
   if (list.length === 0) return <>{children}</>;
   const stage = list[index]!;
-  const title = show(stage.stage.title) ?? (grouped.length ? stage.label : null);
+  const compact = !grouped.length && list.length > STAGE_GRID_MAX;
+  // In the compact picker nothing else names the stage, so a real label stands in for a missing
+  // title. A bare position number is not a name.
+  const named = text(stage.label) !== String(index + 1) ? stage.label : null;
+  const title = show(stage.stage.title) ?? (grouped.length ? stage.label : compact ? named : null);
   const position = words.t("stageOf", { n: index + 1, total: list.length });
   let cursor = 0;
   return (
     <div className="rk-stages">
+      {grouped.length || compact ? (
+        <div className="rk-stage-progress">
+          <span id={groupId}>{position}</span>
+          <progress
+            className="rk-progress"
+            aria-labelledby={groupId}
+            value={index + 1}
+            max={list.length}
+          />
+        </div>
+      ) : null}
       {grouped.length ? (
-        <>
-          <div className="rk-stage-progress">
-            <span id={groupId}>{position}</span>
-            <progress
-              className="rk-progress"
-              aria-labelledby={groupId}
-              value={index + 1}
-              max={list.length}
-            />
-          </div>
-          <div className="rk-stage-path">
-            {grouped.map((group, groupIndex) => {
-              const start = cursor;
-              cursor += group.entries.length;
-              const labelId = `${groupId}-${groupIndex}`;
-              return (
-                <div className="rk-stage-group" key={groupIndex}>
-                  {group.label != null ? <p id={labelId}>{group.label}</p> : null}
-                  <ol start={start + 1} aria-labelledby={group.label != null ? labelId : undefined}>
-                    {list.slice(start, cursor).map((item, offset) => {
-                      const at = start + offset;
-                      return (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            className="rk-stage-stop"
-                            aria-current={at === index ? "step" : undefined}
-                            onClick={() => pick(at)}
-                          >
-                            {item.label}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      ) : (
+        <div className="rk-stage-path">
+          {grouped.map((group, groupIndex) => {
+            const start = cursor;
+            cursor += group.entries.length;
+            const labelId = `${groupId}-${groupIndex}`;
+            return (
+              <div className="rk-stage-group" key={groupIndex}>
+                {group.label != null ? <p id={labelId}>{group.label}</p> : null}
+                <ol start={start + 1} aria-labelledby={group.label != null ? labelId : undefined}>
+                  {list.slice(start, cursor).map((item, offset) => {
+                    const at = start + offset;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className="rk-stage-stop"
+                          aria-current={at === index ? "step" : undefined}
+                          onClick={() => pick(at)}
+                        >
+                          {item.label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            );
+          })}
+        </div>
+      ) : compact ? null : (
         <Choices
           label={position}
           options={list.map((item) => ({ value: item.id, label: item.label }))}
@@ -596,7 +607,7 @@ export function Stages({
       )}
       <DiagramFocus.Provider value={stage.id}>{children}</DiagramFocus.Provider>
       <div className="rk-stage">
-        {!grouped.length ? <div className="rk-stage-kicker">{position}</div> : null}
+        {!grouped.length && !compact ? <div className="rk-stage-kicker">{position}</div> : null}
         {title != null ? <div className="rk-stage-title">{rich(title)}</div> : null}
         {show(stage.stage.detail) != null ? (
           <div className="rk-stage-body">{rich(stage.stage.detail)}</div>
@@ -670,7 +681,7 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-choice-radio input{flex:none;accent-color:var(--rk-primary);margin:.2rem 0 0;width:1rem;height:1rem}
 .rk-stages{display:flex;flex-direction:column;gap:16px}
 .rk-progress{display:block;width:100%;height:.5rem;accent-color:var(--rk-accent)}
-.rk-stage-progress{display:flex;flex-direction:column;gap:.375rem;color:var(--rk-secondary);font-size:.8125rem}
+.rk-stage-progress{display:flex;flex-direction:column;gap:.375rem;color:var(--rk-secondary);font-size:1rem}
 .rk-stage-path{display:grid;gap:1.25rem}
 .rk-stage-group{position:relative;padding:.5rem .75rem;background:var(--rk-fill);border-radius:8px}
 .rk-stage-group + .rk-stage-group::before{content:"";position:absolute;inset-block-start:-.875rem;inset-inline-start:1.25rem;width:.4rem;height:.4rem;border-bottom:1px solid var(--rk-tertiary);border-right:1px solid var(--rk-tertiary);transform:rotate(45deg)}

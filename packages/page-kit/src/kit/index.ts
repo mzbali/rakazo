@@ -62,3 +62,8 @@ for (const name of [
 ] as const) {
   layout.FIGURES.add(kit[name]);
 }
+
+// A section of only these, with its caption, is one card like a figure section.
+for (const name of ["Slider", "Result"] as const) {
+  layout.CONTROLS.add(kit[name]);
+}

@@ -28,6 +28,35 @@ const REPORT = `function Report() {
 }
 export default Report;`;
 
+/** A nine-stage explainer as a real chat drew it: numbered labels, and every stage in one row. */
+const BILL = `function StagesBill() {
+  const stages = [
+    { id: "first", label: "1", title: "First reading", detail: "The bill is introduced." },
+    { id: "second", label: "2", title: "Second reading", detail: "Principles are debated." },
+    { id: "committee", label: "3", title: "Committee", detail: "Line-by-line scrutiny." },
+    { id: "report", label: "4", title: "Report stage", detail: "The House reviews amendments." },
+    { id: "third", label: "5", title: "Third reading", detail: "Final debate and vote." },
+    { id: "lords", label: "6", title: "Second House", detail: "The other House repeats the stages." },
+    { id: "pingpong", label: "7", title: "Ping-pong", detail: "Both Houses agree the same text." },
+    { id: "assent", label: "8", title: "Royal Assent", detail: "The monarch agrees to the bill." },
+    { id: "act", label: "9", title: "Act of Parliament", detail: "The bill is now law." },
+  ];
+  return (
+    <Section title="How a bill becomes law in the UK">
+      <Stages stages={stages}>
+        <Diagram
+          direction="horizontal"
+          focus="first"
+          nodes={stages.map((stage) => ({ id: stage.id, label: stage.title }))}
+          edges={stages.slice(1).map((stage, index) => ({ from: stages[index].id, to: stage.id }))}
+        />
+      </Stages>
+      <Caption>Nine stages, one progress bar.</Caption>
+    </Section>
+  );
+}
+export default StagesBill;`;
+
 /** The visual's document, two sandboxed frames down; a card keeps its chat copy hidden while opened. */
 function visualFrame(scope: Locator, title: string) {
   return scope
@@ -122,4 +151,36 @@ test("a visual that fits works in the chat; a tall one opens full screen", async
   await expect(opened).toBeHidden();
   // The chat draws its own copy again, from the start.
   await expect(visualFrame(report, tall).getByText("Count: 0")).toBeVisible();
+});
+
+test("a stage explainer stays compact and its row diagram reflows at phone width", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page, `visuals-stages-${Date.now()}@rakazo.test`, "password12", "Visual Reader");
+  await completeOnboarding(page);
+
+  const title = "UK bill stages";
+  await showVisual(page, title, "A nine-stage bill explainer.", BILL);
+  const card = page.getByTestId("visual-card").first();
+  const frame = visualFrame(card, title);
+  await expect(frame.locator(".rk-stage-title")).toHaveText("First reading", {
+    timeout: 15_000,
+  });
+  // Nine numbered pills would be a wall of buttons; the picker is the progress bar.
+  await expect(frame.locator(".rk-choices")).toHaveCount(0);
+  const progress = frame.locator("progress");
+  await expect(progress).toHaveAttribute("max", "9");
+  await expect(progress).toHaveAttribute("value", "1");
+  // The nine-box row stacked to fit the card, instead of scaling its text to fit.
+  const viewBox = (await frame.locator(".rk-diagram svg").getAttribute("viewBox")) ?? "";
+  const drawn = Number(/^[-\d.]+ [-\d.]+ ([\d.]+)/.exec(viewBox)?.[1] ?? 0);
+  expect(drawn).toBeGreaterThan(0);
+  expect(drawn).toBeLessThanOrEqual(360);
+  // The picker still steps: Next moves the stage, its title and the diagram highlight together.
+  await frame.getByRole("button", { name: "Next" }).click();
+  await expect(frame.locator(".rk-stage-title")).toHaveText("Second reading");
+  await expect(progress).toHaveAttribute("value", "2");
+  await captureScreenshot(page, testInfo, "visual-stages-phone");
 });

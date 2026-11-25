@@ -81,13 +81,15 @@ function webToolError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   if (error.message !== "fetch failed") return error.message;
   const seen = new Set<Error>();
-  let cause: unknown = error;
-  while (cause instanceof Error && !seen.has(cause)) {
-    seen.add(cause);
-    const code = "code" in cause ? cause.code : undefined;
+  const pending: unknown[] = [error];
+  for (let next = pending.shift(); next !== undefined; next = pending.shift()) {
+    if (!(next instanceof Error) || seen.has(next)) continue;
+    seen.add(next);
+    const code = "code" in next ? next.code : undefined;
     const reason = typeof code === "string" ? transportReasons.get(code) : undefined;
     if (reason) return `fetch failed (${reason})`;
-    cause = cause.cause;
+    pending.push(next.cause);
+    if (next instanceof AggregateError) pending.push(...next.errors);
   }
   return error.message;
 }

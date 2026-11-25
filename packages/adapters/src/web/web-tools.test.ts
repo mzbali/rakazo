@@ -37,6 +37,17 @@ describe("web tool transport errors", () => {
     );
   });
 
+  it("classifies a per-address failure inside an aggregate error", async () => {
+    const aggregate = new AggregateError([
+      new Error("x"),
+      Object.assign(new Error("10.0.0.1"), { code: "ECONNREFUSED" }),
+    ]);
+    const error = new TypeError("fetch failed", { cause: aggregate });
+    expect(await webSearchFromTool(failingProvider(error), context, { query: "q" })).toEqual({
+      error: "fetch failed (connection refused)",
+    });
+  });
+
   it("keeps unknown and cyclic causes private and terminates", async () => {
     const error = new TypeError("fetch failed");
     error.cause = Object.assign(new Error("secret"), { code: "private-code", cause: error });

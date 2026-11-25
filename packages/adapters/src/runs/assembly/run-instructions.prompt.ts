@@ -168,7 +168,7 @@ export function dockerComputerToolInstruction(
   }
   if (shellOffered) {
     parts.push(
-      "Python 3 is installed as `python3`; if `python` is not found, retry with `python3`. Do not plot a chart with it.",
+      "Python 3 is installed as `python3`; if `python` is not found, retry with `python3`.",
     );
   }
   if (navigate && act) {

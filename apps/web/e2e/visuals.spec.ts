@@ -46,7 +46,6 @@ const BILL = `function StagesBill() {
       <Stages stages={stages}>
         <Diagram
           direction="horizontal"
-          focus="first"
           nodes={stages.map((stage) => ({ id: stage.id, label: stage.title }))}
           edges={stages.slice(1).map((stage, index) => ({ from: stages[index].id, to: stage.id }))}
         />
@@ -178,7 +177,7 @@ test("a stage explainer stays compact and its row diagram reflows at phone width
   const drawn = Number(/^[-\d.]+ [-\d.]+ ([\d.]+)/.exec(viewBox)?.[1] ?? 0);
   expect(drawn).toBeGreaterThan(0);
   expect(drawn).toBeLessThanOrEqual(360);
-  // The picker still steps: Next moves the stage, its title and the diagram highlight together.
+  // The picker still steps: Next moves the stage and its title.
   await frame.getByRole("button", { name: "Next" }).click();
   await expect(frame.locator(".rk-stage-title")).toHaveText("Second reading");
   await expect(progress).toHaveAttribute("value", "2");

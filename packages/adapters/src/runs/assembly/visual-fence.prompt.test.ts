@@ -87,7 +87,7 @@ describe("the ui fence instructions", () => {
       "Once the data is in hand, draw it with show_visual; a series over time is a LineChart with marker and annotations.",
     );
     expect(SHOW_VISUAL_INSTRUCTION).toContain(
-      "A PNG is only when the user asks for an image file. Do not plot it on the computer.",
+      "Use render_plot only for a chart it cannot draw or an image file the user asks for.",
     );
     expect(SHOW_VISUAL_INSTRUCTION).toContain("bill to split");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("compare or decide");

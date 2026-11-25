@@ -175,7 +175,7 @@ Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruct
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
 - Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options.
 - Mix: Pie with a centred total and expandable notes, StackedBars showShares, then ColumnSeries for changes across periods.
-- Trend: once the data is in hand, draw it with show_visual. LineChart with marker and annotations, a relevant peak and target, then a month Slider and a compact table. A PNG is only when the user asks for an image file.
+- Trend: Metrics, LineChart with a relevant peak and target, a month Slider and jump buttons, then a compact table.
 - Before/after location: Metrics, Rings with both markers, horizontal Bars, adjustable savings and a route table.
 - An interactive diagram: Segmented, or tappable parts, highlights one part and shows its detail.
 - A calculator: one Grid columns={1} around one Section, then inputs, Slider, Result and a LineChart with marker. The Grid keeps them one card.

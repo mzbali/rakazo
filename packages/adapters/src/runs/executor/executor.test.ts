@@ -1967,7 +1967,6 @@ describe("dockerComputerToolInstruction", () => {
     expect(dockerComputerToolInstruction("docker")).toContain("uv tool install <package>");
     expect(dockerComputerToolInstruction("docker")).toContain("without sudo");
     expect(dockerComputerToolInstruction("docker")).toContain("`python3`");
-    expect(dockerComputerToolInstruction("docker")).toContain("Do not plot a chart with it.");
     expect(dockerComputerToolInstruction("docker", new Set(["shell"]))).not.toContain("`python3`");
     expect(dockerComputerToolInstruction("desktop")).toBeUndefined();
     expect(dockerComputerToolInstruction("e2b")).toBeUndefined();

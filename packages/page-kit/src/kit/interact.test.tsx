@@ -333,6 +333,9 @@ describe("stages and chart marker", () => {
     // A stage the author only numbered gets no title from that number; a real label names it.
     render(<Stages stages={[1, 2, 3, 4, 5].map((at) => ({ id: `s${at}`, label: String(at) }))} />);
     expect(host.querySelector(".rk-stage-title")).toBeNull();
+    // Nor does a stage with no id or label get its fallback position id as a title.
+    render(<Stages stages={[1, 2, 3, 4, 5].map((at) => ({ detail: `Step ${at}` }))} />);
+    expect(host.querySelector(".rk-stage-title")).toBeNull();
     render(
       <Stages
         stages={[

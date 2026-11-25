@@ -532,7 +532,8 @@ export function Stages({
   const list = entries.flatMap((stage, index) => {
     if (!plain(stage)) return [];
     const id = text(stage.id) || String(index);
-    return [{ id, label: show(stage.label) ?? show(stage.title) ?? id, stage }];
+    const authored = show(stage.label) ?? show(stage.title);
+    return [{ id, label: authored ?? id, authored, stage }];
   });
   const controlled = value !== undefined && value !== null;
   const [internal, setInternal] = useState(0);
@@ -549,7 +550,7 @@ export function Stages({
   const compact = !grouped.length && list.length > STAGE_GRID_MAX;
   // In the compact picker nothing else names the stage, so a real label stands in for a missing
   // title. A bare position number is not a name.
-  const named = text(stage.label) !== String(index + 1) ? stage.label : null;
+  const named = stage.authored && !/^\d+$/.test(text(stage.authored)) ? stage.authored : null;
   const title = show(stage.stage.title) ?? (grouped.length ? stage.label : compact ? named : null);
   const position = words.t("stageOf", { n: index + 1, total: list.length });
   let cursor = 0;

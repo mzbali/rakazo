@@ -82,7 +82,8 @@ function webToolError(error: unknown): string {
   if (error.message !== "fetch failed") return error.message;
   const seen = new Set<Error>();
   const pending: unknown[] = [error];
-  for (let next = pending.shift(); next !== undefined; next = pending.shift()) {
+  while (pending.length > 0) {
+    const next = pending.shift();
     if (!(next instanceof Error) || seen.has(next)) continue;
     seen.add(next);
     const code = "code" in next ? next.code : undefined;

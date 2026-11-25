@@ -84,7 +84,7 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain("how it works");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("data you found");
     expect(SHOW_VISUAL_INSTRUCTION).toContain(
-      "Once the data is in hand, draw it with show_visual: LineChart with marker and annotations.",
+      "Once the data is in hand, draw it with show_visual; a series over time is a LineChart with marker and annotations.",
     );
     expect(SHOW_VISUAL_INSTRUCTION).toContain(
       "A PNG is only when the user asks for an image file. Do not plot it on the computer.",

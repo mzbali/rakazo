@@ -1,6 +1,6 @@
 import type { AdapterContext } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { FakeWebProvider } from "./fake-web.js";
+import { FakeWebProvider } from "../providers/web/fake/fake-web.js";
 import { webFetchFromTool, webSearchFromTool } from "./web-tools.js";
 
 const context = { signal: new AbortController().signal } as AdapterContext;

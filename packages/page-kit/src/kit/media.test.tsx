@@ -332,7 +332,7 @@ describe("cards and people", () => {
     render(<ProductCard {...item} />);
     expect(q(".rk-card-title")!.textContent).toBe("Linen shirt");
     expect(q(".rk-badge")!.textContent).toBe("New");
-    expect(q(".rk-card-price")!.textContent).toBe("$48 · Free returns");
+    expect(q(".rk-card-price")!.textContent).toBe("$48 Free returns");
     expect(q(".rk-store")!.getAttribute("aria-label")).toBe(
       "Northwind, rated 4.6 out of 5 from 1,214 ratings",
     );

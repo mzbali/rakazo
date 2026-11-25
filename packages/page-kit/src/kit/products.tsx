@@ -23,7 +23,7 @@ function PriceLine({ price, note }: { price?: unknown; note?: unknown }) {
   return (
     <p className="rk-card-price">
       {amount ? <span>{amount}</span> : null}
-
+      {amount && extra ? " " : null}
       {extra}
     </p>
   );

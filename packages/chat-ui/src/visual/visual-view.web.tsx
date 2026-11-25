@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useMarkdownCopy } from "../markdown-copy";
 import { FormulaText } from "./formula.web";
 import { drawPlan, hasUnfinishedPart } from "./visual-draw";
-import { useNarrowColumn, VisualShadow } from "./visual-shadow.web";
+import { useColumnWidth, VisualShadow } from "./visual-shadow.web";
 import { visualStyles } from "./visual-styles";
 
 type Tone = ComponentProps<typeof kit.Callout>["tone"];
@@ -42,7 +42,7 @@ function Draw({
   element: VisualElement;
   unavailable: string;
 }): ReactNode {
-  const narrow = useNarrowColumn();
+  const columnWidth = useColumnWidth();
   const plan = drawPlan(element);
   if (plan === "skip") return null;
   if (plan === "unavailable") return <p className="rkv-note">{unavailable}</p>;
@@ -72,10 +72,13 @@ function Draw({
         <kit.Diagram
           nodes={props.nodes as ComponentProps<typeof kit.Diagram>["nodes"]}
           edges={props.edges as ComponentProps<typeof kit.Diagram>["edges"]}
-          // A flow written left to right reads top to bottom in a narrow column.
-          direction={
-            narrow ? "vertical" : (props.direction as "horizontal" | "vertical" | undefined)
-          }
+          direction={props.direction as "horizontal" | "vertical" | undefined}
+          layout={props.layout as "flow" | "cycle" | undefined}
+          zones={props.zones as ComponentProps<typeof kit.Diagram>["zones"]}
+          flows={props.flows as ComponentProps<typeof kit.Diagram>["flows"]}
+          center={props.center as string | undefined}
+          focus={props.focus as string | undefined}
+          maxWidth={columnWidth}
         />
       );
     case "Formula":

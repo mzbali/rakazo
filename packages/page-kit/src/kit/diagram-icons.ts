@@ -136,6 +136,36 @@ export const DIAGRAM_ICONS: Record<string, readonly IconShape[]> = {
     ["circle", { cx: "12", cy: "12", r: "10" }],
     ["path", { d: "M12 6v6l4 2" }],
   ],
+  // Process marks for a cycle: a coil, a pump and a valve, plus sun and droplet.
+  // Sun and droplet follow Lucide. The three machine marks are drawn to the same 24px grid.
+  coil: [["path", { d: "M4 5h16L4 9h16L4 13h16L4 17h16" }]],
+  pump: [
+    ["circle", { cx: "12", cy: "12", r: "8" }],
+    ["path", { d: "m10 9 6 3-6 3z", fill: "currentColor" }],
+  ],
+  valve: [
+    ["path", { d: "M5 7 12 12 5 17z", fill: "currentColor" }],
+    ["path", { d: "M19 7 12 12 19 17z", fill: "currentColor" }],
+  ],
+  droplet: [
+    [
+      "path",
+      {
+        d: "M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z",
+      },
+    ],
+  ],
+  sun: [
+    ["circle", { cx: "12", cy: "12", r: "4" }],
+    ["path", { d: "M12 2v2" }],
+    ["path", { d: "M12 20v2" }],
+    ["path", { d: "m4.93 4.93 1.41 1.41" }],
+    ["path", { d: "m17.66 17.66 1.41 1.41" }],
+    ["path", { d: "M2 12h2" }],
+    ["path", { d: "M20 12h2" }],
+    ["path", { d: "m6.34 17.66-1.41 1.41" }],
+    ["path", { d: "m19.07 4.93-1.41 1.41" }],
+  ],
 };
 
 /** The shapes of a named icon; undefined for any other name. */

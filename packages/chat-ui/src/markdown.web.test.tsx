@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { appLinkCatalog } from "@rakazo/core/app-links";
 import type { Deferred } from "@rakazo/core/test-async";
 import { deferred } from "@rakazo/core/test-async";
@@ -1041,6 +1043,18 @@ describe("web markdown parser failure", () => {
     });
     container.remove();
     vi.restoreAllMocks();
+  });
+});
+
+describe("chat table scroll", () => {
+  it("keeps a wide table inside the message so the last column can scroll into view", () => {
+    const css = readFileSync(
+      join(process.cwd(), "packages/chat-ui/src/markdown-table.css"),
+      "utf8",
+    );
+    const rule = css.match(/\.rk-table-scroll \{[^}]*\}/)?.[0] ?? "";
+    expect(rule).toContain("min-width: 0");
+    expect(rule).toContain("max-width: 100%");
   });
 });
 

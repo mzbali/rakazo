@@ -53,6 +53,8 @@ export const CORE_BUILTIN_TOOL_NAMES: ReadonlySet<string> = new Set([
   "schedule_list",
   "search_history",
   "read_history",
+  // A chat picture is one call. The JSX patterns live in the turn instructions, so this stays short.
+  "show_visual",
   READ_MEETING_TRANSCRIPT,
   "read_email",
   "send_email",

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { useWords } from "../labels.js";
+import { columnBands } from "../visual-language.js";
+import { chartShare } from "./scale.js";
 import type { Formatter } from "./shared.js";
 import {
   axisGutter,
@@ -53,8 +55,8 @@ export function Columns({
   const shown = (Array.isArray(points) ? points : []).filter((point) => finite(point?.value));
   const count = Math.max(1, shown.length);
   // Dense plots must leave enough room for each column and its matching pointer slot.
-  const gap = Math.min(8, width / (2 * count));
-  const slot = (width - gap * (count - 1)) / count;
+  const bands = columnBands(count, width);
+  const { gap, slot } = bands;
   const hover = useActive(shown.length, (x) =>
     shown.length && width > 0
       ? Math.min(shown.length - 1, Math.max(0, Math.floor(x / (slot + gap))))
@@ -64,7 +66,7 @@ export function Columns({
   const values = shown.map((point) => point.value);
   const max = Math.max(0, ...values);
   const chosen = emphasis === undefined ? values.indexOf(max) : emphasis;
-  const column = Math.min(slot, Math.max(2, Math.min(28, slot * 0.7)));
+  const { column } = bands;
   const baseline = PLOT.height - PLOT.bottom;
   const tallest = baseline - 20;
   const labelWidth = Math.max(...shown.map((point) => textWidth(text(point.label)) + 6));
@@ -74,7 +76,7 @@ export function Columns({
   const heightOf = (v: number) => (max > 0 && v > 0 ? (v / max) * tallest : 0);
   const active = hover.active;
   return (
-    <div className="rk-chart rk-frame" ref={ref}>
+    <div className="rk-chart rk-frame" data-wide={bands.few || undefined} ref={ref}>
       <div className="rk-plot">
         <svg
           role="img"
@@ -89,6 +91,21 @@ export function Columns({
               shown.map((point) => `${text(point.label)}: ${text(point.display ?? point.value)}`),
             )}
           </title>
+          {bands.few && max > 0
+            ? [0.25, 0.5, 0.75, 1].map((step) => {
+                const yLine = baseline - tallest * step;
+                return (
+                  <line
+                    key={step}
+                    className="rk-grid-line"
+                    x1={0}
+                    x2={width}
+                    y1={yLine}
+                    y2={yLine}
+                  />
+                );
+              })
+            : null}
           {max === 0 && values.every((value) => value === 0) ? (
             // Nothing rises, so the baseline and a note keep the chart from reading as broken.
             <>
@@ -111,13 +128,11 @@ export function Columns({
                 {height > 0 ? (
                   <path
                     className="rk-column"
-                    d={columnPath(center(index) - column / 2, top, column, baseline, 6)}
-                    style={{
-                      fill: inked ? "var(--rk-c1)" : "var(--rk-rest)",
-                    }}
+                    d={columnPath(center(index) - column / 2, top, column, baseline, bands.radius)}
+                    style={{ fill: "var(--rk-c1)" }}
                   />
                 ) : null}
-                {valueRoom || inked ? (
+                {bands.few || valueRoom || inked ? (
                   <text
                     className="rk-column-value"
                     x={center(index)}
@@ -386,18 +401,22 @@ type StackedBar = { label: ReactNode; values: number[]; display?: ReactNode };
 export function StackedBars({
   series = [],
   bars = [],
+  showShares,
 }: {
   series?: ReactNode[];
   bars?: StackedBar[];
+  showShares?: boolean;
 }) {
   const words = useWords();
   const names = Array.isArray(series) ? series : [];
   const rows = (Array.isArray(bars) ? bars : []).filter((bar) => bar && Array.isArray(bar.values));
-  const parts = (bar: StackedBar) => bar.values.map((v) => (finite(v) && v > 0 ? v : 0));
-  const totals = rows.map((bar) => parts(bar).reduce((sum, v) => sum + v, 0));
+  const parts = rows.map((bar) => bar.values.map((v) => (finite(v) && v > 0 ? v : 0)));
+  const totals = parts.map((row) => row.reduce((sum, v) => sum + v, 0));
   const max = Math.max(0, ...totals);
   // Parts whose total overflows draw nothing rather than NaN widths.
   if (rows.length === 0 || max <= 0 || !finite(max)) return <EmptyChart />;
+  const share = (value: number, row: number) =>
+    chartShare(totals[row]! > 0 ? value / totals[row]! : 0, words);
   return (
     <div className="rk-chart rk-frame">
       {names.length > 1 ? (
@@ -408,15 +427,15 @@ export function StackedBars({
       ) : null}
       <div
         className="rk-stacked"
+        data-shares={showShares || undefined}
         role="img"
         aria-label={describe(
           rows.map(
-            (bar) =>
-              `${text(bar.label)}: ${parts(bar)
-                .map(
-                  (v, i) => `${text(names[i]) || words.t("part", { n: i + 1 })} ${words.number(v)}`,
-                )
-                .join(", ")}`,
+            (bar, index) =>
+              `${text(bar.label)}: ${parts[index]!.map(
+                (v, i) =>
+                  `${text(names[i]) || words.t("part", { n: i + 1 })} ${words.number(v)}${showShares && v > 0 ? ` (${share(v, index)})` : ""}`,
+              ).join(", ")}`,
           ),
         )}
       >
@@ -428,13 +447,20 @@ export function StackedBars({
                 className="rk-stacked-bar"
                 style={{ width: `calc((100% - 4.5rem) * ${(totals[index]! / max).toFixed(4)})` }}
               >
-                {parts(bar).map((v, i) =>
+                {parts[index]!.map((v, i) =>
                   v > 0 ? (
                     <span
                       key={i}
                       className="rk-stacked-part"
-                      style={{ flexGrow: v, background: seriesColor(i) }}
-                    />
+                      style={{
+                        flexGrow: showShares ? (v / totals[index]!) * 100 : v,
+                        background: seriesColor(i),
+                      }}
+                    >
+                      {showShares ? (
+                        <span className="rk-stacked-share">{share(v, index)}</span>
+                      ) : null}
+                    </span>
                   ) : null,
                 )}
               </span>

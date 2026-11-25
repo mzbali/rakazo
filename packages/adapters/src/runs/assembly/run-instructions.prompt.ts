@@ -5,6 +5,7 @@ import { SCHEDULE_TOOL_NAMES } from "../../tools/schedule-tools.js";
 import type { UserComputerState } from "../tools/run-tools-user-computer.js";
 import { DESKTOP_HELD_FOR_TAKEOVER_MESSAGE } from "../turn/takeover-resume.prompt.js";
 import { replyGuidanceForOfferedTools } from "./run-replies.prompt.js";
+import { SHOW_VISUAL_BRIEF, SHOW_VISUAL_INSTRUCTION } from "./show-visual.prompt.js";
 import { VISUAL_FENCE_INSTRUCTION } from "./visual-fence.prompt.js";
 
 /** Added to the turn prompt when the user spoke this message on a live voice call. */
@@ -512,19 +513,23 @@ export function userTurnInstructions(parts: {
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "render_plot",
-      'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. When it returns embed, place that line in your reply where the chart belongs. Call render_plot with {"help": true} before your first chart to read the full guide.',
+      parts.visualFences && builtinOffered(parts.disabledBuiltinTools, "show_visual")
+        ? 'Use render_plot for a PNG or a chart the chat components cannot draw. Call with {"help": true} first, then place the embed in your reply.'
+        : 'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. When it returns embed, place that line in your reply where the chart belongs. Call render_plot with {"help": true} before your first chart to read the full guide.',
     ),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "save_page",
       'For a dashboard, report, tracker or comparison, build a page with save_page (call it with {"help": true} first for the kit guide). To change a page, pass its pageId with edits or new source instead of making a new page. In your reply, mention the page by its title; never paste its source.',
     ),
-    offeredBuiltinClause(
-      parts.disabledBuiltinTools,
-      "show_visual",
-      `When ${parts.visualFences ? "a chart or small tool" : "a diagram, chart, comparison or small tool"} would explain your answer better than words, draw it in the chat with show_visual instead of a Mermaid block or ASCII art (call it with {"help": true} first for the guide). Place the embed it returns in your reply where the visual belongs. It is not saved; use save_page for something the user will keep, share or update.${parts.visualFences ? " Use it only for what a ui fence cannot draw." : ""}`,
-    ),
-    parts.visualFences ? VISUAL_FENCE_INSTRUCTION : undefined,
+    // The fence is a complete grammar the model can copy without a tool call, so on an app chat
+    // it comes first and the picture rules follow it. Elsewhere there is no fence to outrank.
+    ...(parts.visualFences
+      ? [
+          VISUAL_FENCE_INSTRUCTION,
+          offeredBuiltinClause(parts.disabledBuiltinTools, "show_visual", SHOW_VISUAL_INSTRUCTION),
+        ]
+      : [offeredBuiltinClause(parts.disabledBuiltinTools, "show_visual", SHOW_VISUAL_BRIEF)]),
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
       "add_mcp_server",

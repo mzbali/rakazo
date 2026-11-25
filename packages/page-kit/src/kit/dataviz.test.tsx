@@ -6,6 +6,8 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Metrics, Status, Table } from "./data.js";
+import { Rings } from "./dataviz/rings.js";
+import { textWidth } from "./dataviz/scale.js";
 import {
   CalendarHeatmap,
   ColumnSeries,
@@ -446,6 +448,88 @@ describe("charts", () => {
     expect(lines.join(" ")).toBe("312 (cookie resets, excluded)");
   });
 
+  it("draws nested sets as circles one inside the next, with each label in its band", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn
+        nested
+        overlap="not shown"
+        sets={[
+          { label: "NP", count: 1200 },
+          { label: "NP-complete" },
+          { label: "P", tone: "success" },
+          { label: "Fourth" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    expect(circles).toHaveLength(3);
+    const radii = circles.map((circle) => Number(circle.getAttribute("r")));
+    expect(radii[0]).toBeGreaterThan(radii[1]!);
+    expect(radii[1]).toBeGreaterThan(radii[2]!);
+    expect(new Set(circles.map((circle) => circle.getAttribute("cx"))).size).toBe(1);
+    expect(circles[0]!.getAttribute("style")).toContain("--foreground");
+    expect(circles[2]!.getAttribute("style")).toContain("--success");
+    expect(root.textContent).toContain("1,200");
+    expect(root.textContent).not.toContain("Fourth");
+    expect(root.textContent).not.toContain("not shown");
+    const names = [...root.querySelectorAll(".rk-venn-name")];
+    expect(names.map((name) => name.textContent)).toEqual(["NP", "NP-complete", "P"]);
+    const tops = names.map((name) => Number(name.getAttribute("y")));
+    expect(tops[0]).toBeLessThan(tops[1]!);
+    expect(tops[1]).toBeLessThan(tops[2]!);
+  });
+
+  it("wraps a long nested label inside its circle", () => {
+    stubWidth(358);
+    const root = mount(
+      <Venn
+        nested
+        sets={[
+          { label: "NP: answers are quick to check" },
+          { label: "P: also quick to solve", tone: "success" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    const names = [...root.querySelectorAll<SVGTextElement>(".rk-venn-name")];
+    expect(names[0]!.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    names.forEach((name, index) => {
+      const circle = circles[index]!;
+      const radius = Number(circle.getAttribute("r"));
+      const cy = Number(circle.getAttribute("cy"));
+      const size = Number.parseFloat(name.style.fontSize);
+      let baseline = Number(name.getAttribute("y"));
+      for (const [lineIndex, line] of [...name.querySelectorAll("tspan")].entries()) {
+        const dy = Number(line.getAttribute("dy") ?? 0);
+        baseline = lineIndex === 0 ? baseline + dy : baseline + dy;
+        const half = Math.sqrt(Math.max(0, radius * radius - (baseline - cy) ** 2));
+        // Weight 650 is wider than the chart's regular measure.
+        expect(textWidth(line.textContent ?? "", size * 1.15) / 2).toBeLessThanOrEqual(half - 6);
+      }
+    });
+    const linesOf = (name: Element) =>
+      [...name.querySelectorAll("tspan")].map((line) => line.textContent).join(" ");
+    expect(linesOf(names[0]!)).toBe("NP: answers are quick to check");
+    expect(linesOf(names[1]!)).toBe("P: also quick to solve");
+  });
+
+  it("centres a single nested circle and keeps an unknown tone monochrome", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn nested sets={[{ label: "P = NP", note: "Same set of problems", tone: "success" }]} />,
+    );
+    const circle = root.querySelector(".rk-venn-set")!;
+    const name = root.querySelector(".rk-venn-name")!;
+    expect(name.getAttribute("x")).toBe(circle.getAttribute("cx"));
+    expect(name.getAttribute("text-anchor")).toBe("middle");
+    expect(root.textContent).toContain("Same set of problems");
+    expect(circle.getAttribute("style")).toContain("--success");
+    const plain = mount(<Venn nested sets={[{ label: "A", tone: "loud" as never }]} />);
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).toContain("--foreground");
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).not.toContain("--rk-loud");
+  });
+
   it("places matrix items by their 0 to 1 position, clamped, under four quadrant names", () => {
     const root = mount(
       <Matrix2x2
@@ -716,6 +800,103 @@ describe("columns", () => {
 });
 
 describe("data display", () => {
+  it("labels each location in its own ring and omits invalid locations", () => {
+    const root = mount(
+      <Rings
+        rings={["Outer", "Middle", "Inner"]}
+        center="Destination"
+        markers={[
+          { label: "Before", ring: 0 },
+          { label: "Unknown", ring: -1 },
+          { label: "After", ring: 2 },
+        ]}
+      />,
+    );
+    const title = root.querySelector("title")!;
+    expect(title.textContent).toBe(
+      "Destination, Outer, Middle, Inner, Before (Outer), After (Inner)",
+    );
+    expect(root.querySelector("svg")?.getAttribute("aria-labelledby")).toBe(title.id);
+    const pins = [...root.querySelectorAll(".rk-rings-pin")];
+    expect(Number(pins[0]?.getAttribute("cx"))).toBeLessThan(160);
+    expect(Number(pins[1]?.getAttribute("cx"))).toBeGreaterThan(160);
+    expect(Number(pins[0]?.getAttribute("cy"))).toBeGreaterThan(
+      Number(pins[1]?.getAttribute("cy")),
+    );
+  });
+
+  it("keeps short categories horizontal when requested", () => {
+    const root = mount(
+      <Bars
+        horizontal
+        bars={[
+          { label: "Buy", value: 6, display: "£6" },
+          { label: "Lease", value: 3, display: "£3" },
+        ]}
+      />,
+    );
+    expect([...root.querySelectorAll(".rk-bar-value")].map((node) => node.textContent)).toEqual([
+      "£6",
+      "£3",
+    ]);
+    expect(root.querySelector(".rk-chart")).toBeNull();
+  });
+
+  it("shows localized segment shares and the underlying figures", () => {
+    const root = mount(
+      <Page title="Generation" lang="fr">
+        <StackedBars
+          showShares
+          series={["Wind", "Gas"]}
+          bars={[{ label: "Mix", values: [0.06, 0.02] }]}
+        />
+      </Page>,
+    );
+    const number = new Intl.NumberFormat("fr", { style: "percent" });
+    const shares = [number.format(0.75), number.format(0.25)];
+    expect([...root.querySelectorAll(".rk-stacked-share")].map((node) => node.textContent)).toEqual(
+      shares,
+    );
+    expect(root.querySelector(".rk-stacked-part")?.getAttribute("style")).toContain("75");
+    expect(root.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      `Mix: Wind 0,06 (${shares[0]}), Gas 0,02 (${shares[1]})`,
+    );
+  });
+
+  it("discloses notes for the named pie parts and keeps small annotated sources", () => {
+    const parts = Array.from({ length: 10 }, (_, i) => ({
+      label: `Source ${i}`,
+      value: i < 8 ? 100 : 1,
+      detail: i === 9 ? "A small source" : undefined,
+    }));
+    const root = mount(
+      <Pie total="802" label="Generation" unit="TWh" parts={parts} percentDigits={1} />,
+    );
+    expect(root.querySelector(".rk-pie-total")?.textContent).toBe("Generation802TWh");
+    expect(root.querySelector("svg > title")?.textContent).toContain("Generation 802 TWh");
+    expect(root.querySelectorAll(".rk-pie-legend li")).toHaveLength(10);
+    const details = root.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toBe("Source 90.1%");
+    act(() => details.querySelector("summary")!.click());
+    expect(details.open).toBe(true);
+    expect(details.querySelector("p")?.textContent).toBe("A small source");
+  });
+
+  it("keeps a peak annotation in the chart at its explicit ceiling", () => {
+    const root = mount(
+      <LineChart
+        ceiling={10}
+        points={[{ value: 2 }, { value: 10 }]}
+        annotations={[{ at: 1, label: "Peak" }]}
+      />,
+    );
+    const marker = root.querySelector(".rk-annotation")!;
+    expect(Number(marker.querySelector("text")?.getAttribute("y"))).toBeGreaterThan(
+      Number(marker.querySelector("circle")?.getAttribute("cy")),
+    );
+  });
+
   it("draws a negative bar in the negative colour at its size", () => {
     const root = mount(
       <Bars
@@ -757,7 +938,11 @@ describe("data display", () => {
         ]}
       />,
     );
-    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("940Users");
+    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("Users940");
+    expect((root.querySelector(".rk-pie-total") as HTMLElement).style.width).toBe("104px");
+    expect(
+      Number.parseFloat((root.querySelector(".rk-pie-total-figure") as HTMLElement).style.fontSize),
+    ).toBe(28);
     const many = Array.from({ length: 10 }, (_, i) => ({
       label: `P${i}`,
       value: i < 8 ? 100 : 1,
@@ -777,6 +962,28 @@ describe("data display", () => {
     );
     expect(huge.innerHTML).not.toContain("NaN");
     expect(huge.querySelector("svg")).toBeNull();
+  });
+
+  it("shrinks a long donut total until it fits the hole", () => {
+    const root = mount(
+      <Pie
+        label="Supplied in 2025"
+        total="289 TWh"
+        parts={[
+          { label: "Wind", value: 30 },
+          { label: "Gas", value: 27 },
+        ]}
+      />,
+    );
+    const total = root.querySelector(".rk-pie-total") as HTMLElement;
+    const figure = root.querySelector(".rk-pie-total-figure") as HTMLElement;
+    expect(total.style.width).toBe("104px");
+    expect(total.style.maxHeight).toBe("104px");
+    expect(figure.textContent).toBe("289 TWh");
+    expect(root.querySelector(".rk-pie-total-label")!.textContent).toBe("Supplied in 2025");
+    const size = Number.parseFloat(figure.style.fontSize);
+    expect(size).toBeLessThan(28);
+    expect(textWidth("289 TWh", size * 1.15)).toBeLessThanOrEqual(88);
   });
 
   it("marks a delta up or down, coloured by which way is good, and draws an optional trend", () => {

@@ -46,6 +46,9 @@
 }
 
 .rk-table-scroll {
+  /* A flex parent otherwise grows to the table and an outer clip hides the last column. */
+  min-width: 0;
+  max-width: 100%;
   overflow: auto;
   max-height: 20em;
 }

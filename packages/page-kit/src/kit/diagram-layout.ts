@@ -1,4 +1,8 @@
 import { iconShapes } from "./diagram-icons.js";
+import { visualLanguage } from "./visual-language.js";
+
+/** Cold is info, warm is warning, hot is danger. A cycle pipe or node uses it for meaning. */
+export type DiagramTone = "info" | "warning" | "danger";
 
 export type DiagramNode = {
   id: string;
@@ -8,24 +12,42 @@ export type DiagramNode = {
   series?: number;
   /** A name from `DIAGRAM_ICONS`, drawn at the start of the node. */
   icon?: string;
+  /** Tints the node when the diagram is a cycle. Ignored on a flow. */
+  tone?: DiagramTone;
 };
-export type DiagramEdge = { from: string; to: string; label?: string; dashed?: boolean };
+export type DiagramEdge = {
+  from: string;
+  to: string;
+  label?: string;
+  dashed?: boolean;
+  /** Colours that pipe when the diagram is a cycle. Ignored on a flow. */
+  tone?: DiagramTone;
+};
 
-const LABEL_CHAR = 7.8;
-const DETAIL_CHAR = 6.9;
+// A 17px label and a 14px detail. The estimates match those sizes so a line fills its box.
+const LABEL_CHAR = 8.6;
+const DETAIL_CHAR = 7.2;
 const PAD_X = 14;
-export const PAD_Y = 10;
-export const LABEL_LINE = 19;
-export const DETAIL_LINE = 17;
-const MIN_WIDTH = 88;
-const MAX_WIDTH = 208;
-const NODE_GAP = 24;
+export const PAD_Y = visualLanguage.nodePadY;
+export const LABEL_LINE = visualLanguage.labelLine;
+export const DETAIL_LINE = visualLanguage.detailLine;
+const MIN_WIDTH = 96;
+const MAX_WIDTH = 210;
+const NODE_GAP = visualLanguage.nodeGap;
 export const LOOP_ROOM = 36;
 /** Room an icon takes at the start of a node, and its size. */
 export const ICON_ROOM = 24;
 export const ICON_SIZE = 16;
 /** Node accents for `series` 0 to 4, in chart colour order. */
-export const SERIES_COLORS = ["--rk-c1", "--rk-c2", "--rk-c3", "--rk-c4", "--rk-c5"];
+export const SERIES_COLORS = [
+  "--rk-c1",
+  "--rk-c2",
+  "--rk-c3",
+  "--rk-c4",
+  "--rk-c5",
+  "--rk-c6",
+  "--rk-c7",
+];
 
 // Estimate full-width glyphs as two Latin characters, consistently for wrapping and sizing.
 const wideGlyph =
@@ -165,6 +187,12 @@ export function layoutDiagram(
   for (const node of byId.values()) {
     layers[node.layer] = [...(layers[node.layer] ?? []), node];
   }
+  // One width per layer, the widest label's, so a stack reads as a column rather than a row of pills.
+  for (const layer of layers) {
+    if (!layer) continue;
+    const widest = Math.max(...layer.map((node) => node.width));
+    for (const node of layer) node.width = widest;
+  }
   const rank = new Map<string, number>();
   for (const layer of layers) {
     if (!layer) continue;
@@ -183,7 +211,13 @@ export function layoutDiagram(
   }
 
   // Across layers: the room each layer takes; along a layer: nodes stacked and centred.
-  const gap = edgeLabels ? (horizontal ? 88 : 56) : horizontal ? 56 : 40;
+  const gap = edgeLabels
+    ? horizontal
+      ? 72
+      : 48
+    : horizontal
+      ? visualLanguage.layerGapHorizontal
+      : visualLanguage.layerGapVertical;
   const across = (node: Placed) => (horizontal ? node.width : node.height);
   const along = (node: Placed) => (horizontal ? node.height : node.width);
   const spans = layers.map((layer) =>
@@ -223,6 +257,42 @@ export function layoutDiagram(
     width: horizontal ? extent : longest + (loops ? LOOP_ROOM : 0),
     height: horizontal ? longest + (loops ? LOOP_ROOM : 0) : extent,
   };
+}
+
+export type DiagramLayout = ReturnType<typeof layoutDiagram>;
+
+/**
+ * The author's direction when it fits the column. Otherwise the other direction, when that is
+ * narrower: a phone is wide enough for sources stacked beside one target, and too narrow for
+ * those sources in one row.
+ */
+export function fitDiagramLayout(
+  nodes: DiagramNode[],
+  edges: DiagramEdge[],
+  horizontal: boolean,
+  edgeLabels: boolean,
+  columnWidth: number,
+): DiagramLayout & { horizontal: boolean } {
+  const asked = layoutDiagram(nodes, edges, horizontal, edgeLabels);
+  if (!(columnWidth > 0) || asked.width <= columnWidth) return { ...asked, horizontal };
+  const other = layoutDiagram(nodes, edges, !horizontal, edgeLabels);
+  if (other.width < asked.width) return { ...other, horizontal: !horizontal };
+  return { ...asked, horizontal };
+}
+
+/** The one node a wider layer feeds, when the drawing converges. */
+export function diagramFocusId(nodes: { id: string; layer: number }[]): string | undefined {
+  const byLayer = new Map<number, string[]>();
+  for (const node of nodes) {
+    const list = byLayer.get(node.layer) ?? [];
+    list.push(node.id);
+    byLayer.set(node.layer, list);
+  }
+  const ranks = [...byLayer.keys()].sort((a, b) => a - b);
+  if (ranks.length < 2) return undefined;
+  const last = byLayer.get(ranks.at(-1)!)!;
+  const fansIn = ranks.slice(0, -1).some((rank) => (byLayer.get(rank)?.length ?? 0) > 1);
+  return last.length === 1 && fansIn ? last[0] : undefined;
 }
 
 export type Point = [number, number];
@@ -271,3 +341,117 @@ export const iconOrigin = (node: Placed): Point => [
 
 /** The horizontal centre of a node's text, clear of its icon. */
 export const textCentre = (node: Placed): number => node.x + (node.width + node.inset) / 2;
+
+export type DrawnEdge = {
+  d: string;
+  dashed?: boolean;
+  label?: string;
+  labelAt?: Point;
+  /** One chevron. Bundled edges share it, on the stem that enters the target. */
+  arrow?: { from: Point; tip: Point };
+};
+
+const ARROW = visualLanguage.arrowSize;
+
+/** An open chevron pointing from `from` toward `tip`. */
+export function chevron(from: Point, tip: Point, size = ARROW): string {
+  const angle = Math.atan2(tip[1] - from[1], tip[0] - from[0]);
+  const wing = (turn: number): Point => [
+    tip[0] - size * Math.cos(angle + turn),
+    tip[1] - size * Math.sin(angle + turn),
+  ];
+  const [left, right] = [wing(0.45), wing(-0.45)];
+  return `M${left[0]},${left[1]}L${tip[0]},${tip[1]}L${right[0]},${right[1]}`;
+}
+
+const place = (n: number) => Math.round(n * 10) / 10;
+const cubic = (a: Point, b: Point, c: Point, d: Point) =>
+  `M${place(a[0])},${place(a[1])}C${place(b[0])},${place(b[1])} ${place(c[0])},${place(c[1])} ${place(d[0])},${place(d[1])}`;
+
+type LaidEdge = { edge: DiagramEdge; from: Placed; to: Placed; backward: boolean };
+
+function singleEdge(item: LaidEdge, horizontal: boolean): DrawnEdge {
+  const [a, b, c, d] = edgePoints(item.from, item.to, item.backward, horizontal);
+  const angle = Math.atan2(d[1] - c[1], d[0] - c[0]);
+  return {
+    d: cubic(a, b, c, d),
+    dashed: item.edge.dashed,
+    label: item.edge.label,
+    labelAt: item.edge.label ? curveMid(a, b, c, d) : undefined,
+    arrow: {
+      from: [d[0] - ARROW * Math.cos(angle), d[1] - ARROW * Math.sin(angle)],
+      tip: d,
+    },
+  };
+}
+
+const canBundle = (item: LaidEdge) => !item.backward && !item.edge.label;
+
+/** Room for one shared stem, or 0 when the curves have nowhere to meet. */
+function stemRoom(group: LaidEdge[], horizontal: boolean): number {
+  const to = group[0]!.to;
+  let room: number = visualLanguage.arrowStem;
+  for (const item of group) {
+    const gap = horizontal
+      ? to.x - (item.from.x + item.from.width)
+      : to.y - (item.from.y + item.from.height);
+    room = Math.min(room, gap * 0.42);
+  }
+  return room;
+}
+
+function bundleEdges(group: LaidEdge[], horizontal: boolean): DrawnEdge[] {
+  const room = stemRoom(group, horizontal);
+  if (room < 10) return group.map((item) => singleEdge(item, horizontal));
+  const to = group[0]!.to;
+  const dashed = group[0]!.edge.dashed;
+  const tip: Point = horizontal ? [to.x, to.y + to.height / 2] : [to.x + to.width / 2, to.y];
+  const junction: Point = horizontal ? [tip[0] - room, tip[1]] : [tip[0], tip[1] - room];
+  const curves: DrawnEdge[] = group.map((item) => {
+    const a: Point = horizontal
+      ? [item.from.x + item.from.width, item.from.y + item.from.height / 2]
+      : [item.from.x + item.from.width / 2, item.from.y + item.from.height];
+    const span = Math.max(8, horizontal ? junction[0] - a[0] : junction[1] - a[1]);
+    const bend = span / 2;
+    const b: Point = horizontal ? [a[0] + bend, a[1]] : [a[0], a[1] + bend];
+    const c: Point = horizontal
+      ? [junction[0] - bend, junction[1]]
+      : [junction[0], junction[1] - bend];
+    return { d: cubic(a, b, c, junction), dashed };
+  });
+  curves.push({
+    d: `M${place(junction[0])},${place(junction[1])}L${place(tip[0])},${place(tip[1])}`,
+    dashed,
+    arrow: { from: junction, tip },
+  });
+  return curves;
+}
+
+/**
+ * Curves into one target share one arrowhead. A label, a backward edge, or a single edge keeps
+ * its own curve and its own arrow, so the label still sits on that curve.
+ */
+export function drawEdges(edges: LaidEdge[], horizontal: boolean): DrawnEdge[] {
+  const used = new Set<number>();
+  const drawn: DrawnEdge[] = [];
+  edges.forEach((edge, index) => {
+    if (used.has(index)) return;
+    if (!canBundle(edge)) {
+      used.add(index);
+      drawn.push(singleEdge(edge, horizontal));
+      return;
+    }
+    const group: LaidEdge[] = [];
+    edges.forEach((candidate, candidateIndex) => {
+      if (used.has(candidateIndex) || !canBundle(candidate)) return;
+      if (candidate.to.id !== edge.to.id) return;
+      if (Boolean(candidate.edge.dashed) !== Boolean(edge.edge.dashed)) return;
+      used.add(candidateIndex);
+      group.push(candidate);
+    });
+    drawn.push(
+      ...(group.length >= 2 ? bundleEdges(group, horizontal) : [singleEdge(group[0]!, horizontal)]),
+    );
+  });
+  return drawn;
+}

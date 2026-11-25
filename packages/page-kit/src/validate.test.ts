@@ -2,7 +2,7 @@ import { PAGE_SOURCE_MAX_BYTES } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import { pageViewerCode } from "./compile.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "./components.js";
-import { checkPageSource, PAGE_KIT_GUIDE } from "./validate.js";
+import { checkPageSource, PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./validate.js";
 
 const page = (body: string) => `${body}\nexport default App;\n`;
 
@@ -13,6 +13,22 @@ describe("checkPageSource", () => {
     );
     // It also carries the viewer code, compiled once here for the save to keep.
     expect(checkPageSource(example)).toEqual({ ok: true, code: pageViewerCode(example) });
+  });
+
+  it("teaches a chat visual to explain in place, and a page to nest sets", () => {
+    expect(VISUAL_GUIDE).toMatch(/^# Visuals/);
+    expect(VISUAL_GUIDE).toContain("works in place");
+    expect(VISUAL_GUIDE).not.toContain("opens it full size");
+    expect(VISUAL_GUIDE).toContain('No "drag me"');
+    expect(VISUAL_GUIDE).toContain("<Venn nested");
+    expect(VISUAL_GUIDE).toContain("lead with the pick");
+    expect(VISUAL_GUIDE).toContain("prefilled with the figures");
+    expect(VISUAL_GUIDE).toContain("A one-line question gets one line");
+    expect(VISUAL_GUIDE).toContain("at most one Callout");
+    expect(PAGE_KIT_GUIDE).toContain("Quiz {questions:");
+    expect(PAGE_KIT_GUIDE).toContain("Flashcards {cards:");
+    expect(PAGE_KIT_GUIDE).toContain("nested?");
+    expect(PAGE_KIT_GUIDE).toContain("one set inside another a nested Venn");
   });
 
   it("documents every component and helper the kit gives a page", () => {
@@ -53,6 +69,10 @@ describe("checkPageSource", () => {
     [
       "SVG and HTML elements with inline styles and handler functions",
       "const App = () => <Page title='t'><div style={{ display: 'grid' }} onClick={() => {}}><svg viewBox='0 0 10 10'><defs><linearGradient id='g'><stop offset='0' /></linearGradient></defs><path d='M0 0h10' /><circle r='2'><animate attributeName='r' /></circle><text>x</text></svg><img src='data:image/png;base64,AA==' alt='' /></div></Page>;",
+    ],
+    [
+      "a caption under a picture",
+      "const App = () => <Section title='P inside NP'><Venn nested sets={[{label: 'NP'}, {label: 'P'}]} /><Caption>P is inside NP.</Caption></Section>;",
     ],
     [
       "the structure, text and math components and the theme hook",

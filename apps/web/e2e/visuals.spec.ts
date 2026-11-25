@@ -22,7 +22,7 @@ const REPORT = `function Report() {
       <p>Count: {count}</p>
       <Button label="Add one" onClick={() => setCount(count + 1)} />
       <Text>Notes: https://example.com/report</Text>
-      <div style={{ height: 1600 }}>Every team, week by week.</div>
+      <div style={{ height: 2800 }}>Every team, week by week.</div>
     </Section>
   );
 }
@@ -66,7 +66,7 @@ test("a visual that fits works in the chat; a tall one opens full screen", async
   const card = page.getByTestId("visual-card").first();
   const frame = visualFrame(card, small);
   await expect(frame.getByText("Bot reply", { exact: true })).toBeVisible({ timeout: 15_000 });
-  expect((await card.boundingBox())!.height).toBeLessThanOrEqual(640);
+  expect((await card.boundingBox())!.height).toBeLessThan(900);
   // It fits, so it is live in the chat: a tap on its control acts there and nothing offers
   // to open it whole.
   await expect(card.locator("[inert]")).toHaveCount(0);
@@ -93,8 +93,8 @@ test("a visual that fits works in the chat; a tall one opens full screen", async
   await expect(report.locator("[inert]")).toHaveCount(1);
   await expect
     .poll(async () => (await report.boundingBox())?.height ?? 0, { timeout: 15_000 })
-    .toBeGreaterThan(600);
-  expect((await report.boundingBox())!.height).toBeLessThanOrEqual(640);
+    .toBeGreaterThan(1000);
+  expect((await report.boundingBox())!.height).toBeLessThanOrEqual(1200);
   await expect(report.getByRole("button")).toHaveCount(1);
   // Inline it shows no scrollbar.
   expect(await scrollbarWidthRule(visualFrame(report, tall))).toBe("none");

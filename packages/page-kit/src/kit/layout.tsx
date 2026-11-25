@@ -139,29 +139,70 @@ export function Page({
   );
 }
 
+/** The one line under a picture. A Section places it inside that picture's card. */
+export function Caption({ children }: { children?: ReactNode }) {
+  return <p className="rk-caption">{children}</p>;
+}
+
+const isFigure = (child: ReactNode) => isValidElement(child) && FIGURES.has(child.type);
+const classOf = (child: ReactNode) =>
+  isValidElement(child) ? (child.props as { className?: string }).className : undefined;
+const isCaption = (child: ReactNode) =>
+  classOf(child) === "rk-caption" || (isValidElement(child) && child.type === Caption);
+const isSource = (child: ReactNode) => classOf(child) === "rk-source";
+
+/** A figure that is not already the whole section gets its own card, caption and source inside. */
+function wrapLooseFigures(blocks: ReactNode[]): ReactNode[] {
+  const wrapped: ReactNode[] = [];
+  for (let index = 0; index < blocks.length; index++) {
+    const child = blocks[index]!;
+    if (!isFigure(child)) {
+      wrapped.push(child);
+      continue;
+    }
+    const group = [child];
+    while (isCaption(blocks[index + 1]) || isSource(blocks[index + 1])) {
+      index += 1;
+      group.push(blocks[index]!);
+    }
+    wrapped.push(
+      <div className="rk-figure-card" key={`rk-figure-${index}`}>
+        {group}
+      </div>,
+    );
+  }
+  return wrapped;
+}
+
 export function Section({
   heading,
+  title: namedTitle,
   id,
   caption,
+  source,
   actions,
   collapsible = false,
   defaultOpen = false,
   children,
 }: {
   heading?: string;
+  /** The same text as heading. Chat visuals write title. */
+  title?: string;
   id?: string;
   caption?: string;
+  /** A muted line under the caption, inside the same card. */
+  source?: string;
   actions?: ReactNode;
   collapsible?: boolean;
   defaultOpen?: boolean;
   children?: ReactNode;
 }) {
+  const headingText = heading || (typeof namedTitle === "string" ? namedTitle : "");
   const card = useContext(InGrid);
   const depth = useContext(Depth);
-  const folds = Boolean(collapsible && heading);
+  const folds = Boolean(collapsible && headingText);
   const [open, setOpen] = useState(Boolean(defaultOpen));
-  const anchor =
-    typeof id === "string" && id ? id : typeof heading === "string" ? slugify(heading) : "";
+  const anchor = typeof id === "string" && id ? id : headingText ? slugify(headingText) : "";
   const title = folds ? (
     <button
       type="button"
@@ -182,15 +223,15 @@ export function Section({
           strokeLinejoin="round"
         />
       </svg>
-      <span>{heading}</span>
+      <span>{headingText}</span>
     </button>
   ) : (
-    heading
+    headingText
   );
   const head =
-    heading || actions ? (
+    headingText || actions ? (
       <div className="rk-section-head">
-        {heading
+        {headingText
           ? createElement(`h${Math.min(6, depth + 2)}`, { className: "rk-heading" }, title)
           : null}
         {actions ? <div className="rk-actions">{actions}</div> : null}
@@ -199,7 +240,7 @@ export function Section({
   const blocks = Children.toArray(children);
   if (caption) {
     // Under the first figure it describes; with none, under the first block.
-    const figure = blocks.findIndex((child) => isValidElement(child) && FIGURES.has(child.type));
+    const figure = blocks.findIndex((child) => isFigure(child));
     blocks.splice(
       figure < 0 ? Math.min(1, blocks.length) : figure + 1,
       0,
@@ -208,12 +249,29 @@ export function Section({
       </p>,
     );
   }
+  if (source) {
+    const captionAt = blocks.findIndex((child) => isCaption(child));
+    const figure = blocks.findIndex((child) => isFigure(child));
+    const at = captionAt >= 0 ? captionAt + 1 : figure >= 0 ? figure + 1 : blocks.length;
+    blocks.splice(
+      at,
+      0,
+      <p className="rk-source" key="rk-source">
+        {source}
+      </p>,
+    );
+  }
+  const figureOnly =
+    blocks.some((child) => isFigure(child)) &&
+    blocks.every((child) => isFigure(child) || isCaption(child) || isSource(child));
+  const carded = card || figureOnly;
+  const presented = carded ? blocks : wrapLooseFigures(blocks);
   return (
     <section
       className="rk-section"
       id={anchor || undefined}
-      data-card={card || undefined}
-      data-headed={heading ? true : undefined}
+      data-card={carded || undefined}
+      data-headed={headingText ? true : undefined}
       data-collapsible={folds || undefined}
     >
       {head}
@@ -222,11 +280,11 @@ export function Section({
           {folds ? (
             <div className="rk-section-fold" data-open={open || undefined} inert={!open}>
               <div className="rk-section-body">
-                <ErrorBoundary>{blocks}</ErrorBoundary>
+                <ErrorBoundary>{presented}</ErrorBoundary>
               </div>
             </div>
           ) : (
-            <ErrorBoundary>{blocks}</ErrorBoundary>
+            <ErrorBoundary>{presented}</ErrorBoundary>
           )}
         </InGrid.Provider>
       </Depth.Provider>

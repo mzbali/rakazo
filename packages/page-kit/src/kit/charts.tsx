@@ -1,9 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Fragment } from "react";
+import { Fragment, isValidElement } from "react";
+import { chartShare } from "./dataviz/scale.js";
 import type { Formatter, LegendItem } from "./dataviz.js";
 import {
   axisGutter,
   ChartTip,
+  Columns,
   EmptyChart,
   finite,
   formatValue,
@@ -18,6 +20,7 @@ import {
 } from "./dataviz.js";
 import { objectItems } from "./items.js";
 import { useWords } from "./labels.js";
+import { standsAsColumns } from "./visual-language.js";
 
 const PLOT = { top: 10, bottom: 22, right: 4 };
 
@@ -97,6 +100,8 @@ export function LineChart({
   labels,
   annotations,
   legend = true,
+  marker,
+  reference,
 }: {
   points?: LinePoint[];
   floor?: number;
@@ -108,6 +113,10 @@ export function LineChart({
   labels?: ReactNode[];
   annotations?: Annotation[];
   legend?: boolean;
+  /** The point index of the dashed guide and outlined dot. Hover still wins. */
+  marker?: number;
+  /** A dashed horizontal line, named at its right end. */
+  reference?: { value: number; label?: ReactNode };
 }) {
   const words = useWords();
   const { ref, width } = useWidth(560);
@@ -189,6 +198,34 @@ export function LineChart({
     )
     .slice(0, 3 * Math.max(1, count));
   const active = hover.active;
+  const asked = marker !== undefined && marker !== null;
+  const markerNumber = Number(marker);
+  const markerIndex =
+    asked &&
+    finite(markerNumber) &&
+    Number.isInteger(markerNumber) &&
+    markerNumber >= 0 &&
+    markerNumber < count
+      ? markerNumber
+      : undefined;
+  const pinned = asked
+    ? (markerIndex ?? null)
+    : !multi && finite(primary[lastIndex])
+      ? lastIndex
+      : null;
+  const at = active ?? pinned;
+  const referenceRecord =
+    reference && typeof reference === "object" && !Array.isArray(reference) ? reference : undefined;
+  const referenceValue = finite(Number(referenceRecord?.value))
+    ? Number(referenceRecord?.value)
+    : undefined;
+  const referenceLabel = referenceRecord?.label;
+  const referenceText =
+    typeof referenceLabel === "string" ||
+    (typeof referenceLabel === "number" && Number.isFinite(referenceLabel)) ||
+    isValidElement(referenceLabel)
+      ? referenceLabel
+      : null;
   const description = series
     .map(
       (s, index) =>
@@ -199,7 +236,7 @@ export function LineChart({
     .join(". ");
   return (
     <div className="rk-chart rk-frame" ref={ref}>
-      {legend !== false && keyItems.length > 0 ? <SeriesLegend items={keyItems} /> : null}
+      {legend !== false && keyItems.length > 1 ? <SeriesLegend items={keyItems} /> : null}
       <div className="rk-plot">
         <svg
           role="img"
@@ -304,10 +341,12 @@ export function LineChart({
               );
             }
             const neighbours = [primary[at - 1], primary[at + 1]].filter(finite);
-            const above =
-              neighbours.length === 0 ||
-              v >= neighbours.reduce((a, b) => a + b, 0) / neighbours.length;
             const cy = y(v);
+            const above =
+              cy + 26 > baseline ||
+              (cy >= 28 &&
+                (neighbours.length === 0 ||
+                  v >= neighbours.reduce((a, b) => a + b, 0) / neighbours.length));
             return (
               <g key={index} className="rk-annotation">
                 <line x1={cx} x2={cx} y1={above ? cy - 5 : cy + 5} y2={above ? cy - 11 : cy + 11} />
@@ -328,25 +367,28 @@ export function LineChart({
               </g>
             );
           })}
-          {active !== null ? (
+          {referenceValue !== undefined ? (
+            <ReferenceLine
+              y={y(referenceValue)}
+              left={left}
+              right={right}
+              end={right}
+              label={referenceText}
+            />
+          ) : null}
+          {at !== null ? (
             <g className="rk-hover">
-              <line
-                className="rk-crosshair"
-                x1={x(active)}
-                x2={x(active)}
-                y1={PLOT.top}
-                y2={baseline}
-              />
-              {series.map((s, index) => {
-                const v = s.values[active];
+              <line className="rk-crosshair" x1={x(at)} x2={x(at)} y1={PLOT.top} y2={baseline} />
+              {(active !== null ? series : [series[0]!]).map((s, index) => {
+                const v = s.values[at];
                 return finite(v) ? (
                   <circle
                     key={index}
                     className="rk-hover-dot"
-                    cx={x(active)}
+                    cx={x(at)}
                     cy={y(v)}
-                    r={4}
-                    style={{ fill: seriesColor(index) }}
+                    r={5}
+                    style={{ stroke: seriesColor(active !== null ? index : 0) }}
                   />
                 ) : null;
               })}
@@ -403,7 +445,15 @@ export type Bar = { label: ReactNode; value: number; display?: ReactNode };
  * Without a choice the longest bar is inked and the rest recede; "none" inks every bar.
  * A negative value draws in the negative colour, scaled against the largest size either way.
  */
-export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number | "none" }) {
+export function Bars({
+  bars = [],
+  emphasis,
+  horizontal,
+}: {
+  bars?: Bar[];
+  emphasis?: number | "none";
+  horizontal?: boolean;
+}) {
   const words = useWords();
   const rows = objectItems(bars);
   const values = rows.map((bar) => (finite(bar.value) ? bar.value : 0));
@@ -411,6 +461,14 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   // The longest bar, negative or not, since a bar's length is its size.
   const chosen = emphasis === undefined ? values.map(Math.abs).indexOf(max) : emphasis;
   if (rows.length === 0) return null;
+  if (!horizontal && standsAsColumns(rows)) {
+    return (
+      <Columns
+        points={rows.map((bar) => ({ label: bar.label, value: bar.value, display: bar.display }))}
+        emphasis={emphasis}
+      />
+    );
+  }
   return (
     <ul className="rk-bars rk-frame">
       {rows.map((bar, index) => {
@@ -438,24 +496,64 @@ export function Bars({ bars = [], emphasis }: { bars?: Bar[]; emphasis?: number 
   );
 }
 
-type PiePart = { label: ReactNode; value: number; display?: ReactNode };
+type PiePart = { label: ReactNode; value: number; display?: ReactNode; detail?: string };
 
-const PIE_SIZE = 120;
-const PIE_RING = 24;
+const PIE_SIZE = 160;
+const PIE_RING = 28;
+/** Inner diameter. The stroke is centred on the ring, so the hole is the size minus two strokes. */
+const PIE_HOLE = PIE_SIZE - PIE_RING * 2;
+/** Clear of the stroke, matching the 8px padding on the centre. */
+const PIE_ROOM = PIE_HOLE - 16;
 /** The track shows between slices. */
 const PIE_GAP = 2;
 /** With many parts, slivers under 2% fold into one "Other" slice. */
 const FOLD_OVER = 8;
+
+/**
+ * Lines that stay inside the donut hole. A short figure keeps `start`. A long one shrinks, then
+ * wraps, so it does not cross the ring.
+ */
+function fitCentreText(
+  value: string,
+  start: number,
+  min: number,
+  weight: number,
+  maxLines: number,
+): { size: number; lines: string[] } {
+  const words = value.trim();
+  if (!words) return { size: start, lines: [] };
+  let size = start;
+  let lines = [words];
+  while (size >= min) {
+    const measure = size * weight;
+    const wrapped: string[] = [];
+    for (const word of words.split(/\s+/)) {
+      const last = wrapped[wrapped.length - 1];
+      if (last !== undefined && textWidth(`${last} ${word}`, measure) <= PIE_ROOM) {
+        wrapped[wrapped.length - 1] = `${last} ${word}`;
+      } else wrapped.push(word);
+    }
+    lines = wrapped;
+    const widest = wrapped.reduce((max, line) => Math.max(max, textWidth(line, measure)), 0);
+    if (wrapped.length <= maxLines && widest <= PIE_ROOM) return { size, lines };
+    size -= 1;
+  }
+  return { size: min, lines };
+}
 
 /** A donut of parts of one whole, with each part's value and share listed beside it. */
 export function Pie({
   parts = [],
   total,
   label,
+  unit,
+  percentDigits,
 }: {
   parts?: PiePart[];
   total?: boolean | ReactNode;
   label?: ReactNode;
+  unit?: ReactNode;
+  percentDigits?: number;
 }) {
   const words = useWords();
   const valid = (Array.isArray(parts) ? parts : []).filter(
@@ -463,7 +561,7 @@ export function Pie({
   );
   const sum = valid.reduce((acc, part) => acc + part.value, 0);
   let shown: PiePart[] = valid;
-  if (valid.length > FOLD_OVER) {
+  if (valid.length > FOLD_OVER && !valid.some((part) => part.detail)) {
     const small = valid.filter((part) => part.value / sum < 0.02);
     if (small.length > 1) {
       shown = [
@@ -487,13 +585,15 @@ export function Pie({
     start += share;
     return slice;
   });
-  const percent = (share: number) =>
-    share < 0.01
-      ? `<${words.number(0.01, { style: "percent" })}`
-      : words.number(share, { style: "percent", maximumFractionDigits: 0 });
+  const percent = (share: number) => chartShare(share, words, percentDigits);
   const showTotal = total !== undefined && total !== false && total !== null;
   const totalText = total === true ? formatValue(sum, undefined, undefined, words) : total;
-  const description = `${text(label) ? `${text(label)}: ` : ""}${slices
+  // Weight 600 is wider than the chart measure. One line, shrunk until it clears the ring.
+  const figureFit = fitCentreText(text(totalText), 28, 14, 1.15, 1);
+  const totalDescription = showTotal
+    ? [text(label), text(totalText), text(unit)].filter(Boolean).join(" ")
+    : text(label);
+  const description = `${totalDescription ? `${totalDescription}: ` : ""}${slices
     .map(
       ({ part, share }) =>
         `${text(part.label)} ${text(part.display ?? part.value)}, ${percent(share)}`,
@@ -531,28 +631,57 @@ export function Pie({
           ))}
         </svg>
         {showTotal ? (
-          <div className="rk-pie-total" aria-hidden="true">
-            <span className="rk-pie-total-figure">{totalText}</span>
+          <div
+            className="rk-pie-total"
+            style={{ width: PIE_HOLE, maxHeight: PIE_HOLE }}
+            aria-hidden="true"
+          >
             {label != null && label !== "" ? (
               <span className="rk-pie-total-label">{label}</span>
             ) : null}
+            <span
+              className="rk-pie-total-figure"
+              style={text(totalText) ? { fontSize: figureFit.size } : undefined}
+            >
+              {text(totalText) && figureFit.lines.length > 1
+                ? figureFit.lines.map((line, index) => (
+                    <span key={index} style={{ display: "block" }}>
+                      {line}
+                    </span>
+                  ))
+                : totalText}
+            </span>
+            {unit != null ? <span className="rk-pie-total-label">{unit}</span> : null}
           </div>
         ) : null}
       </div>
       <ul className="rk-pie-legend">
-        {slices.map(({ part, share, color }, index) => (
-          <li
-            key={index}
-            style={{ "--rk-swatch": color } as CSSProperties}
-            data-emphasis={index === largest || undefined}
-          >
-            <span className="rk-pie-value">
-              {part.display ?? formatValue(part.value, undefined, undefined, words)}
-            </span>
-            <span className="rk-pie-label">{part.label}</span>
-            <span className="rk-pie-share">{percent(share)}</span>
-          </li>
-        ))}
+        {slices.map(({ part, share, color }, index) => {
+          const detail = typeof part.detail === "string" ? part.detail.trim() : "";
+          const cells = (
+            <>
+              <span className="rk-pie-label">{part.label}</span>
+              {part.display != null ? <span className="rk-pie-value">{part.display}</span> : null}
+              <span className="rk-pie-share">{percent(share)}</span>
+            </>
+          );
+          return (
+            <li
+              key={index}
+              style={{ "--rk-swatch": color } as CSSProperties}
+              data-emphasis={index === largest || undefined}
+            >
+              {detail ? (
+                <details className="rk-pie-detail">
+                  <summary className="rk-pie-row">{cells}</summary>
+                  <p>{detail}</p>
+                </details>
+              ) : (
+                <div className="rk-pie-row">{cells}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

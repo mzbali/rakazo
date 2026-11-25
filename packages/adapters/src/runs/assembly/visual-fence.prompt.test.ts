@@ -1,6 +1,7 @@
 import { DIAGRAM_ICON_NAMES, parseVisualFence, VISUAL_TAGS } from "@rakazo/core/visual-fence";
 import { describe, expect, it } from "vitest";
 import { userTurnInstructions } from "./run-instructions.prompt.js";
+import { SHOW_VISUAL_INSTRUCTION } from "./show-visual.prompt.js";
 import { VISUAL_FENCE_INSTRUCTION, visualFencesAllowed } from "./visual-fence.prompt.js";
 
 const parts = {
@@ -61,7 +62,35 @@ describe("the ui fence instructions", () => {
     expect(VISUAL_FENCE_INSTRUCTION).toContain("no markdown and no links");
   });
 
-  it("stay short", () => {
+  it("stay short, keep callouts rare, and send pictures to show_visual", () => {
     expect(VISUAL_FENCE_INSTRUCTION.length).toBeLessThan(4300);
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("show_visual, not a fence");
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("simple chart of figures");
+    expect(VISUAL_FENCE_INSTRUCTION).not.toContain("short comparison");
+    expect(VISUAL_FENCE_INSTRUCTION).toContain("at most one");
+    const example = /```ui\n([\s\S]*?)\n```/.exec(VISUAL_FENCE_INSTRUCTION)?.[1] ?? "";
+    expect(example).not.toContain("Callout");
+    const withFences = userTurnInstructions({ ...parts, visualFences: true }).join("\n");
+    const fenceAt = withFences.indexOf(VISUAL_FENCE_INSTRUCTION);
+    const pictureAt = withFences.indexOf(SHOW_VISUAL_INSTRUCTION);
+    expect(fenceAt).toBeGreaterThan(-1);
+    expect(pictureAt).toBeGreaterThan(fenceAt);
+    expect(withFences).toContain(
+      "Use render_plot for a PNG or a chart the chat components cannot draw.",
+    );
+    expect(withFences).not.toContain("For charts and data visualization, use the render_plot tool");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("understand something");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("how it works");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("compare or decide");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("whether to buy");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("web search does not replace");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("number the sections");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Practice");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("one plain sentence");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("<Venn nested");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Stages groups=");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Checklist interactive collapsible");
+    expect(SHOW_VISUAL_INSTRUCTION).not.toContain('{"help": true}');
+    expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });
 });

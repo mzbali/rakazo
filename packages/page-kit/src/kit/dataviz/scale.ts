@@ -10,9 +10,9 @@ export const finite = (value: unknown): value is number =>
 export const numbers = (values: unknown): number[] =>
   Array.isArray(values) ? values.filter(finite) : [];
 
-/** Three named hues, then everything else in one neutral grey. */
+/** The series blue, then six muted hues, then one neutral grey. */
 export function seriesColor(index: number): string {
-  return index < 3 ? `var(--rk-c${index + 1})` : "var(--rk-other)";
+  return index >= 0 && index < 7 ? `var(--rk-c${index + 1})` : "var(--rk-other)";
 }
 
 /** Round tick steps (1, 2, 2.5 or 5 times a power of ten) covering the domain. */
@@ -45,6 +45,16 @@ export function valueScale(values: number[], floor?: number, ceiling?: number) {
 }
 
 export type Formatter = (value: number) => ReactNode;
+
+export function chartShare(share: number, words: Pick<Words, "number">, digits = 0): string {
+  const maximumFractionDigits = Number.isInteger(digits) ? Math.max(0, Math.min(2, digits)) : 0;
+  const minimum = 10 ** (-2 - maximumFractionDigits);
+  const formatted = words.number(Math.max(share, minimum), {
+    style: "percent",
+    maximumFractionDigits,
+  });
+  return share < minimum ? `<${formatted}` : formatted;
+}
 
 /** A caller's format wins; otherwise the figure, then the unit after a thin gap ("30 %"). */
 export function formatValue(

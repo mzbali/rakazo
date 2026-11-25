@@ -15,6 +15,7 @@ import {
 import { selfRenderingKitNames, selfRenderingMessage } from "./shadow.js";
 
 export { PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./guide.js";
+export { kitComponentsUsed } from "./kit-components-used.js";
 export { visualImageReferences } from "./visual-image-references.js";
 
 const MAX_REPORTED_ERRORS = 20;

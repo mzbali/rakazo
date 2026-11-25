@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Evidence } from "../cases.js";
 import { EMPTY_SETTINGS } from "../cases.js";
+import type { JudgeInput } from "../judge.js";
 import type { VisualCase } from "./visuals.js";
 import {
   gradeVisuals,
@@ -96,6 +97,15 @@ describe("visualUse", () => {
     ).toBe(2);
   });
 
+  it("takes components only from visuals that reached the chat, and ignores plot guide reads", () => {
+    expect(
+      visualUse(evidence([visual(CALCULATOR, "failed"), visual(PROSE_ONLY)])).components,
+    ).toEqual(["Section", "Text"]);
+    expect(
+      visualUse(evidence([{ step: 1, name: "render_plot", args: { help: true } }])).plotted,
+    ).toBe(false);
+  });
+
   it("flags render_plot and a plotting script on the computer", () => {
     expect(visualUse(evidence([{ step: 1, name: "render_plot", args: {} }])).plotted).toBe(true);
     expect(
@@ -110,18 +120,21 @@ describe("visualUse", () => {
     ).toBe(false);
   });
 
-  it("reads photos from the first call's images and its compiled rakazo-image references", () => {
-    const images = [{ url: "https://img.example/a.jpg", alt: "a" }];
-    expect(visualUse(evidence([visual(PHOTOS, "succeeded", { images })])).firstCallPhotos).toBe(
-      true,
-    );
-    expect(visualUse(evidence([visual(PHOTOS)])).firstCallPhotos).toBe(false);
-    expect(visualUse(evidence([visual(PROSE_ONLY, "succeeded", { images })])).firstCallPhotos).toBe(
-      false,
-    );
+  it("wants every photo passed to be placed by a rakazo-image reference on the first call", () => {
+    const one = [{ url: "https://img.example/a.jpg", alt: "a" }];
+    const two = [...one, { url: "https://img.example/b.jpg", alt: "b" }];
+    const photos = (images: unknown, source = PHOTOS) =>
+      visualUse(evidence([visual(source, "succeeded", { images })])).firstCallPhotos;
+    expect(photos(two)).toBe(true);
+    // Two photos placed but one passed, or the reverse: show_visual refuses both.
+    expect(photos(one)).toBe(false);
+    expect(photos(two, PHOTOS.replace("rakazo-image:2", "rakazo-image:1"))).toBe(false);
+    expect(photos(undefined)).toBe(false);
+    expect(photos(two, PROSE_ONLY)).toBe(false);
     expect(
-      visualUse(evidence([visual(PROSE_ONLY, "failed"), visual(PHOTOS, "succeeded", { images })]))
-        .firstCallPhotos,
+      visualUse(
+        evidence([visual(PROSE_ONLY, "failed"), visual(PHOTOS, "succeeded", { images: two })]),
+      ).firstCallPhotos,
     ).toBe(false);
   });
 });
@@ -184,7 +197,10 @@ describe("gradeVisuals", () => {
 
   it("wants photos on the first call of the product case, whatever the fetch did", () => {
     const cameras = definition("photos-cameras");
-    const images = [{ url: "https://img.example/a.jpg", alt: "a" }];
+    const images = [
+      { url: "https://img.example/a.jpg", alt: "a" },
+      { url: "https://img.example/b.jpg", alt: "b" },
+    ];
     expect(failed(gradeVisuals(cameras, evidence([visual(PHOTOS, "failed", { images })])))).toEqual(
       [],
     );
@@ -205,16 +221,20 @@ describe("visuals suite", () => {
   });
 
   it("sends each case's meaning to the judge and keeps the data case's page offline", () => {
-    for (const scenario of VISUALS_EVAL_CASES) expect(scenario.judge).toBeTypeOf("function");
+    for (const scenario of VISUALS_EVAL_CASES) {
+      // Observed, not a case judge: the checks run and decide without judge credentials.
+      expect(scenario.judge).toBeUndefined();
+      expect(scenario.observe).toBeTypeOf("function");
+    }
     const data = VISUALS_EVAL_CASES.find((c) => c.id === "data-inflation")!;
     expect(data.fixtureData).toBeDefined();
   });
 
   it("builds the judge's evidence from the visuals that succeeded", () => {
     const scenario = VISUALS_EVAL_CASES.find((c) => c.id === "money-mortgage")!;
-    const input = scenario.judge!(
+    const input = scenario.observe!(
       evidence([visual(CALCULATOR, "failed"), visual(CALCULATOR)], { text: "Here it is." }),
-    );
+    )["matches-target"] as JudgeInput;
     expect(input.rubric.startsWith(`${VISUALS_JUDGE_VERSION}:`)).toBe(true);
     const shown = input.evidence as { visuals: unknown[]; reply: string };
     expect(shown.visuals).toHaveLength(1);

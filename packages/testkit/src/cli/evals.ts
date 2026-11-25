@@ -482,7 +482,14 @@ async function main() {
       `Without a judge, ${heldBack.size} judged case(s) stay not-run and unqualified: ${[...heldBack].join(", ")}`,
     );
     save();
-  } else if (judged.size && !values["cache-probe"] && suiteJudge) {
+  } else if (
+    (judged.size || selected.some((c) => c.observe)) &&
+    !values["cache-probe"] &&
+    suiteJudge &&
+    judgeConnectionFile &&
+    judgePricingFile
+  ) {
+    // A case that only observes by meaning runs without a judge; its observation stays unknown.
     let rawJudgeConnection: unknown;
     try {
       rawJudgeConnection = readConnection(judgeConnectionFile!);

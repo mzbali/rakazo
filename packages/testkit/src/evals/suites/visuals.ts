@@ -97,31 +97,37 @@ const sourceOf = (args: Record<string, unknown>) =>
 export function visualUse(evidence: Evidence): VisualUse {
   const calls = evidence.toolCalls.filter((call) => call.step === evidence.finalStep);
   const drawn = calls.filter((call) => call.name === "show_visual" && call.args.help !== true);
+  const shown = drawn.filter((call) => call.outcome === "succeeded");
   const firstSuccess = drawn.findIndex((call) => call.outcome === "succeeded");
   const first = drawn[0]?.args;
   return {
     calls: drawn.length,
-    succeeded: drawn.filter((call) => call.outcome === "succeeded").length,
+    succeeded: shown.length,
     failedBeforeFirstSuccess: (firstSuccess < 0 ? drawn : drawn.slice(0, firstSuccess)).length,
-    components: [...new Set(drawn.flatMap((call) => kitComponentsUsed(sourceOf(call.args))))],
+    // Only what reached the chat counts: a failed call's source never showed.
+    components: [...new Set(shown.flatMap((call) => kitComponentsUsed(sourceOf(call.args))))],
+    // Reading the plot guide draws nothing.
     plotted: calls.some(
       (call) =>
-        PLOT_TOOLS.has(call.name) ||
+        (PLOT_TOOLS.has(call.name) && call.args.help !== true) ||
         (call.name === "shell" &&
           PLOT_LIBRARIES.some((library) => String(call.args.command ?? "").includes(library))),
     ),
-    firstCallPhotos:
-      first !== undefined &&
-      Array.isArray(first.images) &&
-      first.images.length > 0 &&
-      imageReferences(sourceOf(first)) > 0,
+    firstCallPhotos: first !== undefined && placesEveryPhoto(first),
   };
 }
 
-/** How many photos the source places with rakazo-image, read from its compiled code. */
-function imageReferences(source: string): number {
-  const checked = checkPageSource(source);
-  return checked.ok ? visualImageReferences(checked.code).places.length : 0;
+/** Every photo passed is placed once or more by a rakazo-image reference, as show_visual requires. */
+function placesEveryPhoto(args: Record<string, unknown>): boolean {
+  if (!Array.isArray(args.images) || args.images.length === 0) return false;
+  const checked = checkPageSource(sourceOf(args));
+  if (!checked.ok) return false;
+  const { places, malformed } = visualImageReferences(checked.code);
+  return (
+    !malformed &&
+    places.length === args.images.length &&
+    places.every((place) => place >= 1 && place <= args.images.length)
+  );
 }
 
 /** Deterministic checks for one case. Criterion ids are stable so trials add up per check. */
@@ -410,7 +416,9 @@ export function visualEvalCase(definition: VisualCase): EvalCase {
     ...sourcesCase(definition.sources),
     steps: [{ ask: definition.prompt }],
     grade: (evidence) => gradeVisuals(definition, evidence),
-    judge: (evidence) => judgeVisuals(definition, evidence),
+    // Graded by meaning when a judge is given and left unknown otherwise, so the checks above
+    // run on their own.
+    observe: (evidence) => ({ "matches-target": judgeVisuals(definition, evidence) }),
   };
 }
 

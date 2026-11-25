@@ -68,3 +68,23 @@ behavior tests cover assembly and tool contracts; the source-version tests cover
 automatic discovery, conditional edits, schemas and production embedding. A contract
 test also checks both server build-cache configs against the exported discovery
 patterns, so adding a definition pattern cannot silently leave stale bundles cached.
+
+## Scoring the chat visual prompts
+
+`show-visual.prompt.ts`, `visual-fence.prompt.ts`, the visual lines of
+`run-instructions.prompt.ts`, the `show_visual` definition and the page kit guide decide when
+the bot draws and with what. The `visuals` eval suite scores that with a real model on fifteen
+prompts (explainers, decisions, money, checklists and quizzes, fetched data, product photos and
+a one-fact question). It is never part of `pnpm test` or CI; run it on purpose:
+
+```sh
+pnpm test:evals --suite visuals --connection <file> --pricing <file> --trials 3
+```
+
+Each trial is checked from its tool calls: how many `show_visual` calls ran and succeeded,
+which kit components their JSX used, whether a plot tool or plotting script ran, and how many
+calls failed before the first success. Add `--judge-connection` and `--judge-pricing` to have
+an LLM judge, under a versioned rubric with reviewed examples, whether the pictures match the
+target for the prompt's category. The judge's cost is reported apart from the bot's. Run it
+before and after a change to those files and compare the two reports with
+`pnpm test:evals:compare`.

@@ -97,6 +97,8 @@ export type Evidence = {
     /** Ran through use_tool; `loaded` when an earlier find_tool returned it. */
     viaUseTool?: boolean;
     loaded?: boolean;
+    /** How the call ended, when the run recorded it. */
+    outcome?: "succeeded" | "failed";
   }>;
   finalStep: number;
   settings: SettingsSnapshot;

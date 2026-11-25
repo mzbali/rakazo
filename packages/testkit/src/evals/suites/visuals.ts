@@ -1,4 +1,4 @@
-import { visualImageArgs } from "@rakazo/adapters";
+import { visualImageArgs } from "@rakazo/core";
 import {
   checkPageSource,
   kitComponentsUsed,

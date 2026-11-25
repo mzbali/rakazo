@@ -13,7 +13,7 @@ import { sourcesCase } from "./tool-choice-sources.js";
  * How the bot uses chat visuals: when it draws, how many pictures, and which kit components.
  * Needs a real model and is never part of `pnpm test` or CI. Run it on purpose:
  *
- *   pnpm test:evals --suite visuals --connection <file> --pricing <file> --trials 3
+ *   pnpm test:evals --live --suite visuals --connection <file> --pricing <file> --trials 3
  *
  * Add `--judge-connection <file> --judge-pricing <file>` to also have an LLM judge whether the
  * visuals match the target for the prompt's category; without them the judged check stays

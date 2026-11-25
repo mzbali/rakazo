@@ -78,7 +78,7 @@ prompts (explainers, decisions, money, checklists and quizzes, fetched data, pro
 a one-fact question). It is never part of `pnpm test` or CI; run it on purpose:
 
 ```sh
-pnpm test:evals --suite visuals --connection <file> --pricing <file> --trials 3
+pnpm test:evals --live --suite visuals --connection <file> --pricing <file> --trials 3
 ```
 
 Each trial is checked from its tool calls: how many `show_visual` calls ran and succeeded,

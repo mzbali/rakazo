@@ -48,6 +48,8 @@ describe("built-in skills", () => {
     expect(used.length).toBeGreaterThan(10);
     for (const name of used) expect(VISUAL_GUIDE, name).toContain(`${name} {`);
     expect(used).toContain("Compare");
+    expect(body).toContain('"Best for"');
+    expect(body).toContain("A needless visual is a failure too");
     expect(body).toContain("Plain text, no visual: a single fact");
     // Every example's photo goes through the references show_visual resolves.
     expect(body).toContain('src="rakazo-image:1"');

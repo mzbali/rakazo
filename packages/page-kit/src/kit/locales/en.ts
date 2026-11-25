@@ -12,6 +12,7 @@ export const en = {
   none: "none",
   noValue: "No value",
   comparison: "Comparison",
+  bestValue: "Best",
   other: "Other",
   total: "Total",
   part: "part {n}",

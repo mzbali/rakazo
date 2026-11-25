@@ -6,6 +6,7 @@ import type { PageKitComponentName } from "../components.js";
 import { PAGE_KIT_COMPONENTS } from "../components.js";
 import * as calendar from "./calendar.js";
 import * as charts from "./charts.js";
+import * as compare from "./compare.js";
 import * as controls from "./controls.js";
 import * as data from "./data.js";
 import * as dataviz from "./dataviz.js";
@@ -29,7 +30,7 @@ const modules = {
   ...layout,
   ...practice,
 };
-const kit = { ...modules, ...interact, ...media, ...news, ...products, ...text };
+const kit = { ...modules, ...interact, ...media, ...news, ...compare, ...products, ...text };
 type Props<K extends PageKitComponentName> = ComponentProps<(typeof kit)[K]>;
 
 // Every list or object prop of the kit, with the fields its items carry. A page's code is
@@ -106,6 +107,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
     ],
   },
   NewsRows: { items: ["title", "summary", "label", "image", "alt", "sources"] },
+  Compare: { items: ["title", "image", "alt", "note"], rows: ["label", "values", "best"] },
   Upcoming: { items: ["date", "title", "detail", "sources"] },
   AvatarStack: { people: ["name"] },
   MonthView: { events: ["title", "free", "selected", "date"] },

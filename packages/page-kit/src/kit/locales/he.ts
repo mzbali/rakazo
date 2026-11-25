@@ -10,6 +10,7 @@ export const he: Messages = {
   none: "אין",
   noValue: "אין ערך",
   comparison: "השוואה",
+  bestValue: "הטוב ביותר",
   other: "אחר",
   total: "סה״כ",
   part: "חלק {n}",

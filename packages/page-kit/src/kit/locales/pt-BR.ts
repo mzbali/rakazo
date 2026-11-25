@@ -10,6 +10,7 @@ export const ptBR: Messages = {
   none: "nenhum",
   noValue: "Sem valor",
   comparison: "Comparação",
+  bestValue: "Melhor",
   other: "Outros",
   total: "Total",
   part: "parte {n}",

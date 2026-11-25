@@ -10,6 +10,7 @@ export const zhTW: Messages = {
   none: "無",
   noValue: "無數值",
   comparison: "比較",
+  bestValue: "最佳",
   other: "其他",
   total: "合計",
   part: "部分 {n}",

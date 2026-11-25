@@ -10,6 +10,7 @@ export const tr: Messages = {
   none: "yok",
   noValue: "Değer yok",
   comparison: "Karşılaştırma",
+  bestValue: "En iyi",
   other: "Diğer",
   total: "Toplam",
   part: "bölüm {n}",

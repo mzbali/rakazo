@@ -11,6 +11,7 @@ export const de: Messages = {
   none: "keiner",
   noValue: "Kein Wert",
   comparison: "Vergleich",
+  bestValue: "Beste",
   other: "Sonstige",
   total: "Gesamt",
   part: "Teil {n}",

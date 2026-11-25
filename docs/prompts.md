@@ -73,9 +73,10 @@ patterns, so adding a definition pattern cannot silently leave stale bundles cac
 
 `show-visual.prompt.ts`, `visual-fence.prompt.ts`, the visual lines of
 `run-instructions.prompt.ts`, the `show_visual` definition and the page kit guide decide when
-the bot draws and with what. The `visuals` eval suite scores that with a real model on seventeen
+the bot draws and with what. The `visuals` eval suite scores that with a real model on twenty-three
 prompts (explainers, decisions, money, checklists and quizzes, fetched data, product photos,
-current-events news and one-fact questions). It is never part of `pnpm test` or CI; run it on purpose:
+current-events news, answer shapes such as comparisons, recipes and symptom checks, and
+one-fact questions). It is never part of `pnpm test` or CI; run it on purpose:
 
 ```sh
 pnpm test:evals --live --suite visuals --connection <file> --pricing <file> --trials 3

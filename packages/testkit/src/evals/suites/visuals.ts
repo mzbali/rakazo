@@ -37,6 +37,7 @@ export type VisualCategory =
   | "data"
   | "photos"
   | "news"
+  | "shape"
   | "plain";
 
 /** What the person is meant to get for each kind of prompt; the judge reads this as the target. */
@@ -53,6 +54,8 @@ const TARGETS: Record<VisualCategory, string> = {
   photos:
     "One show_visual call that passes the photo URLs as images and places them with rakazo-image references.",
   news: "One show_visual call with a row per story: the page photo passed as an image, a label, a headline, a short summary and its sources. A date tile for what happens next when there is a date. Not a table, a markdown list or prose alone.",
+  shape:
+    "One focused show_visual call drawn with the component made for that kind of answer (a comparison with each product's photo over its column, grouped foods, a recipe, picture cards, tiered symptom rows). Not a markdown table, a bulleted list or prose alone.",
   plain: "A plain sentence. No visual, no plot.",
 };
 
@@ -73,6 +76,7 @@ const VisualCaseSchema = z
       "data",
       "photos",
       "news",
+      "shape",
       "plain",
     ]),
     prompt: z.string().min(1),
@@ -294,6 +298,30 @@ export const VISUALS_JUDGE_CALIBRATION = [
     pass: false,
   },
   {
+    input: visualsJudgeInput(
+      "shape",
+      "Compare the Kestrel Nova 9 and the Lumen Orbit 5 for me",
+      [
+        {
+          title: "Nova 9 against Orbit 5",
+          summary: "Specs side by side.",
+          components: ["Section", "Compare"],
+        },
+      ],
+      "The Nova 9 lasts longer; the Orbit 5 is lighter and cheaper. Compared side by side above.",
+    ),
+    pass: true,
+  },
+  {
+    input: visualsJudgeInput(
+      "shape",
+      "Compare the Kestrel Nova 9 and the Lumen Orbit 5 for me",
+      [],
+      "| | Nova 9 | Orbit 5 |\n| --- | --- | --- |\n| Battery | 24 h | 18 h |",
+    ),
+    pass: false,
+  },
+  {
     input: visualsJudgeInput("plain", "What time is it in Tokyo?", [], "It is 9:12 pm in Tokyo."),
     pass: true,
   },
@@ -394,6 +422,51 @@ const budget: Sources = {
       "https://news.example/uk-budget-2026": "https://images.example/budget-box.jpg",
       "https://wire.example/uk-budget-reaction": "https://images.example/treasury.jpg",
     },
+  },
+};
+
+/** Invented products and places, so the answer cannot lean on what the model remembers. */
+const phones: Sources = {
+  web: {
+    search: [
+      {
+        title: "Nova 9 review: a bright screen and two days of battery",
+        url: "https://reviews.example/nova-9",
+        snippet: "The Nova 9 costs 799 pounds.",
+      },
+      {
+        title: "Orbit 5 review: light, quick and a little short on battery",
+        url: "https://reviews.example/orbit-5",
+        snippet: "The Orbit 5 costs 749 pounds.",
+      },
+    ],
+    pages: {
+      "https://reviews.example/nova-9":
+        "Nova 9 by Kestrel. Price 799 pounds. Screen 6.4 inch, 120 Hz. Battery 5000 mAh, about 24 hours of video. Weight 198 g. Main camera 50 MP. Storage 256 GB.",
+      "https://reviews.example/orbit-5":
+        "Orbit 5 by Lumen. Price 749 pounds. Screen 6.1 inch, 90 Hz. Battery 4200 mAh, about 18 hours of video. Weight 168 g. Main camera 48 MP. Storage 128 GB.",
+    },
+    images: {
+      "https://reviews.example/nova-9": "https://images.example/nova-9.jpg",
+      "https://reviews.example/orbit-5": "https://images.example/orbit-5.jpg",
+    },
+  },
+};
+
+const places: Sources = {
+  web: {
+    search: [
+      {
+        title: "Three days in Porto Vale: the places worth your time",
+        url: "https://travel.example/porto-vale",
+        snippet: "The river walk, the old market hall and the hilltop gardens.",
+      },
+    ],
+    pages: {
+      "https://travel.example/porto-vale":
+        "Porto Vale in three stops. 1. River walk: flat, free, best at sunset, rated 4.7. 2. Old market hall: food stalls and cheese, open until 8 pm, rated 4.5. 3. Hilltop gardens: views over the roofs, 3 pound entry, rated 4.6.",
+    },
+    images: { "https://travel.example/porto-vale": "https://images.example/porto-vale.jpg" },
   },
 };
 
@@ -512,6 +585,53 @@ export const VISUAL_DEFINITIONS: VisualCase[] = [
     allComponents: ["NewsRows"],
     firstCallPhotos: true,
     failuresAllowed: 2,
+  },
+  {
+    id: "shape-phones",
+    category: "shape",
+    prompt: "Compare the Kestrel Nova 9 and the Lumen Orbit 5 for me",
+    sources: phones,
+    visuals: { min: 1, max: 2 },
+    allComponents: ["Compare"],
+    firstCallPhotos: true,
+    failuresAllowed: 2,
+  },
+  {
+    id: "shape-food-gastritis",
+    category: "shape",
+    prompt: "What should I eat and what should I avoid with gastritis?",
+    visuals: { min: 1, max: 2 },
+    allComponents: ["ProductRows"],
+    failuresAllowed: 1,
+  },
+  {
+    id: "shape-recipe",
+    category: "shape",
+    prompt: "Give me a simple chicken curry recipe for four",
+    visuals: { min: 1, max: 2 },
+    allComponents: ["Checklist", "Steps"],
+  },
+  {
+    id: "shape-places",
+    category: "shape",
+    prompt: "What are the best places to visit in Porto Vale for a weekend?",
+    sources: places,
+    visuals: { min: 1, max: 2 },
+    anyComponent: ["ProductCard", "ProductRows"],
+    failuresAllowed: 2,
+  },
+  {
+    id: "shape-symptoms",
+    category: "shape",
+    prompt: "I've had a headache for three days. When should I worry?",
+    visuals: { min: 1, max: 1 },
+    allComponents: ["Rows"],
+  },
+  {
+    id: "plain-capital",
+    category: "plain",
+    prompt: "What is the capital of Portugal?",
+    visuals: { min: 0, max: 0 },
   },
   {
     id: "plain-news-fact",

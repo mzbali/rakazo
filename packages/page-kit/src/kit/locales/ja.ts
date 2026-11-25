@@ -10,6 +10,7 @@ export const ja: Messages = {
   none: "なし",
   noValue: "値なし",
   comparison: "比較",
+  bestValue: "最良",
   other: "その他",
   total: "合計",
   part: "部分 {n}",

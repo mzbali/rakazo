@@ -205,6 +205,9 @@ function mediaRowClause(
 ): string | undefined {
   // Omitted only when this run was not given the tool. The fingerprint keeps the sentence.
   if (offered === false || !builtinOffered(disabled, "save_web_images")) return undefined;
+  if (builtinOffered(disabled, "show_visual")) {
+    return "For news items or product picks, pass each fetched page's image to show_visual, not save_web_images. Add images only when they show something words can't.";
+  }
   return "For news items or product picks, write a list where each item starts with its image embed, then a bold title and a short paragraph (a price for products). Use save_web_images for images from pages you fetched. Add images only when they show something words can't.";
 }
 

@@ -2,6 +2,7 @@
 export const VISUAL_ESSENTIALS = [
   'JSX: export default, Section, no Page. Short Caption. Callout only for warnings. SVG: useTheme(), viewBox, width "100%", no vh. Split tall visuals.',
   'Photos: images=[{url, alt}] (max 4), then <Image src="rakazo-image:1" alt="Photo" caption="Name" />. Count from 1. Use Grid with 1 or 2 columns. Omit fixed sizes. Retry without failed photos.',
+  'News: web_fetch each story and pass its image field in images. One Section with <NewsRows items={[{label: "Italy", title, summary, image: "rakazo-image:1", sources: [{name: "Reuters", href}]}]} />, then <Upcoming items={[{date: "2026-12-04", title, sources}]} /> for what is next. The as-of date, concern and bottom line stay prose around it.',
   'Nested sets: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />, plus one Slider; Diagram a reduction.',
   'How it works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>. A loop: Diagram layout="cycle" zones flows. Routes: Stages groups={[{label,stages}]}.',
   'Calculator: useState, Slider (label is the name only; prefix, suffix or format "£0,0" prints the value once), Result, LineChart marker={index}. Choices radio {label,options,value,onChange} asks for preferences. A split: one Result tone="success", amount first.',
@@ -14,7 +15,7 @@ export const VISUAL_ESSENTIALS = [
 
 /** App chats also support ui fences. */
 export const SHOW_VISUAL_INSTRUCTION = [
-  "To understand something or how it works, or for a checklist, a timeline, a bill to split or data you found, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
+  "To understand something or how it works, or for a checklist, a timeline, a bill to split, news or data you found, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
   "Once the data is in hand, draw it with show_visual; a series over time is a LineChart with marker and annotations. Use render_plot only for a chart it cannot draw or an image file the user asks for.",
   "To compare or decide, or whether to buy or return, call show_visual, then open with the pick. Next is a prefilled calculator, or one picture of what differs. A web search does not replace it.",
   "Pass title, summary and source to show_visual, then place the returned embed. A long explanation is short prose between two and four focused visuals, each doing one job; split a tall visual so each works inline. Do not pass help, paste source or tell the reader to open it.",

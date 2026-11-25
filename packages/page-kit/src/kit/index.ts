@@ -10,6 +10,7 @@ import * as diagram from "./diagram.js";
 import * as interact from "./interact.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as news from "./news.js";
 import * as practice from "./practice.js";
 import * as products from "./products.js";
 import * as text from "./text.js";
@@ -25,6 +26,7 @@ const modules = {
   ...interact,
   ...layout,
   ...media,
+  ...news,
   ...practice,
   ...products,
   ...text,

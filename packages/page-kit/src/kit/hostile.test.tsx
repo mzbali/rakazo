@@ -13,6 +13,7 @@ import * as diagram from "./diagram.js";
 import * as interact from "./interact.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as news from "./news.js";
 import * as practice from "./practice.js";
 import * as products from "./products.js";
 import * as text from "./text.js";
@@ -28,7 +29,7 @@ const modules = {
   ...layout,
   ...practice,
 };
-const kit = { ...modules, ...interact, ...media, ...products, ...text };
+const kit = { ...modules, ...interact, ...media, ...news, ...products, ...text };
 type Props<K extends PageKitComponentName> = ComponentProps<(typeof kit)[K]>;
 
 // Every list or object prop of the kit, with the fields its items carry. A page's code is
@@ -104,6 +105,8 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
       "reviews",
     ],
   },
+  NewsRows: { items: ["title", "summary", "label", "image", "alt", "sources"] },
+  Upcoming: { items: ["date", "title", "detail", "sources"] },
   AvatarStack: { people: ["name"] },
   MonthView: { events: ["title", "free", "selected", "date"] },
   WeekView: { events: ["title", "free", "selected", "date", "start", "end"] },

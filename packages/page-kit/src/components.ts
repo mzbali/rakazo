@@ -72,6 +72,8 @@ export const PAGE_KIT_COMPONENTS = [
   "CardCarousel",
   "ProductCard",
   "ProductRows",
+  "NewsRows",
+  "Upcoming",
   "RatingSummary",
   "WatchCard",
   "Avatar",

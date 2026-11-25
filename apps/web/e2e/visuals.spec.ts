@@ -120,6 +120,40 @@ test.describe("on a phone", () => {
     expect((await leadingCell.boundingBox())!.x).toBeCloseTo(initial, 0);
   });
 
+  test("draws a news answer with photo rows and a date tile on a phone", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/e2e/fixtures/gallery.html?embed&scenario=visual-news&theme=dark");
+    const visual = visualFrame(page.getByTestId("visual-card"), "Protests this week");
+    const photos = [
+      visual.getByRole("img", { name: "A crowd marching" }),
+      visual.getByRole("img", { name: "A rally in a square" }),
+    ];
+    for (const photo of photos) {
+      await expect(photo).toBeVisible();
+      await expect
+        .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+        .toBeGreaterThan(0);
+    }
+    const rows = visual.locator(".rk-news-row");
+    await expect(rows).toHaveCount(3);
+    // The photo sits beside its story, about two fifths of the row, not above it.
+    const photo = (await photos[0]!.boundingBox())!;
+    const title = (await visual.getByText("Marches continue").boundingBox())!;
+    expect(title.x).toBeGreaterThan(photo.x + photo.width);
+    expect(Math.abs(title.y - photo.y)).toBeLessThan(40);
+    expect(photo.width).toBeGreaterThan(100);
+    expect(photo.width).toBeLessThan(180);
+    await expect(visual.locator("a.rk-source-chip").first()).toContainText("Wire One");
+    await expect(visual.locator(".rk-date-day")).toHaveText("Dec 4");
+    await expect(visual.locator(".rk-date-weekday")).toHaveText("Friday");
+    // It reads as part of the answer: no border or fill around the list.
+    await expect(visual.locator(".rk-news").first()).toHaveCSS("border-top-width", "0px");
+    await expect(visual.locator(".rk-section").first()).not.toHaveAttribute("data-card", /.*/);
+    await captureScreenshot(page, testInfo, "visual-news-phone");
+  });
+
   test("fits a three-column comparison inside the phone card without scrolling", async ({
     page,
   }) => {

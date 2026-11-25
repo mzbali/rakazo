@@ -550,7 +550,8 @@ export function Stages({
   const compact = !grouped.length && list.length > STAGE_GRID_MAX;
   // In the compact picker nothing else names the stage, so a real label stands in for a missing
   // title. A bare position number is not a name.
-  const named = stage.authored && !/^\d+$/.test(text(stage.authored)) ? stage.authored : null;
+  const named =
+    stage.authored && text(stage.authored) !== String(index + 1) ? stage.authored : null;
   const title = show(stage.stage.title) ?? (grouped.length ? stage.label : compact ? named : null);
   const position = words.t("stageOf", { n: index + 1, total: list.length });
   let cursor = 0;

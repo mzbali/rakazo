@@ -336,6 +336,16 @@ describe("stages and chart marker", () => {
     // Nor does a stage with no id or label get its fallback position id as a title.
     render(<Stages stages={[1, 2, 3, 4, 5].map((at) => ({ detail: `Step ${at}` }))} />);
     expect(host.querySelector(".rk-stage-title")).toBeNull();
+    // A year is a name, not a position.
+    render(
+      <Stages
+        stages={[1961, 1965, 1969, 1972, 1975].map((year) => ({
+          id: `y${year}`,
+          label: String(year),
+        }))}
+      />,
+    );
+    expect(host.querySelector(".rk-stage-title")!.textContent).toBe("1961");
     render(
       <Stages
         stages={[

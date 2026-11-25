@@ -1117,6 +1117,24 @@ export async function runTrial(
         })),
       };
     }
+    const outcomes = new Map<string, "succeeded" | "failed">();
+    const outcomeKey = (runId: string | null, executionId: string) => `${runId}:${executionId}`;
+    for (const event of await prisma.event.findMany({
+      where: { runId: { in: runIds }, type: "agent.tool.completed" },
+      select: { id: true, runId: true, payload: true },
+    })) {
+      const payload = readJsonColumn(
+        z.object({ executionId: z.string().optional(), outcome: z.string().optional() }),
+        event.payload,
+        { table: "events", column: "payload", id: event.id },
+        { fallback: {} },
+      );
+      if (payload.executionId && (payload.outcome === "succeeded" || payload.outcome === "error"))
+        outcomes.set(
+          outcomeKey(event.runId, payload.executionId),
+          payload.outcome === "error" ? "failed" : "succeeded",
+        );
+    }
     const files: Evidence["files"] = {};
     for (const path of scenario.files ?? []) {
       try {
@@ -1205,8 +1223,11 @@ export async function runTrial(
       toolNames: [...seenTools.values()].map((event) => event.name),
       toolCalls: (handles.toolCallObservations ?? []).flatMap((call) => {
         const step = runSteps.get(call.runId);
-        const { runId: _runId, ...observed } = call;
-        return step === undefined ? [] : [{ step, ...observed }];
+        const { runId, executionId, ...observed } = call;
+        if (step === undefined) return [];
+        const outcome =
+          executionId === undefined ? undefined : outcomes.get(outcomeKey(runId, executionId));
+        return [{ step, ...observed, ...(outcome ? { outcome } : {}) }];
       }),
       finalStep,
       settings: await settingsSnapshot(),

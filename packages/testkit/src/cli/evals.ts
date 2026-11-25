@@ -101,6 +101,12 @@ import {
   TOOL_CHOICE_JUDGE_VERSION,
 } from "../evals/suites/tool-choice.js";
 import { TOOL_CHOICE_CASES } from "../evals/suites/tool-choice-cases.js";
+import {
+  VISUALS_EVAL_CASES,
+  VISUALS_FIXTURE_VERSION,
+  VISUALS_JUDGE_CALIBRATION,
+  VISUALS_JUDGE_VERSION,
+} from "../evals/suites/visuals.js";
 import type { ObservedToolCall, ObservedToolList } from "../evals/tool-calls.js";
 import type { DiagnosticWireObservation } from "../evals/wire-observer.js";
 import { diagnosticWireFetch } from "../evals/wire-observer.js";
@@ -230,6 +236,11 @@ async function main() {
       cases: TOOL_CHOICE_CASES,
       fixtureVersion: TOOL_CHOICE_FIXTURE_VERSION,
       judge: { version: TOOL_CHOICE_JUDGE_VERSION, calibration: TOOL_CHOICE_JUDGE_CALIBRATION },
+    },
+    visuals: {
+      cases: VISUALS_EVAL_CASES,
+      fixtureVersion: VISUALS_FIXTURE_VERSION,
+      judge: { version: VISUALS_JUDGE_VERSION, calibration: VISUALS_JUDGE_CALIBRATION },
     },
     "bot-files": { cases: BOT_FILES_EVAL_CASES, fixtureVersion: BOT_FILES_FIXTURE_VERSION },
     apps: {
@@ -471,7 +482,14 @@ async function main() {
       `Without a judge, ${heldBack.size} judged case(s) stay not-run and unqualified: ${[...heldBack].join(", ")}`,
     );
     save();
-  } else if (judged.size && !values["cache-probe"] && suiteJudge) {
+  } else if (
+    (judged.size || selected.some((c) => c.observe)) &&
+    !values["cache-probe"] &&
+    suiteJudge &&
+    judgeConnectionFile &&
+    judgePricingFile
+  ) {
+    // A case that only observes by meaning runs without a judge; its observation stays unknown.
     let rawJudgeConnection: unknown;
     try {
       rawJudgeConnection = readConnection(judgeConnectionFile!);

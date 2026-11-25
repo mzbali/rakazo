@@ -3,11 +3,16 @@ import {
   PageTitleSchema,
   pageSourceBytes,
   VISUAL_CODE_MAX_BYTES,
-  VISUAL_IMAGE_ALT_MAX_LENGTH,
-  VISUAL_IMAGE_MAX_COUNT,
   VISUAL_SUMMARY_MAX_LENGTH,
 } from "@rakazo/contracts";
-import { containsSecret, embedLine, isBackgroundRunTrigger, outboundSiteGate } from "@rakazo/core";
+import type { VisualImageArg } from "@rakazo/core";
+import {
+  containsSecret,
+  embedLine,
+  isBackgroundRunTrigger,
+  outboundSiteGate,
+  visualImageArgs,
+} from "@rakazo/core";
 import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
 import { bestEffort } from "@rakazo/logging";
 import { checkPageSource, VISUAL_GUIDE, visualImageReferences } from "@rakazo/page-kit/validate";
@@ -24,28 +29,6 @@ function summaryText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const summary = value.replace(/\s+/g, " ").trim();
   return summary && summary.length <= VISUAL_SUMMARY_MAX_LENGTH ? summary : null;
-}
-
-/** One picture the model passed: its 1-based place in images, with the address and alt text. */
-type VisualImageArg = { place: number; url: string; alt: string };
-
-/** The images argument, or why it cannot be used; an absent or empty list is no pictures. */
-function visualImageArgs(value: unknown): VisualImageArg[] | string {
-  if (value === undefined || (Array.isArray(value) && value.length === 0)) return [];
-  if (!Array.isArray(value)) return "images must be a list of {url, alt}.";
-  if (value.length > VISUAL_IMAGE_MAX_COUNT)
-    return `Pass at most ${VISUAL_IMAGE_MAX_COUNT} images.`;
-  const parsed: VisualImageArg[] = [];
-  for (const [index, entry] of value.entries()) {
-    if (!entry || typeof entry !== "object") return `image ${index + 1} needs a url and alt.`;
-    const record = entry as Record<string, unknown>;
-    const url = typeof record.url === "string" ? normalizedHttpUrl(record.url) : undefined;
-    if (!url) return `image ${index + 1} needs an http(s) url.`;
-    const alt = typeof record.alt === "string" ? record.alt.replace(/\s+/g, " ").trim() : "";
-    if (!alt) return `image ${index + 1} needs alt text.`;
-    parsed.push({ place: index + 1, url, alt: alt.slice(0, VISUAL_IMAGE_ALT_MAX_LENGTH) });
-  }
-  return parsed;
 }
 
 type CarriedImage = {

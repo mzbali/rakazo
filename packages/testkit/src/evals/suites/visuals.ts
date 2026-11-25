@@ -119,14 +119,15 @@ export function visualUse(evidence: Evidence): VisualUse {
 
 /** Every photo passed is placed once or more by a rakazo-image reference, as show_visual requires. */
 function placesEveryPhoto(args: Record<string, unknown>): boolean {
-  if (!Array.isArray(args.images) || args.images.length === 0) return false;
+  const { images } = args;
+  if (!Array.isArray(images) || images.length === 0) return false;
   const checked = checkPageSource(sourceOf(args));
   if (!checked.ok) return false;
   const { places, malformed } = visualImageReferences(checked.code);
   return (
     !malformed &&
-    places.length === args.images.length &&
-    places.every((place) => place >= 1 && place <= args.images.length)
+    places.length === images.length &&
+    places.every((place) => place >= 1 && place <= images.length)
   );
 }
 

@@ -3,6 +3,7 @@ import {
   BOT_SECRET_VALUE_MAX_LENGTH,
   encodeLoginSecret,
   STEP_SCREENSHOT_MIME_TYPES,
+  VISUAL_IMAGE_MIME_TYPE,
 } from "@rakazo/contracts";
 import {
   TAKEOVER_COMPUTER_DONE_STATE,
@@ -571,7 +572,10 @@ describe("thread lock transaction budget", () => {
         findMany: vi.fn().mockResolvedValue([{ runId: "run-1" }]),
       },
       artifact: {
-        findMany: vi.fn().mockResolvedValue([{ id: "shot-1", storageKey: "key-1" }]),
+        findMany: vi.fn().mockResolvedValue([
+          { id: "shot-1", storageKey: "key-1" },
+          { id: "visual-photo", storageKey: "key-2" },
+        ]),
         deleteMany: vi.fn(),
       },
       event: { deleteMany: vi.fn(), create: vi.fn().mockResolvedValue(event(1)) },
@@ -586,18 +590,20 @@ describe("thread lock transaction budget", () => {
     });
 
     expect($transaction).toHaveBeenCalledWith(expect.any(Function), budget);
-    // The cleared replies' kept screenshots go with them; the caller removes their files.
+    // The cleared replies' kept media goes with them; the caller removes their files.
     expect(tx.artifact.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           spaceId: "workspace-1",
-          mimeType: { in: STEP_SCREENSHOT_MIME_TYPES },
+          mimeType: { in: [...STEP_SCREENSHOT_MIME_TYPES, VISUAL_IMAGE_MIME_TYPE] },
           runId: { in: ["run-1"] },
         }),
       }),
     );
-    expect(tx.artifact.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["shot-1"] } } });
-    expect(result.removedStorageKeys).toEqual(["key-1"]);
+    expect(tx.artifact.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["shot-1", "visual-photo"] } },
+    });
+    expect(result.removedStorageKeys).toEqual(["key-1", "key-2"]);
   });
 
   it("pauses a run for input with the explicit budget", async () => {

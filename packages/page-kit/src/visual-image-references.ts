@@ -5,6 +5,8 @@ import { TokenType } from "sucrase/dist/parser/tokenizer/types.js";
 
 type Reference = { start: number; end: number; place?: number; saved?: string };
 const IMAGE_SOURCE_KEYS = new Set(["src", "image", "poster"]);
+/** A value the viewer would try to load: any scheme, a protocol-relative or a relative path. Plain words are data. */
+const LOADS_AS_URL = /^([a-z][a-z0-9+.-]*:|\/|\.\.?\/)/i;
 const COMPONENT_IMAGE_PROPS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["Image", new Set(["src"])],
   ["Video", new Set(["poster"])],
@@ -16,8 +18,8 @@ const COMPONENT_IMAGE_PROPS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
  * objects for Gallery, PhotoStrip, ProductRows and NewsRows. ProductCard also takes a photos array
  * of source strings. Values elsewhere, including text children and captions, are untouched.
  * A source is a data:image URI, rakazo-image:<n> (a fetched picture) or image:<artifactId> (a
- * picture already saved in the chat); any other literal one cannot draw and is returned in
- * unsupported.
+ * picture already saved in the chat). Data and blob URIs pass, as media items use them; any other
+ * URL, and a template string, cannot be checked or drawn and is returned in unsupported.
  */
 export function visualImageReferences(code: string) {
   const { tokens } = parse(code, false, false, false);
@@ -38,7 +40,7 @@ export function visualImageReferences(code: string) {
     }
     const saved = /^image:([A-Za-z0-9_-]{1,64})$/.exec(source)?.[1];
     if (saved) references.push({ start, end, saved });
-    else if (source.trim() && !/^data:image\/[a-z0-9.+-]+[;,]/i.test(source)) {
+    else if (LOADS_AS_URL.test(source.trim()) && !/^(data|blob):/i.test(source.trim())) {
       unsupported.add(source.length > 60 ? `${source.slice(0, 57)}...` : source);
     }
   }
@@ -72,6 +74,9 @@ export function visualImageReferences(code: string) {
     const next = tokens[value + 1]?.type;
     if (IMAGE_SOURCE_KEYS.has(key) && (next === TokenType.comma || next === TokenType.braceR)) {
       read(value);
+    }
+    if (IMAGE_SOURCE_KEYS.has(key) && tokens[value]?.type === TokenType.backQuote) {
+      unsupported.add("a `template` string (write the source in quotes)");
     }
     if (key === "photos" && tokens[value]?.type === TokenType.bracketL) {
       for (let item = value + 1; tokens[item]?.type === TokenType.string; item += 2) {

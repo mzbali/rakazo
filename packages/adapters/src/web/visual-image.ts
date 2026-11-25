@@ -12,6 +12,9 @@ const INPUT_MAX_BYTES = 5 * 1024 * 1024;
  * megapixels covers the photos stores serve while bounding what one decode holds in memory.
  */
 const MAX_INPUT_PIXELS = 4 * 1024 * 1024;
+/** A picture already stored in the chat, such as a phone photo someone attached, may be larger. */
+export const SAVED_IMAGE_MAX_INPUT_PIXELS = 50 * 1024 * 1024;
+export const SAVED_IMAGE_INPUT_MAX_BYTES = 25 * 1024 * 1024;
 /** The longest edge a kept picture has; the chat draws it at message width. */
 const OUTPUT_MAX_EDGE = 800;
 const OUTPUT_QUALITY = 82;
@@ -57,12 +60,15 @@ export async function fetchVisualImage(
  * the server declared, and only a raster image that sniffs as one is decoded. SVG and HTML are
  * refused, an animated GIF keeps its first frame, and EXIF orientation is applied.
  */
-export async function encodeVisualImage(bytes: Uint8Array): Promise<ResolvedVisualImage | null> {
+export async function encodeVisualImage(
+  bytes: Uint8Array,
+  { maxInputPixels = MAX_INPUT_PIXELS }: { maxInputPixels?: number } = {},
+): Promise<ResolvedVisualImage | null> {
   if (!detectImageMimeType(bytes)) return null;
   // sharp is a native addon; load it only when an image is processed.
   const { default: sharp } = await import("sharp");
   try {
-    const image = sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS, animated: false });
+    const image = sharp(bytes, { limitInputPixels: maxInputPixels, animated: false });
     const { width = 0, height = 0 } = await image.metadata();
     if (width <= 1 || height <= 1) return null;
     const { data } = await image

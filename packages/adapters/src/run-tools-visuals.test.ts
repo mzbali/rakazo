@@ -232,7 +232,12 @@ describe("show_visual", () => {
       'export default () => <NewsRows items={[{ title: "Talks", image: "image:cmww7334z001907mozkv61o4q", alt: "Talks" }]} />;';
 
     it("never reports shown for a source the viewer cannot load", async () => {
-      for (const src of ["https://cdn.example.com/a.png", "/a.png", "blob:abc", "file:///a.png"]) {
+      for (const src of [
+        "https://cdn.example.com/a.png",
+        "/a.png",
+        "//cdn.example.com/a.png",
+        "file:///a.png",
+      ]) {
         const result = await show({ title: "Photo", summary: "x", source: withSrc(src) });
         expect(result.shown).toBeUndefined();
         expect(result.error).toMatch(/cannot load/);
@@ -245,6 +250,24 @@ describe("show_visual", () => {
       });
       expect(news.shown).toBeUndefined();
       expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a template string in a picture slot", async () => {
+      const result = await show({
+        title: "Photo",
+        summary: "x",
+        source: 'export default () => <Image src={`image:abc`} alt="Photo" />;',
+      });
+      expect(result.shown).toBeUndefined();
+      expect(result.error).toMatch(/template/);
+    });
+
+    it("leaves media data and plain words under picture keys alone", async () => {
+      const source = `const clips = [{ src: "blob:abc", title: "Clip" }, { src: "data:audio/mpeg;base64,AAAA" }];
+const status = { image: "Pending" };
+export default () => <Section title={status.image}>{clips.length}</Section>;`;
+      const result = await show({ title: "Media", summary: "x", source });
+      expect(result.shown).toBe(true);
     });
 
     it("accepts a data: image and leaves other props that are not pictures alone", async () => {
@@ -264,6 +287,7 @@ describe("show_visual", () => {
         name: "storm.png",
         mimeType: "image/png",
         storageKey: "blob-saved",
+        size: 2,
         ...extra,
       });
       const deps = (rows: unknown[]) => {
@@ -326,7 +350,23 @@ describe("show_visual", () => {
         expect(publishMessage).not.toHaveBeenCalled();
       });
 
-      it("discards a fetched picture when a saved one in the same call is refused", async () => {
+      it("refuses a saved file too large to read, before reading it", async () => {
+        ready();
+        const { deps: d } = deps([row({ size: 26 * 1024 * 1024 })]);
+        const result = await show({ title: "News", summary: "x", source: NEWS }, [], { deps: d });
+        expect(result.error).toMatch(/too large/);
+        expect(d.artifacts.get).not.toHaveBeenCalled();
+      });
+
+      it("decodes a saved picture with room for a phone photo", async () => {
+        ready();
+        await show({ title: "News", summary: "x", source: NEWS }, [], { deps: deps([row()]).deps });
+        expect(encodeVisualImage.mock.calls[0]![1]).toEqual({
+          maxInputPixels: 50 * 1024 * 1024,
+        });
+      });
+
+      it("checks a saved picture before fetching any url", async () => {
         fetchVisualImage.mockResolvedValue({ bytes: new Uint8Array([1]) });
         storeVisualImage.mockResolvedValue({ id: "fetched-copy", discard });
         const source = `export default () => <><Image src="rakazo-image:1" alt="A" /><Image src="image:${ID}" alt="B" /></>;`;
@@ -336,7 +376,7 @@ describe("show_visual", () => {
           { deps: deps([]).deps },
         );
         expect(result.error).toMatch(/not an image saved in this chat/);
-        expect(discard).toHaveBeenCalledTimes(1);
+        expect(fetchVisualImage).not.toHaveBeenCalled();
         expect(publishMessage).not.toHaveBeenCalled();
       });
     });

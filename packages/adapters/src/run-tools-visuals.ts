@@ -25,7 +25,12 @@ import { publishMessage } from "./runs/assembly/run-messages.js";
 import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
 import type { ToolCall, ToolHandlers } from "./runs/tools/run-tool-gate.js";
 import { storeVisualImage, VISUAL_IMAGE_ARTIFACT_ID_LENGTH } from "./storage/thread-artifacts.js";
-import { encodeVisualImage, fetchVisualImage } from "./web/visual-image.js";
+import {
+  encodeVisualImage,
+  fetchVisualImage,
+  SAVED_IMAGE_INPUT_MAX_BYTES,
+  SAVED_IMAGE_MAX_INPUT_PIXELS,
+} from "./web/visual-image.js";
 
 /** The summary is one paragraph of plain text: every run of whitespace folds into a space. */
 function summaryText(value: unknown): string | null {
@@ -107,8 +112,13 @@ async function carrySavedImages(
     if (!row || !here || !storedImageMimeType(row.mimeType) || row.mimeType.includes(";")) {
       return `image:${id} is not an image saved in this chat; nothing was shown. Use an image:<id> from save_web_images or an image attached here, or pass its url in images.`;
     }
+    const tooLarge = `image:${id} is too large to show; nothing was shown. Drop it and call again.`;
+    if (row.size > SAVED_IMAGE_INPUT_MAX_BYTES) return tooLarge;
     const bytes = await artifacts.get(row.storageKey, ctx.context);
-    const resolved = await encodeVisualImage(bytes);
+    if (bytes.byteLength > SAVED_IMAGE_INPUT_MAX_BYTES) return tooLarge;
+    const resolved = await encodeVisualImage(bytes, {
+      maxInputPixels: SAVED_IMAGE_MAX_INPUT_PIXELS,
+    });
     if (!resolved) {
       return `image:${id} is not a usable picture; nothing was shown. Drop it and call again.`;
     }
@@ -278,8 +288,9 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   let published = false;
   try {
     const error =
-      (await carryImages(ctx, call, places, images, carried)) ??
-      (await carrySavedImages(ctx, call, saved, carried));
+      // Saved pictures are one query to check, so a refused id fails before any URL is fetched.
+      (await carrySavedImages(ctx, call, saved, carried)) ??
+      (await carryImages(ctx, call, places, images, carried));
     if (error) return { error };
     const ids = new Map(carried.map(({ place, id }) => [place, id]));
     const block: MessageBlock = {

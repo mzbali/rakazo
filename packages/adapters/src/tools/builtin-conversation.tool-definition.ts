@@ -222,7 +222,7 @@ export const conversationTools: ConnectorTool[] = [
         images: {
           type: "array",
           maxItems: VISUAL_IMAGE_MAX_COUNT,
-          description: 'Use <Image src="rakazo-image:1" /> for the first photo.',
+          description: '<Image src="rakazo-image:1" /> is photo 1. Saved: src="image:<id>".',
           items: {
             type: "object",
             properties: { url: { type: "string" }, alt: { type: "string" } },

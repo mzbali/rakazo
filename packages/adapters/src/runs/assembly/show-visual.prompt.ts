@@ -1,7 +1,7 @@
 /** Shared by run instructions and rejected visuals. */
 export const VISUAL_ESSENTIALS = [
   'JSX: export default, Section, no Page. Short Caption. Callout only for warnings. SVG: useTheme(), viewBox, width "100%", no vh. Split tall visuals.',
-  'Photos: images=[{url, alt}] (max 4), then <Image src="rakazo-image:1" alt="Photo" caption="Name" />. Count from 1. Use Grid with 1 or 2 columns. Omit fixed sizes. Retry without failed photos.',
+  'Photos: images=[{url, alt}] (max 4), then <Image src="rakazo-image:1" alt="Photo" caption="Name" />. Count from 1. A saved photo (image:<id>) goes straight in src. Use Grid with 1 or 2 columns. Omit fixed sizes. Retry without failed photos.',
   'News: web_fetch returns a page\'s image when it has one; pass every such image in images. One Section with <NewsRows items={[{label: "Italy", title, summary, image: "rakazo-image:1", sources: [{name: "Reuters", href}]}, {label: "France", title, summary}]} />, leaving image out when there is none, then <Upcoming items={[{date: "2026-12-04", title, sources}]} /> for what is next. The as-of date, concern and bottom line stay prose around it.',
   'Nested sets: <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />, plus one Slider; Diagram a reduction.',
   'How it works, in stages: <Stages stages={[{id: "a", label: "One", title: "One", detail: "What happens"}]}><Diagram focus="a" nodes={[{id: "a", label: "One"}]} edges={[]} /></Stages>. A loop: Diagram layout="cycle" zones flows. Routes: Stages groups={[{label,stages}]}.',

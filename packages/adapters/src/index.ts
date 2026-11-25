@@ -204,6 +204,7 @@ export { routineGroupThreadId } from "./routines/routine-thread.js";
 export * from "./routines/routine-triggers.js";
 export * from "./routines/routine-watch.js";
 export * from "./routines/strategic-initiative.js";
+export { visualImageArgs } from "./run-tools-visuals.js";
 export {
   CUT_REPLY_CONTINUATION_PROMPT,
   cutReplyAtLimitPrompt,

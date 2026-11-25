@@ -130,6 +130,9 @@ describe("visualUse", () => {
     expect(photos(one)).toBe(false);
     expect(photos(two, PHOTOS.replace("rakazo-image:2", "rakazo-image:1"))).toBe(false);
     expect(photos(undefined)).toBe(false);
+    // Placed correctly, but show_visual rejects the arguments before fetching anything.
+    expect(photos([one[0], { url: "ftp://img.example/b.jpg", alt: "b" }])).toBe(false);
+    expect(photos([one[0], { url: "https://img.example/b.jpg", alt: "  " }])).toBe(false);
     expect(photos(two, PROSE_ONLY)).toBe(false);
     expect(
       visualUse(

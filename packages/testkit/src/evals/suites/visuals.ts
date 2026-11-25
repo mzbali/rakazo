@@ -1,3 +1,4 @@
+import { visualImageArgs } from "@rakazo/adapters";
 import {
   checkPageSource,
   kitComponentsUsed,
@@ -119,8 +120,9 @@ export function visualUse(evidence: Evidence): VisualUse {
 
 /** Every photo passed is placed once or more by a rakazo-image reference, as show_visual requires. */
 function placesEveryPhoto(args: Record<string, unknown>): boolean {
-  const { images } = args;
-  if (!Array.isArray(images) || images.length === 0) return false;
+  // The same argument rules show_visual applies before it fetches anything.
+  const images = visualImageArgs(args.images);
+  if (typeof images === "string" || images.length === 0) return false;
   const checked = checkPageSource(sourceOf(args));
   if (!checked.ok) return false;
   const { places, malformed } = visualImageReferences(checked.code);

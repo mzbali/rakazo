@@ -30,7 +30,7 @@ function summaryText(value: unknown): string | null {
 type VisualImageArg = { place: number; url: string; alt: string };
 
 /** The images argument, or why it cannot be used; an absent or empty list is no pictures. */
-function visualImageArgs(value: unknown): VisualImageArg[] | string {
+export function visualImageArgs(value: unknown): VisualImageArg[] | string {
   if (value === undefined || (Array.isArray(value) && value.length === 0)) return [];
   if (!Array.isArray(value)) return "images must be a list of {url, alt}.";
   if (value.length > VISUAL_IMAGE_MAX_COUNT)

@@ -48,13 +48,16 @@ function visualImageArgs(value: unknown): VisualImageArg[] | string {
 }
 
 /** The 1-based places the compiled code names a picture by, and whether any name is malformed. */
+const IMAGE_REFERENCE = /rakazo-image:([^"'`\s]*)/g;
+
 function imageReferences(code: string): { places: number[]; malformed: boolean } {
   const places: number[] = [];
-  for (const match of code.matchAll(/rakazo-image:([0-9]+)/g)) {
-    const place = Number(match[1]);
+  for (const [, digits] of code.matchAll(IMAGE_REFERENCE)) {
+    if (!digits || !/^\d+$/.test(digits)) return { places: [], malformed: true };
+    const place = Number(digits);
     if (!places.includes(place)) places.push(place);
   }
-  return { places, malformed: /rakazo-image:(?![0-9])/.test(code) };
+  return { places, malformed: false };
 }
 
 /** A picture the visual carries: its place, the stored artifact's id, and what the message keeps. */
@@ -209,7 +212,7 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   // The code that ships names each picture by its stored id, so the frame can only ever ask for
   // pictures of its own message, never an address.
   const placed = carried.length
-    ? code.replace(/rakazo-image:([0-9]+)/g, (token, digits) => {
+    ? code.replace(IMAGE_REFERENCE, (token, digits) => {
         const stored = carried.find((entry) => entry.place === Number(digits));
         return stored ? `rakazo-image:${stored.id}` : token;
       })

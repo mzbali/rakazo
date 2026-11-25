@@ -292,7 +292,7 @@ describe("show_visual", () => {
       const malformed = await show({
         title: "Picks",
         summary: "x.",
-        source: PRODUCTS.replace('image="rakazo-image:1"', 'image="rakazo-image:one"'),
+        source: PRODUCTS.replace('image="rakazo-image:1"', 'image="rakazo-image:1.webp"'),
         images: IMAGES,
       });
       expect(malformed.error).toMatch(/rakazo-image:/);

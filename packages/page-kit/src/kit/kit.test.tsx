@@ -321,6 +321,13 @@ describe("page kit", () => {
     expect(classes).toContain('<span class="rk-word">NP-complete</span>');
     expect(classes).toContain('<th scope="col">Class</th>');
     expect(classes).toContain("<td>P</td>");
+    // A slash joins two words, so a long pair may wrap after it instead of widening the column.
+    const pair = html(<Table columns={["Finder"]} rows={[["Hybrid optical/electronic"]]} />);
+    expect(pair).toContain("optical/<wbr/>electronic");
+    expect(pair).not.toContain('<span class="rk-word">optical/electronic</span>');
+    expect(html(<Table columns={["Sensor"]} rows={[["APS-C"]]} />)).toContain(
+      '<span class="rk-word">APS-C</span>',
+    );
   });
 
   it("renders table sort controls only for columns with headers", () => {

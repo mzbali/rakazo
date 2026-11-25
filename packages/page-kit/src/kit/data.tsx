@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { isValidElement, useCallback, useContext, useId, useState } from "react";
+import { Fragment, isValidElement, useCallback, useContext, useId, useState } from "react";
 import { Button, CopyButton } from "./controls.js";
 import { finite } from "./dataviz.js";
 import { Inline } from "./inline.js";
@@ -469,19 +469,42 @@ export type TableCell =
 // A hyphen is a line-break opportunity, so a cell's min-content would be "complete" and the
 // column would split "NP-complete". Holding that token keeps the column at least as wide as the
 // whole word. Spaces stay break points, and a word with neither is left as text.
-const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014/-]/;
+const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014-]/;
+
+// A slash joins two words ("optical/electronic"). Holding it whole made that one cell set the
+// column width and squeezed its neighbours past the card, so it may break after the slash.
+function holdToken(part: string, key: number): ReactNode {
+  if (part.includes("/")) {
+    const pieces = part.split("/");
+    return (
+      <Fragment key={key}>
+        {pieces.map((piece, index) => (
+          <Fragment key={index}>
+            {WORD_BREAK.test(piece) ? <span className="rk-word">{piece}</span> : piece}
+            {index < pieces.length - 1 ? (
+              <>
+                /<wbr />
+              </>
+            ) : null}
+          </Fragment>
+        ))}
+      </Fragment>
+    );
+  }
+  return (
+    <span key={key} className="rk-word">
+      {part}
+    </span>
+  );
+}
 
 function holdWords(value: string): ReactNode {
-  if (!WORD_BREAK.test(value)) return value;
+  if (!WORD_BREAK.test(value) && !value.includes("/")) return value;
   const parts = value.split(/(\s+)/);
   return parts.map((part, index) =>
-    part === "" || /^\s+$/.test(part) || !WORD_BREAK.test(part) ? (
-      part
-    ) : (
-      <span key={index} className="rk-word">
-        {part}
-      </span>
-    ),
+    part === "" || /^\s+$/.test(part) || !(WORD_BREAK.test(part) || part.includes("/"))
+      ? part
+      : holdToken(part, index),
   );
 }
 
@@ -583,6 +606,8 @@ function useScrollEdges(direction: string) {
       const observer =
         typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
       observer?.observe(element);
+      // The scrollport keeps its box when its content grows, so watch the table inside it too.
+      for (const child of Array.from(element.children)) observer?.observe(child);
       return () => {
         element.removeEventListener("scroll", update);
         observer?.disconnect();

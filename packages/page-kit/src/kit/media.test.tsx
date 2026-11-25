@@ -72,7 +72,7 @@ describe("media", () => {
     expect(cell).toContain("aspect-ratio:3/2");
     expect(cell).toContain("width:100%");
     expect(MEDIA_CSS).toContain(
-      "[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img{height:100%;width:100%}",
+      '[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img:not([data-fit="cover"]){object-fit:contain}',
     );
     expect(MEDIA_CSS).not.toContain("width:96px");
   });
@@ -91,13 +91,14 @@ describe("media", () => {
     expect(host.querySelector("img, video, audio, figure")).toBeNull();
     render(
       <>
-        <Image src={PNG} alt="Harbour" caption="At dusk" ratio="16/9" />
+        <Image src={PNG} alt="Harbour" caption="At dusk" ratio="16/9" fit="cover" />
         <Video src={WEBM} alt="Clip" />
         <Audio src={WAV} alt="Tone" caption="One second" />
         <Video src="blob:null/1234" alt="Made here" />
       </>,
     );
     expect(q<HTMLImageElement>("img")!.alt).toBe("Harbour");
+    expect(q<HTMLImageElement>("img")!.dataset.fit).toBe("cover");
     expect(q("figcaption")!.textContent).toBe("At dusk");
     expect(all("video").map((video) => video.getAttribute("aria-label"))).toEqual([
       "Clip",

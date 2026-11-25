@@ -94,7 +94,7 @@ export function Picture({
           src={src}
           alt={alt}
           decoding="async"
-          data-fit={fit === "contain" ? "contain" : undefined}
+          data-fit={fit}
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(true)}
         />
@@ -122,7 +122,7 @@ export function Image({
   src,
   alt,
   caption,
-  fit = "cover",
+  fit,
   width,
   height,
   ratio,
@@ -427,6 +427,7 @@ export const MEDIA_CSS = `
 [data-inline] .rk-grid:has(>.rk-figure[data-stored-photo]:only-child){grid-template-columns:minmax(0,1fr)}
 [data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture{aspect-ratio:3/2;width:100%}
 [data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img{height:100%;width:100%}
+[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img:not([data-fit="cover"]){object-fit:contain}
 .rk-zoom:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .rk-lightbox{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;background:color-mix(in srgb,var(--background) 92%,transparent);cursor:zoom-out;animation:rk-fade .18s ease-out}
 .rk-lightbox img{max-width:100%;max-height:100%;border-radius:12px;object-fit:contain}

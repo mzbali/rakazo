@@ -119,6 +119,26 @@ export const VISUAL_SCENARIOS: VisualScenario[] = [
       ]),
     ],
   },
+  {
+    id: "visual-camera-table",
+    label: "Camera comparison",
+    messages: [
+      row("user", [{ kind: "text", text: "Compare the two cameras." }]),
+      row("bot", [
+        {
+          kind: "visual",
+          title: "Camera comparison",
+          text: "Two compact cameras side by side.",
+          code: `exports.default = () => React.createElement(Section, {heading: "Camera comparison"},
+          React.createElement(Table, {
+            columns: ["", "Fujifilm X100V", "Ricoh GR III"],
+            rows: [["Sensor", "26.1 MP APS-C", "24.2 MP APS-C"], ["Lens (35mm equiv.)", "35mm f/2", "28mm f/2.8"], ["Viewfinder", "Hybrid optical/electronic", "None (rear screen only)"], ["Stabilisation", "None", "3-axis in-body"]]
+          })
+        );`,
+        },
+      ]),
+    ],
+  },
   { id: "visual-nce", label: "Visual: NCE", messages: [ask, answer(fenced(NCE_FENCE))] },
   ...CUTS.map(([id, at]) => ({
     id: `visual-${id}`,

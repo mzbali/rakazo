@@ -91,6 +91,19 @@ test.describe("on a phone", () => {
     await expect.poll(() => scroll.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
     expect((await leadingCell.boundingBox())!.x).toBeCloseTo(initial, 0);
   });
+
+  test("fits a three-column comparison inside the phone card without scrolling", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/e2e/fixtures/gallery.html?embed&scenario=visual-camera-table&theme=dark");
+    const visual = visualFrame(page.getByTestId("visual-card"), "Camera comparison");
+    const scroll = visual.locator(".rk-table-scroll");
+    await expect(scroll).toBeVisible();
+    expect((await scroll.boundingBox())!.width).toBeLessThan(330);
+    await expect.poll(() => scroll.evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
+    await expect(scroll).not.toHaveAttribute("data-fade-end");
+  });
 });
 
 test("a visual that fits works in the chat; a tall one opens full screen", async ({

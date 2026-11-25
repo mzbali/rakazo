@@ -15,7 +15,8 @@ const COPIED_MESSAGE = "rakazo-page:copied";
 const IMAGE_MESSAGE = "rakazo-page:image";
 const IMAGE_DATA_MESSAGE = "rakazo-page:image-data";
 /** A host that never answers leaves the picture blank, never the page broken. */
-const IMAGE_WAIT_MS = 10_000;
+// Allow the mobile artifact download budget to elapse before giving up on its reply.
+const IMAGE_WAIT_MS = 125_000;
 /** Resolved pictures, so one id asked twice loads once; a page is one visual, so the list stays short. */
 const RESOLVED_IMAGE_MAX = 16;
 const resolvedImages = new Map<string, Promise<string | null>>();

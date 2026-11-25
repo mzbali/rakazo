@@ -1,15 +1,14 @@
 import { useExternalLinkOpener } from "@rakazo/chat-ui/web";
 import type { PageSectionAnchor } from "@rakazo/contracts";
 import {
+  createPageImageResponder,
   pageCopyRequest,
   pageCopyResult,
-  pageImageRequest,
-  pageImageResult,
   pageLinkRequest,
   pageReviewSections,
 } from "@rakazo/core";
 import type { CSSProperties } from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { writeClipboard } from "../../lib/copy-text";
 import { pageFrameHeight } from "../../lib/pages/page-cards";
 import { visualImageSrc } from "../../lib/pages/visual-images";
@@ -51,6 +50,7 @@ export function PageFrame({
   const box = useRef<HTMLDivElement>(null);
   const [drawnAt, setDrawnAt] = useState<CSSProperties | undefined>(undefined);
   const usedGesture = useRef<string | null>(null);
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [document]);
   const receive = useCallback(
     (data: unknown, answer: (message: object) => void, focused: boolean) => {
       if (!data || typeof data !== "object") return;
@@ -61,11 +61,7 @@ export function PageFrame({
         gesture?: unknown;
       };
       // A picture is a read of the message's own data, not an action: it needs no click or key.
-      const image = images ? pageImageRequest(data, images) : null;
-      if (image) {
-        void visualImageSrc(image.id).then((src) => answer(pageImageResult(image.id, src)));
-        return;
-      }
+      if (answerImage(data, images, answer)) return;
       if (message.type === "rakazo-page:height" && typeof message.height === "number") {
         const height = pageFrameHeight(message.height);
         if (interactive && box.current) {
@@ -91,7 +87,7 @@ export function PageFrame({
       else if (url) open(url);
       else if (reply) reply(message.text);
     },
-    [interactive, onHeight, onReply, onSections, open, images],
+    [interactive, onHeight, onReply, onSections, open, images, answerImage],
   );
   return (
     <>
@@ -101,6 +97,7 @@ export function PageFrame({
         className={`h-full ${interactive ? "print:mx-auto print:h-(--page-height) print:w-(--page-width)" : ""}`}
       >
         <SandboxedHtmlViewer
+          key={images ? document : undefined}
           html={document}
           title={title}
           className="bg-transparent"

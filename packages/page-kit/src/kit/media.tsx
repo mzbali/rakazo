@@ -12,12 +12,12 @@ export const text = (value: unknown) =>
 export function imageSource(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   if (/^data:image\/[a-z0-9.+-]+[;,]/i.test(value)) return value;
-  return /^rakazo-image:[a-z0-9-]+$/i.test(value) ? value : undefined;
+  return imageRefId(value) ? value : undefined;
 }
 
 /** The id in a rakazo-image: reference, which the host swaps for the stored bytes. */
 function imageRefId(source: string): string | undefined {
-  return source.startsWith("rakazo-image:") ? source.slice("rakazo-image:".length) : undefined;
+  return /^rakazo-image:([a-z0-9-]+)$/i.exec(source)?.[1];
 }
 
 /**

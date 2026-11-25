@@ -11,7 +11,6 @@ import {
   isAttachmentArchiveMimeType,
   isAttachmentAudioMimeType,
   isStepScreenshotMimeType,
-  STEP_SCREENSHOT_MIME_TYPES,
 } from "@rakazo/contracts";
 import {
   AttachmentValidationError,
@@ -30,6 +29,7 @@ import {
   HIDDEN_ARTIFACT_MIME_TYPES,
   IsolationError,
   isRecordNotFound,
+  LISTED_ARTIFACT,
   Prisma,
   withResolvedArtifactVersion,
 } from "@rakazo/db";
@@ -540,16 +540,13 @@ export async function listSpaceArtifacts(
   };
 }
 
-const NOT_STEP_SCREENSHOT = { mimeType: { notIn: STEP_SCREENSHOT_MIME_TYPES } };
-
 export async function listArtifactVersions(
   deps: { prisma: Pick<PrismaClient, "artifact"> },
   actor: Actor,
   input: { familyId: string },
 ) {
   const anchor = await deps.prisma.artifact.findFirst({
-    // A reply's kept screenshot is the bot's own, not a file a person manages.
-    where: { id: input.familyId, spaceId: actor.spaceId, ...NOT_STEP_SCREENSHOT },
+    where: { id: input.familyId, spaceId: actor.spaceId, ...LISTED_ARTIFACT },
     select: { id: true, rootArtifactId: true },
   });
   if (!anchor) throw new IsolationError();
@@ -578,7 +575,7 @@ export async function deleteArtifactFamily(
   input: { familyId: string },
 ) {
   const anchor = await deps.prisma.artifact.findFirst({
-    where: { id: input.familyId, spaceId: actor.spaceId, ...NOT_STEP_SCREENSHOT },
+    where: { id: input.familyId, spaceId: actor.spaceId, ...LISTED_ARTIFACT },
     select: { id: true, rootArtifactId: true, botId: true },
   });
   if (!anchor) throw new IsolationError();

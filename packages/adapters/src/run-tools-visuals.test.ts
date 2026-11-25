@@ -1,5 +1,7 @@
-import { MessageBlock, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
+import { MessageBlock, pageSourceBytes, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
+import { checkPageSource } from "@rakazo/page-kit/validate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as storage from "./storage/thread-artifacts.js";
 
 const publishMessage = vi.fn();
 vi.mock("./runs/assembly/run-messages.js", async (importActual) => ({
@@ -21,6 +23,7 @@ vi.mock("./web/visual-image.js", async (importActual) => ({
 }));
 
 const storeVisualImage = vi.fn();
+const discard = vi.fn(async () => {});
 vi.mock("./storage/thread-artifacts.js", async (importActual) => ({
   ...(await importActual<typeof import("./storage/thread-artifacts.js")>()),
   storeVisualImage: (...args: unknown[]) => storeVisualImage(...args),
@@ -94,6 +97,7 @@ describe("show_visual", () => {
     publishMessage.mockResolvedValue({ id: "message-1" });
     fetchVisualImage.mockReset();
     storeVisualImage.mockReset();
+    discard.mockClear();
     runTainted = false;
   });
 
@@ -223,13 +227,11 @@ describe("show_visual", () => {
       fetchVisualImage.mockImplementation(async () => ({
         bytes: new Uint8Array([1, 2, 3]),
       }));
-      storeVisualImage.mockImplementation(async () => "artifact-1");
+      storeVisualImage.mockImplementation(async () => ({ id: "artifact-1", discard }));
     };
 
     it("fetches the named pictures and ships ids, alt text and sizes, never bytes or urls", async () => {
       fetchesPictures();
-      storeVisualImage.mockReset();
-      storeVisualImage.mockImplementation(async () => "artifact-1");
       const result = await show({
         title: "Picks",
         summary: "Two blenders.",
@@ -237,6 +239,7 @@ describe("show_visual", () => {
         images: IMAGES,
       });
       expect(result.shown).toBe(true);
+      expect(discard).not.toHaveBeenCalled();
       expect(publishMessage).toHaveBeenCalledTimes(1);
       const block = postedBlock();
       expect(block.code).toContain('image: "rakazo-image:artifact-1"');
@@ -257,6 +260,131 @@ describe("show_visual", () => {
         runId: "run-1",
         operationId: "exec-1",
       });
+    });
+
+    it("rewrites image sources case-insensitively and leaves visible text alone", async () => {
+      fetchesPictures();
+      const source = `export default () => <><Text>rakazo-image:9</Text>
+        <Image src={'RaKaZo-ImAgE:1'} alt="rakazo-image:1" />
+        <Video src="rakazo-image:8" poster="RAKAZO-IMAGE:1" />
+        <Gallery photos={[{ src: "RAKAZO-IMAGE:1" }]} />
+        <ProductCard title="rakazo-image:1" photos={["RAKAZO-IMAGE:1"]} />
+      </>;`;
+      const result = await show({
+        title: "Picks",
+        summary: "One blender.",
+        source,
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.shown).toBe(true);
+      expect(postedBlock().code).toContain('"rakazo-image:9"');
+      expect(postedBlock().code).toContain('src: "rakazo-image:8"');
+      expect(postedBlock().code).toContain('alt: "rakazo-image:1"');
+      expect(postedBlock().code).toContain('title: "rakazo-image:1"');
+      expect(String(postedBlock().code).match(/rakazo-image:artifact-1/g)).toHaveLength(4);
+      expect(storeVisualImage).toHaveBeenCalledTimes(1);
+    });
+
+    it("checks the expanded size before fetching or storing pictures", async () => {
+      const source = 'export default () => <><Image src="rakazo-image:1" /><Text>FILL</Text></>;';
+      const compiled = checkPageSource(source);
+      if (!compiled.ok) throw new Error("Invalid test source");
+      const filler = "x".repeat(VISUAL_CODE_MAX_BYTES - pageSourceBytes(compiled.code) + 4);
+      const result = await show({
+        title: "Picks",
+        summary: "One blender.",
+        source: source.replace("FILL", filler),
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.error).toContain("compiled with its pictures");
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(storeVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("discards a successful write if another write fails", async () => {
+      fetchesPictures();
+      storeVisualImage.mockRejectedValueOnce(new Error("Storage failed"));
+      await expect(
+        show({ title: "Picks", summary: "Two blenders.", source: PRODUCTS, images: IMAGES }),
+      ).rejects.toThrow("Storage failed");
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(["cancelled", "throws"])(
+      "discards every new image when publication is %s",
+      async (outcome) => {
+        fetchesPictures();
+        if (outcome === "throws") publishMessage.mockRejectedValueOnce(new Error("Write failed"));
+        else publishMessage.mockResolvedValueOnce(null);
+        const result = show({
+          title: "Picks",
+          summary: "Two blenders.",
+          source: PRODUCTS,
+          images: IMAGES,
+        });
+        if (outcome === "throws") await expect(result).rejects.toThrow("Write failed");
+        else
+          await expect(result).resolves.toMatchObject({
+            error: expect.stringContaining("was not posted"),
+          });
+        expect(discard).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it("removes only the rows and blobs of the failed post, even for the same image bytes", async () => {
+      fetchesPictures();
+      const { storeVisualImage: writeImage } = await vi.importActual<typeof storage>(
+        "./storage/thread-artifacts.js",
+      );
+      storeVisualImage.mockImplementation(writeImage);
+      const rows = new Map<string, string>();
+      const blobs = new Set<string>();
+      let nextKey = 0;
+      const deps = {
+        prisma: {
+          artifact: {
+            findFirst: async () => {
+              const [id] = rows.keys();
+              return id ? { id } : null;
+            },
+            create: async ({ data }: { data: { id: string; storageKey: string } }) => {
+              rows.set(data.id, data.storageKey);
+              return { id: data.id };
+            },
+            deleteMany: async ({ where }: { where: { id: string } }) => {
+              rows.delete(where.id);
+            },
+          },
+        },
+        artifacts: {
+          put: async () => {
+            const id = `blob-${++nextKey}`;
+            blobs.add(id);
+            return { id };
+          },
+          remove: async (id: string) => {
+            blobs.delete(id);
+          },
+        },
+      };
+      const args = {
+        title: "Picks",
+        summary: "One blender.",
+        source: 'export default () => <Image src="rakazo-image:1" />;',
+        images: IMAGES.slice(0, 1),
+      };
+      await expect(show(args, [], { deps })).resolves.toMatchObject({ shown: true });
+      const firstRows = [...rows];
+      expect(firstRows).toHaveLength(1);
+      expect(firstRows[0]![0]).toHaveLength(storage.VISUAL_IMAGE_ARTIFACT_ID_LENGTH);
+
+      publishMessage.mockResolvedValueOnce(null);
+      await expect(show(args, [], { deps })).resolves.toMatchObject({ error: expect.any(String) });
+      expect(nextKey).toBe(2);
+      expect([...rows]).toEqual(firstRows);
+      expect([...blobs]).toEqual(["blob-1"]);
     });
 
     it("names the picture that failed and shows nothing, even when others loaded", async () => {

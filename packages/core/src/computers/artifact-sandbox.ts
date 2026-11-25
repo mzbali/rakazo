@@ -1,5 +1,5 @@
 import type { PageSectionAnchor } from "@rakazo/contracts";
-import { PageSectionOccurrence } from "@rakazo/contracts";
+import { PageSectionOccurrence, VISUAL_IMAGE_MAX_COUNT } from "@rakazo/contracts";
 
 // Same policy as the web preview: nothing loads from the network, so a script
 // cannot send what it reads to a remote image or font URL.
@@ -116,6 +116,26 @@ export function pageImageRequest(
 /** The answer a frame's image request waits for: the bytes as a data URI, or null when it has none. */
 export function pageImageResult(id: string, src: string | null) {
   return { type: IMAGE_DATA_MESSAGE, id, src };
+}
+
+/**
+ * Each document gets one download and one reply per carried id. The frame's own bridge shares
+ * that reply among all consumers; repeated requests have no work to do, even after it arrives.
+ */
+export function createPageImageResponder(load: (id: string) => Promise<string | null>) {
+  const requested = new Set<string>();
+  return (
+    data: unknown,
+    carried: ReadonlyArray<{ id: string }> | undefined,
+    answer: (message: object) => void,
+  ): boolean => {
+    const image = pageImageRequest(data, carried);
+    if (!image) return false;
+    if (requested.has(image.id) || requested.size >= VISUAL_IMAGE_MAX_COUNT) return true;
+    requested.add(image.id);
+    void load(image.id).then((src) => answer(pageImageResult(image.id, src)));
+    return true;
+  };
 }
 
 /** A page's copy buttons send at most this much; the kit refuses longer text before asking. */

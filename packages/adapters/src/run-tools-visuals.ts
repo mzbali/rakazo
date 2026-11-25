@@ -9,13 +9,14 @@ import {
 } from "@rakazo/contracts";
 import { containsSecret, embedLine, isBackgroundRunTrigger, outboundSiteGate } from "@rakazo/core";
 import { normalizedHttpUrl, urlSite } from "@rakazo/core/egress";
-import { checkPageSource, VISUAL_GUIDE } from "@rakazo/page-kit/validate";
+import { bestEffort } from "@rakazo/logging";
+import { checkPageSource, VISUAL_GUIDE, visualImageReferences } from "@rakazo/page-kit/validate";
 import type { RunContext } from "./runs/assembly/run-context.js";
 import { isRunTainted } from "./runs/assembly/run-context.js";
 import { publishMessage } from "./runs/assembly/run-messages.js";
 import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
 import type { ToolCall, ToolHandlers } from "./runs/tools/run-tool-gate.js";
-import { storeVisualImage } from "./storage/thread-artifacts.js";
+import { storeVisualImage, VISUAL_IMAGE_ARTIFACT_ID_LENGTH } from "./storage/thread-artifacts.js";
 import { fetchVisualImage } from "./web/visual-image.js";
 
 /** The summary is one paragraph of plain text: every run of whitespace folds into a space. */
@@ -47,21 +48,13 @@ function visualImageArgs(value: unknown): VisualImageArg[] | string {
   return parsed;
 }
 
-/** The 1-based places the compiled code names a picture by, and whether any name is malformed. */
-const IMAGE_REFERENCE = /rakazo-image:([^"'`\s]*)/g;
-
-function imageReferences(code: string): { places: number[]; malformed: boolean } {
-  const places: number[] = [];
-  for (const [, digits] of code.matchAll(IMAGE_REFERENCE)) {
-    if (!digits || !/^\d+$/.test(digits)) return { places: [], malformed: true };
-    const place = Number(digits);
-    if (!places.includes(place)) places.push(place);
-  }
-  return { places, malformed: false };
-}
-
-/** A picture the visual carries: its place, the stored artifact's id, and what the message keeps. */
-type CarriedImage = { place: number; id: string; alt: string; size: number };
+type CarriedImage = {
+  place: number;
+  id: string;
+  alt: string;
+  size: number;
+  discard: () => Promise<void>;
+};
 
 /** Apply the run’s outbound policy before each request, including redirected requests. */
 async function imageUrlGate(ctx: RunContext) {
@@ -92,8 +85,9 @@ async function carryImages(
   call: ToolCall,
   places: number[],
   images: VisualImageArg[],
-): Promise<CarriedImage[] | string> {
-  if (places.length === 0) return [];
+  carried: CarriedImage[],
+): Promise<string | undefined> {
+  if (places.length === 0) return;
   const artifacts = ctx.deps.artifacts;
   if (!artifacts)
     return "Image storage is not configured, so the visual was not shown. Call without images.";
@@ -125,14 +119,19 @@ async function carryImages(
     }
     ready.push({ place, alt, bytes: result.value.bytes });
   }
-  return Promise.all(
+  const stored = await Promise.allSettled(
     ready.map(async ({ place, alt, bytes }) => ({
       place,
       alt,
-      id: await storeVisualImage({ prisma: ctx.deps.prisma, artifacts }, owner, { bytes }),
+      ...(await storeVisualImage({ prisma: ctx.deps.prisma, artifacts }, owner, { bytes })),
       size: bytes.byteLength,
     })),
   );
+  for (const result of stored) {
+    if (result.status === "fulfilled") carried.push(result.value);
+  }
+  const failed = stored.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
 }
 
 /**
@@ -175,7 +174,7 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   }
   const images = visualImageArgs(args.images);
   if (typeof images === "string") return { error: images };
-  const { places, malformed } = imageReferences(code);
+  const { places, malformed, replace } = visualImageReferences(code);
   if (malformed) {
     return {
       error: "A picture src must be rakazo-image:<its 1-based place in images>.",
@@ -207,40 +206,46 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
       error: "The visual contains a secret value; nothing was shown. Remove it and try again.",
     };
   }
-  const carried = await carryImages(ctx, call, places, images);
-  if (typeof carried === "string") return { error: carried };
-  // The code that ships names each picture by its stored id, so the frame can only ever ask for
-  // pictures of its own message, never an address.
-  const placed = carried.length
-    ? code.replace(IMAGE_REFERENCE, (token, digits) => {
-        const stored = carried.find((entry) => entry.place === Number(digits));
-        return stored ? `rakazo-image:${stored.id}` : token;
-      })
-    : code;
-  const placedBytes = pageSourceBytes(placed);
+  const maxId = "x".repeat(VISUAL_IMAGE_ARTIFACT_ID_LENGTH);
+  const placedBytes = pageSourceBytes(replace(() => maxId));
   if (placedBytes > VISUAL_CODE_MAX_BYTES) {
     return {
       error: `The visual is ${placedBytes} bytes compiled with its pictures; the limit is ${VISUAL_CODE_MAX_BYTES}. Show less, or build a page with save_page.`,
     };
   }
-  const block: MessageBlock = {
-    kind: "visual",
-    title: title.data,
-    text: summary,
-    code: placed,
-    ...(carried.length ? { images: carried.map(({ id, alt, size }) => ({ id, alt, size })) } : {}),
-  };
-  // A background run posts nothing to the chat, and a cancelled run's message does not commit.
-  const posted = await publishMessage(ctx.deps, ctx.run, "bot", [block]);
-  if (!posted) {
-    return { error: "The visual was not posted to the chat; nothing was shown." };
+
+  const carried: CarriedImage[] = [];
+  let published = false;
+  try {
+    const error = await carryImages(ctx, call, places, images, carried);
+    if (error) return { error };
+    const ids = new Map(carried.map(({ place, id }) => [place, id]));
+    const block: MessageBlock = {
+      kind: "visual",
+      title: title.data,
+      text: summary,
+      code: replace((place) => ids.get(place)!),
+      ...(carried.length
+        ? { images: carried.map(({ id, alt, size }) => ({ id, alt, size })) }
+        : {}),
+    };
+    const posted = await publishMessage(ctx.deps, ctx.run, "bot", [block]);
+    if (!posted) {
+      return { error: "The visual was not posted to the chat; nothing was shown." };
+    }
+    published = true;
+    return {
+      shown: true,
+      embed: embedLine("visual", title.data, posted.id),
+      note: "Place embed in your reply where the visual belongs. Do not repeat what it shows or paste its source.",
+      ...(check.warnings?.length ? { warnings: check.warnings } : {}),
+    };
+  } finally {
+    if (!published)
+      await Promise.all(
+        carried.map(({ discard }) => bestEffort("unposted visual image", discard())),
+      );
   }
-  return {
-    shown: true,
-    embed: embedLine("visual", title.data, posted.id),
-    note: "Place embed in your reply where the visual belongs. Do not repeat what it shows or paste its source.",
-    ...(check.warnings?.length ? { warnings: check.warnings } : {}),
-  };
 }
 
 export const visualTools: ToolHandlers = {

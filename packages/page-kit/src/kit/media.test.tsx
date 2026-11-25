@@ -151,13 +151,13 @@ describe("media", () => {
     await act(async () => {
       root.render(
         <>
-          <Image src="rakazo-image:art-7" alt="Blender" />
+          <Image src="RaKaZo-ImAgE:Art-7" alt="Blender" />
           <Image src="rakazo-image:art-8" alt="Poisoned" />
         </>,
       );
     });
     expect(posted).toEqual([
-      { type: "rakazo-page:image", id: "art-7" },
+      { type: "rakazo-page:image", id: "Art-7" },
       { type: "rakazo-page:image", id: "art-8" },
     ]);
     await act(async () => {
@@ -176,7 +176,7 @@ describe("media", () => {
     await act(async () => {
       window.dispatchEvent(
         new MessageEvent("message", {
-          data: { type: "rakazo-page:image-data", id: "art-7", src: PNG },
+          data: { type: "rakazo-page:image-data", id: "Art-7", src: PNG },
         }),
       );
     });

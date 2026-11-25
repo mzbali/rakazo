@@ -3,11 +3,10 @@ import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
 import {
+  createPageImageResponder,
   MAX_INLINE_VISUAL_HEIGHT,
   pageCopyRequest,
   pageCopyResult,
-  pageImageRequest,
-  pageImageResult,
   pageLinkRequest,
   VISUAL_PREVIEW_HEIGHT,
   visualFit,
@@ -31,14 +30,6 @@ type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
-
-/** A picture the visual's own message carries, answered from the artifact store; never a URL. */
-function answerImage(block: VisualBlock, data: string, answer: (message: object) => void) {
-  const image = pageImageRequest(pageMessage(data), block.images);
-  if (!image) return false;
-  void visualImageSrc(image.id).then((src) => answer(pageImageResult(image.id, src)));
-  return true;
-}
 
 /** The page runtime from the user's server, loaded once per card; null until it loads. */
 function usePageRuntime() {
@@ -119,6 +110,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [sheet, runtime, block.code, theme, errorTitle, tokens.background],
   );
 
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [inline]);
   const shown = Math.min(
     height ?? PLACEHOLDER_HEIGHT,
     fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
@@ -135,6 +127,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         // Never taller than the card shows: the reported height is the content's, not the frame's.
         <View style={{ height: shown }}>
           <SandboxedHtmlPreview
+            key={inline}
             html={inline}
             background={tokens.background}
             // Classified inline, then grown by its own controls: scroll the card rather than
@@ -148,7 +141,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               const next = visualHeight(data);
               if (next === null) {
                 // A picture is a read of the message's own data, not an action: no tap is needed.
-                if (answerImage(block, data, answer)) return;
+                if (answerImage(pageMessage(data), block.images, answer)) return;
                 if (live) actions.act(data, answer);
                 return;
               }
@@ -220,15 +213,17 @@ function VisualSheet({
   const { t } = useLingui();
   const tokens = useMobileTokens();
   const actions = useVisualActions();
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [document]);
   return (
     <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
       <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...actions.touch}>
         {document ? (
           <SandboxedHtmlPreview
+            key={document}
             html={document}
             background={tokens.background}
             onMessage={(data, answer) => {
-              if (!answerImage(block, data, answer)) actions.act(data, answer);
+              if (!answerImage(pageMessage(data), block.images, answer)) actions.act(data, answer);
             }}
           />
         ) : (

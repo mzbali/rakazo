@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { VISUAL_IMAGE_MAX_COUNT } from "@rakazo/contracts";
+import { deferred } from "@rakazo/core/test-async";
+import { describe, expect, it, vi } from "vitest";
 import {
+  createPageImageResponder,
   MAX_INLINE_VISUAL_HEIGHT,
   PAGE_COPY_MAX_LENGTH,
   pageCopyRequest,
@@ -158,6 +161,31 @@ describe("pageLinkRequest", () => {
     }
     expect(pageLinkRequest(ask("https://example.com", "rakazo-page:other"))).toBeNull();
     expect(pageLinkRequest(null)).toBeNull();
+  });
+});
+
+describe("createPageImageResponder", () => {
+  it("downloads and answers once per id, with a hard limit per document", async () => {
+    const pending = deferred<string>();
+    const load = vi.fn(() => pending.promise);
+    const answer = vi.fn();
+    const received = createPageImageResponder(load);
+    const ids = Array.from({ length: VISUAL_IMAGE_MAX_COUNT + 1 }, (_, i) => ({ id: `art-${i}` }));
+    const request = (id: string) => ({ type: "rakazo-page:image", id });
+    expect(received(request("unknown"), ids, answer)).toBe(false);
+    for (const { id } of ids) {
+      expect(received(request(id), ids, answer)).toBe(true);
+      expect(received(request(id), ids, answer)).toBe(true);
+    }
+    expect(load.mock.calls).toEqual(ids.slice(0, VISUAL_IMAGE_MAX_COUNT).map(({ id }) => [id]));
+    pending.resolve("data:image/webp;base64,AA==");
+    await pending.promise;
+    received(request("art-0"), ids, answer);
+    await pending.promise;
+    expect(answer).toHaveBeenCalledTimes(VISUAL_IMAGE_MAX_COUNT);
+    expect(answer).toHaveBeenCalledWith(pageImageResult("art-0", "data:image/webp;base64,AA=="));
+    createPageImageResponder(load)(request("art-0"), ids, answer);
+    expect(load).toHaveBeenCalledTimes(VISUAL_IMAGE_MAX_COUNT + 1);
   });
 });
 

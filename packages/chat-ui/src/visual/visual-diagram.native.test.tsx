@@ -107,6 +107,31 @@ describe("native diagram edge labels", () => {
     expect(focus?.props.stroke).not.toBe(palette.foreground);
     expect(focus?.props.fill).not.toBe(palette.background);
   });
+
+  it("highlights the node the author named, and falls back when that id is missing", () => {
+    const source = (focus: string) =>
+      parseVisualFence(`<Visual summary="Reduction"><Diagram focus="${focus}" direction="horizontal"
+      nodes={[{id:"sudoku",label:"Sudoku"},{id:"subset",label:"Subset Sum"},{id:"sat",label:"SAT"}]}
+      edges={[{from:"sudoku",to:"sat"},{from:"subset",to:"sat"}]} /></Visual>`);
+    const surface = {
+      palette: tokensForAppearance("dark"),
+      colorScheme: "dark" as const,
+      narrow: true,
+      width: 360,
+      unavailable: "Unavailable",
+    };
+    const stroke = (focus: string, label: string) => {
+      const drawing = Diagram({ element: source(focus).root!.children[0]!, surface });
+      const group = tagged(drawing, "g").find((entry) =>
+        textElements(entry).some((text) => text.props.children === label),
+      );
+      return tagged(group ?? null, "rect")[0]?.props.strokeWidth;
+    };
+    expect(stroke("sudoku", "Sudoku")).toBe(2);
+    expect(stroke("sudoku", "SAT")).toBe(1.25);
+    expect(stroke("missing", "SAT")).toBe(2);
+    expect(stroke("missing", "Sudoku")).toBe(1.25);
+  });
 });
 
 describe("native figure card", () => {

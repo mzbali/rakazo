@@ -35,6 +35,11 @@ it("keeps a column at least as wide as its longest word", () => {
   expect(columnFloor(["NP (not known to be in P)"], TABLE_FONT_SIZE)).toBe(
     columnFloor(["known"], TABLE_FONT_SIZE),
   );
+  // A wide letter is about an em. Counting it as a mark clips the column.
+  expect(columnFloor(["字"], TABLE_FONT_SIZE)).toBeGreaterThanOrEqual(TABLE_FONT_SIZE);
+  expect(columnFloor(["Привет"], TABLE_FONT_SIZE)).toBeGreaterThan(
+    columnFloor(["pppppp"], TABLE_FONT_SIZE),
+  );
 });
 
 it("scrolls a phone table only when a word cannot fit", () => {

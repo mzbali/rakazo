@@ -341,7 +341,7 @@ export function Pie({ element, surface }: { element: VisualElement; surface: Sur
   let start = 0;
   const slices = parts.map((part, index) => {
     const share = part.value / sum;
-    const slice = { part, share, start, color: seriesColor(surface, index + 1) };
+    const slice = { part, share, start, color: seriesColor(surface, index) };
     start += share;
     return slice;
   });

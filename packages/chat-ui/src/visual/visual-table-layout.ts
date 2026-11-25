@@ -19,6 +19,8 @@ export function tokenWidth(token: string, fontSize: number): number {
   let width = 0;
   for (const char of token) {
     const code = char.codePointAt(0) ?? 0;
+    // Accented Latin is about a capital. Anything past Latin Extended-B is at
+    // least an em, so a wide word is never given a column narrower than itself.
     const ratio =
       code >= 48 && code <= 57
         ? DIGIT
@@ -26,7 +28,11 @@ export function tokenWidth(token: string, fontSize: number): number {
           ? UPPER
           : code >= 97 && code <= 122
             ? LOWER
-            : MARK;
+            : code <= 127
+              ? MARK
+              : code <= 0x024f
+                ? UPPER
+                : 1;
     width += fontSize * ratio;
   }
   return Math.ceil(width);

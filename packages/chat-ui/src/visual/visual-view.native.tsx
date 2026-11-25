@@ -478,7 +478,11 @@ export function Diagram({ element, surface }: { element: VisualElement; surface:
     surface.width,
   );
   const { horizontal } = layout;
-  const focus = diagramFocusId(layout.nodes);
+  // The author's highlight when it names a node. Otherwise the node a wider layer feeds.
+  const asked = element.props.focus;
+  const named =
+    typeof asked === "string" && layout.nodes.some((node) => node.id === asked) ? asked : undefined;
+  const focus = named ?? diagramFocusId(layout.nodes);
   const pad = 2;
   const full = layout.width + pad * 2;
   const high = layout.height + pad * 2;

@@ -447,6 +447,8 @@ function layoutRing(
       node.id === focus,
     );
   });
+  // One stage is a card, not a loop. A pipe back to the same card draws a stray arrow.
+  if (count < 2) return { nodes: placed, pipes: [], width, height };
   const pipes: CyclePipe[] = placed.map((node, index) => {
     const next = placed[(index + 1) % count]!;
     const start = borderToward(node.box, [

@@ -198,6 +198,7 @@ describe("cycle diagrams", () => {
     expect(layout.zones).toEqual([]);
     expect(layout.flows).toEqual([]);
     expect(layout.center).toEqual([]);
+    expect(layout.pipes).toEqual([]);
     expect(layoutCycle(undefined, undefined).height).toBe(0);
   });
 });

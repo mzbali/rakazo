@@ -365,14 +365,16 @@ describe("choices, result and raw range", () => {
     );
     const grid = host.querySelector(".rk-choices") as HTMLElement;
     const buttons = [...host.querySelectorAll(".rk-choices button")];
-    expect(grid.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+    expect(grid.style.gridTemplateColumns).toBe(
+      "repeat(auto-fit, minmax(min(100%, max(8.75rem, calc((100% - 1 * 8px) / 2))), 1fr))",
+    );
     expect(buttons.map((button) => button.textContent)).toEqual([
       "Lowest total cost",
       "Lowest monthly bill / new car often",
     ]);
     expect(PAGE_STYLES).toContain("min-inline-size:0");
     expect(PAGE_STYLES).toContain(
-      ".rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:anywhere;text-align:center}",
+      ".rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:break-word;word-break:normal;text-align:center}",
     );
   });
 

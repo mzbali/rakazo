@@ -237,6 +237,7 @@ describe("page kit", () => {
     );
     expect(markup).toContain('<div class="rk-metric-detail">flat</div>');
     expect(markup).toContain("--rk-columns:4");
+    expect(markup).toContain("--rk-metric-min:8.4rem");
     expect(
       html(
         <Metrics
@@ -247,6 +248,16 @@ describe("page kit", () => {
         />,
       ),
     ).toContain("--rk-columns:2");
+    // A currency figure is wide enough that a phone row must be allowed to drop to one column.
+    expect(html(<Metrics metrics={[{ value: "£200,249", label: "Total interest" }]} />)).toContain(
+      "--rk-metric-min:14.6rem",
+    );
+    expect(PAGE_STYLES).toContain(
+      ".rk-metric-value{margin-top:.4rem;font-size:clamp(1.05rem,14cqi,2.5rem);line-height:1.1;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    );
+    expect(PAGE_STYLES).toContain(
+      ".rk-metrics{gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(max(min(100%,var(--rk-metric-min,7rem)),calc((100% - .75rem) / min(var(--rk-columns),2))),1fr))}",
+    );
   });
 
   it("aligns figures and short values to the end, prose and status to the start, unless told", () => {

@@ -455,11 +455,13 @@ export function Choices({
   });
   const count = clamp(Math.round(number(columns, 2)) || 2, 1, 4);
   const name = text(label);
+  // A phone row that is forced into equal columns breaks "Committee" into "Commit" / "ee".
+  // The track is at least a short word, and drops a column before it splits one.
+  const tracks = radio
+    ? "minmax(0, 1fr)"
+    : `repeat(auto-fit, minmax(min(100%, max(8.75rem, calc((100% - ${count - 1} * 8px) / ${count}))), 1fr))`;
   return (
-    <fieldset
-      className="rk-choices"
-      style={{ gridTemplateColumns: `repeat(${radio ? 1 : count}, minmax(0, 1fr))` }}
-    >
+    <fieldset className="rk-choices" style={{ gridTemplateColumns: tracks }}>
       {name ? (
         <legend className={radio ? "rk-choice-question" : "rk-visually-hidden"}>{name}</legend>
       ) : null}
@@ -660,8 +662,8 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-timeline-chevron{flex:none;width:16px;height:16px;margin-top:2px;fill:none;stroke:var(--rk-secondary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .rk-timeline-row[aria-expanded="true"] .rk-timeline-chevron{transform:rotate(90deg)}
 .rk-choices{display:grid;gap:8px;width:100%;margin:0;padding:0;border:0;min-width:0;min-inline-size:0}
-/* A nowrap pill kept its full label as min-content and slid out of its cell. */
-.rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:anywhere;text-align:center}
+/* A nowrap pill kept its full label as min-content and slid out of its cell. Wrap at spaces. A single word breaks only when it is wider than the pill. */
+.rk-choices .rk-button{width:100%;max-width:100%;min-width:0;align-self:stretch;height:auto;min-height:36px;white-space:normal;overflow-wrap:break-word;word-break:normal;text-align:center}
 @media (pointer:coarse){.rk-choices .rk-button{min-height:44px;height:auto}}
 .rk-choice-question{padding:0;margin-bottom:.35rem;font-weight:600}
 .rk-choice-radio{display:flex;align-items:flex-start;gap:.55rem;cursor:pointer;color:var(--foreground);overflow-wrap:anywhere}
@@ -675,7 +677,7 @@ button.rk-timeline-row{appearance:none;cursor:pointer}
 .rk-stage-group > p{margin:0 0 .25rem;font-size:.8125rem;color:var(--rk-secondary)}
 .rk-stage-group ol{margin:0;padding-inline-start:1.5rem}
 .rk-stage-group li::marker{font-size:.8125rem;color:var(--rk-secondary);font-variant-numeric:tabular-nums}
-.rk-stage-stop{display:block;width:100%;min-height:2.25rem;padding:.25rem .5rem;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:start;overflow-wrap:anywhere;cursor:pointer}
+.rk-stage-stop{display:block;width:100%;min-height:2.25rem;padding:.25rem .5rem;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;text-align:start;overflow-wrap:break-word;word-break:normal;cursor:pointer}
 .rk-stage-stop:hover{background:var(--rk-track)}
 .rk-stage-stop[aria-current="step"]{background:var(--rk-primary);color:var(--rk-primary-ink)}
 .rk-stage-stop:focus-visible{outline:2px solid var(--ring);outline-offset:2px}

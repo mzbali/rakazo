@@ -101,13 +101,16 @@ export function Metrics({ metrics = [] }: { metrics?: Metric[] }) {
   if (shown.length === 0) return null;
   const columns = Math.min(4, shown.length);
   const widest = Math.max(...shown.map((metric) => textOf(metric.value).length));
+  // 2.5rem figure at ~0.62em a character, plus the tile's horizontal padding.
+  // The grid drops a column before that figure would have to wrap.
+  const minRem = Math.min(20, Math.max(7, (widest * 155 + 220) / 100));
   return (
     <div
       className="rk-metrics"
       style={
         {
           "--rk-columns": columns,
-          "--rk-metric-min": `${Math.max(7, Math.min(18, widest * 0.62 + 1))}rem`,
+          "--rk-metric-min": `${minRem}rem`,
         } as CSSProperties
       }
     >

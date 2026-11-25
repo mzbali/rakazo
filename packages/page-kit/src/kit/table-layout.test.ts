@@ -16,6 +16,9 @@ it("sizes a column to its longest word instead of breaking the word", () => {
   expect(rule(".rk-table th")).not.toContain("nowrap");
   expect(rule(".rk-table th")).toContain("font-weight:600");
   expect(PAGE_STYLES).toContain("min-width:min-content");
+  // The scrollport must be allowed to be narrower than the table, or the card clips the last column.
+  expect(rule(".rk-table-scroll")).toContain("min-width:0");
+  expect(rule(".rk-table-scroll")).toContain("max-width:100%");
   expect(PAGE_STYLES).not.toContain(".rk-table th,.rk-table[data-wide] td{white-space:nowrap}");
   // Figures stay on one line. Their own rule is more specific than the cell wrap.
   expect(PAGE_STYLES).toContain(".rk-table .rk-align-end{text-align:right");

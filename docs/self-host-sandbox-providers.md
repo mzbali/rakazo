@@ -90,7 +90,7 @@ Requirements:
 
 - Non-empty `SANDBOX_SUPERVISOR_TOKEN` (distinct from auth / screen / encryption secrets)
 - Reachable computer image (GHCR default or your mirror; on arm64 pin multi-arch tags for both app and computer)
-- Docker Engine available to the supervisor (socket mount on the Compose path)
+- Docker Engine available to the supervisor (socket mount on the Compose path). Building the computer image needs BuildKit; on an engine without it, set `RAKAZO_COMPUTER_IMAGE` (and its tag) to a published image written with its registry host, so the supervisor pulls instead.
 
 Verify:
 

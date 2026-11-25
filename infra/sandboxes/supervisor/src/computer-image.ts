@@ -65,7 +65,17 @@ async function provideComputerImage(docker: Docker, image: string, context: stri
         { t: image, version: "2", abortSignal },
       ),
     `Could not build ${image} from infra/sandboxes/computer; see the supervisor log.`,
+    (error) => (isMissingBuildKitSession(error) ? noBuildKit(image) : undefined),
   );
+}
+
+/** dockerode opens `POST /session` before a version 2 build; an engine without BuildKit answers 404. */
+function isMissingBuildKitSession(error: unknown) {
+  return (error as { statusCode?: number })?.statusCode === 404;
+}
+
+function noBuildKit(image: string) {
+  return `Could not build ${image}: the Docker engine does not support BuildKit sessions (it answered 404 to /session). Set RAKAZO_COMPUTER_IMAGE and its tag to a published image, written with its registry host (for example ghcr.io/<owner>/<name>:<tag>), so the supervisor pulls instead of building, or run the supervisor against an engine with BuildKit.`;
 }
 
 async function contextReadable(context: string) {
@@ -89,13 +99,18 @@ async function produce(
   action: "pull" | "build",
   start: (abortSignal: AbortSignal) => Promise<NodeJS.ReadableStream>,
   failure: string,
+  explain?: (error: unknown) => string | undefined,
 ) {
+  // Only an error from the pull or build itself is explained; a 404 from the inspect that follows
+  // is not about the session endpoint.
+  let started = false;
   try {
     await followProgress(start);
+    started = true;
     await docker.getImage(image).inspect();
   } catch (error) {
     getLogger().error(`computer image ${action} failed`, error, { "container.image.name": image });
-    throw new Error(failure);
+    throw new Error((!started && explain?.(error)) || failure);
   }
 }
 

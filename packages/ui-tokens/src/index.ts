@@ -75,7 +75,7 @@ export type ColorTokens = {
 };
 
 export const darkTokens = {
-  background: "#141414",
+  background: "#000000",
   dialog: "#1E1E1E",
   foreground: "#FFFFFF",
   card: "#202020",

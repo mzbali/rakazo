@@ -76,7 +76,7 @@ function visualImageOwner(ctx: RunContext, call: ToolCall) {
 
 /**
  * Copy each picture the chat already holds (image:<id>, from save_web_images or an attachment)
- * into a visual-owned picture. The id must be an image in this Space and this thread; it is
+ * into a visual-owned picture. The id must be an image this chat could already show: in this group, or for a private chat this bot's and this user's; it is
  * re-encoded like a fetched one, so what the visual keeps is a small WebP of the same size limits.
  */
 async function carrySavedImages(
@@ -98,7 +98,12 @@ async function carrySavedImages(
   const sourceBytes = [];
   for (const id of ids) {
     const row = byId.get(id);
-    const here = row && (row.groupId === null || row.groupId === (ctx.thread.groupId ?? null));
+    // A group chat's picture belongs to that group; a private chat's to this bot and this user.
+    const here =
+      row &&
+      (ctx.thread.groupId
+        ? row.groupId === ctx.thread.groupId
+        : row.groupId === null && row.botId === ctx.bot.id && row.userId === ctx.run.userId);
     if (!row || !here || !storedImageMimeType(row.mimeType) || row.mimeType.includes(";")) {
       return `image:${id} is not an image saved in this chat; nothing was shown. Use an image:<id> from save_web_images or an image attached here, or pass its url in images.`;
     }

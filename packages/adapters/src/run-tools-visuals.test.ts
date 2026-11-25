@@ -259,6 +259,8 @@ describe("show_visual", () => {
         id: ID,
         spaceId: "space-1",
         groupId: null,
+        botId: "bot-1",
+        userId: "user-1",
         name: "storm.png",
         mimeType: "image/png",
         storageKey: "blob-saved",
@@ -298,6 +300,8 @@ describe("show_visual", () => {
         for (const rows of [
           [],
           [row({ groupId: "other-group" })],
+          [row({ userId: "someone-else" })],
+          [row({ botId: "another-bot" })],
           [row({ mimeType: "application/pdf" })],
           [row({ mimeType: "image/png;profile=step-screenshot" })],
           [row({ mimeType: "image/webp;profile=visual-image" })],

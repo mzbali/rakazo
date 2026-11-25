@@ -200,7 +200,15 @@ export function LineChart({
     .slice(0, 3 * Math.max(1, count))
     .map((note, index) => {
       if (note.at === "zero") {
-        return { index, note, rule: true as const, x: right, y: zero, text: text(note.label) };
+        return {
+          index,
+          note,
+          rule: true as const,
+          x: right,
+          y: zero,
+          text: text(note.label),
+          node: note.label,
+        };
       }
       const at = note.at;
       const owner =
@@ -303,6 +311,7 @@ export function LineChart({
                   y: mark.y,
                   kind: "point" as const,
                   preferAbove: mark.preferAbove,
+                  marker: finite(mark.value),
                 },
           ),
       ],
@@ -467,6 +476,21 @@ export function LineChart({
           {marks.map((mark) => {
             if (!mark.rule) return null;
             const spot = placed.get(`a${mark.index}`);
+            // A rich label cannot be measured, so it keeps the line's own end position.
+            if (!mark.text && mark.node != null && mark.node !== "") {
+              return (
+                <ReferenceLine
+                  key={`label-${mark.index}`}
+                  part="label"
+                  y={mark.y}
+                  left={left}
+                  right={right}
+                  end={right}
+                  label={mark.node}
+                  above
+                />
+              );
+            }
             if (!spot || spot.hidden) return null;
             return (
               <ReferenceLine

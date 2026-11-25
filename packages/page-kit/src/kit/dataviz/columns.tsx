@@ -331,6 +331,7 @@ export function ColumnSeries({
               right={right}
               end={right}
               label={reference?.label}
+              limit={width}
               above
             />
           ) : null}
@@ -374,6 +375,7 @@ export function ReferenceLine({
   labelX,
   labelY,
   labelAnchor,
+  limit,
 }: {
   y: number;
   left: number;
@@ -387,11 +389,14 @@ export function ReferenceLine({
   labelX?: number;
   labelY?: number;
   labelAnchor?: LabelAnchor;
+  /** The drawing's width. A name wider than it is left off rather than run past the edge. */
+  limit?: number;
 }) {
   const words = typeof label === "string" || typeof label === "number" ? String(label) : "";
   const anchor = labelAnchor ?? "end";
   const width = words ? textWidth(words) : 0;
-  const x = labelX ?? Math.max(width, end - 4);
+  const fits = limit === undefined || width + 6 <= limit;
+  const x = labelX ?? Math.min(limit ?? Number.POSITIVE_INFINITY, Math.max(width, end - 4));
   const baseline = labelY ?? (above ? y - 6 : y + 4);
   const back = width > 0 ? labelBack(x, baseline, anchor, width) : null;
   return (
@@ -399,7 +404,7 @@ export function ReferenceLine({
       {part !== "label" ? (
         <line x1={left} x2={right} y1={y} y2={y} className="rk-reference-line" />
       ) : null}
-      {part !== "line" && label != null && label !== "" ? (
+      {part !== "line" && label != null && label !== "" && fits ? (
         <>
           {back ? (
             <rect

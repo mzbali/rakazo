@@ -286,6 +286,10 @@ export function Diagram({
             {edge.arrow ? (
               <path className="rk-diagram-arrow" d={chevron(edge.arrow.from, edge.arrow.tip)} />
             ) : null}
+          </g>
+        ))}
+        {drawn.map((edge, index) => (
+          <g key={`label-${index}`}>
             {edge.label && edge.labelAt ? (
               <>
                 {edge.labelBox ? (

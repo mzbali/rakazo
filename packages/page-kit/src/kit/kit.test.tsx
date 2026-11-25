@@ -649,6 +649,30 @@ describe("page kit", () => {
     expect(Number(/viewBox="-2 -2 ([\d.]+) /.exec(cycle)?.[1])).toBeLessThanOrEqual(324);
   });
 
+  it("keeps edge labels out of the loop-back lane and draws every stroke before any label", () => {
+    const nodes = [
+      { id: "a", label: "Third reading", detail: "Final Commons vote" },
+      { id: "b", label: "House of Lords", detail: "Same five stages" },
+      { id: "c", label: "Ping-pong", detail: "Agree identical text" },
+    ];
+    const edges = [
+      { from: "a", to: "b", label: "passes to" },
+      { from: "b", to: "c", label: "if amended" },
+      { from: "c", to: "a" },
+    ];
+    const fitted = fitDiagramLayout(nodes, edges, true, true, 360);
+    expect(fitted.horizontal).toBe(false);
+    const labelled = drawEdges(fitted.edges, false, fitted.width).filter((edge) => edge.label);
+    expect(labelled).toHaveLength(2);
+    for (const edge of labelled) expect(edge.labelAnchor).toBe("end");
+    const markup = html(
+      <Diagram direction="vertical" nodes={nodes} edges={edges} maxWidth={360} />,
+    );
+    expect(markup.lastIndexOf('rk-diagram-edge"')).toBeLessThan(
+      markup.indexOf("rk-diagram-edge-label"),
+    );
+  });
+
   it("centres a stacked column on one width and keeps an edge label off the arrow", () => {
     const nodes = [
       { id: "third", label: "Third reading", detail: "Final Commons vote" },

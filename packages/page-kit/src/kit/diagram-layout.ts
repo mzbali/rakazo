@@ -398,6 +398,7 @@ const EDGE_LABEL_GAP = 10;
 
 /**
  * A vertical edge's label sits beside the line. When that side would leave the card, it flips.
+ * With a loop-back curve in the right lane, the left side is tried first.
  * A horizontal edge keeps the label on the curve; the knockout still covers the stroke.
  */
 function placeEdgeLabel(
@@ -405,6 +406,7 @@ function placeEdgeLabel(
   label: string,
   beside: boolean,
   frameWidth: number,
+  leftFirst = false,
 ): { at: Point; anchor: "start" | "middle" | "end"; box: DrawnEdge["labelBox"] } {
   const width = label.length * EDGE_LABEL_CHAR;
   const height = 16;
@@ -413,7 +415,10 @@ function placeEdgeLabel(
   if (beside) {
     const rightAt = mid[0] + EDGE_LABEL_GAP;
     const leftAt = mid[0] - EDGE_LABEL_GAP;
-    if (rightAt + width <= frameWidth) {
+    if (leftFirst && leftAt - width >= 0) {
+      anchor = "end";
+      at = [leftAt, mid[1]];
+    } else if (rightAt + width <= frameWidth) {
       anchor = "start";
       at = [rightAt, mid[1]];
     } else if (leftAt - width >= 0) {
@@ -454,7 +459,12 @@ const cubic = (a: Point, b: Point, c: Point, d: Point) =>
 
 type LaidEdge = { edge: DiagramEdge; from: Placed; to: Placed; backward: boolean };
 
-function singleEdge(item: LaidEdge, horizontal: boolean, frameWidth: number): DrawnEdge {
+function singleEdge(
+  item: LaidEdge,
+  horizontal: boolean,
+  frameWidth: number,
+  leftFirst: boolean,
+): DrawnEdge {
   const [a, b, c, d] = edgePoints(item.from, item.to, item.backward, horizontal);
   const angle = Math.atan2(d[1] - c[1], d[0] - c[0]);
   const label = item.edge.label
@@ -463,6 +473,7 @@ function singleEdge(item: LaidEdge, horizontal: boolean, frameWidth: number): Dr
         item.edge.label,
         !horizontal && !item.backward,
         frameWidth,
+        leftFirst,
       )
     : undefined;
   return {
@@ -494,9 +505,14 @@ function stemRoom(group: LaidEdge[], horizontal: boolean): number {
   return room;
 }
 
-function bundleEdges(group: LaidEdge[], horizontal: boolean, frameWidth: number): DrawnEdge[] {
+function bundleEdges(
+  group: LaidEdge[],
+  horizontal: boolean,
+  frameWidth: number,
+  leftFirst: boolean,
+): DrawnEdge[] {
   const room = stemRoom(group, horizontal);
-  if (room < 10) return group.map((item) => singleEdge(item, horizontal, frameWidth));
+  if (room < 10) return group.map((item) => singleEdge(item, horizontal, frameWidth, leftFirst));
   const to = group[0]!.to;
   const dashed = group[0]!.edge.dashed;
   const tip: Point = horizontal ? [to.x, to.y + to.height / 2] : [to.x + to.width / 2, to.y];
@@ -537,13 +553,14 @@ export function drawEdges(
           0,
           ...edges.flatMap((item) => [item.from.x + item.from.width, item.to.x + item.to.width]),
         );
+  const leftFirst = !horizontal && edges.some((item) => item.backward);
   const used = new Set<number>();
   const drawn: DrawnEdge[] = [];
   edges.forEach((edge, index) => {
     if (used.has(index)) return;
     if (!canBundle(edge)) {
       used.add(index);
-      drawn.push(singleEdge(edge, horizontal, frame));
+      drawn.push(singleEdge(edge, horizontal, frame, leftFirst));
       return;
     }
     const group: LaidEdge[] = [];
@@ -556,8 +573,8 @@ export function drawEdges(
     });
     drawn.push(
       ...(group.length >= 2
-        ? bundleEdges(group, horizontal, frame)
-        : [singleEdge(group[0]!, horizontal, frame)]),
+        ? bundleEdges(group, horizontal, frame, leftFirst)
+        : [singleEdge(group[0]!, horizontal, frame, leftFirst)]),
     );
   });
   return drawn;

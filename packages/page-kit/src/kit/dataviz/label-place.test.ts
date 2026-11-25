@@ -54,7 +54,7 @@ describe("chart label placement", () => {
   });
 
   it("drops a note that cannot sit clear of another in a short plot", () => {
-    const bounds: LabelBounds = { left: 8, top: 0, right: 150, bottom: 36 };
+    const bounds: LabelBounds = { left: 8, top: 0, right: 150, bottom: 48 };
     const notes: ChartNote[] = [
       { id: "a", text: "Oct 2022 peak 11.1%", x: 70, y: 16, kind: "point", preferAbove: false },
       { id: "b", text: "Oct 2026 3.6%", x: 78, y: 18, kind: "point", preferAbove: false },
@@ -77,5 +77,30 @@ describe("chart label placement", () => {
     const reference = placed.find((label) => label.id === "ref")!;
     expect(reference.anchor).toBe("end");
     expect(reference.rect!.x + reference.rect!.width).toBeLessThanOrEqual(phone.right + 0.5);
+  });
+
+  it("never lets a label's background cover a note's own dot or another note's dot", () => {
+    const bounds: LabelBounds = { left: 8, top: 0, right: 150, bottom: 60 };
+    const notes: ChartNote[] = [
+      { id: "a", text: "Oct 2022 peak 11.1%", x: 70, y: 16, kind: "point", preferAbove: false },
+      { id: "b", text: "Oct 2026 3.6%", x: 78, y: 30, kind: "point", preferAbove: true },
+    ];
+    const placed = placeChartLabels(notes, bounds);
+    for (const label of placed.filter((item) => !item.hidden)) {
+      for (const note of notes) {
+        const marker = { x: note.x - 4, y: note.y - 12, width: 8, height: 24 };
+        expect(overlaps(label.rect!, marker)).toBe(false);
+      }
+    }
+  });
+
+  it("does not move a clamped label across its own dot", () => {
+    const bounds: LabelBounds = { left: 8, top: 0, right: 300, bottom: 100 };
+    const [label] = placeChartLabels(
+      [{ id: "a", text: "Peak", x: 100, y: 8, kind: "point", preferAbove: true }],
+      bounds,
+    );
+    const marker = { x: 96, y: -4, width: 8, height: 24 };
+    expect(label!.hidden || !overlaps(label!.rect!, marker)).toBe(true);
   });
 });

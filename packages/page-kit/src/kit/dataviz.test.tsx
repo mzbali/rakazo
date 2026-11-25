@@ -144,6 +144,19 @@ describe("charts", () => {
     expect(tip(root)).toBeNull();
   });
 
+  it("leaves off a reference name wider than the phone chart instead of running past its edge", () => {
+    stubWidth(200);
+    const root = mount(
+      <ColumnSeries
+        labels={["A", "B"]}
+        series={[{ name: "x", values: [1, 2] }]}
+        reference={{ value: 1, label: "A very long reference name that cannot fit this width" }}
+      />,
+    );
+    expect(root.querySelector(".rk-reference-line")).not.toBeNull();
+    expect(root.querySelector(".rk-reference-label")).toBeNull();
+  });
+
   it("stacks series to a round ceiling, marks a reference and totals the stack in its tip", () => {
     const root = mount(
       <ColumnSeries
@@ -772,6 +785,16 @@ describe("line chart sparse labels", () => {
       />,
     );
     expect(edge.querySelector(".rk-annotation text")!.getAttribute("text-anchor")).toBe("end");
+  });
+
+  it("keeps a rich zero-line label instead of dropping it", () => {
+    const root = mount(
+      <LineChart
+        points={[{ value: -2 }, { value: 3 }, { value: 5 }]}
+        annotations={[{ at: "zero", label: <b>Break even</b> }]}
+      />,
+    );
+    expect(root.querySelector(".rk-reference-label")!.textContent).toBe("Break even");
   });
 
   it("keeps close notes and a reference inside a phone plot without covering each other", () => {

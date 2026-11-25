@@ -22,6 +22,8 @@ export type ChartNote = {
   kind: "point" | "rule";
   /** For a point, whether above is the first choice. */
   preferAbove?: boolean;
+  /** A point note draws a dot and a tick at its point. False when it has none. */
+  marker?: boolean;
 };
 
 export type PlacedLabel = {
@@ -61,6 +63,20 @@ function overlaps(a: LabelRect, b: LabelRect) {
     b.x + b.width + GAP <= a.x ||
     a.y + a.height + GAP <= b.y ||
     b.y + b.height + GAP <= a.y
+  );
+}
+
+/** The dot and its tick, which a label's knockout must never cover. */
+function markerRect(note: ChartNote): LabelRect {
+  return { x: note.x - 4, y: note.y - 12, width: 8, height: 24 };
+}
+
+function covers(a: LabelRect, b: LabelRect) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
   );
 }
 
@@ -150,6 +166,9 @@ function ruleCandidates(note: ChartNote, width: number, bounds: LabelBounds): Ca
  */
 export function placeChartLabels(notes: ChartNote[], bounds: LabelBounds): PlacedLabel[] {
   const taken: LabelRect[] = [];
+  const markers = notes
+    .filter((note) => note.kind === "point" && note.marker !== false)
+    .map(markerRect);
   const byId = new Map<string, PlacedLabel>();
   const ordered = [
     ...notes.filter((note) => note.kind === "rule"),
@@ -175,7 +194,10 @@ export function placeChartLabels(notes: ChartNote[], bounds: LabelBounds): Place
         ? ruleCandidates(note, width, bounds)
         : pointCandidates(note, width, bounds);
     const spot = spots.find(
-      (item) => inside(item.rect, bounds) && taken.every((rect) => !overlaps(item.rect, rect)),
+      (item) =>
+        inside(item.rect, bounds) &&
+        taken.every((rect) => !overlaps(item.rect, rect)) &&
+        markers.every((rect) => !covers(item.rect, rect)),
     );
     if (!spot) {
       byId.set(note.id, hide());

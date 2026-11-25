@@ -207,6 +207,19 @@ describe("computer image", () => {
     );
   });
 
+  it("names the ways out when the engine has no BuildKit session endpoint", async () => {
+    const notFound = Object.assign(new Error("(HTTP code 404) page not found"), {
+      statusCode: 404,
+    });
+    const fake = fakeDocker({ builds: [{ chunks: [], fail: notFound }] });
+    const rejection = fake.ensure(local)();
+    await expect(rejection).rejects.toThrow(/BuildKit/);
+    await expect(rejection).rejects.toThrow(/RAKAZO_COMPUTER_IMAGE/);
+    expect(logError).toHaveBeenCalledWith("computer image build failed", notFound, {
+      "container.image.name": local,
+    });
+  });
+
   it("fails on a stream error and on an error line split across chunks", async () => {
     const reset = new Error("read ECONNRESET");
     const fake = fakeDocker({

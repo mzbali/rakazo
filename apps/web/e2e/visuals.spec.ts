@@ -183,3 +183,133 @@ test("a stage explainer stays compact and its row diagram reflows at phone width
   await expect(progress).toHaveAttribute("value", "2");
   await captureScreenshot(page, testInfo, "visual-stages-phone");
 });
+
+/** Two notes on neighbouring points, plus the dashed target, as a phone-width chat drew them. */
+const INFLATION = `function Inflation() {
+  const points = [
+    { label: "2016", value: 1.2 },
+    { label: "2018", value: 2.4 },
+    { label: "2020", value: 0.2 },
+    { label: "2022", value: 11.1 },
+    { label: "2023", value: 9.6 },
+    { label: "2026", value: 3.6 },
+  ];
+  return (
+    <Section title="UK CPI">
+      <LineChart
+        points={points}
+        unit="%"
+        floor={0}
+        ceiling={12}
+        reference={{ value: 2, label: "2% target" }}
+        annotations={[
+          { at: 3, label: "Oct 2022 peak 11.1%" },
+          { at: 4, label: "Oct 2026 3.6%" },
+        ]}
+      />
+    </Section>
+  );
+}
+export default Inflation;`;
+
+/** A row with edge names. At phone width it stacks, and the names must stay off the arrows. */
+const PASSAGE = `function Passage() {
+  const nodes = [
+    { id: "third", label: "Third reading", detail: "Final Commons vote" },
+    { id: "lords", label: "House of Lords", detail: "Same five stages" },
+    { id: "ping", label: "Ping-pong", detail: "Agree identical text" },
+  ];
+  return (
+    <Section title="After the Commons">
+      <Diagram
+        direction="horizontal"
+        nodes={nodes}
+        edges={[
+          { from: "third", to: "lords", label: "passes to" },
+          { from: "lords", to: "ping", label: "if amended" },
+        ]}
+      />
+    </Section>
+  );
+}
+export default Passage;`;
+
+test("phone-width notes and a stacked diagram stay readable", async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem("rakazo.uiAppearance", "dark"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signup(page, `visuals-notes-${Date.now()}@rakazo.test`, "password12", "Visual Reader");
+  await completeOnboarding(page);
+
+  const chartTitle = "Inflation notes";
+  await showVisual(page, chartTitle, "CPI with two close notes.", INFLATION);
+  const chart = visualFrame(page.getByTestId("visual-card").first(), chartTitle);
+  await expect(chart.locator(".rk-reference-label")).toHaveText("2% target", { timeout: 15_000 });
+  const notes = await chart
+    .locator(".rk-annotation text, .rk-reference-label")
+    .evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        if (!(node instanceof SVGElement) || !node.ownerSVGElement) return [];
+        const box = node.getBoundingClientRect();
+        const svg = node.ownerSVGElement.getBoundingClientRect();
+        return [
+          {
+            x: box.x - svg.x,
+            y: box.y - svg.y,
+            width: box.width,
+            height: box.height,
+            svgWidth: svg.width,
+            svgHeight: svg.height,
+          },
+        ];
+      }),
+    );
+  expect(notes.length).toBeGreaterThanOrEqual(2);
+  for (const note of notes) {
+    expect(note.x).toBeGreaterThanOrEqual(-1);
+    expect(note.y).toBeGreaterThanOrEqual(-1);
+    expect(note.x + note.width).toBeLessThanOrEqual(note.svgWidth + 1);
+    expect(note.y + note.height).toBeLessThanOrEqual(note.svgHeight + 1);
+  }
+  for (let index = 0; index < notes.length; index++) {
+    for (const other of notes.slice(index + 1)) {
+      const note = notes[index]!;
+      expect(
+        note.x + note.width <= other.x + 1 ||
+          other.x + other.width <= note.x + 1 ||
+          note.y + note.height <= other.y + 1 ||
+          other.y + other.height <= note.y + 1,
+      ).toBe(true);
+    }
+  }
+  await captureScreenshot(page, testInfo, "visual-line-notes-phone");
+
+  const flowTitle = "Stacked passage";
+  await showVisual(page, flowTitle, "A bill moving to the Lords.", PASSAGE);
+  const flow = visualFrame(page.getByTestId("visual-card").nth(1), flowTitle);
+  await expect(flow.locator(".rk-diagram-edge-label").first()).toHaveText("passes to", {
+    timeout: 15_000,
+  });
+  const column = await flow.locator(".rk-diagram").evaluate((diagram) => {
+    const svg = diagram.querySelector("svg")!;
+    const svgBox = svg.getBoundingClientRect();
+    const nodes = [...diagram.querySelectorAll(".rk-diagram-node")].map((node) => {
+      const box = node.getBoundingClientRect();
+      return { x: box.x - svgBox.x, width: box.width };
+    });
+    const label = diagram.querySelector(".rk-diagram-edge-label")!.getBoundingClientRect();
+    return {
+      svgWidth: svgBox.width,
+      nodes,
+      label: { x: label.x - svgBox.x, width: label.width },
+    };
+  });
+  expect(column.nodes).toHaveLength(3);
+  const width = column.nodes[0]!.width;
+  for (const node of column.nodes) expect(Math.abs(node.width - width)).toBeLessThan(2);
+  for (const node of column.nodes) {
+    expect(Math.abs(node.x + node.width / 2 - column.svgWidth / 2)).toBeLessThan(8);
+  }
+  const mid = column.nodes[0]!.x + width / 2;
+  expect(column.label.x > mid + 2 || column.label.x + column.label.width < mid - 2).toBe(true);
+  await captureScreenshot(page, testInfo, "visual-stack-phone");
+});

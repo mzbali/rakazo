@@ -118,13 +118,17 @@ export function layoutDiagram(
   edges: DiagramEdge[],
   horizontal: boolean,
   edgeLabels: boolean,
+  /** A column narrower than the usual node cap. Wider labels wrap to fit it. */
+  nodeCap?: number,
 ) {
+  const limit =
+    typeof nodeCap === "number" && nodeCap > 0 ? Math.min(MAX_WIDTH, nodeCap) : MAX_WIDTH;
   const byId = new Map<string, Placed>();
   for (const node of nodes) {
     if (!node || typeof node.id !== "string" || byId.has(node.id)) continue;
     const inset = iconShapes(node.icon) ? ICON_ROOM : 0;
-    const perLabel = Math.floor((MAX_WIDTH - PAD_X * 2 - inset) / LABEL_CHAR);
-    const perDetail = Math.floor((MAX_WIDTH - PAD_X * 2 - inset) / DETAIL_CHAR);
+    const perLabel = Math.max(1, Math.floor((limit - PAD_X * 2 - inset) / LABEL_CHAR));
+    const perDetail = Math.max(1, Math.floor((limit - PAD_X * 2 - inset) / DETAIL_CHAR));
     const labelLines = wrapText(String(node.label ?? node.id), perLabel);
     const detailLines = node.detail ? wrapText(String(node.detail), perDetail) : [];
     const measuredWidth = Math.max(
@@ -135,7 +139,7 @@ export function layoutDiagram(
       ...node,
       labelLines,
       detailLines,
-      width: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.ceil(measuredWidth + PAD_X * 2 + inset))),
+      width: Math.min(limit, Math.max(MIN_WIDTH, Math.ceil(measuredWidth + PAD_X * 2 + inset))),
       inset,
       height: PAD_Y * 2 + labelLines.length * LABEL_LINE + detailLines.length * DETAIL_LINE,
       layer: 0,
@@ -261,10 +265,32 @@ export function layoutDiagram(
 
 export type DiagramLayout = ReturnType<typeof layoutDiagram>;
 
+function isColumn(nodes: Placed[]) {
+  const counts = new Map<number, number>();
+  for (const node of nodes) counts.set(node.layer, (counts.get(node.layer) ?? 0) + 1);
+  return nodes.length > 0 && [...counts.values()].every((count) => count === 1);
+}
+
+/**
+ * A vertical chain reads as one column: every node takes the widest label, and the column sits
+ * in the middle of the card. A card narrower than that label caps the width and the words wrap.
+ */
+function centreColumn(laid: DiagramLayout, columnWidth: number): DiagramLayout {
+  if (!isColumn(laid.nodes)) return laid;
+  const widest = Math.max(...laid.nodes.map((node) => node.width));
+  const loopExtra = Math.max(0, laid.width - widest);
+  for (const node of laid.nodes) node.width = widest;
+  const content = widest + loopExtra;
+  const frame = columnWidth > 0 ? Math.max(columnWidth, content) : content;
+  const x = Math.round((frame - content) / 2);
+  for (const node of laid.nodes) node.x = x;
+  return { ...laid, width: frame };
+}
+
 /**
  * The author's direction when it fits the column. Otherwise the other direction, when that is
  * narrower: a phone is wide enough for sources stacked beside one target, and too narrow for
- * those sources in one row.
+ * those sources in one row. A column that does fit is centred, with one shared node width.
  */
 export function fitDiagramLayout(
   nodes: DiagramNode[],
@@ -274,10 +300,22 @@ export function fitDiagramLayout(
   columnWidth: number,
 ): DiagramLayout & { horizontal: boolean } {
   const asked = layoutDiagram(nodes, edges, horizontal, edgeLabels);
-  if (!(columnWidth > 0) || asked.width <= columnWidth) return { ...asked, horizontal };
-  const other = layoutDiagram(nodes, edges, !horizontal, edgeLabels);
-  if (other.width < asked.width) return { ...other, horizontal: !horizontal };
-  return { ...asked, horizontal };
+  let chosen = asked;
+  let across = horizontal;
+  if (columnWidth > 0 && asked.width > columnWidth) {
+    const other = layoutDiagram(nodes, edges, !horizontal, edgeLabels);
+    if (other.width < asked.width) {
+      chosen = other;
+      across = !horizontal;
+    }
+  }
+  if (across || !isColumn(chosen.nodes)) return { ...chosen, horizontal: across };
+  const room = Math.max(columnWidth, 0);
+  const capped =
+    room > 0 && chosen.nodes.some((node) => node.width > room)
+      ? layoutDiagram(nodes, edges, false, edgeLabels, room)
+      : chosen;
+  return { ...centreColumn(capped, room), horizontal: false };
 }
 
 /** The one node a wider layer feeds, when the drawing converges. */
@@ -347,9 +385,55 @@ export type DrawnEdge = {
   dashed?: boolean;
   label?: string;
   labelAt?: Point;
+  labelAnchor?: "start" | "middle" | "end";
+  /** Card-coloured knockout behind the label, so the stroke cannot cross the words. */
+  labelBox?: { x: number; y: number; width: number; height: number };
   /** One chevron. Bundled edges share it, on the stem that enters the target. */
   arrow?: { from: Point; tip: Point };
 };
+
+/** 12px edge labels, the same estimate the charts use for a note. */
+const EDGE_LABEL_CHAR = 6.6;
+const EDGE_LABEL_GAP = 10;
+
+/**
+ * A vertical edge's label sits beside the line. When that side would leave the card, it flips.
+ * A horizontal edge keeps the label on the curve; the knockout still covers the stroke.
+ */
+function placeEdgeLabel(
+  mid: Point,
+  label: string,
+  beside: boolean,
+  frameWidth: number,
+): { at: Point; anchor: "start" | "middle" | "end"; box: DrawnEdge["labelBox"] } {
+  const width = label.length * EDGE_LABEL_CHAR;
+  const height = 16;
+  let anchor: "start" | "middle" | "end" = "middle";
+  let at = mid;
+  if (beside) {
+    const rightAt = mid[0] + EDGE_LABEL_GAP;
+    const leftAt = mid[0] - EDGE_LABEL_GAP;
+    if (rightAt + width <= frameWidth) {
+      anchor = "start";
+      at = [rightAt, mid[1]];
+    } else if (leftAt - width >= 0) {
+      anchor = "end";
+      at = [leftAt, mid[1]];
+    } else if (frameWidth - mid[0] >= mid[0]) {
+      anchor = "start";
+      at = [Math.max(0, Math.min(rightAt, frameWidth - width)), mid[1]];
+    } else {
+      anchor = "end";
+      at = [Math.min(frameWidth, Math.max(leftAt, width)), mid[1]];
+    }
+  }
+  const left = anchor === "start" ? at[0] : anchor === "end" ? at[0] - width : at[0] - width / 2;
+  return {
+    at,
+    anchor,
+    box: { x: left - 4, y: at[1] - height / 2 - 1, width: width + 8, height: height + 2 },
+  };
+}
 
 const ARROW = visualLanguage.arrowSize;
 
@@ -370,14 +454,24 @@ const cubic = (a: Point, b: Point, c: Point, d: Point) =>
 
 type LaidEdge = { edge: DiagramEdge; from: Placed; to: Placed; backward: boolean };
 
-function singleEdge(item: LaidEdge, horizontal: boolean): DrawnEdge {
+function singleEdge(item: LaidEdge, horizontal: boolean, frameWidth: number): DrawnEdge {
   const [a, b, c, d] = edgePoints(item.from, item.to, item.backward, horizontal);
   const angle = Math.atan2(d[1] - c[1], d[0] - c[0]);
+  const label = item.edge.label
+    ? placeEdgeLabel(
+        curveMid(a, b, c, d),
+        item.edge.label,
+        !horizontal && !item.backward,
+        frameWidth,
+      )
+    : undefined;
   return {
     d: cubic(a, b, c, d),
     dashed: item.edge.dashed,
     label: item.edge.label,
-    labelAt: item.edge.label ? curveMid(a, b, c, d) : undefined,
+    labelAt: label?.at,
+    labelAnchor: label?.anchor,
+    labelBox: label?.box,
     arrow: {
       from: [d[0] - ARROW * Math.cos(angle), d[1] - ARROW * Math.sin(angle)],
       tip: d,
@@ -400,9 +494,9 @@ function stemRoom(group: LaidEdge[], horizontal: boolean): number {
   return room;
 }
 
-function bundleEdges(group: LaidEdge[], horizontal: boolean): DrawnEdge[] {
+function bundleEdges(group: LaidEdge[], horizontal: boolean, frameWidth: number): DrawnEdge[] {
   const room = stemRoom(group, horizontal);
-  if (room < 10) return group.map((item) => singleEdge(item, horizontal));
+  if (room < 10) return group.map((item) => singleEdge(item, horizontal, frameWidth));
   const to = group[0]!.to;
   const dashed = group[0]!.edge.dashed;
   const tip: Point = horizontal ? [to.x, to.y + to.height / 2] : [to.x + to.width / 2, to.y];
@@ -431,14 +525,25 @@ function bundleEdges(group: LaidEdge[], horizontal: boolean): DrawnEdge[] {
  * Curves into one target share one arrowhead. A label, a backward edge, or a single edge keeps
  * its own curve and its own arrow, so the label still sits on that curve.
  */
-export function drawEdges(edges: LaidEdge[], horizontal: boolean): DrawnEdge[] {
+export function drawEdges(
+  edges: LaidEdge[],
+  horizontal: boolean,
+  frameWidth?: number,
+): DrawnEdge[] {
+  const frame =
+    frameWidth && frameWidth > 0
+      ? frameWidth
+      : Math.max(
+          0,
+          ...edges.flatMap((item) => [item.from.x + item.from.width, item.to.x + item.to.width]),
+        );
   const used = new Set<number>();
   const drawn: DrawnEdge[] = [];
   edges.forEach((edge, index) => {
     if (used.has(index)) return;
     if (!canBundle(edge)) {
       used.add(index);
-      drawn.push(singleEdge(edge, horizontal));
+      drawn.push(singleEdge(edge, horizontal, frame));
       return;
     }
     const group: LaidEdge[] = [];
@@ -450,7 +555,9 @@ export function drawEdges(edges: LaidEdge[], horizontal: boolean): DrawnEdge[] {
       group.push(candidate);
     });
     drawn.push(
-      ...(group.length >= 2 ? bundleEdges(group, horizontal) : [singleEdge(group[0]!, horizontal)]),
+      ...(group.length >= 2
+        ? bundleEdges(group, horizontal, frame)
+        : [singleEdge(group[0]!, horizontal, frame)]),
     );
   });
   return drawn;

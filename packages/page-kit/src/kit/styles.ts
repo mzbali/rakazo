@@ -170,6 +170,7 @@ body{font-size:1rem}
 .rk-annotation line,.rk-crosshair{stroke:color-mix(in srgb,var(--foreground) 35%,transparent);stroke-dasharray:3 3}
 .rk-annotation circle{stroke:var(--background);stroke-width:1.5}
 .rk-annotation text{fill:var(--rk-secondary);font-size:12px;paint-order:stroke;stroke:var(--background);stroke-width:3px;stroke-linejoin:round}
+.rk-label-back{fill:var(--background);pointer-events:none}
 .rk-hover-dot{fill:var(--background);stroke:var(--rk-series,var(--rk-c1));stroke-width:2}
 .rk-bars{display:grid;grid-template-columns:fit-content(min(14rem,42%)) minmax(0,1fr) auto;gap:.7rem .85rem;align-items:center;margin:0;padding:0;list-style:none;font-size:1rem;line-height:1.35}
 .rk-bar{display:contents}

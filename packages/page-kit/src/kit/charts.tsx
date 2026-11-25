@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Fragment, isValidElement } from "react";
+import { placeChartLabels } from "./dataviz/label-place.js";
 import { chartShare } from "./dataviz/scale.js";
 import type { Formatter, LegendItem } from "./dataviz.js";
 import {
@@ -196,7 +197,42 @@ export function LineChart({
       (note) =>
         note && (note.at === "zero" || (finite(note.at) && note.at >= 0 && note.at < count)),
     )
-    .slice(0, 3 * Math.max(1, count));
+    .slice(0, 3 * Math.max(1, count))
+    .map((note, index) => {
+      if (note.at === "zero") {
+        return { index, note, rule: true as const, x: right, y: zero, text: text(note.label) };
+      }
+      const at = note.at;
+      const owner =
+        typeof note.line === "number" && series[note.line]
+          ? note.line
+          : note.line === true
+            ? -1
+            : 0;
+      const v = finite(note.value)
+        ? note.value
+        : (series[Math.max(0, owner)]?.values[at] ?? primary[at]);
+      const cx = x(at);
+      const neighbours = [primary[at - 1], primary[at + 1]].filter(finite);
+      const cy = finite(v) ? y(v) : PLOT.top + 8;
+      const preferAbove =
+        finite(v) &&
+        (cy + 26 > baseline ||
+          (cy >= 28 &&
+            (neighbours.length === 0 ||
+              v >= neighbours.reduce((sum, value) => sum + value, 0) / neighbours.length)));
+      return {
+        index,
+        note,
+        rule: false as const,
+        x: cx,
+        y: cy,
+        owner,
+        value: v,
+        preferAbove,
+        text: text(note.label),
+      };
+    });
   const active = hover.active;
   const asked = marker !== undefined && marker !== null;
   const markerNumber = Number(marker);
@@ -234,6 +270,46 @@ export function LineChart({
           .join(", ")}`,
     )
     .join(". ");
+  const referenceMeasured = text(referenceText);
+  const placed = new Map(
+    placeChartLabels(
+      [
+        ...(referenceValue !== undefined && referenceMeasured
+          ? [
+              {
+                id: "reference",
+                text: referenceMeasured,
+                x: right,
+                y: y(referenceValue),
+                kind: "rule" as const,
+              },
+            ]
+          : []),
+        ...marks
+          .filter((mark) => mark.text)
+          .map((mark) =>
+            mark.rule
+              ? {
+                  id: `a${mark.index}`,
+                  text: mark.text,
+                  x: mark.x,
+                  y: mark.y,
+                  kind: "rule" as const,
+                }
+              : {
+                  id: `a${mark.index}`,
+                  text: mark.text,
+                  x: mark.x,
+                  y: mark.y,
+                  kind: "point" as const,
+                  preferAbove: mark.preferAbove,
+                },
+          ),
+      ],
+      { left, top: 2, right: width - 2, bottom: baseline - 2 },
+    ).map((item) => [item.id, item]),
+  );
+  const referenceSpot = placed.get("reference");
   return (
     <div className="rk-chart rk-frame" ref={ref}>
       {legend !== false && keyItems.length > 1 ? <SeriesLegend items={keyItems} /> : null}
@@ -301,79 +377,133 @@ export function LineChart({
               })}
             </g>
           ))}
-          {marks.map((note, index) => {
-            if (note.at === "zero") {
-              return (
-                <ReferenceLine
-                  key={index}
-                  y={zero}
-                  left={left}
-                  right={right}
-                  end={right}
-                  label={note.label}
-                />
-              );
-            }
-            const at = note.at;
-            const owner =
-              typeof note.line === "number" && series[note.line]
-                ? note.line
-                : note.line === true
-                  ? -1
-                  : 0;
-            const v = finite(note.value)
-              ? note.value
-              : (series[Math.max(0, owner)]?.values[at] ?? primary[at]);
-            const width = textWidth(text(note.label));
-            const cx = x(at);
-            // Kept inside the plot: a note near either edge reads inward from its point.
-            const anchor =
-              cx + width / 2 > right ? "end" : cx - width / 2 < left ? "start" : "middle";
-            if (!finite(v)) {
+          {marks.map((mark) =>
+            mark.rule ? (
+              <ReferenceLine
+                key={mark.index}
+                part="line"
+                y={mark.y}
+                left={left}
+                right={right}
+                end={right}
+              />
+            ) : null,
+          )}
+          {referenceValue !== undefined ? (
+            <ReferenceLine
+              part="line"
+              y={y(referenceValue)}
+              left={left}
+              right={right}
+              end={right}
+            />
+          ) : null}
+          {marks.map((mark) => {
+            if (mark.rule) return null;
+            const spot = placed.get(`a${mark.index}`);
+            const labelled = Boolean(spot && !spot.hidden && spot.rect);
+            if (!finite(mark.value)) {
               // No value to sit on: the note marks the moment across the plot instead.
               return (
-                <g key={index} className="rk-annotation">
-                  <line x1={cx} x2={cx} y1={PLOT.top + 14} y2={baseline} strokeDasharray="3 3" />
-                  <text x={cx} y={PLOT.top + 8} textAnchor={anchor}>
-                    {text(note.label)}
-                  </text>
+                <g key={mark.index} className="rk-annotation">
+                  <line
+                    x1={mark.x}
+                    x2={mark.x}
+                    y1={PLOT.top + 14}
+                    y2={baseline}
+                    strokeDasharray="3 3"
+                  />
+                  {labelled && spot?.rect ? (
+                    <rect
+                      className="rk-label-back"
+                      x={spot.rect.x}
+                      y={spot.rect.y}
+                      width={spot.rect.width}
+                      height={spot.rect.height}
+                      rx={4}
+                    />
+                  ) : null}
+                  {labelled && spot ? (
+                    <text x={spot.x} y={spot.y} textAnchor={spot.anchor}>
+                      {mark.text}
+                    </text>
+                  ) : null}
                 </g>
               );
             }
-            const neighbours = [primary[at - 1], primary[at + 1]].filter(finite);
-            const cy = y(v);
-            const above =
-              cy + 26 > baseline ||
-              (cy >= 28 &&
-                (neighbours.length === 0 ||
-                  v >= neighbours.reduce((a, b) => a + b, 0) / neighbours.length));
+            const toward = labelled && spot ? spot.y < mark.y : mark.preferAbove;
             return (
-              <g key={index} className="rk-annotation">
-                <line x1={cx} x2={cx} y1={above ? cy - 5 : cy + 5} y2={above ? cy - 11 : cy + 11} />
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={3.5}
-                  style={{ fill: owner < 0 ? "var(--rk-other)" : seriesColor(owner) }}
+              <g key={mark.index} className="rk-annotation">
+                <line
+                  x1={mark.x}
+                  x2={mark.x}
+                  y1={toward ? mark.y - 5 : mark.y + 5}
+                  y2={toward ? mark.y - 11 : mark.y + 11}
                 />
-                <text
-                  x={cx}
-                  y={above ? cy - 15 : cy + 15}
-                  dy={above ? 0 : "0.7em"}
-                  textAnchor={anchor}
-                >
-                  {text(note.label)}
-                </text>
+                <circle
+                  cx={mark.x}
+                  cy={mark.y}
+                  r={3.5}
+                  style={{ fill: mark.owner < 0 ? "var(--rk-other)" : seriesColor(mark.owner) }}
+                />
+                {labelled && spot?.rect ? (
+                  <rect
+                    className="rk-label-back"
+                    x={spot.rect.x}
+                    y={spot.rect.y}
+                    width={spot.rect.width}
+                    height={spot.rect.height}
+                    rx={4}
+                  />
+                ) : null}
+                {labelled && spot ? (
+                  <text x={spot.x} y={spot.y} textAnchor={spot.anchor}>
+                    {mark.text}
+                  </text>
+                ) : null}
               </g>
             );
           })}
-          {referenceValue !== undefined ? (
+          {marks.map((mark) => {
+            if (!mark.rule) return null;
+            const spot = placed.get(`a${mark.index}`);
+            if (!spot || spot.hidden) return null;
+            return (
+              <ReferenceLine
+                key={`label-${mark.index}`}
+                part="label"
+                y={mark.y}
+                left={left}
+                right={right}
+                end={right}
+                label={mark.text}
+                labelX={spot.x}
+                labelY={spot.y}
+                labelAnchor={spot.anchor}
+              />
+            );
+          })}
+          {referenceSpot && !referenceSpot.hidden ? (
             <ReferenceLine
+              part="label"
+              y={y(referenceValue!)}
+              left={left}
+              right={right}
+              end={right}
+              label={referenceMeasured}
+              labelX={referenceSpot.x}
+              labelY={referenceSpot.y}
+              labelAnchor={referenceSpot.anchor}
+            />
+          ) : referenceValue !== undefined && referenceText && !referenceMeasured ? (
+            <ReferenceLine
+              part="label"
               y={y(referenceValue)}
               left={left}
               right={right}
               end={right}
               label={referenceText}
+              above
             />
           ) : null}
           {at !== null ? (

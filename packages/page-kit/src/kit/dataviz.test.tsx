@@ -773,6 +773,58 @@ describe("line chart sparse labels", () => {
     );
     expect(edge.querySelector(".rk-annotation text")!.getAttribute("text-anchor")).toBe("end");
   });
+
+  it("keeps close notes and a reference inside a phone plot without covering each other", () => {
+    stubWidth(320);
+    const root = mount(
+      <LineChart
+        floor={0}
+        ceiling={12}
+        points={[
+          { label: "Jan", value: 1 },
+          { label: "Feb", value: 2 },
+          { label: "Mar", value: 8 },
+          { label: "Apr", value: 11 },
+          { label: "May", value: 10 },
+          { label: "Jun", value: 4 },
+        ]}
+        annotations={[
+          { at: 3, label: "Oct 2022 peak 11.1%" },
+          { at: 4, label: "Oct 2026 3.6%" },
+        ]}
+        reference={{ value: 2, label: "2% target" }}
+      />,
+    );
+    const svg = root.querySelector("svg")!;
+    const svgWidth = Number(svg.getAttribute("width"));
+    const svgHeight = Number(svg.getAttribute("height"));
+    const boxes = [...root.querySelectorAll(".rk-label-back")].map((node) => ({
+      x: Number(node.getAttribute("x")),
+      y: Number(node.getAttribute("y")),
+      width: Number(node.getAttribute("width")),
+      height: Number(node.getAttribute("height")),
+    }));
+    expect(boxes.length).toBeGreaterThanOrEqual(2);
+    for (const box of boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(-0.5);
+      expect(box.y).toBeGreaterThanOrEqual(-0.5);
+      expect(box.x + box.width).toBeLessThanOrEqual(svgWidth + 0.5);
+      expect(box.y + box.height).toBeLessThanOrEqual(svgHeight + 0.5);
+    }
+    for (let index = 0; index < boxes.length; index++) {
+      for (const other of boxes.slice(index + 1)) {
+        const box = boxes[index]!;
+        expect(
+          box.x + box.width <= other.x ||
+            other.x + other.width <= box.x ||
+            box.y + box.height <= other.y ||
+            other.y + other.height <= box.y,
+        ).toBe(true);
+      }
+    }
+    expect(root.querySelectorAll(".rk-annotation circle")).toHaveLength(2);
+    expect(root.querySelector(".rk-reference-line")).not.toBeNull();
+  });
 });
 
 describe("columns", () => {

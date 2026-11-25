@@ -325,9 +325,9 @@ describe("page kit", () => {
     const pair = html(<Table columns={["Finder"]} rows={[["Hybrid optical/electronic"]]} />);
     expect(pair).toContain("optical/<wbr/>electronic");
     expect(pair).not.toContain('<span class="rk-word">optical/electronic</span>');
-    expect(html(<Table columns={["Sensor"]} rows={[["APS-C"]]} />)).toContain(
-      '<span class="rk-word">APS-C</span>',
-    );
+    const specs = html(<Table columns={["Sensor", "Lens"]} rows={[["APS-C", "28mm f/2.8"]]} />);
+    expect(specs).toContain('<span class="rk-word">APS-C</span>');
+    expect(specs).toContain('<span class="rk-word">f/2.8</span>');
   });
 
   it("renders table sort controls only for columns with headers", () => {

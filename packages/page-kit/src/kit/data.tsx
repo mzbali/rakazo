@@ -469,13 +469,13 @@ export type TableCell =
 // A hyphen is a line-break opportunity, so a cell's min-content would be "complete" and the
 // column would split "NP-complete". Holding that token keeps the column at least as wide as the
 // whole word. Spaces stay break points, and a word with neither is left as text.
-const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014-]/;
+const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014/-]/;
 
 // A slash joins two words ("optical/electronic"). Holding it whole made that one cell set the
-// column width and squeezed its neighbours past the card, so it may break after the slash.
+// column width and squeezed its neighbours past the card. Keep short values like f/2.8 whole.
 function holdToken(part: string, key: number): ReactNode {
-  if (part.includes("/")) {
-    const pieces = part.split("/");
+  const pieces = part.split(/\/(?=\p{L}{2})/u);
+  if (pieces.length > 1) {
     return (
       <Fragment key={key}>
         {pieces.map((piece, index) => (
@@ -499,13 +499,9 @@ function holdToken(part: string, key: number): ReactNode {
 }
 
 function holdWords(value: string): ReactNode {
-  if (!WORD_BREAK.test(value) && !value.includes("/")) return value;
+  if (!WORD_BREAK.test(value)) return value;
   const parts = value.split(/(\s+)/);
-  return parts.map((part, index) =>
-    part === "" || /^\s+$/.test(part) || !(WORD_BREAK.test(part) || part.includes("/"))
-      ? part
-      : holdToken(part, index),
-  );
+  return parts.map((part, index) => (WORD_BREAK.test(part) ? holdToken(part, index) : part));
 }
 
 function hold(node: ReactNode): ReactNode {

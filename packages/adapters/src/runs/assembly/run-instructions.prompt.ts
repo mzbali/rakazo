@@ -202,12 +202,14 @@ function webLookupClause(disabled?: ReadonlySet<string>): string | undefined {
 function mediaRowClause(
   disabled: ReadonlySet<string> | undefined,
   offered: boolean | undefined,
+  visualFences: boolean | undefined,
 ): string | undefined {
-  // Omitted only when this run was not given the tool. The fingerprint keeps the sentence.
-  if (offered === false || !builtinOffered(disabled, "save_web_images")) return undefined;
-  if (builtinOffered(disabled, "show_visual")) {
+  // Where visuals are drawn, news and products go in one: its photos sit beside each item.
+  if (visualFences && builtinOffered(disabled, "show_visual")) {
     return "For news items or product picks, pass each fetched page's image to show_visual, not save_web_images. Add images only when they show something words can't.";
   }
+  // Omitted only when this run was not given the tool. The fingerprint keeps the sentence.
+  if (offered === false || !builtinOffered(disabled, "save_web_images")) return undefined;
   return "For news items or product picks, write a list where each item starts with its image embed, then a bold title and a short paragraph (a price for products). Use save_web_images for images from pages you fetched. Add images only when they show something words can't.";
 }
 
@@ -352,12 +354,13 @@ function toolUsageLine(parts: {
   disabledBuiltinTools?: ReadonlySet<string>;
   followUpsOffered?: boolean;
   webImagesOffered?: boolean;
+  visualFences?: boolean;
 }): string {
   const disabled = parts.disabledBuiltinTools;
   const clauses = [
     pageWorkClause(parts.pageBrowserAllowed, disabled),
     webLookupClause(disabled),
-    mediaRowClause(disabled, parts.webImagesOffered),
+    mediaRowClause(disabled, parts.webImagesOffered, parts.visualFences),
     ...secretGuidance(disabled),
     builtinOffered(disabled, "connect_app")
       ? "Use connect_app when an app needs connecting or the user asks to connect one, then wait for them."

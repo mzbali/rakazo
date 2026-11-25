@@ -276,10 +276,17 @@ describe("checkPageSource", () => {
       code: expect.any(String),
       warnings: [expect.stringMatching(/^line 1: hard-coded colours .*NewsRows, Upcoming, Rows/)],
     });
-    // A palette and a URL fragment are not styling a div.
+    // The word in page text is not a palette prop.
+    const prose = checkPageSource(
+      page("const App = () => <div style={{ color: '#ff0000' }}>A colour palette</div>;"),
+    );
+    expect(prose.ok && prose.warnings).toHaveLength(1);
+    // A palette, a URL fragment and a hash in prose are not styling a div.
     for (const body of [
       "const App = () => <Page title='t' palette={['#112233']}>x</Page>;",
       "const App = () => <TextLink href='https://x.example/#abc123'>x</TextLink>;",
+      "const App = () => <Text>{'Issue #123 and #2026'}</Text>;",
+      "const App = () => <TextLink href='#abc'>x</TextLink>;",
     ]) {
       expect(checkPageSource(page(body))).toEqual({ ok: true, code: expect.any(String) });
     }

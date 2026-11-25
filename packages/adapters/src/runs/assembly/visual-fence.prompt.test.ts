@@ -112,7 +112,9 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain(
       "news or data you found, call show_visual before you reply",
     );
-    expect(SHOW_VISUAL_INSTRUCTION).toContain("pass its image field in images");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      "pass each story's page image in images when you have one",
+    );
     expect(SHOW_VISUAL_INSTRUCTION).toContain("<NewsRows items=");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("<Upcoming items=");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Use Grid with 1 or 2 columns");

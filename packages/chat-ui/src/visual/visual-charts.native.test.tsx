@@ -3,7 +3,8 @@ import { pageKitPalette, tokensForAppearance } from "@rakazo/ui-tokens";
 import type { ReactElement, ReactNode } from "react";
 import { Children, isValidElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Pie } from "./visual-charts.native";
+import { Bars, Pie } from "./visual-charts.native";
+import type { Surface } from "./visual-surface.native";
 
 vi.mock("react-native", () => ({
   Platform: { select: (options: { ios: string }) => options.ios },
@@ -61,5 +62,36 @@ describe("native pie", () => {
       palette.c7,
     ]);
     expect(strokes[8]).toBe(palette.other);
+  });
+});
+
+describe("native bars", () => {
+  const surface: Surface = {
+    palette: tokensForAppearance("dark"),
+    colorScheme: "dark",
+    narrow: true,
+    width: 360,
+    unavailable: "Unavailable",
+  };
+
+  // Short positive labels stand as columns, whose values are the even-indexed texts.
+  const valueWeights = (source: string) => {
+    const parse = parseVisualFence(source);
+    const drawing = Bars({ element: parse.root!.children[0]!, surface });
+    return tagged(drawing, "text")
+      .filter((_, index) => index % 2 === 0)
+      .map((text) => text.props.fontWeight);
+  };
+
+  const fence = (bars: string) =>
+    `<Visual summary="Sizes"><Bars bars={[{label:"A",value:3},{label:"B",value:9},{label:"C",value:5}]} ${bars} /></Visual>`;
+
+  it("inks the longest column's value, as the web chart does", () => {
+    expect(valueWeights(fence(""))).toEqual(["600", "700", "600"]);
+  });
+
+  it("follows an explicit emphasis, and inks every bar for none", () => {
+    expect(valueWeights(fence("emphasis={0}"))).toEqual(["700", "600", "600"]);
+    expect(valueWeights(fence('emphasis="none"'))).toEqual(["700", "700", "700"]);
   });
 });

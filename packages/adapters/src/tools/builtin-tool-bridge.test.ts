@@ -72,6 +72,13 @@ describe("built-in tool bridge", () => {
     expect(deferred.map((tool) => tool.name)).not.toContain("show_visual");
   });
 
+  it("lets a long answer hold several pictures, one per call", () => {
+    const picture = builtinAgentTools.find((tool) => tool.name === "show_visual")!;
+    expect(picture.description).toContain("Draw one picture per call");
+    expect(picture.description).toContain("a long answer may hold several");
+    expect(picture.description).not.toContain("Draw one picture in this chat");
+  });
+
   it("exposes a pinned deferred tool only for the run that pins it", () => {
     const tool = builtinAgentTools.find((entry) => entry.name === "cloud_agent_status")!;
     const pinned = partitionTools([...ownerChat, { ...tool, pinned: true }]);

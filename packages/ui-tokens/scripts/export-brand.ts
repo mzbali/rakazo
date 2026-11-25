@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { darkTokens } from "../src/index.ts";
+
+// The brand black behind the icon. The phone background is true black, so it no longer supplies this.
+const ICON_PLATE = "#141414";
 
 const root = new URL("../../../", import.meta.url);
 const path = (name: string) => fileURLToPath(new URL(name, root));
@@ -25,7 +27,7 @@ async function roundedCorners(input: Buffer) {
     .png()
     .toBuffer();
 }
-const square = await framed(darkTokens.background);
+const square = await framed(ICON_PLATE);
 const rounded = await roundedCorners(square);
 
 async function png(input: Buffer, name: string, size: number) {

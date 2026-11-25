@@ -212,7 +212,7 @@ export const conversationTools: ConnectorTool[] = [
   {
     name: "show_visual",
     description:
-      "Draw one picture in this chat. Pass title, summary and source. Patterns are in the turn instructions.",
+      "Draw one picture per call; a long answer may hold several. Patterns are in the turn instructions.",
     inputSchema: {
       type: "object",
       properties: {

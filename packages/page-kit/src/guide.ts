@@ -168,7 +168,7 @@ A visual is a small piece of page-kit JSX drawn in the chat. Place the embed sho
 - The compiled visual must stay under 32 KB. Put larger work in a page.
 
 ## Patterns
-One idea per visual. Short numbered prose around it. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
+One idea per visual. A long answer is short numbered prose between two and four of them. The page recipes below lead with a Callout. A chat visual does not: at most one Callout, for a real warning or the takeaway, never as a diagram or a definition.
 
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 

@@ -53,6 +53,17 @@ async function showVisual(page: Page, title: string, summary: string, source: st
   ).toBeVisible({ timeout: 30_000 });
 }
 
+test("draws a stored product photo in a sandboxed chat visual", async ({ page }, testInfo) => {
+  await page.goto("/e2e/fixtures/gallery.html?scenario=visual-photos&theme=light");
+  const visual = visualFrame(page.getByTestId("visual-card"), "Countertop blender");
+  const photo = visual.getByRole("img", { name: "Blend Mini blender" });
+  await expect(photo).toBeVisible();
+  await expect
+    .poll(() => photo.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBe(160);
+  await captureScreenshot(page, testInfo, "visual-product-photo");
+});
+
 test("a visual that fits works in the chat; a tall one opens full screen", async ({
   page,
 }, testInfo) => {

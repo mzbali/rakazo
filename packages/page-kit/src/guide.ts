@@ -111,6 +111,7 @@ Dates are "YYYY-MM-DD"; times are hours as numbers (13.5 is 1:30 PM). Mark an ev
 ### Cards and people
 - ProductCard {title, href?, image?, price?, note?, badge?, store?, rating?, reviews?, compact?}: put several in a CardGrid {label?} (a grid) or CardCarousel {label?} (a row that scrolls on phones).
 - ProductRows {items: [same fields]}: products as one list card. RatingSummary {rating: 0 to 5, reviews?}.
+- NewsRows {items: [{title, summary?, label?, image?, alt?, sources?: [{name, href?}]}]}: a news list straight on the answer, one story a row: photo left (image is rakazo-image:<n>), then label (a country or topic), headline, summary and a source chip ("Reuters +1"). Upcoming {items: [{date: "YYYY-MM-DD", title, detail?, sources?}]}: what is next, each with a date tile (day and month, weekday).
 - WatchCard {title, detail?, label?, reply}: offers to have the bot keep watch, through the chat like ReplyButton.
 - Avatar {name, size?, neutral?} and AvatarStack {people: [name or {name}], max?, label?}: initials in a circle; extra people fold into "+N".
 
@@ -182,6 +183,7 @@ Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruct
 - A year list: Timeline. A stage explainer: Stages around a Diagram. A cycle explainer: Stages around a Diagram with layout="cycle" (nodes clockwise from the left; info is cold, warning or danger is hot). A list the reader ticks: Checklist interactive, with sections.
 - A small tool: a Slider, a stepper (Button "−", the value, Button "+") or tip buttons recalculates from the figures you found.
 - Learning or revision: Quiz or Flashcards.
+- News or current events: lead with the as-of date in prose, then one Section holding NewsRows (a story per row, each with its fetched page image and sources), Upcoming for what is next, then the concern and bottom line in prose. No Callout, hex colours or styled divs.
 - Plain text when a visual adds nothing. A one-line question gets one line.
 
 ${PAGE_KIT_GUIDE.replace(/^# Pages\n/, "")}`;

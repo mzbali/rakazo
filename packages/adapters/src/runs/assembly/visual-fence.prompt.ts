@@ -11,7 +11,7 @@ const FENCE_OPEN =
   "For a table of a few rows, steps, key numbers or a simple chart of figures, write a fenced block with the language ui in your reply, where it belongs. The app draws it as real components on the chat background while you write; prose and maths stay outside it.";
 
 const FENCE_PICTURE =
-  " A picture, nested sets, how something works, or a control the reader moves is show_visual, not a fence.";
+  " News or current events, a picture, nested sets, how something works, or a control the reader moves is show_visual, not a fence.";
 
 const FENCE_REST = [
   `Start with <Visual summary="…"> (plain text, at most 500 characters: what it shows) and close with </Visual>. Inside, use only these tags, each written whole before the next:

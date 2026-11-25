@@ -10,6 +10,7 @@ import { CONTROLS_CSS } from "./controls.js";
 import { DATAVIZ_CSS } from "./dataviz-styles.js";
 import { INTERACT_CSS } from "./interact.js";
 import { MEDIA_CSS } from "./media.js";
+import { NEWS_CSS } from "./news.js";
 import { PRACTICE_CSS } from "./practice.js";
 import { PRODUCTS_CSS } from "./products.js";
 import { TEXT_KIT_CSS } from "./text.js";
@@ -270,4 +271,4 @@ const RHYTHM_CSS = `
 .rk-section>.rk-section-head+.rk-section-fold:not([data-open]){margin-top:0}
 `;
 
-export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${INTERACT_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${PRODUCTS_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;
+export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${INTERACT_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${PRODUCTS_CSS}\n${NEWS_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;

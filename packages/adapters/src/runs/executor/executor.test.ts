@@ -1684,8 +1684,15 @@ describe("userTurnInstructions", () => {
   it("mentions media rows only when save_web_images is part of the run", () => {
     const sentence =
       "For news items or product picks, write a list where each item starts with its image embed, then a bold title and a short paragraph (a price for products). Use save_web_images for images from pages you fetched. Add images only when they show something words can't.";
+    const listSentence = sentence;
+    const visualSentence =
+      "For news items or product picks, pass each fetched page's image to show_visual, not save_web_images. Add images only when they show something words can't.";
     const line = (
-      extra: { webImagesOffered?: boolean; disabledBuiltinTools?: ReadonlySet<string> } = {},
+      extra: {
+        webImagesOffered?: boolean;
+        visualFences?: boolean;
+        disabledBuiltinTools?: ReadonlySet<string>;
+      } = {},
     ) =>
       userTurnInstructions({
         ...base,
@@ -1705,6 +1712,11 @@ describe("userTurnInstructions", () => {
         .join("\n");
     expect(line()).toContain(sentence);
     expect(line({ webImagesOffered: true })).toContain(sentence);
+    expect(line({ visualFences: true })).toContain(visualSentence);
+    expect(line({ visualFences: true })).not.toContain(listSentence);
+    // Where visuals are not drawn, show_visual shows only a title, so the photos keep their list.
+    expect(line({ visualFences: false })).toContain(listSentence);
+    expect(line({ visualFences: true, webImagesOffered: false })).toContain(visualSentence);
     expect(line({ webImagesOffered: false })).not.toContain("save_web_images");
     expect(line({ disabledBuiltinTools: new Set(["save_web_images"]) })).not.toContain(
       "save_web_images",

@@ -13,7 +13,7 @@ const COMPONENT_IMAGE_PROPS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
 
 /**
  * Find literal image sources after JSX becomes props. The same keys are used in data
- * objects for Gallery, PhotoStrip and ProductRows. ProductCard also takes a photos array
+ * objects for Gallery, PhotoStrip, ProductRows and NewsRows. ProductCard also takes a photos array
  * of source strings. Values elsewhere, including text children and captions, are untouched.
  */
 export function visualImageReferences(code: string) {

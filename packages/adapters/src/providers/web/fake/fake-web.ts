@@ -19,6 +19,8 @@ export class FakeWebProvider implements WebProvider {
   };
   /** Text served for these exact URLs instead of `fetchResult`. */
   pages: Record<string, string> = {};
+  /** The main image a page names, for these exact URLs. */
+  pageImages: Record<string, string> = {};
   lastSearch?: WebSearchRequest;
   lastFetch?: WebFetchRequest;
   searchError?: Error;
@@ -51,12 +53,14 @@ export class FakeWebProvider implements WebProvider {
     if (this.fetchError) throw this.fetchError;
     const page = this.pages[request.url];
     const result = page === undefined ? this.fetchResult : { ...this.fetchResult, text: page };
+    const image = this.pageImages[request.url];
     const offset = clampOffset(request.offset);
     const rest = result.text.slice(offset);
     const maxChars = request.maxChars ?? rest.length;
     const window = pageWindow(rest, maxChars, offset);
     return {
       ...result,
+      ...(image ? { image } : {}),
       url: request.url || result.url,
       text: window.text,
       truncated: window.truncated || result.truncated,

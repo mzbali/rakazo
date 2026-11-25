@@ -120,6 +120,40 @@ export const VISUAL_SCENARIOS: VisualScenario[] = [
     ],
   },
   {
+    id: "visual-news",
+    label: "News answer",
+    messages: [
+      row("user", [{ kind: "text", text: "How are the protests in Freedonia and Elbonia going?" }]),
+      row("bot", [
+        {
+          kind: "text",
+          text: "**As of Wednesday, 25 November 2026:** both are calmer, but not over.",
+        },
+        {
+          kind: "visual",
+          title: "Protests this week",
+          text: "Freedonia held a large march and Elbonia's strike ended. A rally is planned for 4 December.",
+          code: `exports.default = () => React.createElement(Fragment, null,
+          React.createElement(Section, {heading: "Protests this week"},
+            React.createElement(NewsRows, {items: [
+              {label: "Freedonia", title: "Marches continue", summary: "Tens of thousands marched over wages. Transport and schools were affected.", image: "rakazo-image:${VISUAL_PHOTO.id}", alt: "A crowd marching", sources: [{name: "Wire One", href: "https://wire.example/a"}, {name: "Daily Two"}]},
+              {label: "Elbonia", title: "Strike ends, talks open", summary: "The national strike has ended and negotiations begin next week.", image: "rakazo-image:${VISUAL_PHOTO_PLUS.id}", alt: "A rally in a square", sources: [{name: "Daily Two", href: "https://daily.example/b"}]}
+            ]})),
+          React.createElement(Section, {heading: "What's next"},
+            React.createElement(Upcoming, {items: [
+              {date: "2026-12-04", title: "Freedonia rally", detail: "Unions plan a rally in the capital.", sources: [{name: "Wire One", href: "https://wire.example/c"}]}
+            ]}))
+        );`,
+          images: [
+            { id: VISUAL_PHOTO.id, alt: "A crowd marching", size: 410 },
+            { id: VISUAL_PHOTO_PLUS.id, alt: "A rally in a square", size: 508 },
+          ],
+        },
+        { kind: "text", text: "**Bottom line:** plan around transport on 4 December." },
+      ]),
+    ],
+  },
+  {
     id: "visual-camera-table",
     label: "Camera comparison",
     messages: [

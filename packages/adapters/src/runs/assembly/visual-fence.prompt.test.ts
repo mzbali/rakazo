@@ -109,6 +109,17 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain(
       '<Image src="rakazo-image:1" alt="Photo" caption="Name" />',
     );
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      "news or data you found, call show_visual before you reply",
+    );
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      "web_fetch returns a page's image when it has one; pass every such image in images.",
+    );
+    expect(VISUAL_FENCE_INSTRUCTION).toContain(
+      "News or current events, a picture, nested sets, how something works, or a control the reader moves is show_visual, not a fence.",
+    );
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("<NewsRows items=");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("<Upcoming items=");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Use Grid with 1 or 2 columns");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Omit fixed sizes");
     expect(SHOW_VISUAL_INSTRUCTION).not.toContain("<Picture");

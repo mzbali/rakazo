@@ -33,6 +33,10 @@ const KIT_NAMES: ReadonlySet<string> = new Set(PAGE_KIT_COMPONENTS);
 const KIT_LIST = (PAGE_KIT_COMPONENTS as readonly string[]).join(", ");
 // Escapes JSX decodes in its own text, but that a JavaScript string shows as typed.
 const HTML_ENTITY = /&(?:lt|gt|amp|quot|apos|nbsp|#39|#x27);/;
+// A colour written out as hex in a string; a URL fragment or an entity is not one. \x23 is the hash sign.
+const HEX_COLOUR = /(?:^|[^\w&/])\x23(?:[0-9a-f]{8}|[0-9a-f]{6})\b/i;
+// A short colour is only taken as one when it is the whole string.
+const SHORT_HEX_COLOUR = /^['"`]\x23(?:[0-9a-f]{3,4})['"`]$/i;
 
 /** React hooks a page may call. A hook called while the file loads runs outside React's render. */
 const REACT_HOOKS: ReadonlySet<string> = new Set([
@@ -95,10 +99,24 @@ export function checkPageSource(source: string): PageSourceCheck {
   const declared = new Set<string>();
   const tags = new Map<string, number>();
   let defaults = 0;
+  let hexLine: number | undefined;
+  let hasPalette = false;
   const blocked = new Set<string>();
   tokens.forEach((token, index) => {
     const text = source.slice(token.start, token.end);
     const line = lineOf(token.start);
+    if (token.type === TokenType.name || token.type === TokenType.jsxName) {
+      if (text === "palette") hasPalette = true;
+    } else if (
+      (token.type === TokenType.string || token.type === TokenType.template) &&
+      (HEX_COLOUR.test(text) || SHORT_HEX_COLOUR.test(text)) &&
+      !(
+        isJsxAttributeValue(tokens, index) &&
+        source.slice(tokens[index - 2]!.start, tokens[index - 2]!.end) === "href"
+      )
+    ) {
+      hexLine ??= line;
+    }
     if (token.type === TokenType._import) {
       const problem = importProblem(tokens, index, source);
       if (problem) errors.push(`line ${line}: ${problem}`);
@@ -182,6 +200,12 @@ export function checkPageSource(source: string): PageSourceCheck {
       }
     }
   });
+  // A page that passes its own palette to charts is choosing colours on purpose.
+  if (hexLine !== undefined && !hasPalette) {
+    warnings.push(
+      `line ${hexLine}: hard-coded colours stay the same in light and dark. Take colours from useTheme(), and draw news, rows or cards with NewsRows, Upcoming, Rows or ProductRows rather than styled divs.`,
+    );
+  }
   for (const { name, start } of selfRenderingKitNames(tokens, source)) {
     errors.push(`line ${lineOf(start)}: ${selfRenderingMessage(name)}`);
   }

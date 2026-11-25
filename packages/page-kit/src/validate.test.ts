@@ -265,6 +265,47 @@ describe("checkPageSource", () => {
     ).toEqual({ ok: true, code: expect.any(String) });
   });
 
+  it("warns about hard-coded hex colours and names the kit components to use instead", () => {
+    const styled = checkPageSource(
+      page(
+        "const App = () => <div style={{ background: '#14161c' }}><span style={{ color: '#fff' }}>x</span></div>;",
+      ),
+    );
+    expect(styled).toEqual({
+      ok: true,
+      code: expect.any(String),
+      warnings: [expect.stringMatching(/^line 1: hard-coded colours .*NewsRows, Upcoming, Rows/)],
+    });
+    // The word in page text is not a palette prop.
+    const prose = checkPageSource(
+      page("const App = () => <div style={{ color: '#ff0000' }}>A colour palette</div>;"),
+    );
+    expect(prose.ok && prose.warnings).toHaveLength(1);
+    // A palette, a URL fragment and a hash in prose are not styling a div.
+    for (const body of [
+      "const App = () => <Page title='t' palette={['#112233']}>x</Page>;",
+      "const App = () => <TextLink href='https://x.example/#abc123'>x</TextLink>;",
+      "const App = () => <Text>{'Issue #123 and #2026'}</Text>;",
+      "const App = () => <TextLink href='#abc'>x</TextLink>;",
+    ]) {
+      expect(checkPageSource(page(body))).toEqual({ ok: true, code: expect.any(String) });
+    }
+  });
+
+  it("accepts the news pattern the guide teaches", () => {
+    const news = page(
+      `const App = () => (
+  <Section heading="Latest">
+    <NewsRows items={[{ label: "Freedonia", title: "Talks resume", summary: "Short.", image: "rakazo-image:1", sources: [{ name: "Wire One", href: "https://wire.example/a" }] }]} />
+    <Upcoming items={[{ date: "2026-12-04", title: "Rally", sources: ["Wire One"] }]} />
+  </Section>
+);`,
+    );
+    expect(checkPageSource(news)).toEqual({ ok: true, code: expect.any(String) });
+    expect(VISUAL_GUIDE).toContain("NewsRows {items:");
+    expect(VISUAL_GUIDE).toContain("News or current events");
+  });
+
   it("rejects a component named like a kit component that uses that component inside itself", () => {
     const result = checkPageSource(
       'export default function Status() {\n  return <Page title="t"><Status tone="success">Up</Status></Page>;\n}\n',

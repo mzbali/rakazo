@@ -56,6 +56,8 @@ const CALCULATOR = `export default function V() {
 }`;
 const CHECKLIST = `export default () => <Section><Checklist interactive sections={[{title: "Week 1", items: [{text: "Run"}]}]} /></Section>;`;
 const PHOTOS = `export default () => <Section><Image src="rakazo-image:1" alt="Camera" /><Image src="rakazo-image:2" alt="Camera" /></Section>;`;
+const NEWS = `export default () => <Section><NewsRows items={[{label: "France", title: "T", image: "rakazo-image:1"}]} /><Upcoming items={[{date: "2027-03-04", title: "Vote"}]} /></Section>;`;
+const NEWS_TABLE = `export default () => <Section><Table columns={["Country"]} rows={[["France"]]} /></Section>;`;
 const PROSE_ONLY = `export default () => <Section><Text>Words</Text></Section>;`;
 
 const definition = (id: string): VisualCase => VISUAL_DEFINITIONS.find((d) => d.id === id)!;
@@ -198,6 +200,20 @@ describe("gradeVisuals", () => {
     ]);
   });
 
+  it("wants news rows with a date tile and photos on the first call", () => {
+    const protests = definition("news-farm-protests");
+    const images = [{ url: "https://img.example/a.jpg", alt: "a" }];
+    expect(
+      failed(gradeVisuals(protests, evidence([visual(NEWS, "succeeded", { images })]))),
+    ).toEqual([]);
+    expect(
+      failed(gradeVisuals(protests, evidence([visual(NEWS_TABLE, "succeeded", { images })]))),
+    ).toEqual(["uses NewsRows and Upcoming", "first call passes photos and places them"]);
+    expect(failed(gradeVisuals(protests, evidence([visual(NEWS)])))).toEqual([
+      "first call passes photos and places them",
+    ]);
+  });
+
   it("wants photos on the first call of the product case, whatever the fetch did", () => {
     const cameras = definition("photos-cameras");
     const images = [
@@ -218,7 +234,7 @@ describe("visuals suite", () => {
     const ids = VISUAL_DEFINITIONS.map((d) => d.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(VISUAL_DEFINITIONS.map((d) => d.category))).toEqual(
-      new Set(["explainer", "decision", "money", "component", "data", "photos", "plain"]),
+      new Set(["explainer", "decision", "money", "component", "data", "photos", "news", "plain"]),
     );
     expect(VISUALS_EVAL_CASES).toHaveLength(ids.length);
   });

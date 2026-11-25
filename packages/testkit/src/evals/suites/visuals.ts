@@ -36,6 +36,7 @@ export type VisualCategory =
   | "component"
   | "data"
   | "photos"
+  | "news"
   | "plain";
 
 /** What the person is meant to get for each kind of prompt; the judge reads this as the target. */
@@ -51,6 +52,7 @@ const TARGETS: Record<VisualCategory, string> = {
   data: "An interactive line chart drawn with show_visual from the data the bot fetched. Not an image from a plot tool or a script.",
   photos:
     "One show_visual call that passes the photo URLs as images and places them with rakazo-image references.",
+  news: "One show_visual call with a row per story: the page photo passed as an image, a label, a headline, a short summary and its sources. A date tile for what happens next when there is a date. Not a table, a markdown list or prose alone.",
   plain: "A plain sentence. No visual, no plot.",
 };
 
@@ -63,7 +65,16 @@ const PLOT_LIBRARIES = ["matplotlib", "plotly", "seaborn"];
 const VisualCaseSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
-    category: z.enum(["explainer", "decision", "money", "component", "data", "photos", "plain"]),
+    category: z.enum([
+      "explainer",
+      "decision",
+      "money",
+      "component",
+      "data",
+      "photos",
+      "news",
+      "plain",
+    ]),
     prompt: z.string().min(1),
     /** Fetched data the bot can read during the turn. */
     sources: z.custom<Sources>().optional(),
@@ -71,6 +82,8 @@ const VisualCaseSchema = z
     visuals: z.object({ min: z.number().int().min(0), max: z.number().int().min(0) }).strict(),
     /** At least one of these kit components must appear in the visuals' JSX. */
     anyComponent: z.array(z.string().min(1)).optional(),
+    /** Every one of these kit components must appear in the visuals' JSX. */
+    allComponents: z.array(z.string().min(1)).optional(),
     /** The visuals must use a component beyond page layout. */
     beyondLayout: z.literal(true).optional(),
     /** The first show_visual call passes photos and places them with rakazo-image. */
@@ -155,6 +168,11 @@ export function gradeVisuals(definition: VisualCase, evidence: Evidence): Criter
     criteria.push({
       id: `uses ${definition.anyComponent.join(" or ")}`,
       pass: definition.anyComponent.some((name) => use.components.includes(name)),
+    });
+  if (definition.allComponents)
+    criteria.push({
+      id: `uses ${definition.allComponents.join(" and ")}`,
+      pass: definition.allComponents.every((name) => use.components.includes(name)),
     });
   if (definition.beyondLayout)
     criteria.push({
@@ -306,6 +324,79 @@ const inflation: Sources = {
   },
 };
 
+/**
+ * Public, neutral stories with invented sites; the photo hosts are not reachable offline. Stories
+ * are dated before today and their next dates are far ahead, so the clock does not make them stale.
+ */
+const protests: Sources = {
+  web: {
+    search: [
+      {
+        title: "Farmers block roads across France as talks continue",
+        url: "https://news.example/france-farmers-protest",
+        snippet:
+          "Farmers kept motorways blocked for a fifth day. Talks with the minister resume Thursday.",
+      },
+      {
+        title: "Polish farmers protest at the border over imports",
+        url: "https://news.example/poland-farmers-protest",
+        snippet:
+          "Protesters slowed border crossings. A parliamentary vote on import limits is due on 4 March 2027.",
+      },
+      {
+        title: "Spanish farmers join the protests with tractor convoys",
+        url: "https://news.example/spain-farmers-protest",
+        snippet: "Convoys reached Madrid on Monday. Unions meet the ministry on 12 March 2027.",
+      },
+      {
+        title: "Farm protests in Europe: what the unions want",
+        url: "https://wire.example/europe-farm-protests-explained",
+        snippet: "Unions in several countries want fairer prices and fewer import rules.",
+      },
+    ],
+    pages: {
+      "https://news.example/france-farmers-protest":
+        "Published 20 November 2026. French farmers kept several motorways blocked for a fifth day on Tuesday. The agriculture minister said talks with the unions resume on Thursday 26 November. Unions want fixed minimum prices and less paperwork. Police have kept traffic moving on side roads and no arrests were reported. Source: Example News.",
+      "https://news.example/spain-farmers-protest":
+        "Published 21 November 2026. Spanish farmers drove tractor convoys into Madrid on Monday, asking for drought aid and lower fuel costs. Unions meet the agriculture ministry on 12 March 2027. Traffic was slowed on three main roads and the protest ended peacefully. Source: Example News.",
+      "https://news.example/poland-farmers-protest":
+        "Published 20 November 2026. Polish farmers slowed lorries at two border crossings on Monday, asking for limits on imported grain. The government said it would put a bill on import limits to a parliamentary vote on 4 March 2027. Border queues reached about 15 km at the worst point. Source: Example News.",
+    },
+    images: {
+      "https://news.example/france-farmers-protest": "https://images.example/france-farmers.jpg",
+      "https://news.example/poland-farmers-protest": "https://images.example/poland-border.jpg",
+      "https://news.example/spain-farmers-protest": "https://images.example/spain-convoy.jpg",
+    },
+  },
+};
+
+const budget: Sources = {
+  web: {
+    search: [
+      {
+        title: "Budget 2026: what the chancellor announced",
+        url: "https://news.example/uk-budget-2026",
+        snippet: "The chancellor set out tax and spending plans on 20 November 2026.",
+      },
+      {
+        title: "Budget reaction: economists weigh in",
+        url: "https://wire.example/uk-budget-reaction",
+        snippet: "Forecasters say the plans leave little room against borrowing targets.",
+      },
+    ],
+    pages: {
+      "https://news.example/uk-budget-2026":
+        "Published 20 November 2026. The chancellor said income tax thresholds stay frozen for another year and fuel duty rises in April. Day-to-day spending grows 1.2% a year. The independent forecaster publishes its full assessment the same afternoon. Opposition parties called the plans a tax rise by stealth. Source: Example News.",
+      "https://wire.example/uk-budget-reaction":
+        "Published 20 November 2026. Economists said the plans leave about 10 billion pounds of headroom against the borrowing rule, down from 22 billion. The Commons votes on the first tax measures on 9 March 2027. Source: Example Wire.",
+    },
+    images: {
+      "https://news.example/uk-budget-2026": "https://images.example/budget-box.jpg",
+      "https://wire.example/uk-budget-reaction": "https://images.example/treasury.jpg",
+    },
+  },
+};
+
 export const VISUAL_DEFINITIONS: VisualCase[] = [
   {
     id: "explainer-p-vs-np",
@@ -401,6 +492,33 @@ export const VISUAL_DEFINITIONS: VisualCase[] = [
     firstCallPhotos: true,
     // The photo hosts are not reachable offline, so a failed fetch is not the bot's mistake.
     failuresAllowed: 2,
+  },
+  {
+    id: "news-farm-protests",
+    category: "news",
+    prompt: "How are the farmer protests in France and other European countries going?",
+    sources: protests,
+    visuals: { min: 1, max: 2 },
+    allComponents: ["NewsRows", "Upcoming"],
+    firstCallPhotos: true,
+    failuresAllowed: 2,
+  },
+  {
+    id: "news-uk-budget",
+    category: "news",
+    prompt: "What's the latest on the UK budget?",
+    sources: budget,
+    visuals: { min: 1, max: 2 },
+    allComponents: ["NewsRows"],
+    firstCallPhotos: true,
+    failuresAllowed: 2,
+  },
+  {
+    id: "plain-news-fact",
+    category: "plain",
+    prompt: "What day is the UK budget this year?",
+    sources: budget,
+    visuals: { min: 0, max: 0 },
   },
   {
     id: "plain-tokyo-time",

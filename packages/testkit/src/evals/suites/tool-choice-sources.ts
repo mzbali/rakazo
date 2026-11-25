@@ -60,6 +60,8 @@ export const SourcesSchema = z
       .object({
         /** Text served for these exact URLs; any other URL serves a generic page. */
         pages: z.record(z.url(), z.string()).optional(),
+        /** The main image a fetched page names, by page URL. */
+        images: z.record(z.url(), z.url()).optional(),
         search: z
           .array(z.object({ title: z.string(), url: z.url(), snippet: z.string() }).strict())
           .optional(),
@@ -166,6 +168,7 @@ export function sourcesCase(
       ? {
           configure: (services: EvalServices) => {
             Object.assign(services.web.pages, web.pages);
+            Object.assign(services.web.pageImages, web.images);
             if (web.search) services.web.searchHits = web.search;
           },
         }

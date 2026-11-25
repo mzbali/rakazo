@@ -396,7 +396,7 @@ class RakazoNotificationService : Service() {
     private const val LIVE_NOTIFICATION_ID = 1101
     private const val ACTION_THREAD_CHANGED = "com.rakazo.notifications.THREAD_CHANGED"
     private const val PROMOTED_ONGOING_EXTRA = "android.requestPromotedOngoing"
-    private const val RECENT_LIMIT = 20 // Keep in sync with apps/api/src/runs.ts.
+    private const val RECENT_LIMIT = 20 // The API's page size (kept-in-step check).
     private const val EXTRA_RESET_TOKEN = "com.rakazo.notifications.RESET_TOKEN"
     private const val EXTRA_MUTED_BOT_ID = "com.rakazo.notifications.MUTED_BOT_ID"
     private const val STATE_PREFERENCES = "com.rakazo.notification_state"
@@ -546,6 +546,7 @@ private fun latestReply(
 
 private val TABLE_ROW = Regex("\\s*\\|(.+)\\|\\s*")
 private val BREAK_LINE = Regex("\\s*[-*_]{3,}\\s*")
+private val ATX_CLOSING_MARKER = Regex("(^|\\n)( {0,3}#{1,6}(?=[ \\t])[^\\n]*?)[ \\t]#+[ \\t]*(?=\\n|\\z)")
 private val FENCE_OPEN = Regex("^ {0,3}(`{3,}|~{3,})(.*)$")
 private const val PAYLOAD_MARK = '\uE000'
 /** A preview is one line. Cap the source so one huge reply cannot stall the poll loop. */
@@ -658,7 +659,7 @@ private fun closerAt(text: String, open: Char, close: Char): Array<Int?> {
 private data class PreviewSource(val text: String, val truncated: Boolean)
 
 private fun boundedPreviewSource(markdown: String): PreviewSource {
-  val normalized = markdown.replace("\r\n", "\n")
+  val normalized = markdown.replace("\r\n", "\n").replace("\r", "\n")
   if (normalized.length <= MAX_PREVIEW_SOURCE) return PreviewSource(normalized, false)
   val body = normalized.trimStart()
   if (body.length <= MAX_PREVIEW_SOURCE) return PreviewSource(body, false)
@@ -726,6 +727,105 @@ private fun takeFencedCode(
     out.add(stash(body.joinToString("\n")))
     i = j + 1
   }
+  return out.joinToString("\n")
+}
+
+private val UI_FENCE_LINE = Regex("^ {0,3}(`{3,}|~{3,})[ \\t]*ui[ \\t]*\\r?$", RegexOption.MULTILINE)
+private val NAME_START = Regex("^[A-Za-z_][A-Za-z0-9_-]*")
+private val ENTITY = Regex("&(lt|gt|amp|quot);")
+private const val SUMMARY_MAX_LENGTH = 500
+
+/**
+ * The `summary` of the opening `<Visual summary="...">` of a fence body, read from that tag only
+ * and only once its `>` has arrived. Null when it is unfinished, missing, empty or too long.
+ * Mirrors visualFenceSummary.
+ */
+internal fun visualFenceSummary(body: String): String? {
+  val start = body.indexOfFirst { !it.isWhitespace() }
+  if (start < 0 || !body.startsWith("<Visual", start)) return null
+  if (!(body.getOrNull(start + 7)?.let { it.isWhitespace() || it == '>' || it == '/' } ?: false)) return null
+  var at = start + 7
+  var summary: String? = null
+  while (at < body.length) {
+    val c = body[at]
+    if (c == '>') break
+    if (c == '"') {
+      val close = body.indexOf('"', at + 1)
+      if (close < 0) return null
+      at = close + 1
+    } else if (c == '{') {
+      var depth = 0
+      while (at < body.length) {
+        val n = body[at]
+        if (n == '"' || n == '\'') {
+          at++
+          while (at < body.length && body[at] != n) {
+            if (body[at] == '\\') at++
+            at++
+          }
+        } else if (n == '{') depth++
+        else if (n == '}' && --depth == 0) break
+        at++
+      }
+      at++
+    } else if (c.isWhitespace() || (c == '/' && body.getOrNull(at + 1) == '>')) {
+      at++
+    } else {
+      val name = NAME_START.find(body.substring(at, minOf(body.length, at + 40)))?.value ?: return null
+      at += name.length
+      if (name == "summary" && body.getOrNull(at) == '=' && body.getOrNull(at + 1) == '"') {
+        val close = body.indexOf('"', at + 2)
+        if (close < 0) return null
+        summary = ENTITY.replace(body.substring(at + 2, close)) { m ->
+          when (m.groupValues[1]) { "lt" -> "<"; "gt" -> ">"; "amp" -> "&"; else -> "\"" }
+        }
+        at = close + 1
+      } else if (body.getOrNull(at) == '=') at++
+    }
+  }
+  if (at >= body.length) return null
+  val text = summary?.replace(Regex("\\s+"), " ")?.trim()
+  return if (!text.isNullOrEmpty() && text.length <= SUMMARY_MAX_LENGTH) text else null
+}
+
+private fun visualFence(body: String): String =
+  visualFenceSummary(body)?.let { "[visual: $it]" } ?: "[visual]"
+
+/**
+ * Every ```ui fence as `[visual: summary]`, closed or not (an unclosed one runs to the end, as a
+ * reply cut off mid-fence does). Other fences stay as written. Mirrors foldVisualFences.
+ */
+private fun foldVisualFences(text: String): String {
+  if (!UI_FENCE_LINE.containsMatchIn(text)) return text
+  val out = mutableListOf<String>()
+  var mark: String? = null
+  var ui = false
+  val body = mutableListOf<String>()
+  for (line in text.split("\n")) {
+    val open = mark
+    if (open == null) {
+      val m = FENCE_OPEN.matchEntire(line)
+      val marker = m?.groupValues?.get(1)
+      if (m == null || marker == null || (marker[0] == '`' && m.groupValues[2].contains('`'))) {
+        out.add(line)
+        continue
+      }
+      mark = marker
+      ui = m.groupValues[2].trim() == "ui"
+      if (!ui) out.add(line)
+      continue
+    }
+    val close = FENCE_OPEN.matchEntire(line)
+    val closeMark = close?.groupValues?.get(1)
+    if (close != null && closeMark != null && close.groupValues[2].isBlank() &&
+      closeMark[0] == open[0] && closeMark.length >= open.length
+    ) {
+      out.add(if (ui) visualFence(body.joinToString("\n")) else line)
+      body.clear()
+      mark = null
+    } else if (ui) body.add(line) else out.add(line)
+  }
+  if (mark != null && ui) out.add(visualFence(body.joinToString("\n")))
   return out.joinToString("\n")
 }
 
@@ -972,8 +1072,13 @@ internal fun markdownToPreview(markdown: String): String {
     "$mark${payloads.size - 1}$mark"
   }
   val source = boundedPreviewSource(markdown)
-  var text = source.text.replace(mark, markToken)
+  var text = foldVisualFences(source.text).replace(mark, markToken)
   text = takeFencedCode(text, stash, source.truncated)
+  // Recognize the closing marker before inline formatting changes the line.
+  text = ATX_CLOSING_MARKER.replace(text) { match ->
+    if (source.truncated && match.range.last == text.lastIndex) match.value
+    else match.groupValues[1] + match.groupValues[2] + " "
+  }
   text = takeInlineCode(text, stash)
   text = takeEscapes(text, stash)
   text = takeLinks(text)

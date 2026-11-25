@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { Children, isValidElement, useEffect, useState } from "react";
-import { Inline, openViaHost, webUrl } from "./inline.js";
+import { useOpenViaHost } from "./host-bridge.js";
+import { Inline, webUrl } from "./inline.js";
 import { useWords } from "./labels.js";
 
 // Lists nest at most this deep; deeper items are dropped rather than overflowing the column.
@@ -209,6 +210,7 @@ const LINK_ICON =
   "M6.5 9.5l3-3M7.4 4.6l.9-.9a2.5 2.5 0 013.5 3.5l-.9.9M8.6 11.4l-.9.9a2.5 2.5 0 01-3.5-3.5l.9-.9";
 
 export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numbered?: boolean }) {
+  const openLink = useOpenViaHost();
   const cards = Array.isArray(links)
     ? links.filter(
         (link) => link && typeof link === "object" && (text(link.title) || webUrl(link.href)),
@@ -273,7 +275,7 @@ export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numb
                 href={href}
                 rel="noopener noreferrer"
                 title={text(link.title)}
-                onClick={openViaHost}
+                onClick={openLink}
               >
                 {body}
               </a>
@@ -287,7 +289,15 @@ export function LinkCards({ links, numbered = false }: { links: LinkCard[]; numb
   );
 }
 
-const SERIES = ["var(--rk-c1)", "var(--rk-c2)", "var(--rk-c3)", "var(--rk-c4)", "var(--rk-c5)"];
+const SERIES = [
+  "var(--rk-c1)",
+  "var(--rk-c2)",
+  "var(--rk-c3)",
+  "var(--rk-c4)",
+  "var(--rk-c5)",
+  "var(--rk-c6)",
+  "var(--rk-c7)",
+];
 
 export function Legend({
   names,
@@ -434,15 +444,21 @@ export function BackToTop({ label }: { label?: string }) {
 
 type TocItem = { label?: string; id?: string; depth?: number };
 
-/** Lowercase words joined by dashes: the anchor a Section gets from its heading. */
+/**
+ * Lowercase words joined by dashes: the anchor a Section gets from its heading.
+ * Latin accents are dropped, while combining marks in other scripts (kana dakuten,
+ * Indic and Thai vowel signs) are kept and the result is recomposed to NFC.
+ * The cap counts code points, so it never splits a surrogate pair.
+ */
 export function slugify(value: string): string {
-  return value
+  const slug = value
     .normalize("NFKD")
     .toLowerCase()
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-")
+    .normalize("NFC")
+    .replace(/^-+|-+$/g, "");
+  return Array.from(slug).slice(0, 64).join("").replace(/-+$/, "");
 }
 
 /** The heading the reader is in: the last one scrolled past, or the first. */

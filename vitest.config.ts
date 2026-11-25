@@ -11,7 +11,8 @@ const include = [
   "infra/updater/src/**/*.test.ts",
   "apps/desktop/src/**/*.test.ts",
   "apps/web/src/**/*.test.{ts,tsx}",
-  "apps/mobile/lib/**/*.test.{ts,tsx}",
+  "apps/web/server/**/*.test.ts",
+  "apps/mobile/{lib,components}/**/*.test.{ts,tsx}",
   "apps/mobile/plugins/**/*.test.js",
   "apps/api/src/**/*.test.ts",
   "apps/worker/src/**/*.test.ts",
@@ -61,16 +62,25 @@ export default defineConfig({
           new URL("./packages/testkit/src/lingui-react-macro.ts", import.meta.url),
         ),
       },
+      {
+        // A native view; tests see its Markdown as text.
+        find: /^react-native-enriched-markdown$/,
+        replacement: fileURLToPath(
+          new URL("./packages/chat-ui/src/enriched-markdown-test-stub.tsx", import.meta.url),
+        ),
+      },
       // Native-only transitive deps of the renderer contain uncompiled Flow
       // source; stub them out in tests (they never render anyway).
-      ...["react-native-fit-image", "@react-native-vector-icons/material-design-icons"].map(
-        (dep) => ({
-          find: new RegExp(`^${dep.replace(/[/]/g, "\\/")}$`),
-          replacement: fileURLToPath(
-            new URL("./packages/chat-ui/src/native-test-stubs.tsx", import.meta.url),
-          ),
-        }),
-      ),
+      ...[
+        "react-native-fit-image",
+        "@react-native-vector-icons/material-design-icons",
+        "react-native-svg",
+      ].map((dep) => ({
+        find: dep,
+        replacement: fileURLToPath(
+          new URL("./packages/chat-ui/src/native-test-stubs.tsx", import.meta.url),
+        ),
+      })),
     ],
   },
   test: {

@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import type { PageVisibility } from "@rakazo/contracts";
+import { pageSharingLabel } from "@rakazo/i18n/page-review";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveNearView } from "../../lib/live-previews";
-import { formatRelativeTime } from "../../lib/relative-time";
+import { formatRelativeTime } from "../../lib/locale/relative-time";
 import { PageFrame } from "./PageFrame";
 import { PageTileIcon } from "./page-icon";
 
@@ -94,14 +96,13 @@ export function PageCard({
   onOpen,
   updated = false,
   updatedAt,
-  shared = false,
+  visibility,
   failed = false,
 }: {
   title: string;
   /** When the page last changed, said under its title. */
   updatedAt?: string;
-  /** Anyone with the link can open it. */
-  shared?: boolean;
+  visibility?: PageVisibility;
   document: string | null;
   /** The page could not be read, so its preview stops looking like it is loading. */
   failed?: boolean;
@@ -112,11 +113,12 @@ export function PageCard({
 }) {
   const { t } = useLingui();
   const when = updatedAt ? formatRelativeTime(updatedAt) : "";
+  const sharing = pageSharingLabel(visibility);
   return (
     <div
       data-testid="page-card"
       data-deleted={onOpen === undefined || undefined}
-      className="relative w-full max-w-[561px] overflow-hidden pointer-coarse:min-[900px]:max-w-[639px] rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring data-deleted:bg-transparent data-deleted:opacity-70"
+      className="relative w-full overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring data-deleted:bg-transparent data-deleted:opacity-70"
     >
       {onOpen ? <PagePreview document={document} title={title} failed={failed} /> : null}
       <div className="flex h-[73px] items-center gap-[14px] border-t border-foreground/[0.04] px-5">
@@ -131,8 +133,10 @@ export function PageCard({
             ) : updated ? (
               <Trans>Page · Updated below</Trans>
             ) : when ? (
-              shared ? (
-                <Trans>Page · Shared · {when}</Trans>
+              sharing ? (
+                <Trans>
+                  Page · {sharing} · {when}
+                </Trans>
               ) : (
                 <Trans>Page · {when}</Trans>
               )

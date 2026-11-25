@@ -6,6 +6,8 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Metrics, Status, Table } from "./data.js";
+import { Rings } from "./dataviz/rings.js";
+import { textWidth } from "./dataviz/scale.js";
 import {
   CalendarHeatmap,
   ColumnSeries,
@@ -19,6 +21,7 @@ import {
   shade,
   Venn,
 } from "./dataviz.js";
+import { wordsFor } from "./labels.js";
 import { Page } from "./layout.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -139,6 +142,19 @@ describe("charts", () => {
     expect(tip(root)).toBe("Feb35");
     pointer(document.body, "pointerdown");
     expect(tip(root)).toBeNull();
+  });
+
+  it("leaves off a reference name wider than the phone chart instead of running past its edge", () => {
+    stubWidth(200);
+    const root = mount(
+      <ColumnSeries
+        labels={["A", "B"]}
+        series={[{ name: "x", values: [1, 2] }]}
+        reference={{ value: 1, label: "A very long reference name that cannot fit this width" }}
+      />,
+    );
+    expect(root.querySelector(".rk-reference-line")).not.toBeNull();
+    expect(root.querySelector(".rk-reference-label")).toBeNull();
   });
 
   it("stacks series to a round ceiling, marks a reference and totals the stack in its tip", () => {
@@ -346,6 +362,75 @@ describe("charts", () => {
     );
   });
 
+  it.each([
+    {
+      name: "a narrowed range",
+      from: "2026-03-02",
+      to: "2026-03-03",
+      shades: ["var(--rk-seq2)", "var(--rk-seq5)"],
+      highest: "10",
+    },
+    {
+      name: "the inferred range",
+      shades: ["var(--rk-seq5)", "var(--rk-seq1)", "var(--rk-seq1)", "var(--rk-seq5)"],
+      highest: "1,000",
+    },
+    {
+      name: "an explicit scale",
+      from: "2026-03-02",
+      to: "2026-03-03",
+      max: 20,
+      shades: ["var(--rk-seq1)", "var(--rk-seq3)"],
+      highest: "20",
+    },
+    {
+      name: "a range with no observations",
+      from: "2026-03-05",
+      to: "2026-03-05",
+      shades: ["var(--rk-fill-strong)"],
+      highest: "0",
+    },
+  ])("uses the same calendar heatmap scale for cells and the label in $name", (fixture) => {
+    const root = mount(
+      <CalendarHeatmap
+        from={fixture.from}
+        to={fixture.to}
+        max={fixture.max}
+        days={[
+          { date: "2026-03-01", value: 1000 },
+          { date: "2026-03-02", value: 4 },
+          { date: "2026-03-03", value: 10 },
+          { date: "2026-03-04", value: 1000 },
+        ]}
+      />,
+    );
+    const cells = [...root.querySelectorAll<HTMLElement>(".rk-day")];
+    expect(cells.map((cell) => cell.style.background)).toEqual(fixture.shades);
+    expect(root.querySelector('[role="img"]')?.getAttribute("aria-label")).toMatch(
+      new RegExp(`, highest ${fixture.highest}$`),
+    );
+  });
+
+  it("excludes dates beyond the calendar heatmap's rendering limit from its scale", () => {
+    const root = mount(
+      <CalendarHeatmap
+        from="2026-01-01"
+        to="2027-07-06"
+        days={[
+          { date: "2027-07-05", value: 10 },
+          { date: "2027-07-06", value: 1000 },
+        ]}
+      />,
+    );
+    const cells = [...root.querySelectorAll<HTMLElement>(".rk-day")];
+    expect(cells).toHaveLength(551);
+    expect(cells.at(-1)?.getAttribute("data-cell")).toBe("2027-07-05");
+    expect(cells.at(-1)?.style.background).toBe("var(--rk-seq5)");
+    expect(root.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      "Daily values from Jan 1, 2026 to Jul 5, 2027, highest 10",
+    );
+  });
+
   it("names up to three sets beside their circles with the shared figure in the middle", () => {
     const root = mount(
       <Venn
@@ -376,6 +461,88 @@ describe("charts", () => {
     expect(lines.join(" ")).toBe("312 (cookie resets, excluded)");
   });
 
+  it("draws nested sets as circles one inside the next, with each label in its band", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn
+        nested
+        overlap="not shown"
+        sets={[
+          { label: "NP", count: 1200 },
+          { label: "NP-complete" },
+          { label: "P", tone: "success" },
+          { label: "Fourth" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    expect(circles).toHaveLength(3);
+    const radii = circles.map((circle) => Number(circle.getAttribute("r")));
+    expect(radii[0]).toBeGreaterThan(radii[1]!);
+    expect(radii[1]).toBeGreaterThan(radii[2]!);
+    expect(new Set(circles.map((circle) => circle.getAttribute("cx"))).size).toBe(1);
+    expect(circles[0]!.getAttribute("style")).toContain("--foreground");
+    expect(circles[2]!.getAttribute("style")).toContain("--success");
+    expect(root.textContent).toContain("1,200");
+    expect(root.textContent).not.toContain("Fourth");
+    expect(root.textContent).not.toContain("not shown");
+    const names = [...root.querySelectorAll(".rk-venn-name")];
+    expect(names.map((name) => name.textContent)).toEqual(["NP", "NP-complete", "P"]);
+    const tops = names.map((name) => Number(name.getAttribute("y")));
+    expect(tops[0]).toBeLessThan(tops[1]!);
+    expect(tops[1]).toBeLessThan(tops[2]!);
+  });
+
+  it("wraps a long nested label inside its circle", () => {
+    stubWidth(358);
+    const root = mount(
+      <Venn
+        nested
+        sets={[
+          { label: "NP: answers are quick to check" },
+          { label: "P: also quick to solve", tone: "success" },
+        ]}
+      />,
+    );
+    const circles = [...root.querySelectorAll<SVGCircleElement>(".rk-venn-set")];
+    const names = [...root.querySelectorAll<SVGTextElement>(".rk-venn-name")];
+    expect(names[0]!.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    names.forEach((name, index) => {
+      const circle = circles[index]!;
+      const radius = Number(circle.getAttribute("r"));
+      const cy = Number(circle.getAttribute("cy"));
+      const size = Number.parseFloat(name.style.fontSize);
+      let baseline = Number(name.getAttribute("y"));
+      for (const [lineIndex, line] of [...name.querySelectorAll("tspan")].entries()) {
+        const dy = Number(line.getAttribute("dy") ?? 0);
+        baseline = lineIndex === 0 ? baseline + dy : baseline + dy;
+        const half = Math.sqrt(Math.max(0, radius * radius - (baseline - cy) ** 2));
+        // Weight 650 is wider than the chart's regular measure.
+        expect(textWidth(line.textContent ?? "", size * 1.15) / 2).toBeLessThanOrEqual(half - 6);
+      }
+    });
+    const linesOf = (name: Element) =>
+      [...name.querySelectorAll("tspan")].map((line) => line.textContent).join(" ");
+    expect(linesOf(names[0]!)).toBe("NP: answers are quick to check");
+    expect(linesOf(names[1]!)).toBe("P: also quick to solve");
+  });
+
+  it("centres a single nested circle and keeps an unknown tone monochrome", () => {
+    stubWidth(560);
+    const root = mount(
+      <Venn nested sets={[{ label: "P = NP", note: "Same set of problems", tone: "success" }]} />,
+    );
+    const circle = root.querySelector(".rk-venn-set")!;
+    const name = root.querySelector(".rk-venn-name")!;
+    expect(name.getAttribute("x")).toBe(circle.getAttribute("cx"));
+    expect(name.getAttribute("text-anchor")).toBe("middle");
+    expect(root.textContent).toContain("Same set of problems");
+    expect(circle.getAttribute("style")).toContain("--success");
+    const plain = mount(<Venn nested sets={[{ label: "A", tone: "loud" as never }]} />);
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).toContain("--foreground");
+    expect(plain.querySelector(".rk-venn-set")!.getAttribute("style")).not.toContain("--rk-loud");
+  });
+
   it("places matrix items by their 0 to 1 position, clamped, under four quadrant names", () => {
     const root = mount(
       <Matrix2x2
@@ -396,6 +563,24 @@ describe("charts", () => {
     expect(root.textContent).toContain("High effort");
     expect(root.textContent).toContain("Low impact");
     expect(root.querySelectorAll(".rk-matrix-quadrant")).toHaveLength(4);
+  });
+
+  it("keeps matrix geometry left to right on an RTL page and lets each label pick its direction", () => {
+    const root = mount(
+      <div dir="rtl">
+        <Matrix2x2
+          axes={{ x: ["מאמץ נמוך", "מאמץ גבוה"], y: ["השפעה נמוכה", "השפעה גבוהה"] }}
+          quadrants={["מהיר", "חשוב", "משני", "מורכב"]}
+          points={[{ label: "תכנון", x: 0.2, y: 0.25 }]}
+        />
+      </div>,
+    );
+    expect(root.querySelector(".rk-matrix")?.getAttribute("dir")).toBe("ltr");
+    const labels = root.querySelectorAll(
+      ".rk-matrix-quadrant, .rk-matrix-label, .rk-matrix-x > span:first-child, .rk-matrix-y > span:first-child",
+    );
+    expect([...labels].map((l) => l.getAttribute("dir"))).toEqual(Array(7).fill("auto"));
+    expect(root.querySelectorAll(".rk-matrix-x bdi, .rk-matrix-y bdi")).toHaveLength(2);
   });
 
   it("dates a source as live, as a snapshot, while updating, or after a failed refresh", () => {
@@ -465,6 +650,15 @@ describe("charts", () => {
         throw new Error("bad");
       }),
     ).toBe("3k");
+  });
+
+  it("puts a currency symbol after the minus sign in every locale", () => {
+    expect(formatValue(1234.5, "$", undefined, wordsFor("en"))).toBe("$1,234.5");
+    expect(formatValue(-1234.5, "$", undefined, wordsFor("en"))).toBe("-$1,234.5");
+    // Hebrew puts a left-to-right mark before the sign; the symbol still follows the sign.
+    expect(formatValue(-1234.5, "$", undefined, wordsFor("he"))).toBe("\u200E-$1,234.5");
+    // Swedish uses a true minus sign and a no-break space as the group separator.
+    expect(formatValue(-1234.5, "$", undefined, wordsFor("sv"))).toBe("\u2212$1\u00A0234,5");
   });
 });
 
@@ -592,6 +786,68 @@ describe("line chart sparse labels", () => {
     );
     expect(edge.querySelector(".rk-annotation text")!.getAttribute("text-anchor")).toBe("end");
   });
+
+  it("keeps a rich zero-line label instead of dropping it", () => {
+    const root = mount(
+      <LineChart
+        points={[{ value: -2 }, { value: 3 }, { value: 5 }]}
+        annotations={[{ at: "zero", label: <b>Break even</b> }]}
+      />,
+    );
+    expect(root.querySelector(".rk-reference-label")!.textContent).toBe("Break even");
+  });
+
+  it("keeps close notes and a reference inside a phone plot without covering each other", () => {
+    stubWidth(320);
+    const root = mount(
+      <LineChart
+        floor={0}
+        ceiling={12}
+        points={[
+          { label: "Jan", value: 1 },
+          { label: "Feb", value: 2 },
+          { label: "Mar", value: 8 },
+          { label: "Apr", value: 11 },
+          { label: "May", value: 10 },
+          { label: "Jun", value: 4 },
+        ]}
+        annotations={[
+          { at: 3, label: "Oct 2022 peak 11.1%" },
+          { at: 4, label: "Oct 2026 3.6%" },
+        ]}
+        reference={{ value: 2, label: "2% target" }}
+      />,
+    );
+    const svg = root.querySelector("svg")!;
+    const svgWidth = Number(svg.getAttribute("width"));
+    const svgHeight = Number(svg.getAttribute("height"));
+    const boxes = [...root.querySelectorAll(".rk-label-back")].map((node) => ({
+      x: Number(node.getAttribute("x")),
+      y: Number(node.getAttribute("y")),
+      width: Number(node.getAttribute("width")),
+      height: Number(node.getAttribute("height")),
+    }));
+    expect(boxes.length).toBeGreaterThanOrEqual(2);
+    for (const box of boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(-0.5);
+      expect(box.y).toBeGreaterThanOrEqual(-0.5);
+      expect(box.x + box.width).toBeLessThanOrEqual(svgWidth + 0.5);
+      expect(box.y + box.height).toBeLessThanOrEqual(svgHeight + 0.5);
+    }
+    for (let index = 0; index < boxes.length; index++) {
+      for (const other of boxes.slice(index + 1)) {
+        const box = boxes[index]!;
+        expect(
+          box.x + box.width <= other.x ||
+            other.x + other.width <= box.x ||
+            box.y + box.height <= other.y ||
+            other.y + other.height <= box.y,
+        ).toBe(true);
+      }
+    }
+    expect(root.querySelectorAll(".rk-annotation circle")).toHaveLength(2);
+    expect(root.querySelector(".rk-reference-line")).not.toBeNull();
+  });
 });
 
 describe("columns", () => {
@@ -619,6 +875,103 @@ describe("columns", () => {
 });
 
 describe("data display", () => {
+  it("labels each location in its own ring and omits invalid locations", () => {
+    const root = mount(
+      <Rings
+        rings={["Outer", "Middle", "Inner"]}
+        center="Destination"
+        markers={[
+          { label: "Before", ring: 0 },
+          { label: "Unknown", ring: -1 },
+          { label: "After", ring: 2 },
+        ]}
+      />,
+    );
+    const title = root.querySelector("title")!;
+    expect(title.textContent).toBe(
+      "Destination, Outer, Middle, Inner, Before (Outer), After (Inner)",
+    );
+    expect(root.querySelector("svg")?.getAttribute("aria-labelledby")).toBe(title.id);
+    const pins = [...root.querySelectorAll(".rk-rings-pin")];
+    expect(Number(pins[0]?.getAttribute("cx"))).toBeLessThan(160);
+    expect(Number(pins[1]?.getAttribute("cx"))).toBeGreaterThan(160);
+    expect(Number(pins[0]?.getAttribute("cy"))).toBeGreaterThan(
+      Number(pins[1]?.getAttribute("cy")),
+    );
+  });
+
+  it("keeps short categories horizontal when requested", () => {
+    const root = mount(
+      <Bars
+        horizontal
+        bars={[
+          { label: "Buy", value: 6, display: "£6" },
+          { label: "Lease", value: 3, display: "£3" },
+        ]}
+      />,
+    );
+    expect([...root.querySelectorAll(".rk-bar-value")].map((node) => node.textContent)).toEqual([
+      "£6",
+      "£3",
+    ]);
+    expect(root.querySelector(".rk-chart")).toBeNull();
+  });
+
+  it("shows localized segment shares and the underlying figures", () => {
+    const root = mount(
+      <Page title="Generation" lang="fr">
+        <StackedBars
+          showShares
+          series={["Wind", "Gas"]}
+          bars={[{ label: "Mix", values: [0.06, 0.02] }]}
+        />
+      </Page>,
+    );
+    const number = new Intl.NumberFormat("fr", { style: "percent" });
+    const shares = [number.format(0.75), number.format(0.25)];
+    expect([...root.querySelectorAll(".rk-stacked-share")].map((node) => node.textContent)).toEqual(
+      shares,
+    );
+    expect(root.querySelector(".rk-stacked-part")?.getAttribute("style")).toContain("75");
+    expect(root.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      `Mix: Wind 0,06 (${shares[0]}), Gas 0,02 (${shares[1]})`,
+    );
+  });
+
+  it("discloses notes for the named pie parts and keeps small annotated sources", () => {
+    const parts = Array.from({ length: 10 }, (_, i) => ({
+      label: `Source ${i}`,
+      value: i < 8 ? 100 : 1,
+      detail: i === 9 ? "A small source" : undefined,
+    }));
+    const root = mount(
+      <Pie total="802" label="Generation" unit="TWh" parts={parts} percentDigits={1} />,
+    );
+    expect(root.querySelector(".rk-pie-total")?.textContent).toBe("Generation802TWh");
+    expect(root.querySelector("svg > title")?.textContent).toContain("Generation 802 TWh");
+    expect(root.querySelectorAll(".rk-pie-legend li")).toHaveLength(10);
+    const details = root.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toBe("Source 90.1%");
+    act(() => details.querySelector("summary")!.click());
+    expect(details.open).toBe(true);
+    expect(details.querySelector("p")?.textContent).toBe("A small source");
+  });
+
+  it("keeps a peak annotation in the chart at its explicit ceiling", () => {
+    const root = mount(
+      <LineChart
+        ceiling={10}
+        points={[{ value: 2 }, { value: 10 }]}
+        annotations={[{ at: 1, label: "Peak" }]}
+      />,
+    );
+    const marker = root.querySelector(".rk-annotation")!;
+    expect(Number(marker.querySelector("text")?.getAttribute("y"))).toBeGreaterThan(
+      Number(marker.querySelector("circle")?.getAttribute("cy")),
+    );
+  });
+
   it("draws a negative bar in the negative colour at its size", () => {
     const root = mount(
       <Bars
@@ -660,7 +1013,11 @@ describe("data display", () => {
         ]}
       />,
     );
-    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("940Users");
+    expect(root.querySelector(".rk-pie-total")!.textContent).toBe("Users940");
+    expect((root.querySelector(".rk-pie-total") as HTMLElement).style.width).toBe("104px");
+    expect(
+      Number.parseFloat((root.querySelector(".rk-pie-total-figure") as HTMLElement).style.fontSize),
+    ).toBe(28);
     const many = Array.from({ length: 10 }, (_, i) => ({
       label: `P${i}`,
       value: i < 8 ? 100 : 1,
@@ -680,6 +1037,28 @@ describe("data display", () => {
     );
     expect(huge.innerHTML).not.toContain("NaN");
     expect(huge.querySelector("svg")).toBeNull();
+  });
+
+  it("shrinks a long donut total until it fits the hole", () => {
+    const root = mount(
+      <Pie
+        label="Supplied in 2025"
+        total="289 TWh"
+        parts={[
+          { label: "Wind", value: 30 },
+          { label: "Gas", value: 27 },
+        ]}
+      />,
+    );
+    const total = root.querySelector(".rk-pie-total") as HTMLElement;
+    const figure = root.querySelector(".rk-pie-total-figure") as HTMLElement;
+    expect(total.style.width).toBe("104px");
+    expect(total.style.maxHeight).toBe("104px");
+    expect(figure.textContent).toBe("289 TWh");
+    expect(root.querySelector(".rk-pie-total-label")!.textContent).toBe("Supplied in 2025");
+    const size = Number.parseFloat(figure.style.fontSize);
+    expect(size).toBeLessThan(28);
+    expect(textWidth("289 TWh", size * 1.15)).toBeLessThanOrEqual(88);
   });
 
   it("marks a delta up or down, coloured by which way is good, and draws an optional trend", () => {
@@ -747,6 +1126,7 @@ describe("data display", () => {
     vi.spyOn(window, "getComputedStyle").mockReturnValue({ direction } as CSSStyleDeclaration);
     const container = mount(<Table columns={["Name"]} rows={[["Alpha"]]} />);
     const scroll = container.querySelector<HTMLDivElement>(".rk-table-scroll")!;
+    expect(scroll.tabIndex).toBe(0);
     const edges = () => [
       scroll.hasAttribute("data-fade-start"),
       scroll.hasAttribute("data-fade-end"),
@@ -821,6 +1201,38 @@ describe("data display", () => {
       expect(scroll.hasAttribute("data-fade-end")).toBe(true);
     },
   );
+
+  it("recomputes scroll edges when the table inside the scrollport changes size", () => {
+    let scrollWidth = 100;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(() => scrollWidth);
+    const watched: { update: () => void; targets: Element[] }[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        entry: { update: () => void; targets: Element[] };
+        constructor(update: () => void) {
+          this.entry = { update, targets: [] };
+          watched.push(this.entry);
+        }
+        observe(target: Element) {
+          this.entry.targets.push(target);
+        }
+        disconnect() {}
+      },
+    );
+    const container = mount(<Table columns={["Name", "Note"]} rows={[["Alpha", "ok"]]} />);
+    const scroll = container.querySelector<HTMLDivElement>(".rk-table-scroll")!;
+    const table = container.querySelector("table")!;
+    expect(scroll.hasAttribute("data-fade-end")).toBe(false);
+    expect(scroll.hasAttribute("tabindex")).toBe(false);
+    // The scrollport keeps its box while a long value widens the table inside it.
+    expect(watched.at(-1)!.targets).toContain(table);
+    scrollWidth = 300;
+    act(() => watched.at(-1)!.update());
+    expect(scroll.hasAttribute("data-fade-end")).toBe(true);
+    expect(scroll.tabIndex).toBe(0);
+  });
 
   it("cleans up a removed table and observes its replacement", () => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);

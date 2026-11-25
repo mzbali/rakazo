@@ -20,6 +20,7 @@
 }
 
 .rk-chat-markdown p,
+.rk-chat-markdown .rk-chat-embed,
 .rk-chat-markdown blockquote,
 .rk-chat-markdown pre,
 .rk-chat-markdown table,
@@ -376,6 +377,136 @@ a.rk-chat-link-in-bubble .rk-chat-link-label {
   text-decoration-color: currentColor;
 }
 
+/* A citation: the site's icon and a short name, with no underline. */
+button.rk-chat-cite {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-inline: 0.2em 0;
+  padding: 0 0.4em 0 0.1em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 500;
+  line-height: 1.6;
+  vertical-align: baseline;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rk-chat-cite-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.rk-chat-cite .rk-chat-link-tile {
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 0.25em;
+  vertical-align: middle;
+}
+
+button.rk-chat-sources {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-top: 0.65em;
+  padding: 0.12em 0.55em 0.12em 0.15em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.85em;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rk-chat-sources-marks {
+  display: inline-flex;
+  align-items: center;
+}
+
+button.rk-chat-sources .rk-chat-link-tile {
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1.5px var(--background);
+}
+
+button.rk-chat-sources .rk-chat-sources-overlap {
+  margin-inline-start: -5px;
+}
+
+/* The page a placed image came from: its icon, then the site, under the picture. */
+button.rk-chat-image-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  max-width: 100%;
+  margin-top: 0.35em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.8em;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+button.rk-chat-image-source .rk-chat-link-tile {
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 0;
+}
+
+.rk-chat-cite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rk-chat-cite-source {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  width: 100%;
+  padding: 0.35em 0.4em;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--popover-foreground);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.rk-chat-cite-source-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.rk-chat-cite-source-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rk-chat-cite-source-site {
+  color: var(--muted-foreground);
+  font-size: 0.85em;
+}
+
 /* The user bubble is filled with ink, so the fallback globe follows the bubble's text instead. */
 a.rk-chat-link-in-bubble .rk-chat-link-tile {
   color: currentColor;
@@ -428,4 +559,84 @@ a.rk-chat-link:hover .rk-chat-link-label {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* A news or product row: a fixed thumbnail, then the title and the sentence beside it. */
+.rk-chat-markdown .rk-chat-media-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0.65em 0;
+}
+
+.rk-chat-markdown .rk-chat-media-thumb {
+  width: 96px;
+  height: 96px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--muted);
+}
+
+.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* The thumbnail's image may sit inside the embed's own button, so reach it at any depth. */
+.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb img,
+.rk-chat-markdown .rk-chat-media-row .rk-chat-media-thumb button {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.rk-chat-markdown .rk-chat-media-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.rk-chat-markdown .rk-chat-media-copy > :first-child {
+  margin-top: 0;
+}
+
+.rk-chat-markdown .rk-chat-media-copy > :last-child {
+  margin-bottom: 0;
+}
+
+.rk-chat-markdown li.rk-chat-media-item {
+  list-style: none;
+}
+
+.rk-chat-markdown li.rk-chat-media-item > .rk-chat-media-row {
+  margin: 0;
+}
+
+.rk-chat-markdown li.rk-chat-media-item + li.rk-chat-media-item {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.rk-chat-markdown .rk-chat-media-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.rk-chat-markdown .rk-math-pending,
+.rk-chat-markdown .rk-math-source {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.rk-chat-markdown .rk-math-display {
+  display: block;
+  margin: 0.65em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
 }

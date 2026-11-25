@@ -1,3 +1,6 @@
-# Qodo is the default reviewer (see .github/workflows/review-bot.yml).
+# Qodo reviews only when asked. A change gets one review, on its PR into main:
+# comment `/agentic_review` once CI is green. PRs into batch or release branches
+# get CI only. The fallbacks are in .github/workflows/review-bot.yml.
 [github_app]
-handle_push_trigger = true
+pr_commands = []
+handle_push_trigger = false

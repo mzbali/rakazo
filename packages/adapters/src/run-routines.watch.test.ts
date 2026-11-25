@@ -1,9 +1,9 @@
 import type { BackgroundJob } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
-import { createRunExecutor } from "./executor.js";
-import { postRoutineWatchMessage, tickRoutineWatch } from "./routine-watch.js";
+import { postRoutineWatchMessage, tickRoutineWatch } from "./routines/routine-watch.js";
+import { createRunExecutor } from "./runs/executor/executor.js";
 
-vi.mock("./routine-watch.js", async (original) => ({
+vi.mock("./routines/routine-watch.js", async (original) => ({
   ...(await original()),
   tickRoutineWatch: vi.fn(),
   postRoutineWatchMessage: vi.fn(async () => undefined),

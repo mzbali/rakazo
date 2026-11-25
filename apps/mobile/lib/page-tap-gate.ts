@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import type { GestureResponderEvent } from "react-native";
-import { pageActionAllowed, pageTapStart } from "./pages";
+import { pageActionAllowed, pageTapStart } from "./pages/pages";
 
 /**
  * Lets sandboxed page code act for the person (copy, open a link, offer a reply) only right

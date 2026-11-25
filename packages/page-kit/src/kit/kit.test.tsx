@@ -1,10 +1,16 @@
+import { expectLinearTime } from "@rakazo/contracts/test-timing";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Bars, LineChart, Pie } from "./charts.js";
 import { Checklist, Metrics, Properties, Rows, Segmented, Status, Steps, Table } from "./data.js";
-import { Diagram, layoutDiagram, wrapText } from "./diagram.js";
+import { Venn } from "./dataviz.js";
+import { Diagram, fitDiagramLayout, layoutDiagram, wrapText } from "./diagram.js";
+import { drawEdges } from "./diagram-layout.js";
 import { inlineMarkup } from "./inline.js";
-import { Callout, Grid, Page, Section, Text } from "./layout.js";
+import { Result, Slider } from "./interact.js";
+import { Callout, Caption, Grid, Page, Section, Text } from "./layout.js";
+import { PAGE_STYLES } from "./styles.js";
+import "./index.js";
 
 const html = (element: React.ReactElement) => renderToStaticMarkup(element);
 
@@ -33,6 +39,14 @@ describe("page kit", () => {
       /<section class="rk-section" id="headline" data-headed="true"><div class="rk-section-head"><h2 class="rk-heading">Headline<\/h2><div class="rk-actions"><fieldset class="rk-segmented"/,
     );
     expect(markup).toContain('x<p class="rk-caption" data-figure="true">As of Oct 31</p>');
+    const titled = html(
+      <Section title="P inside NP">
+        <Text>Sets</Text>
+        <Caption>P sits inside NP.</Caption>
+      </Section>,
+    );
+    expect(titled).toContain('<h2 class="rk-heading">P inside NP</h2>');
+    expect(titled).toContain('<p class="rk-caption">P sits inside NP.</p>');
     expect(markup).toContain(
       'data-card="true" data-headed="true"><div class="rk-section-head"><h2 class="rk-heading">Status',
     );
@@ -44,6 +58,57 @@ describe("page kit", () => {
     expect(html(<Properties items={[]} />)).toBe('<dl class="rk-properties"></dl>');
     // A grid wider than four columns would squeeze every card unreadably thin.
     expect(markup).toContain("--rk-columns:4");
+  });
+
+  it("keeps a result inset on the section instead of framing it a second time", () => {
+    const markup = html(
+      <Section heading="Mortgage payment vs interest rate">
+        <Slider label="Interest rate" value={4.5} min={0} max={10} step={0.25} suffix="%" />
+        <Result label="Monthly payment" value="£1,754" />
+      </Section>,
+    );
+    // The controls are one idea, so the section itself is the card; the heading sits inside it.
+    expect(markup).toMatch(
+      /<section class="rk-section" id="mortgage-payment-vs-interest-rate" data-card="true"/,
+    );
+    expect(markup).not.toContain("rk-figure-card");
+    expect(markup).toContain('class="rk-result" data-inset=""');
+    expect(markup).toContain("£1,754");
+    expect(markup).toContain(">4.50%<");
+    expect(markup).toContain("Interest rate");
+  });
+
+  it("cards a section of one idea's controls as it cards a figure section, heading inside", () => {
+    const markup = html(
+      <>
+        <Section title="1. The map">
+          <Venn nested sets={[{ label: "NP: quick to check" }, { label: "P: quick to find" }]} />
+          <Caption>P sits inside NP.</Caption>
+        </Section>
+        <Section title="2. Why it feels different">
+          <Slider label="Yes or no choices" min={1} max={60} value={20} />
+          <Result label="Steps to check one answer" value="20" />
+          <Result label="Steps to try every possibility" value="1,048,576" tone="warning" />
+          <Caption>Checking grows in a straight line; brute force doubles per choice.</Caption>
+        </Section>
+      </>,
+    );
+    // Both sections read the same way: the heading sits inside the card, not floating beside it.
+    const sections = [...markup.matchAll(/<section class="rk-section"[^>]*>[\s\S]*?<\/section>/g)];
+    expect(sections).toHaveLength(2);
+    for (const section of sections) {
+      expect(section[0]).toMatch(/^<section class="rk-section"[^>]* data-card="true"/);
+      expect(section[0]).toContain("rk-heading");
+    }
+    // Prose between the controls keeps the section open, exactly as before.
+    const mixed = html(
+      <Section title="Reading">
+        <Text>Try a few sizes.</Text>
+        <Slider label="Choices" min={1} max={60} value={20} />
+      </Section>,
+    );
+    expect(mixed).not.toContain('data-card="true"');
+    expect(mixed).not.toContain("rk-figure-card");
   });
 
   it("fails, instead of recursing forever, when a page renders its own Page again", () => {
@@ -101,20 +166,18 @@ describe("page kit", () => {
 
   it("scans long unclosed markup in linear time", () => {
     for (const text of [
-      "*a".repeat(25_000),
-      "**".repeat(25_000),
-      `\`${"x".repeat(50_000)}`,
-      "`\n".repeat(25_000),
-      "http://a".repeat(6_000),
-      `${"_ ".repeat(25_000)}${"www.".repeat(12_500)}`,
+      "*a".repeat(100_000),
+      "**".repeat(100_000),
+      `\`${"x".repeat(200_000)}`,
+      "`\n".repeat(100_000),
+      "http://a".repeat(24_000),
+      `${"_ ".repeat(100_000)}${"www.".repeat(50_000)}`,
     ]) {
-      const start = performance.now();
-      inlineMarkup(text);
-      expect(performance.now() - start).toBeLessThan(200);
+      expectLinearTime(() => inlineMarkup(text));
     }
   });
 
-  it("shows a callout's lead and body in its tone and nothing when it is empty", () => {
+  it("shows a callout's lead and body, with tone only on its icon, and nothing when it is empty", () => {
     const toned = html(
       <Callout lead="Ship first" tone="warning">
         Body *text*
@@ -130,6 +193,14 @@ describe("page kit", () => {
     expect(plain).not.toContain("data-tone");
     expect(plain).not.toContain("<svg");
     expect(html(<Callout />)).toBe("");
+    expect(PAGE_STYLES).toContain(
+      ".rk-callout{padding:1.25rem 1.375rem;border:1px solid var(--rk-hairline);border-radius:20px",
+    );
+    expect(PAGE_STYLES).toContain(".rk-callout-lead{font-weight:600;color:var(--foreground)}");
+    expect(PAGE_STYLES).not.toContain("color-mix(in srgb,var(--rk-tone) 14%,transparent)");
+    expect(PAGE_STYLES).toContain(
+      ".rk-callout-icon{margin-top:.25rem;fill:none;stroke:var(--rk-tone)",
+    );
   });
 
   it("puts a status word in a tinted pill whose tone falls back to neutral", () => {
@@ -188,7 +259,7 @@ describe("page kit", () => {
     );
   });
 
-  it("shows each figure above its label, at most four to a row, with tone on the detail", () => {
+  it("shows each label above its figure, at most four to a row, with tone on the value", () => {
     const markup = html(
       <Metrics
         metrics={[
@@ -201,10 +272,11 @@ describe("page kit", () => {
       />,
     );
     expect(markup).toContain(
-      '<div class="rk-metric-value" title="2.1%">2.1%</div><div class="rk-metric-label">Churn</div><div class="rk-metric-detail rk-tone-warning">up from 1.8%</div>',
+      '<div class="rk-metric-label">Churn</div><div class="rk-metric-value rk-tone-warning" title="2.1%">2.1%</div><div class="rk-metric-detail">up from 1.8%</div>',
     );
     expect(markup).toContain('<div class="rk-metric-detail">flat</div>');
     expect(markup).toContain("--rk-columns:4");
+    expect(markup).toContain("--rk-metric-min:8.4rem");
     expect(
       html(
         <Metrics
@@ -215,6 +287,16 @@ describe("page kit", () => {
         />,
       ),
     ).toContain("--rk-columns:2");
+    // A currency figure is wide enough that a phone row must be allowed to drop to one column.
+    expect(html(<Metrics metrics={[{ value: "£200,249", label: "Total interest" }]} />)).toContain(
+      "--rk-metric-min:14.6rem",
+    );
+    expect(PAGE_STYLES).toContain(
+      ".rk-metric-value{margin-top:.4rem;font-size:clamp(1.05rem,14cqi,2.5rem);line-height:1.1;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+    );
+    expect(PAGE_STYLES).toContain(
+      ".rk-metrics{gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(max(min(100%,var(--rk-metric-min,7rem)),calc((100% - .75rem) / min(var(--rk-columns),2))),1fr))}",
+    );
   });
 
   it("aligns figures and short values to the end, prose and status to the start, unless told", () => {
@@ -241,7 +323,7 @@ describe("page kit", () => {
     expect(markup).toContain('<th scope="col" class="rk-align-end">Plan</th>');
     for (const column of ["Account", "Status", "Note"])
       expect(markup).toContain(`<th scope="col">${column}</th>`);
-    // Six columns scroll sideways, so the label column keeps a readable width.
+    // Six columns keep a readable label floor and can take keyboard focus to scroll.
     expect(markup).toContain('<table class="rk-table" data-wide="true">');
     const told = html(
       <Table columns={["Area", "Path"]} align={["center", "start"]} rows={[["Core", "x"]]} />,
@@ -273,6 +355,39 @@ describe("page kit", () => {
       />,
     );
     expect(phrases).toContain('<th scope="col">Rebate</th>');
+    // A hyphenated word stays whole, so the column is at least that word. Plain words stay text.
+    const classes = html(<Table columns={["Class"]} rows={[["NP-complete"], ["P"]]} />);
+    expect(classes).toContain('<span class="rk-word">NP-complete</span>');
+    expect(classes).toContain('<th scope="col">Class</th>');
+    expect(classes).toContain("<td>P</td>");
+    // A slash joins two words, so a long pair may wrap after it instead of widening the column.
+    const pair = html(<Table columns={["Finder"]} rows={[["Hybrid optical/electronic"]]} />);
+    expect(pair).toContain("optical/<wbr/>electronic");
+    expect(pair).not.toContain('<span class="rk-word">optical/electronic</span>');
+    const specs = html(<Table columns={["Sensor", "Lens"]} rows={[["APS-C", "28mm f/2.8"]]} />);
+    expect(specs).toContain('<span class="rk-word">APS-C</span>');
+    expect(specs).toContain('<span class="rk-word">f/2.8</span>');
+  });
+
+  it("renders table sort controls only for columns with headers", () => {
+    const columns = ["", "Q2", <strong key="q3">Q3</strong>, "  ", false, 0, []];
+    const rows = [["One", 8, 4, "Other", "Hidden", 10, "Blank", "Padded"]];
+    const markup = html(<Table columns={columns} rows={rows} sortable />);
+    const heads = markup.match(/<th\b[^>]*>.*?<\/th>/g) ?? [];
+    expect(heads.map((head) => head.includes('class="rk-sort"'))).toEqual([
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+    ]);
+    expect(heads[1]).toContain(">Q2<span");
+    expect(heads[2]).toContain("<strong>Q3</strong>");
+    expect(heads[5]).toContain(">0<span");
+    expect(html(<Table columns={columns} rows={rows} />)).not.toContain('class="rk-sort"');
   });
 
   it("marks a line chart's floor, middle and ceiling and thins x labels to fit", () => {
@@ -303,19 +418,19 @@ describe("page kit", () => {
     expect(html(<LineChart points={[{ value: 42 }, { value: 71 }]} />)).toContain(">80</text>");
   });
 
-  it("scales bars to the largest, inks the largest by default, the chosen one, or all for none", () => {
+  it("draws non-negative bars as one series of columns and emphasises the longest", () => {
     const bars = [
       { label: "Search", value: 25, display: "25%" },
       { label: "Direct", value: 50 },
     ];
-    const emphasised = (markup: string) =>
-      [...markup.matchAll(/data-emphasis="(true|false)"/g)].map((m) => m[1]);
+    const emphasised = (markup: string) => markup.match(/data-emphasis="true"/g)?.length ?? 0;
     const auto = html(<Bars bars={bars} />);
-    expect(emphasised(auto)).toEqual(["false", "true"]);
-    expect(auto).toMatch(/data-emphasis="false">.*?style="width:50.00%"/);
-    expect(auto).toContain('<span class="rk-bar-value">25%</span>');
-    expect(emphasised(html(<Bars bars={bars} emphasis={0} />))).toEqual(["true", "false"]);
-    expect(emphasised(html(<Bars bars={bars} emphasis="none" />))).toEqual(["true", "true"]);
+    expect(auto).toContain("rk-column");
+    expect(auto).toContain("25%");
+    expect(auto).not.toContain("rk-bar-fill");
+    expect(emphasised(auto)).toBe(1);
+    expect(emphasised(html(<Bars bars={bars} emphasis={0} />))).toBe(1);
+    expect(emphasised(html(<Bars bars={bars} emphasis="none" />))).toBe(2);
   });
 
   it("splits a donut by each part's share of the total and lists the shares", () => {
@@ -345,10 +460,10 @@ describe("page kit", () => {
     expect((Number(arcs[1]![1]) + gap) / ring).toBeCloseTo(310 / 940);
     expect(-Number(arcs[2]![3]) / ring).toBeCloseTo(850 / 940);
     expect(markup).toContain(
-      '<span class="rk-pie-value">540 users</span><span class="rk-pie-label">Starter</span><span class="rk-pie-share">57%</span>',
+      '<span class="rk-pie-label">Starter</span><span class="rk-pie-value">540 users</span><span class="rk-pie-share">57%</span>',
     );
-    expect(markup).toContain('style="stroke:var(--rk-c2)"');
-    expect(markup).toContain('style="--rk-swatch:var(--rk-c2)"');
+    expect(markup).toContain('style="stroke:var(--rk-c1)"');
+    expect(markup).toContain('style="--rk-swatch:var(--rk-c1)"');
     expect(markup).not.toContain("Refunded");
   });
 
@@ -414,20 +529,211 @@ describe("page kit", () => {
       true,
       false,
     ).nodes;
-    expect(node!.labelLines.every((line) => [...line].length <= 11)).toBe(true);
-    expect(node!.detailLines.every((line) => [...line].length <= 13)).toBe(true);
-    expect(node!.width).toBe(208);
-    expect(node!.height).toBe(20 + 3 * 19 + 3 * 17);
+    expect(node!.labelLines.every((line) => [...line].length <= 10)).toBe(true);
+    expect(node!.detailLines.every((line) => [...line].length <= 12)).toBe(true);
+    // Ten full-width CJK glyphs at 8.6px, plus the 28px of horizontal padding.
+    expect(node!.width).toBe(201);
+    expect(node!.height).toBe(32 + 3 * 24 + 3 * 20);
     const [short] = layoutDiagram([{ id: "short", label: "日本語の処理" }], [], false, false).nodes;
-    expect(short!.width).toBe(122);
+    expect(short!.width).toBe(132);
     const [english] = layoutDiagram(
       [{ id: "en", label: "Review changes" }],
       [],
       false,
       false,
     ).nodes;
-    expect(english!.width).toBe(138);
+    expect(english!.width).toBe(149);
     expect(english!.labelLines).toEqual(["Review changes"]);
+  });
+
+  it("stacks sources beside one target on a phone instead of shrinking a row", () => {
+    const nodes = [
+      { id: "sudoku", label: "Sudoku" },
+      { id: "subset", label: "Subset Sum" },
+      { id: "tsp", label: "Travelling Salesman" },
+      { id: "colour", label: "Graph Colouring" },
+      { id: "sat", label: "SAT solver", detail: "Polynomial time?" },
+    ];
+    const edges = ["sudoku", "subset", "tsp", "colour"].map((from) => ({ from, to: "sat" }));
+    const row = layoutDiagram(nodes, edges, false, false);
+    const fitted = fitDiagramLayout(nodes, edges, false, false, 360);
+    expect(fitted.horizontal).toBe(true);
+    expect(fitted.width).toBeLessThan(row.width);
+    const sources = fitted.nodes.filter((node) => node.id !== "sat");
+    expect(new Set(sources.map((node) => node.width)).size).toBe(1);
+    const sat = fitted.nodes.find((node) => node.id === "sat")!;
+    const tsp = fitted.nodes.find((node) => node.id === "tsp")!;
+    expect(sat.x).toBeGreaterThan(tsp.x + tsp.width - 1);
+    expect(tsp.width).toBeGreaterThanOrEqual(160);
+    expect(drawEdges(fitted.edges, true).filter((edge) => edge.arrow)).toHaveLength(1);
+    const chain = ["a", "b", "c", "d", "e", "f"].map((id) => ({ id, label: `Step ${id}` }));
+    const chainEdges = chain
+      .slice(1)
+      .map((node, index) => ({ from: chain[index]!.id, to: node.id }));
+    expect(fitDiagramLayout(chain, chainEdges, true, false, 360).horizontal).toBe(false);
+    const markup = html(
+      <Diagram direction="vertical" nodes={nodes} edges={edges} maxWidth={360} />,
+    );
+    expect(markup).toContain("rk-diagram-focus");
+    expect(markup).toContain('class="rk-diagram-label"');
+    expect(PAGE_STYLES).toContain(".rk-diagram-label{fill:var(--foreground);font-size:17px");
+  });
+
+  it("reflows a row diagram too wide for its column instead of scaling its text", () => {
+    // The phone-width reduction row a real chat drew: four wide boxes in one line.
+    const nodes = [
+      { id: "any", label: "Any NP problem", detail: "Sudoku, scheduling, routes, protein folding" },
+      { id: "translate", label: "Translate (fast)", detail: "A polynomial-time reduction" },
+      {
+        id: "sat",
+        label: "SAT",
+        detail: "Is there a true/false assignment satisfying this formula?",
+      },
+      { id: "answer", label: "Answer", detail: "Yes or no, mapped back" },
+    ];
+    const edges = [
+      { from: "any", to: "translate" },
+      { from: "translate", to: "sat" },
+      { from: "sat", to: "answer" },
+    ];
+    const row = layoutDiagram(nodes, edges, true, false);
+    expect(row.width).toBeGreaterThan(360);
+    // No maxWidth and no ResizeObserver, so the drawing fits the 360px column it measures.
+    const markup = html(<Diagram direction="horizontal" nodes={nodes} edges={edges} />);
+    const drawn = Number(/viewBox="[^"]* (\d+) \d+"/.exec(markup)?.[1]);
+    expect(drawn).toBeLessThanOrEqual(360);
+    // Stacked: the boxes pile up downward inside the column instead of shrinking into a row.
+    const placed = [
+      ...markup.matchAll(
+        /<rect class="rk-diagram-node(?: rk-diagram-focus)?" x="(-?[\d.]+)" y="(-?[\d.]+)" width="([\d.]+)"/g,
+      ),
+    ].map((rect) => ({ x: Number(rect[1]), y: Number(rect[2]), width: Number(rect[3]) }));
+    expect(placed).toHaveLength(4);
+    for (const node of placed) {
+      expect(node.x).toBeGreaterThanOrEqual(0);
+      expect(node.x + node.width).toBeLessThanOrEqual(drawn);
+    }
+    expect(placed.map((node) => node.y)).toEqual(
+      [...placed.map((node) => node.y)].sort((a, b) => a - b),
+    );
+    expect(placed.at(-1)!.y).toBeGreaterThan(placed[0]!.y + 3 * 48);
+    // A row that does fit the column keeps its direction.
+    const small = html(
+      <Diagram
+        direction="horizontal"
+        nodes={[
+          { id: "a", label: "Your message" },
+          { id: "b", label: "Bot reply" },
+        ]}
+        edges={[{ from: "a", to: "b" }]}
+      />,
+    );
+    expect(Number(/viewBox="[^"]* (\d+) \d+"/.exec(small)?.[1])).toBeGreaterThan(250);
+    // A chat card may shrink a chart to the column. It must not do that to a diagram: the words
+    // would shrink with the viewBox. A cycle is laid out at the column, so its viewBox is that wide.
+    expect(PAGE_STYLES).toContain(
+      '[data-inline="card"] .rk-chart svg{min-width:0!important;max-width:100%}',
+    );
+    expect(PAGE_STYLES).not.toContain('[data-inline="card"] .rk-diagram svg');
+    const cycle = html(
+      <Diagram
+        layout="cycle"
+        maxWidth={320}
+        nodes={[
+          { id: "a", label: "Cold inlet" },
+          { id: "b", label: "Warm" },
+          { id: "c", label: "Hot" },
+          { id: "d", label: "Out" },
+        ]}
+        edges={[
+          { from: "a", to: "b" },
+          { from: "b", to: "c" },
+          { from: "c", to: "d" },
+          { from: "d", to: "a" },
+        ]}
+      />,
+    );
+    expect(Number(/viewBox="-2 -2 ([\d.]+) /.exec(cycle)?.[1])).toBeLessThanOrEqual(324);
+  });
+
+  it("keeps edge labels out of the loop-back lane and draws every stroke before any label", () => {
+    const nodes = [
+      { id: "a", label: "Third reading", detail: "Final Commons vote" },
+      { id: "b", label: "House of Lords", detail: "Same five stages" },
+      { id: "c", label: "Ping-pong", detail: "Agree identical text" },
+    ];
+    const edges = [
+      { from: "a", to: "b", label: "passes to" },
+      { from: "b", to: "c", label: "if amended" },
+      { from: "c", to: "a" },
+    ];
+    const fitted = fitDiagramLayout(nodes, edges, true, true, 360);
+    expect(fitted.horizontal).toBe(false);
+    const labelled = drawEdges(fitted.edges, false, fitted.width).filter((edge) => edge.label);
+    expect(labelled).toHaveLength(2);
+    for (const edge of labelled) expect(edge.labelAnchor).toBe("end");
+    const markup = html(
+      <Diagram direction="vertical" nodes={nodes} edges={edges} maxWidth={360} />,
+    );
+    expect(markup.lastIndexOf('rk-diagram-edge"')).toBeLessThan(
+      markup.indexOf("rk-diagram-edge-label"),
+    );
+  });
+
+  it("centres a stacked column on one width and keeps an edge label off the arrow", () => {
+    const nodes = [
+      { id: "third", label: "Third reading", detail: "Final Commons vote" },
+      { id: "lords", label: "House of Lords", detail: "Same five stages" },
+      { id: "ping", label: "Ping-pong", detail: "Agree identical text" },
+    ];
+    const edges = [
+      { from: "third", to: "lords", label: "passes to" },
+      { from: "lords", to: "ping", label: "if amended" },
+    ];
+    const fitted = fitDiagramLayout(nodes, edges, true, true, 360);
+    expect(fitted.horizontal).toBe(false);
+    const widths = fitted.nodes.map((node) => node.width);
+    expect(new Set(widths).size).toBe(1);
+    const width = widths[0]!;
+    expect(width).toBeGreaterThan(96);
+    expect(width).toBeLessThanOrEqual(360);
+    expect(fitted.width).toBeGreaterThan(width);
+    for (const node of fitted.nodes) {
+      expect(node.x).toBeCloseTo((fitted.width - width) / 2, 0);
+    }
+    const lineX = fitted.nodes[0]!.x + width / 2;
+    const labelled = drawEdges(fitted.edges, false, fitted.width).filter((edge) => edge.label);
+    expect(labelled).toHaveLength(2);
+    for (const edge of labelled) {
+      const textWidth = edge.label!.length * 6.6;
+      const anchor = edge.labelAnchor ?? "middle";
+      const left =
+        anchor === "start"
+          ? edge.labelAt![0]
+          : anchor === "end"
+            ? edge.labelAt![0] - textWidth
+            : edge.labelAt![0] - textWidth / 2;
+      expect(left > lineX + 2 || left + textWidth < lineX - 2).toBe(true);
+      expect(edge.labelBox).toBeTruthy();
+    }
+    const narrow = fitDiagramLayout(nodes, edges, true, true, 140);
+    expect(new Set(narrow.nodes.map((node) => node.width)).size).toBe(1);
+    expect(narrow.nodes.every((node) => node.width <= 140)).toBe(true);
+    const markup = html(
+      <Diagram direction="horizontal" maxWidth={360} nodes={nodes} edges={edges} />,
+    );
+    expect(markup).toContain('class="rk-label-back"');
+    const drawn = [
+      ...markup.matchAll(
+        /<rect class="rk-diagram-node(?: rk-diagram-focus)?" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g,
+      ),
+    ].map((rect) => ({ x: Number(rect[1]), width: Number(rect[2]) }));
+    expect(drawn).toHaveLength(3);
+    expect(new Set(drawn.map((node) => node.width)).size).toBe(1);
+    const view = Number(/viewBox="-2 -2 ([\d.]+) /.exec(markup)?.[1]);
+    for (const node of drawn) {
+      expect(Math.abs(node.x + node.width / 2 - (view - 4) / 2)).toBeLessThan(2);
+    }
   });
 
   it("marks only the chosen segment pressed and accepts plain string options", () => {

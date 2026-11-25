@@ -8,6 +8,8 @@ export type MarkdownCopy = {
   copied: string;
   copyCode: string;
   copyDiagramSource: string;
+  /** A visual in a reply that did not draw. */
+  visualUnavailable: string;
   /** Scrollable regions and the expanded dialog's title. */
   table: string;
   markdownTable: string;
@@ -29,12 +31,15 @@ export type MarkdownCopy = {
   columnCollision: (label: string) => string;
   sortBy: (column: string) => string;
   sortedBy: (column: string, direction: TableSortDirection) => string;
+  /** The quiet row under a research answer. */
+  sourcesCount: (count: number) => string;
 };
 
 export const defaultMarkdownCopy: MarkdownCopy = {
   copied: "Copied",
   copyCode: "Copy code",
   copyDiagramSource: "Copy diagram source",
+  visualUnavailable: "Couldn't draw this visual",
   table: "Table",
   markdownTable: "Markdown table",
   row: "Row",
@@ -55,6 +60,7 @@ export const defaultMarkdownCopy: MarkdownCopy = {
   sortBy: (column) => `Sort by ${column}`,
   sortedBy: (column, direction) =>
     `Sorted by ${column}, ${direction === "asc" ? "ascending" : "descending"}`,
+  sourcesCount: (count) => `${count} ${count === 1 ? "source" : "sources"}`,
 };
 
 const MarkdownCopyContext = createContext<MarkdownCopy>(defaultMarkdownCopy);

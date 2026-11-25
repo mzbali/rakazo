@@ -15,6 +15,7 @@ import {
 import { selfRenderingKitNames, selfRenderingMessage } from "./shadow.js";
 
 export { PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./guide.js";
+export { visualImageReferences } from "./visual-image-references.js";
 
 const MAX_REPORTED_ERRORS = 20;
 
@@ -186,7 +187,9 @@ export function checkPageSource(source: string): PageSourceCheck {
   for (const [name, line] of tags) {
     if (GIVEN.has(name) || declared.has(name)) continue;
     errors.push(
-      `line ${line}: <${name}> is not a kit component. Use ${KIT_LIST}, or define ${name} in this file.`,
+      name === "Picture"
+        ? `line ${line}: <Picture> is not a kit component. Use <Image src="rakazo-image:1" /> for a show_visual photo.`
+        : `line ${line}: <${name}> is not a kit component. Use ${KIT_LIST}, or define ${name} in this file.`,
     );
   }
   for (const { name, start } of moduleScopeHookCalls(tokens, scopes, source, declared)) {

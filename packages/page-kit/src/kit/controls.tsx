@@ -1,7 +1,7 @@
 import { pageKitPalette } from "@rakazo/ui-tokens";
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import { openViaHost } from "./inline.js";
+import { FRAME_BRIDGE, useHostBridge, useOpenViaHost } from "./host-bridge.js";
 import { useWords } from "./labels.js";
 
 /** The page asks the host to put text in the chat's composer; the reader still presses Send. */
@@ -24,36 +24,22 @@ function sendReply(text: string) {
   window.parent?.postMessage({ type: REPLY_MESSAGE, text }, "*");
 }
 
-const COPY_MESSAGE = "rakazo-page:copy";
-const COPIED_MESSAGE = "rakazo-page:copied";
 /** The app copies no more than this for a page. */
 const COPY_MAX_LENGTH = 20_000;
-let copies = 0;
+
+/** The text to copy, or undefined when there is none or it is longer than the app copies. */
+function copyable(value: unknown): string | undefined {
+  const content = text(value);
+  return content && content.length <= COPY_MAX_LENGTH ? content : undefined;
+}
 
 /**
  * Copies text for the reader and resolves whether it worked. Pages have no clipboard of their
  * own: the app copies, one copy per click in the page, and says whether it could.
  */
 export function copyText(value: unknown): Promise<boolean> {
-  const content = text(value);
-  if (!content || content.length > COPY_MAX_LENGTH) return Promise.resolve(false);
-  copies += 1;
-  const id = `copy-${copies}`;
-  return new Promise((resolve) => {
-    function answer(event: MessageEvent) {
-      const data = event.data as { type?: unknown; id?: unknown; ok?: unknown } | null;
-      if (data?.type === COPIED_MESSAGE && data.id === id) finish(data.ok === true);
-    }
-    function finish(ok: boolean) {
-      window.removeEventListener("message", answer);
-      clearTimeout(timer);
-      resolve(ok);
-    }
-    // A host that cannot copy for pages never answers.
-    const timer = setTimeout(() => finish(false), 2000);
-    window.addEventListener("message", answer);
-    window.parent?.postMessage({ type: COPY_MESSAGE, id, text: content }, "*");
-  });
+  const content = copyable(value);
+  return content ? FRAME_BRIDGE.copy(content) : Promise.resolve(false);
 }
 
 /** A link the host may open: web and mail addresses only. */
@@ -143,6 +129,7 @@ export function CopyButton({
   variant?: "quiet" | "primary";
 }) {
   const words = useWords();
+  const bridge = useHostBridge();
   const name = text(label);
   const content = text(value) || name;
   const request = useRef(0);
@@ -173,7 +160,8 @@ export function CopyButton({
         onClick={() => {
           const id = ++request.current;
           setFeedback(null);
-          void copyText(content).then((ok) => {
+          const toCopy = copyable(content);
+          void (toCopy ? bridge.copy(toCopy) : Promise.resolve(false)).then((ok) => {
             if (request.current === id) {
               setFeedback({ content, name, state: ok ? "copied" : "blocked" });
             }
@@ -199,6 +187,7 @@ export function LinkButton({
   /** The full name for screen readers when the label is a short verb such as "View". */
   description?: string;
 }) {
+  const openLink = useOpenViaHost();
   const name = text(label);
   const url = linkUrl(href);
   if (!name) return null;
@@ -210,7 +199,7 @@ export function LinkButton({
       href={url}
       rel="noopener noreferrer"
       aria-label={text(description) || undefined}
-      onClick={openViaHost}
+      onClick={openLink}
     >
       {name}
       <ArrowIcon />
@@ -219,10 +208,11 @@ export function LinkButton({
 }
 
 export function TextLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const openLink = useOpenViaHost();
   const url = linkUrl(href);
   if (!url) return <>{children ?? null}</>;
   return (
-    <a className="rk-text-link" href={url} rel="noopener noreferrer" onClick={openViaHost}>
+    <a className="rk-text-link" href={url} rel="noopener noreferrer" onClick={openLink}>
       {children ?? href}
       <ArrowIcon />
     </a>
@@ -314,12 +304,14 @@ export function Input({
   onChange,
   placeholder,
   type = "text",
+  min,
 }: {
   label?: string;
   value?: string | number;
   onChange?: (value: string) => void;
   placeholder?: string;
   type?: "text" | "number" | "search";
+  min?: number;
 }) {
   const id = useId();
   return (
@@ -333,7 +325,11 @@ export function Input({
         id={id}
         className="rk-input"
         type={type}
-        inputMode={type === "number" ? "decimal" : undefined}
+        min={type === "number" ? min : undefined}
+        // The phone decimal pad has no minus key, so only a field that can't go negative gets it.
+        inputMode={
+          type === "number" && min !== undefined && Number(min) >= 0 ? "decimal" : undefined
+        }
         value={value === undefined || value === null ? "" : String(value)}
         placeholder={placeholder}
         aria-label={label ? undefined : placeholder}
@@ -394,9 +390,9 @@ export function Checkbox({ label, value }: { label?: string; value?: boolean }) 
 export const CONTROLS_CSS = `
 :root{--rk-control:${pageKitPalette.dark.controlFill};--rk-control-hover:${pageKitPalette.dark.controlHoverFill};--rk-primary:${pageKitPalette.dark.buttonFill};--rk-primary-hover:${pageKitPalette.dark.buttonHoverFill};--rk-primary-ink:${pageKitPalette.dark.buttonInk};--rk-option:${pageKitPalette.dark.optionFill};--rk-checked:${pageKitPalette.dark.checkedFill}}
 [data-theme="light"]{--rk-control:${pageKitPalette.light.controlFill};--rk-control-hover:${pageKitPalette.light.controlHoverFill};--rk-primary:${pageKitPalette.light.buttonFill};--rk-primary-hover:${pageKitPalette.light.buttonHoverFill};--rk-primary-ink:${pageKitPalette.light.buttonInk};--rk-option:${pageKitPalette.light.optionFill};--rk-checked:${pageKitPalette.light.checkedFill}}
-.rk-button{appearance:none;transform-origin:center;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;justify-self:start;flex:none;max-width:100%;height:28px;margin:0;padding:4px 12px;border:0;border-radius:9999px;background:var(--rk-control);color:var(--foreground);font:inherit;font-size:14px;line-height:20px;font-weight:500;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s,color .14s,transform .1s}
+.rk-button{appearance:none;transform-origin:center;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;justify-self:start;flex:none;max-width:100%;height:36px;margin:0;padding:6px 16px;border:1px solid var(--rk-line);border-radius:9999px;background:transparent;color:var(--foreground);font:inherit;font-size:15px;line-height:20px;font-weight:600;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s,color .14s,transform .1s}
 .rk-button:hover:not(:disabled){background:var(--rk-control-hover)}
-.rk-button[data-variant="primary"]{background:var(--rk-primary);color:var(--rk-primary-ink)}
+.rk-button[data-variant="primary"]{background:var(--rk-primary);color:var(--rk-primary-ink);border-color:transparent}
 .rk-button[data-variant="primary"]:hover:not(:disabled){background:var(--rk-primary-hover)}
 .rk-button:disabled{cursor:not-allowed;opacity:.5}
 :is(.rk-section,.rk-grid,.rk-page)>.rk-button{height:24px;padding:4px 10px;font-size:12px;line-height:16px;letter-spacing:.12px}
@@ -413,13 +409,13 @@ a.rk-link-text:hover,.rk-text-link:hover{text-decoration:underline;text-underlin
 .rk-field[data-inline]{display:inline-flex;justify-self:start;max-width:100%}
 .rk-field-label{font-size:12px;line-height:16px;letter-spacing:.12px;color:var(--rk-secondary)}
 .rk-select{position:relative;display:flex;align-items:center;max-width:100%}
-.rk-select select{appearance:none;-webkit-appearance:none;width:100%;max-width:100%;height:28px;margin:0;padding:4px 28px 4px 8px;border:0;border-radius:8px;background:var(--rk-control);color:var(--foreground);font:inherit;font-size:14px;line-height:20px;letter-spacing:.1px;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s}
+.rk-select select{appearance:none;-webkit-appearance:none;width:100%;max-width:100%;height:40px;margin:0;padding:8px 32px 8px 14px;border:1px solid var(--rk-line);border-radius:999px;background:transparent;color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px;text-overflow:ellipsis;cursor:pointer;transition:background-color .14s}
 .rk-select select:hover:not(:disabled){background:var(--rk-control-hover)}
 .rk-select select[data-empty]{color:var(--rk-secondary)}
 .rk-select select:disabled{cursor:not-allowed;opacity:.5}
 .rk-select option{background:var(--rk-option);color:var(--foreground)}
 .rk-select-chevron{position:absolute;right:8px;width:12px;height:12px;pointer-events:none;fill:none;stroke:var(--rk-secondary);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.rk-input{display:block;width:100%;height:28px;margin:0;padding:4px 8px;border:0;border-radius:8px;background:var(--rk-control);color:var(--foreground);font:inherit;font-size:14px;line-height:20px;letter-spacing:.1px}
+.rk-input{display:block;width:100%;height:40px;margin:0;padding:8px 14px;border:1px solid var(--rk-line);border-radius:999px;background:transparent;color:var(--foreground);font:inherit;font-size:16px;line-height:22px;letter-spacing:.1px}
 .rk-input::placeholder{color:var(--rk-secondary);opacity:1}
 .rk-input,.rk-select select{caret-color:var(--rk-accent);accent-color:var(--rk-accent)}
 .rk-input::-webkit-search-cancel-button{-webkit-appearance:none}

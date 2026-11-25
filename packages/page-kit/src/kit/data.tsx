@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
-import { isValidElement, useCallback, useContext, useState } from "react";
+import { Fragment, isValidElement, useCallback, useContext, useId, useState } from "react";
+import { Button, CopyButton } from "./controls.js";
 import { finite } from "./dataviz.js";
 import { Inline } from "./inline.js";
 import { objectItems } from "./items.js";
@@ -100,22 +101,33 @@ export function Metrics({ metrics = [] }: { metrics?: Metric[] }) {
   if (shown.length === 0) return null;
   const columns = Math.min(4, shown.length);
   const widest = Math.max(...shown.map((metric) => textOf(metric.value).length));
+  // 2.5rem figure at ~0.62em a character, plus the tile's horizontal padding.
+  // The grid drops a column before that figure would have to wrap.
+  const minRem = Math.min(20, Math.max(7, (widest * 155 + 220) / 100));
   return (
     <div
       className="rk-metrics"
       style={
         {
           "--rk-columns": columns,
-          "--rk-metric-min": `${Math.max(7, Math.min(18, widest * 0.62 + 1))}rem`,
+          "--rk-metric-min": `${minRem}rem`,
         } as CSSProperties
       }
     >
       {shown.map((metric, index) => (
         <div className="rk-metric" key={index}>
-          <div className="rk-metric-value" title={textOf(metric.value) || undefined}>
+          <div className="rk-metric-label">{metric.label}</div>
+          <div
+            className={cx(
+              "rk-metric-value",
+              metric.tone === "success" || metric.tone === "warning" || metric.tone === "danger"
+                ? toneClass(metric.tone)
+                : undefined,
+            )}
+            title={textOf(metric.value) || undefined}
+          >
             {metric.value}
           </div>
-          <div className="rk-metric-label">{metric.label}</div>
           {finite(metric.delta) || (typeof metric.delta === "string" && metric.delta !== "") ? (
             <div className="rk-metric-detail">
               <Delta delta={metric.delta} better={metric.better} />
@@ -124,7 +136,7 @@ export function Metrics({ metrics = [] }: { metrics?: Metric[] }) {
               ) : null}
             </div>
           ) : metric.detail != null && metric.detail !== "" ? (
-            <div className={cx("rk-metric-detail", toneClass(metric.tone))}>{metric.detail}</div>
+            <div className="rk-metric-detail">{metric.detail}</div>
           ) : null}
           {Array.isArray(metric.trend) ? <Sparkline values={metric.trend} /> : null}
         </div>
@@ -239,29 +251,210 @@ export function Steps({ steps = [] }: { steps?: Step[] }) {
 }
 
 type ChecklistItem = { text: ReactNode; done?: boolean; meta?: ReactNode };
+type ChecklistSection = { title?: ReactNode; items?: ChecklistItem[] };
 
-export function Checklist({ items = [] }: { items?: ChecklistItem[] }) {
+function checkItems(list: unknown): ChecklistItem[] {
+  return objectItems(list as ChecklistItem[] | undefined).filter(
+    (item) => item && typeof item === "object" && !Array.isArray(item),
+  );
+}
+
+function CheckRow({
+  item,
+  done,
+  live,
+  onToggle,
+}: {
+  item: ChecklistItem;
+  done: boolean;
+  live: boolean;
+  onToggle?: () => void;
+}) {
   return (
-    <ul className="rk-checklist">
-      {objectItems(items).map((item, index) => (
-        <li key={index}>
-          {/* Read-only: it shows recorded progress, the reader cannot tick it. */}
-          <label className="rk-check" data-done={item.done === true}>
-            <input type="checkbox" disabled checked={item.done === true} />
-            <svg className="rk-check-mark" viewBox="0 0 20 20" aria-hidden="true">
-              <circle cx="10" cy="10" r="9" />
-              {item.done === true ? <path d="M6 10.4l2.6 2.6L14 7.6" /> : null}
-            </svg>
-            <span className="rk-check-text">
-              <Inline>{item.text}</Inline>
+    <li>
+      <label className="rk-check" data-done={done}>
+        <input
+          type="checkbox"
+          disabled={live ? undefined : true}
+          checked={done}
+          onChange={live ? () => onToggle?.() : undefined}
+        />
+        <svg className="rk-check-mark" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="9" />
+          {done ? <path d="M6 10.4l2.6 2.6L14 7.6" /> : null}
+        </svg>
+        <span className="rk-check-text">
+          <Inline>{item.text}</Inline>
+        </span>
+      </label>
+      {item.meta != null && item.meta !== "" ? (
+        <div className="rk-check-meta">{item.meta}</div>
+      ) : null}
+    </li>
+  );
+}
+
+function ChecklistLive({
+  groups,
+  sectioned,
+  collapsible,
+  live,
+  label,
+  onChange,
+}: {
+  groups: { title?: ReactNode; items: ChecklistItem[] }[];
+  sectioned: boolean;
+  collapsible: boolean;
+  live: boolean;
+  label?: ReactNode;
+  onChange?: (done: boolean[]) => void;
+}) {
+  const words = useWords();
+  const disclosureGroup = useId();
+  const flat = groups.flatMap((group) => group.items);
+  const seed = flat.map((item) => item.done === true);
+  const seedKey = seed.map((done) => (done ? "1" : "0")).join("");
+  const [done, setDone] = useState(seed);
+  const [seen, setSeen] = useState(seedKey);
+  if (seen !== seedKey) {
+    setSeen(seedKey);
+    setDone(seed);
+  }
+  const current = seen === seedKey ? done : seed;
+  const tell = (next: boolean[]) => {
+    setSeen(seedKey);
+    setDone(next);
+    onChange?.(next);
+  };
+  const count = current.filter(Boolean).length;
+  const progress = words.t("completedOf", { done: count, total: flat.length });
+  const name = typeof label === "string" || typeof label === "number" ? String(label) : undefined;
+  let cursor = 0;
+  return (
+    <div className="rk-checks">
+      <div className="rk-check-head">
+        <span>
+          {words.number(flat.length === 0 ? 0 : count / flat.length, {
+            style: "percent",
+            maximumFractionDigits: 0,
+          })}
+        </span>
+        <span>{progress}</span>
+      </div>
+      {live && flat.length > 0 ? (
+        <progress className="rk-progress" aria-label={progress} value={count} max={flat.length} />
+      ) : null}
+      {groups.map((group, groupIndex) => {
+        const start = cursor;
+        cursor += group.items.length;
+        const doneInGroup = current.slice(start, cursor).filter(Boolean).length;
+        const title = (
+          <>
+            <span>
+              <Inline>{group.title}</Inline>
             </span>
-          </label>
-          {item.meta != null && item.meta !== "" ? (
-            <div className="rk-check-meta">{item.meta}</div>
-          ) : null}
-        </li>
-      ))}
-    </ul>
+            <span>{words.t("sectionCount", { done: doneInGroup, total: group.items.length })}</span>
+          </>
+        );
+        const items = (
+          <ul
+            key={groupIndex}
+            className="rk-checklist"
+            data-live={live || undefined}
+            aria-label={name}
+          >
+            {group.items.map((item, index) => {
+              const at = start + index;
+              return (
+                <CheckRow
+                  key={index}
+                  item={item}
+                  done={current[at] === true}
+                  live={live}
+                  onToggle={() => tell(current.map((value, i) => (i === at ? !value : value)))}
+                />
+              );
+            })}
+          </ul>
+        );
+        return collapsible && group.title != null ? (
+          <details
+            key={groupIndex}
+            className="rk-check-disclosure"
+            name={disclosureGroup}
+            open={groupIndex === 0}
+          >
+            <summary className="rk-check-section">{title}</summary>
+            {items}
+          </details>
+        ) : (
+          <div key={groupIndex}>
+            {sectioned ? <div className="rk-check-section">{title}</div> : null}
+            {items}
+          </div>
+        );
+      })}
+      {live ? (
+        <div className="rk-check-actions">
+          <Button label={words.t("reset")} onClick={() => tell(seed)} />
+          <CopyButton
+            label={words.t("copy")}
+            text={flat
+              .map((item, index) => {
+                const body =
+                  typeof item.text === "string" || typeof item.text === "number"
+                    ? String(item.text)
+                    : "";
+                return `${current[index] ? "[x]" : "[ ]"}${body ? ` ${body}` : ""}`;
+              })
+              .join("\n")}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function Checklist({
+  items = [],
+  sections,
+  label,
+  interactive,
+  collapsible,
+  onChange,
+}: {
+  items?: ChecklistItem[];
+  sections?: ChecklistSection[];
+  label?: ReactNode;
+  interactive?: boolean;
+  collapsible?: boolean;
+  onChange?: (done: boolean[]) => void;
+}) {
+  const grouped = objectItems(sections).flatMap((section) =>
+    section && typeof section === "object" && !Array.isArray(section)
+      ? [{ title: section.title, items: checkItems(section.items) }]
+      : [],
+  );
+  const live = interactive === true || typeof onChange === "function";
+  // Read-only flat lists keep the markup they have always had.
+  if (!live && grouped.length === 0) {
+    return (
+      <ul className="rk-checklist">
+        {checkItems(items).map((item, index) => (
+          <CheckRow key={index} item={item} done={item.done === true} live={false} />
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ChecklistLive
+      groups={grouped.length > 0 ? grouped : [{ items: checkItems(items) }]}
+      sectioned={grouped.length > 0}
+      collapsible={collapsible === true}
+      live={live}
+      label={label}
+      onChange={typeof onChange === "function" ? onChange : undefined}
+    />
   );
 }
 
@@ -273,13 +466,61 @@ export type TableCell =
   | ReactNode
   | { text: ReactNode; tone?: Tone };
 
+// A hyphen is a line-break opportunity, so a cell's min-content would be "complete" and the
+// column would split "NP-complete". Holding that token keeps the column at least as wide as the
+// whole word. Spaces stay break points, and a word with neither is left as text.
+const WORD_BREAK = /[\u00ad\u2010\u2011\u2013\u2014/-]/;
+
+// A slash joins two words ("optical/electronic"). Holding it whole made that one cell set the
+// column width and squeezed its neighbours past the card. Keep short values like f/2.8 whole.
+function holdToken(part: string, key: number): ReactNode {
+  const pieces = part.split(/\/(?=\p{L}{2})/u);
+  if (pieces.length > 1) {
+    return (
+      <Fragment key={key}>
+        {pieces.map((piece, index) => (
+          <Fragment key={index}>
+            {WORD_BREAK.test(piece) ? <span className="rk-word">{piece}</span> : piece}
+            {index < pieces.length - 1 ? (
+              <>
+                /<wbr />
+              </>
+            ) : null}
+          </Fragment>
+        ))}
+      </Fragment>
+    );
+  }
+  return (
+    <span key={key} className="rk-word">
+      {part}
+    </span>
+  );
+}
+
+function holdWords(value: string): ReactNode {
+  if (!WORD_BREAK.test(value)) return value;
+  const parts = value.split(/(\s+)/);
+  return parts.map((part, index) => (WORD_BREAK.test(part) ? holdToken(part, index) : part));
+}
+
+function hold(node: ReactNode): ReactNode {
+  if (typeof node === "number") {
+    const text = String(node);
+    return WORD_BREAK.test(text) ? holdWords(text) : node;
+  }
+  return typeof node === "string" ? holdWords(node) : node;
+}
+
 function cellContent(cell: TableCell): ReactNode {
+  if (typeof cell === "string" || typeof cell === "number") return hold(cell);
   if (cell === null || typeof cell !== "object" || isValidElement(cell) || Array.isArray(cell)) {
     return cell as ReactNode;
   }
   if (!("text" in cell)) return null;
   const tone = toneClass(cell.tone);
-  return tone ? <span className={tone}>{cell.text}</span> : cell.text;
+  const text = hold(cell.text);
+  return tone ? <span className={tone}>{text}</span> : text;
 }
 
 // Amounts written as text ("$1,200", "4.8%", "12k") read as figures too.
@@ -318,12 +559,19 @@ function cellText(cell: TableCell): string {
 }
 
 /** "$1,200", "-4.5%" and "12k" sort as the numbers they show. */
-function sortKey(cell: TableCell): number | string {
+function sortKey(cell: TableCell, usesDecimalComma: boolean): number | string {
   if (typeof cell === "number") return cell;
   const raw = cellText(cell).trim();
   if (FIGURE.test(raw)) {
     const scale = /k$/i.test(raw) ? 1e3 : /M$/.test(raw) ? 1e6 : /B$/.test(raw) ? 1e9 : 1;
-    const number = Number.parseFloat(raw.replace(/[^\d.\-\u2212]/g, "").replace("\u2212", "-"));
+    const literal = raw.replace(/[^\d,.\-\u2212]/g, "").replace("\u2212", "-");
+    // Keep a lone three-digit group such as "1,234" as thousands; only flip clear decimals.
+    const decimalComma =
+      usesDecimalComma && /^-?(?:\d+,\d{1,2}|\d{1,3}(?:\.\d{3})+,\d+)$/.test(literal);
+    const normalized = decimalComma
+      ? literal.replaceAll(".", "").replace(",", ".")
+      : literal.replaceAll(",", "");
+    const number = Number.parseFloat(normalized);
     if (Number.isFinite(number)) return number * scale;
   }
   return raw.toLowerCase();
@@ -354,6 +602,8 @@ function useScrollEdges(direction: string) {
       const observer =
         typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
       observer?.observe(element);
+      // The scrollport keeps its box when its content grows, so watch the table inside it too.
+      for (const child of Array.from(element.children)) observer?.observe(child);
       return () => {
         element.removeEventListener("scroll", update);
         observer?.disconnect();
@@ -362,6 +612,12 @@ function useScrollEdges(direction: string) {
     [direction],
   );
   return { ref, edges };
+}
+
+function hasColumnHeader(column: ReactNode): boolean {
+  if (Array.isArray(column)) return column.some(hasColumnHeader);
+  if (typeof column === "string") return column.trim() !== "";
+  return column != null && typeof column !== "boolean";
 }
 
 export function Table({
@@ -422,11 +678,15 @@ export function Table({
       row.some((cell) => cellText(cell).toLowerCase().includes(needle)),
     );
   }
-  if (sort) {
-    const direction = sort.descending ? -1 : 1;
+  const activeSort = sortable && sort && hasColumnHeader(heads[sort.column]) ? sort : null;
+  if (activeSort) {
+    const direction = activeSort.descending ? -1 : 1;
+    const usesDecimalComma = new Intl.NumberFormat(words.intl)
+      .formatToParts(1.5)
+      .some(({ type, value }) => type === "decimal" && value === ",");
     shown = [...shown].sort((a, b) => {
-      const x = sortKey(a.row[sort.column]);
-      const y = sortKey(b.row[sort.column]);
+      const x = sortKey(a.row[activeSort.column], usesDecimalComma);
+      const y = sortKey(b.row[activeSort.column], usesDecimalComma);
       if (typeof x === "number" && typeof y === "number") return (x - y) * direction;
       // Figures come before words, and after them when the order is reversed.
       if (typeof x === "number") return -direction;
@@ -470,36 +730,37 @@ export function Table({
           data-fade-start={scroll.edges.start || undefined}
           data-fade-end={scroll.edges.end || undefined}
           // Keyboard users can scroll a wide table once it has focus.
-          tabIndex={width >= 5 ? 0 : undefined}
+          tabIndex={width >= 5 || scroll.edges.start || scroll.edges.end ? 0 : undefined}
         >
           <table className="rk-table" data-wide={width >= 5 || undefined}>
             <thead>
               <tr>
                 {indexes.map((index) => {
                   const column = heads[index];
-                  const sorted = sort?.column === index;
+                  const canSort = sortable && hasColumnHeader(column);
+                  const sorted = activeSort?.column === index;
                   return (
                     <th
                       key={index}
                       scope="col"
                       className={aligns[index] ? `rk-align-${aligns[index]}` : undefined}
                       aria-sort={
-                        sorted ? (sort.descending ? "descending" : "ascending") : undefined
+                        sorted ? (activeSort.descending ? "descending" : "ascending") : undefined
                       }
                     >
-                      {sortable ? (
+                      {canSort ? (
                         <button type="button" className="rk-sort" onClick={() => press(index)}>
-                          {column}
+                          {hold(column)}
                           <span
                             className="rk-sort-mark"
                             aria-hidden="true"
                             data-on={sorted || undefined}
                           >
-                            {sorted && sort.descending ? "\u2193" : "\u2191"}
+                            {sorted && activeSort.descending ? "\u2193" : "\u2191"}
                           </span>
                         </button>
                       ) : (
-                        column
+                        hold(column)
                       )}
                     </th>
                   );
@@ -541,7 +802,8 @@ export function Table({
 
 export type SegmentedOption =
   | string
-  | { value: string; label?: ReactNode; count?: number | string };
+  | number
+  | { value: string | number; label?: ReactNode; count?: number | string };
 
 /** More options than this is a list, not tabs; the chosen one is always kept. */
 const SEGMENTED_MAX = 200;
@@ -552,10 +814,11 @@ export function Segmented({
   onChange,
 }: {
   options?: SegmentedOption[];
-  value?: string;
+  value?: string | number;
   onChange?: (value: string) => void;
 }) {
   type Item = { value: string; label: ReactNode; count?: number | string };
+  const current = value === undefined || value === null ? undefined : String(value);
   const items = (Array.isArray(options) ? options : []).flatMap((option): Item[] =>
     typeof option === "string" || typeof option === "number"
       ? [{ value: String(option), label: String(option) }]
@@ -564,7 +827,7 @@ export function Segmented({
         : [],
   );
   const shown = items.slice(0, SEGMENTED_MAX);
-  const chosen = items.findIndex((item) => item.value === value);
+  const chosen = items.findIndex((item) => item.value === current);
   if (chosen >= SEGMENTED_MAX) shown[SEGMENTED_MAX - 1] = items[chosen]!;
   return (
     <fieldset className="rk-segmented">
@@ -572,7 +835,7 @@ export function Segmented({
         <button
           key={item.value}
           type="button"
-          aria-pressed={item.value === value}
+          aria-pressed={item.value === current}
           onClick={() => onChange?.(item.value)}
         >
           <span className="rk-segment">

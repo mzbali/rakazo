@@ -2,23 +2,32 @@ import { useLingui } from "@lingui/react/macro";
 import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
-import { pageCopyRequest, pageCopyResult, pageLinkRequest, visualFit } from "@rakazo/core";
+import {
+  createPageImageResponder,
+  MAX_INLINE_VISUAL_HEIGHT,
+  pageCopyRequest,
+  pageCopyResult,
+  pageLinkRequest,
+  VISUAL_PREVIEW_HEIGHT,
+  visualFit,
+} from "@rakazo/core";
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { currentApiBase } from "../../lib/api";
-import { useMobileTokens, useResolvedAppearance } from "../../lib/native";
-import { HEADER_CONTROL_SIZE } from "../../lib/native-controls";
-import { loadPageRuntime } from "../../lib/page-runtime";
+import { Modal, StyleSheet, Text, View } from "react-native";
+import { currentApiBase } from "../../lib/api/api";
+import { useMobileTokens, useResolvedAppearance } from "../../lib/native/native";
+import { HEADER_CONTROL_SIZE } from "../../lib/native/native-controls";
 import { usePageTapGate } from "../../lib/page-tap-gate";
-import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages";
-import { NativeActionButton } from "../native-action-button";
-import { SandboxedHtmlPreview } from "../sandboxed-html-preview";
+import { loadPageRuntime } from "../../lib/pages/page-runtime";
+import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages/pages";
+import { visualImageSrc } from "../../lib/pages/visual-images";
+import { SandboxedHtmlPreview } from "../media/sandboxed-html-preview";
+import { NativeActionButton } from "../native/native-action-button";
 
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 
 /** The tallest a visual works in the chat; taller ones show their top and open whole. */
-const MAX_INLINE_HEIGHT = 560;
+const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height. */
 const PLACEHOLDER_HEIGHT = 140;
 
@@ -63,9 +72,9 @@ function useVisualActions() {
 }
 
 /**
- * A visual the bot drew in the chat. One that fits works in place. Its Expand button
- * grows the same running view in the conversation, so what the reader did in it stays.
- * A taller one draws its top without taking touches and opens whole in a sheet on a tap.
+ * A visual the bot drew in the chat. One that fits works in place at its own height, with no
+ * full-screen control. A taller one draws its top without taking touches and opens whole in a
+ * sheet from the full-screen button.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
@@ -73,7 +82,6 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   const theme = useResolvedAppearance();
   const errorTitle = t`This page couldn't be shown.`;
   const { runtime, failed } = usePageRuntime();
-  const window = useWindowDimensions();
   const [height, setHeight] = useState<number | null>(null);
   const [fit, setFit] = useState<VisualFit>("drawing");
   const [open, setOpen] = useState(false);
@@ -83,13 +91,13 @@ export function VisualCard({ block }: { block: VisualBlock }) {
       runtime &&
       pageDocumentWith(runtime, block.code, theme, errorTitle, {
         inline: "card",
-        surface: tokens.card,
+        surface: tokens.background,
       }),
-    [runtime, block.code, theme, errorTitle, tokens.card],
+    [runtime, block.code, theme, errorTitle, tokens.background],
   );
   const live = fit === "inline";
-  const expanded = open && live;
-  const sheet = open && !live;
+  const preview = fit === "preview";
+  const sheet = open && preview;
   // Built only once opened, from the runtime the card already has: each document carries all of it.
   const full = useMemo(
     () =>
@@ -102,9 +110,11 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [sheet, runtime, block.code, theme, errorTitle, tokens.background],
   );
 
-  const shown = expanded
-    ? window.height * 0.8
-    : Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [inline]);
+  const shown = Math.min(
+    height ?? PLACEHOLDER_HEIGHT,
+    fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
+  );
   const frame = (
     <View
       pointerEvents={live ? "auto" : "none"}
@@ -117,13 +127,21 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         // Never taller than the card shows: the reported height is the content's, not the frame's.
         <View style={{ height: shown }}>
           <SandboxedHtmlPreview
+            key={inline}
             html={inline}
-            background={tokens.card}
-            // An inline visual that grew past the card scrolls in place.
-            scrollEnabled={expanded || (live && height !== null && height > MAX_INLINE_HEIGHT)}
+            background={tokens.background}
+            // Classified inline, then grown by its own controls: scroll the card rather than
+            // turning it into a preview under the reader's finger. While the frame shows the
+            // whole visual, scrolling and bouncing stay off. The iOS web view does not forward
+            // a pan to the chat the way the desktop one does, and a bouncing scroll view keeps
+            // the drag. A control inside still takes its own gesture.
+            scrollEnabled={live && height !== null && height > MAX_INLINE_HEIGHT}
+            bounces={live && height !== null && height > MAX_INLINE_HEIGHT}
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {
+                // A picture is a read of the message's own data, not an action: no tap is needed.
+                if (answerImage(pageMessage(data), block.images, answer)) return;
                 if (live) actions.act(data, answer);
                 return;
               }
@@ -134,7 +152,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         </View>
       ) : null}
       {height === null ? (
-        <View style={[styles.placeholder, { backgroundColor: tokens.card }]}>
+        <View style={[styles.placeholder, { backgroundColor: tokens.background }]}>
           <Text numberOfLines={4} style={[styles.summary, { color: tokens.mutedForeground }]}>
             {block.text}
           </Text>
@@ -144,28 +162,10 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   );
   return (
     <>
-      <View
-        testID="visual-card"
-        style={[
-          styles.card,
-          { backgroundColor: tokens.card, borderColor: `${tokens.foreground}1F` },
-        ]}
-      >
-        {expanded ? (
-          <View style={styles.expandedHeader}>
-            <Text numberOfLines={1} style={[styles.sheetTitle, { color: tokens.foreground }]}>
-              {block.title}
-            </Text>
-            <NativeActionButton
-              accessibilityLabel={t`Close`}
-              icon={{ ios: "xmark", android: "close", size: 20 }}
-              prominence="secondary"
-              onPress={() => setOpen(false)}
-            />
-          </View>
-        ) : null}
+      <View testID="visual-card" style={styles.card}>
         {frame}
-        {expanded ? null : live ? (
+        {preview && !sheet ? (
+          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
           <View style={styles.expand}>
             <NativeActionButton
               accessibilityLabel={t`Expand ${block.title}`}
@@ -179,19 +179,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               onPress={() => setOpen(true)}
             />
           </View>
-        ) : (
-          // Over the frame rather than around it, so the WebView never reloads when the fit settles.
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t`Open ${block.title}`}
-            accessibilityHint={block.text}
-            onPress={() => setOpen(true)}
-            style={({ pressed }) => [
-              StyleSheet.absoluteFill,
-              pressed ? { backgroundColor: `${tokens.foreground}14` } : null,
-            ]}
-          />
-        )}
+        ) : null}
       </View>
       <Modal
         visible={sheet}
@@ -225,14 +213,18 @@ function VisualSheet({
   const { t } = useLingui();
   const tokens = useMobileTokens();
   const actions = useVisualActions();
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [document]);
   return (
     <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
       <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...actions.touch}>
         {document ? (
           <SandboxedHtmlPreview
+            key={document}
             html={document}
             background={tokens.background}
-            onMessage={actions.act}
+            onMessage={(data, answer) => {
+              if (!answerImage(pageMessage(data), block.images, answer)) actions.act(data, answer);
+            }}
           />
         ) : (
           <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>
@@ -261,7 +253,7 @@ function VisualSheet({
 }
 
 const styles = StyleSheet.create({
-  card: { width: "100%", borderRadius: 24, borderWidth: 1, overflow: "hidden" },
+  card: { width: "100%", borderRadius: 24, overflow: "hidden" },
   placeholder: {
     position: "absolute",
     top: 0,
@@ -285,7 +277,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   expand: { position: "absolute", top: 10, right: 10 },
-  expandedHeader: { flexDirection: "row", alignItems: "center", padding: 12 },
   sheetTitle: {
     flex: 1,
     fontSize: 17,

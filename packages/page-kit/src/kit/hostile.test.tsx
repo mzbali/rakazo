@@ -10,12 +10,25 @@ import * as controls from "./controls.js";
 import * as data from "./data.js";
 import * as dataviz from "./dataviz.js";
 import * as diagram from "./diagram.js";
+import * as interact from "./interact.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as practice from "./practice.js";
+import * as products from "./products.js";
 import * as text from "./text.js";
 
-const modules = { ...calendar, ...charts, ...controls, ...data, ...dataviz, ...diagram, ...layout };
-const kit = { ...modules, ...media, ...text };
+const modules = {
+  ...calendar,
+  ...charts,
+  ...controls,
+  ...data,
+  ...dataviz,
+  ...diagram,
+  ...interact,
+  ...layout,
+  ...practice,
+};
+const kit = { ...modules, ...interact, ...media, ...products, ...text };
 type Props<K extends PageKitComponentName> = ComponentProps<(typeof kit)[K]>;
 
 // Every list or object prop of the kit, with the fields its items carry. A page's code is
@@ -26,22 +39,33 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   Properties: { items: ["label", "value"] },
   Rows: { rows: ["title", "lead", "detail", "meta", "status"] },
   Steps: { steps: ["title", "detail"] },
-  Checklist: { items: ["text", "done", "meta"] },
+  Checklist: { items: ["text", "done", "meta"], sections: ["title", "items"] },
+  Timeline: { groups: ["label", "items"], items: ["date", "title", "detail", "label"] },
+  Result: { groups: ["label", "value"], copy: ["label", "text"] },
+  Quiz: { questions: ["question", "options", "answer", "explain"] },
+  Flashcards: { cards: ["front", "back"] },
   Table: { columns: [], rows: [], align: [] },
   Segmented: { options: ["value", "label", "count"] },
+  Slider: { ticks: ["value", "label"] },
+  Choices: { options: ["value", "label"] },
   LineChart: {
     points: ["label", "value"],
     lines: ["label", "values"],
     secondary: ["label", "values"],
     labels: [],
     annotations: ["at", "label", "line", "value"],
+    reference: ["value", "label"],
   },
   Bars: { bars: ["label", "value", "display"] },
-  Pie: { parts: ["label", "value", "display"] },
+  Pie: { parts: ["label", "value", "display", "detail"] },
+  Rings: { rings: [], markers: ["ring", "label"] },
   Diagram: {
-    nodes: ["id", "label", "detail", "kind", "series"],
-    edges: ["from", "to", "label", "dashed"],
+    nodes: ["id", "label", "detail", "kind", "series", "icon", "tone"],
+    edges: ["from", "to", "label", "dashed", "tone"],
+    zones: ["label", "nodes", "tone"],
+    flows: ["node", "label", "direction", "tone"],
   },
+  Stages: { stages: ["id", "label", "title", "detail"] },
   TableOfContents: { items: ["label", "id", "depth"] },
   BulletList: { items: ["text", "items", "bullets"] },
   NumberedList: { items: ["text", "items", "bullets"] },
@@ -59,7 +83,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
   },
   Heatmap: { rows: [], columns: [], values: [] },
   CalendarHeatmap: { days: ["date", "value"] },
-  Venn: { sets: ["label", "count", "items"] },
+  Venn: { sets: ["label", "count", "items", "note", "tone"] },
   Matrix2x2: { axes: ["x", "y"], quadrants: [], points: ["label", "x", "y"] },
   SourceStamp: { source: ["value", "asOf", "fresh", "updating", "error"] },
   Select: { options: ["value", "label"] },
@@ -89,6 +113,7 @@ const SHAPED: { [K in PageKitComponentName]?: { [P in keyof Props<K>]?: readonly
 // Components whose props are all text, numbers, flags, callbacks or children.
 const PLAIN = new Set<PageKitComponentName>([
   "Section",
+  "Caption",
   "Grid",
   "Text",
   "Callout",

@@ -6,6 +6,8 @@ type MarkdownLinkCopy = {
   cancel: string;
   open: string;
   alwaysOpen: (site: string) => string;
+  /** A bare link to an app, named by the app it opens. */
+  openIn: (app: string) => string;
 };
 
 const defaultMarkdownLinkCopy: MarkdownLinkCopy = {
@@ -13,6 +15,7 @@ const defaultMarkdownLinkCopy: MarkdownLinkCopy = {
   cancel: "Cancel",
   open: "Open",
   alwaysOpen: (site) => `Always open ${site}`,
+  openIn: (app) => `Open in ${app}`,
 };
 
 type MarkdownLinkTrust = {

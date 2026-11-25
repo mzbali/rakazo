@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { appLinkCatalog } from "@rakazo/core/app-links";
+import type { Deferred } from "@rakazo/core/test-async";
+import { deferred } from "@rakazo/core/test-async";
 import type { ReactNode } from "react";
 import { act, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { closeUnterminatedFence } from "./markdown";
+import { closeUnterminatedFence, markdownEmbed } from "./markdown";
 import type { LinkFavicons } from "./markdown.web";
 import {
   allowAppLinks,
@@ -14,6 +19,7 @@ import {
   LinkFaviconsContext,
   LinkifiedText,
   MarkdownCopyProvider,
+  MarkdownEmbedContext,
   MarkdownLinkPromptProvider,
   RemoteImagesContext,
   useLinkPrompt,
@@ -173,14 +179,12 @@ async function renderLinks(
 
 describe("web markdown website links", () => {
   it("isolates cached misses and pending answers when the API endpoint changes", async () => {
-    let resolveOld!: (answer: { icon: string | null }) => void;
-    const oldLoad = vi.fn<LinkFavicons["load"]>((origin) =>
-      origin.includes("pending")
-        ? new Promise((resolve) => {
-            resolveOld = resolve;
-          })
-        : Promise.resolve({ icon: null }),
-    );
+    let oldAnswer: Deferred<{ icon: string | null }> | undefined;
+    const oldLoad = vi.fn<LinkFavicons["load"]>((origin) => {
+      if (!origin.includes("pending")) return Promise.resolve({ icon: null });
+      oldAnswer = deferred();
+      return oldAnswer.promise;
+    });
     const newLoad = vi.fn<LinkFavicons["load"]>(async () => ({ icon: ICON }));
     const view = await renderLinks(
       "[Miss](https://scope-miss.example.test/) [Pending](https://scope-pending.example.test/)",
@@ -191,7 +195,7 @@ describe("web markdown website links", () => {
     expect(newLoad).toHaveBeenCalledTimes(2);
     expect(view.container.querySelectorAll("a img")).toHaveLength(2);
     await act(async () => {
-      resolveOld({ icon: null });
+      oldAnswer!.resolve({ icon: null });
     });
     expect(view.container.querySelectorAll("a img")).toHaveLength(2);
     await view.cleanup();
@@ -238,6 +242,25 @@ describe("web markdown website links", () => {
     await view.cleanup();
   });
 
+  it.each([
+    ["Gmail", "googlegmail:///cv=18f3a0c2b4d5e6f7/accountId=0", "https://mail.google.com"],
+    ["T3", "t3code://threads/env-1/thread-1", "https://app.t3.codes"],
+  ])(
+    "draws a bare %s link as one Open in pill instead of its address",
+    async (name, href, site) => {
+      allowAppLinks(appLinkCatalog);
+      const load = vi.fn(async () => ({ icon: ICON }));
+      const view = await renderLinks(`Here it is: ${href}.`, { load });
+      const links = view.container.querySelectorAll("a");
+      expect(links).toHaveLength(1);
+      expect(links[0]?.getAttribute("href")).toBe(href);
+      expect(links[0]?.textContent).toBe(`Open in ${name}`);
+      expect(view.container.textContent).toBe(`Here it is: Open in ${name}.`);
+      expect(load).toHaveBeenCalledWith(site);
+      await view.cleanup();
+    },
+  );
+
   it("shortens a bare URL to host and path", async () => {
     const view = await renderLinks(
       "See https://www.icon-b.example.test/status/123?s=20 and <https://icon-b.example.test/>",
@@ -265,15 +288,18 @@ describe("web markdown website links", () => {
   });
 
   it("shows the globe until an icon arrives, and when there is none", async () => {
-    let resolve: (answer: { icon: string | null }) => void = () => undefined;
+    let answer: Deferred<{ icon: string | null }> | undefined;
     const view = await renderLinks("[Docs](https://icon-c.example.test/docs)", {
-      load: () => new Promise((done) => (resolve = done)),
+      load: () => {
+        answer = deferred();
+        return answer.promise;
+      },
     });
     const tile = () => view.container.querySelector(".rk-chat-link-tile");
     expect(tile()?.querySelector("svg")).not.toBeNull();
     expect(tile()?.classList.contains("rk-chat-link-tile-icon")).toBe(false);
     await act(async () => {
-      resolve({ icon: null });
+      answer?.resolve({ icon: null });
     });
     expect(tile()?.querySelector("img")).toBeNull();
     expect(tile()?.querySelector("svg")).not.toBeNull();
@@ -844,6 +870,23 @@ describe("web markdown mentions", () => {
     expect(html).toContain("<span>Other</span>");
     expect(html).not.toContain("<a");
   });
+
+  it("keeps a mention added in front of the text out of a selection, but not one in the text", () => {
+    const renderMention = (_id: string, name: string) => <b>{name}</b>;
+    const added = renderToStaticMarkup(
+      <ChatMarkdown renderMention={renderMention}>
+        {"[Reporter](rakazo-mention:bot-1#added) I set up the weekly report."}
+      </ChatMarkdown>,
+    );
+    expect(added).toContain('<span class="select-none"><b>Reporter</b></span>');
+    const named = renderToStaticMarkup(
+      <ChatMarkdown renderMention={renderMention}>
+        {"[Reporter](rakazo-mention:bot-1) is ready."}
+      </ChatMarkdown>,
+    );
+    expect(named).toContain("<b>Reporter</b>");
+    expect(named).not.toContain("select-none");
+  });
 });
 
 describe("web markdown streaming", () => {
@@ -1000,5 +1043,140 @@ describe("web markdown parser failure", () => {
     });
     container.remove();
     vi.restoreAllMocks();
+  });
+});
+
+describe("chat table scroll", () => {
+  it("keeps a wide table inside the message so the last column can scroll into view", () => {
+    const css = readFileSync(
+      join(process.cwd(), "packages/chat-ui/src/markdown-table.css"),
+      "utf8",
+    );
+    const rule = css.match(/\.rk-table-scroll \{[^}]*\}/)?.[0] ?? "";
+    expect(rule).toContain("min-width: 0");
+    expect(rule).toContain("max-width: 100%");
+  });
+});
+
+describe("web markdown embeds", () => {
+  it("reads a visual or image href and rejects anything else", () => {
+    expect(markdownEmbed("visual:message_1", "Flow")).toEqual({
+      kind: "visual",
+      id: "message_1",
+      label: "Flow",
+    });
+    expect(markdownEmbed("image:art-1", "Quarter")).toEqual({
+      kind: "image",
+      id: "art-1",
+      label: "Quarter",
+    });
+    expect(markdownEmbed("https://example.test/a.png", "plot")).toBeUndefined();
+    expect(markdownEmbed("visual:has space", "Flow")).toBeUndefined();
+  });
+
+  it("draws a resolved embed in place and leaves an unknown one as its title", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Quarter trend</figure>}>
+        <ChatMarkdown>
+          {"Revenue climbed.\n\n![Quarter trend](visual:message_1)\n\nSeptember is highest."}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).toContain("<figure>Quarter trend</figure>");
+    expect(html).toContain('class="rk-chat-embed"');
+    expect(html).not.toContain("<p><figure>");
+    expect(html).toContain("Revenue climbed.");
+    expect(html).toContain("September is highest.");
+
+    const missing = renderToStaticMarkup(
+      <ChatMarkdown>{"See ![Quarter trend](visual:missing) here."}</ChatMarkdown>,
+    );
+    expect(missing).toContain("Quarter trend");
+    expect(missing).not.toContain("visual:missing");
+    expect(missing).not.toContain("rk-chat-embed");
+  });
+
+  it("lays an image that opens a list item out as a thumbnail row", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider
+        value={(embed) => <figure data-frame={embed.frame}>{embed.label}</figure>}
+      >
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "",
+            "  The evening boat is back.",
+            "",
+            "- ![Market hall](image:market) **Market hall**",
+            "",
+            "  The Saturday market filled the hall.",
+            "",
+            "- A note without an image.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).not.toContain("rk-chat-media-list");
+    expect(html.match(/rk-chat-media-item/g)).toHaveLength(2);
+    expect(html.match(/data-frame="thumbnail"/g)).toHaveLength(2);
+    const copy = html.slice(html.indexOf('class="rk-chat-media-copy"'));
+    expect(copy.indexOf("The evening boat is back.")).toBeGreaterThan(0);
+    expect(copy.indexOf("The evening boat is back.")).toBeLessThan(
+      copy.indexOf("rk-chat-media-thumb"),
+    );
+    expect(html).toContain("<strong>Harbor ferry</strong>");
+    expect(html).toContain("A note without an image.");
+
+    const rows = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Photo</figure>}>
+        <ChatMarkdown>
+          {[
+            "- ![Harbor ferry](image:ferry) **Harbor ferry**",
+            "- ![Wool coat](image:coat) **Wool coat** $128",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(rows).toContain('class="rk-chat-media-list"');
+    expect(rows).toContain("$128");
+    expect(rows.match(/rk-chat-media-item/g)).toHaveLength(2);
+    // The tight list's image becomes the thumbnail only, not a second copy in the text.
+    expect(rows.match(/<figure>/g)).toHaveLength(2);
+  });
+
+  it("keeps an ordered list's start and a task list's classes", () => {
+    const html = renderToStaticMarkup(
+      <ChatMarkdown>
+        {["5. Continue here", "6. Then this", "", "- [ ] Pack"].join("\n")}
+      </ChatMarkdown>,
+    );
+    expect(html).toContain('<ol start="5">');
+    expect(html).toContain('class="contains-task-list"');
+    expect(html).toContain('class="task-list-item"');
+  });
+
+  it("keeps an image alone, a visual, and an image mid-sentence as an ordinary embed", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownEmbedContext.Provider value={() => <figure>Photo</figure>}>
+        <ChatMarkdown>
+          {[
+            "![Quarter](image:quarter)",
+            "",
+            "![Flow](visual:message_1) still a chart.",
+            "",
+            "See ![Harbor ferry](image:ferry) today.",
+            "",
+            "![River path](image:path) **River path** The path reopened.",
+          ].join("\n")}
+        </ChatMarkdown>
+      </MarkdownEmbedContext.Provider>,
+    );
+    expect(html).toContain('class="rk-chat-embed"');
+    expect(html.match(/rk-chat-media-row/g)).toHaveLength(1);
+    expect(html).not.toContain("rk-chat-media-item");
+    const row = html.slice(html.indexOf('class="rk-chat-media-row"'));
+    expect(row).toContain("The path reopened.");
+    expect(html).toContain("still a chart.");
+    expect(html).toContain("See ");
   });
 });

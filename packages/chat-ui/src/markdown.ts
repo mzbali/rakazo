@@ -1,12 +1,14 @@
 /// <reference path="./linkify-it.d.ts" />
 
 import type { MessageBlock } from "@rakazo/contracts";
+import { httpUrl } from "@rakazo/contracts";
+import type { CitationGroup, SourceItem } from "@rakazo/core/answer-sources";
 import type { AppLink } from "@rakazo/core/app-links";
 import { findAppLink, matchesAppLink } from "@rakazo/core/app-links";
 import { urlSite } from "@rakazo/core/egress";
 import LinkifyIt from "linkify-it";
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
@@ -19,7 +21,22 @@ export type ChatMarkdownProps = {
   renderMention?: (id: string, name: string) => ReactNode;
   /** Opens a page linked as `[title](page:<pageId>)`; without it the title stays plain text. */
   onOpenPage?: (pageId: string) => void;
+  /** Pages this message cited. A matching link draws as a pill instead of underlined text. */
+  sources?: readonly SourceItem[];
+  /** The quiet sources row under this markdown. One source stays a pill only. */
+  sourcesRow?: boolean;
+  /**
+   * Draws a ```ui fence as a visual. Set only for text a Space's own bot wrote: a fence from
+   * anyone else stays a code block.
+   */
+  visuals?: boolean;
 };
+
+/** Whether ```ui fences draw as visuals for the markdown being drawn. */
+export const VisualsContext = createContext(false);
+
+/** Citation clusters for the markdown currently drawn. Empty while a reply is still streaming. */
+export const CitationGroupsContext = createContext<readonly CitationGroup[]>([]);
 
 const PAGE_URL_PATTERN = /^page:([A-Za-z0-9_-]{1,64})$/;
 
@@ -28,13 +45,54 @@ export function markdownPageId(href: string | undefined): string | undefined {
   return href ? PAGE_URL_PATTERN.exec(href)?.[1] : undefined;
 }
 
+const EMBED_URL_PATTERN = /^(visual|image):([A-Za-z0-9_-]{1,64})$/;
+
+/** A `visual:<messageId>` or `image:<artifactId>` image, as the reply wrote it. */
+export type MarkdownEmbed = {
+  kind: "visual" | "image";
+  id: string;
+  label: string;
+  /** A media row crops this image to a fixed thumbnail. Anywhere else it stays full size. */
+  frame?: "thumbnail";
+};
+
+/** The embed an image href names, if it is one. The label is the image's alt text. */
+export function markdownEmbed(href: string | undefined, label = ""): MarkdownEmbed | undefined {
+  const match = href ? EMBED_URL_PATTERN.exec(href.trim()) : null;
+  if (!match) return undefined;
+  const kind = match[1];
+  if (kind !== "visual" && kind !== "image") return undefined;
+  return { kind, id: match[2]!, label };
+}
+
+/**
+ * Draws a resolved embed. The app looks the id up among messages it already holds.
+ * Returning null leaves the title as plain text. Nothing is fetched.
+ */
+export type MarkdownEmbedResolver = (embed: MarkdownEmbed) => ReactNode | null;
+
+export const MarkdownEmbedContext = createContext<MarkdownEmbedResolver | null>(null);
+
 const MENTION_URL_PREFIX = "rakazo-mention:";
+// Ends a mention the renderer put in front of text that doesn't name the bot. An encoded id
+// never holds a `#`, so the mark can't be part of one.
+const ADDED_MENTION_MARK = "#added";
+
+/** Whether a mention link was put in front of the text, so its name isn't part of the message. */
+export function markdownMentionAdded(href: string | undefined): boolean {
+  return Boolean(href?.startsWith(MENTION_URL_PREFIX) && href.endsWith(ADDED_MENTION_MARK));
+}
 
 /** The id of a mention link, if this href is one. */
 export function markdownMentionId(href: string | undefined): string | undefined {
   if (!href?.startsWith(MENTION_URL_PREFIX)) return undefined;
+  const id = href.slice(MENTION_URL_PREFIX.length);
   try {
-    return decodeURIComponent(href.slice(MENTION_URL_PREFIX.length)) || undefined;
+    return (
+      decodeURIComponent(
+        id.endsWith(ADDED_MENTION_MARK) ? id.slice(0, -ADDED_MENTION_MARK.length) : id,
+      ) || undefined
+    );
   } catch {
     return undefined;
   }
@@ -146,7 +204,10 @@ export function withMentions(
     const firstIndex = result.findIndex((text) => trees.get(text) !== null);
     if (firstIndex === -1) continue;
     const first = result[firstIndex]!;
-    result[firstIndex] = OPENS_WITH_BLOCK.test(first) ? `${link}\n\n${first}` : `${link} ${first}`;
+    const added = `${link.slice(0, -1)}${ADDED_MENTION_MARK})`;
+    result[firstIndex] = OPENS_WITH_BLOCK.test(first)
+      ? `${added}\n\n${first}`
+      : `${added} ${first}`;
   }
   return result;
 }
@@ -171,9 +232,11 @@ export function withBlockMentions(
   });
 }
 
+type LinkifySchema = { validate(text: string, pos: number): number };
+
 type LinkifyRules = {
   set(options: { fuzzyLink: boolean }): unknown;
-  add(schema: string, definition: null): unknown;
+  add(schema: string, definition: LinkifySchema | null): unknown;
 };
 
 type LinkifyParser = {
@@ -191,17 +254,67 @@ type ExplicitLinkify = LinkifyRules & {
   match(text: string): ExplicitLinkMatch[] | null;
 };
 
+// After the scheme: `//`, then everything up to a space, quote or angle bracket.
+const APP_LINK_TAIL = /\/\/[^\s<>"'`]*/y;
+const CLOSING_PUNCTUATION = ".,;:!?";
+
+/**
+ * How much of an app link's tail belongs to the link: the sentence's closing punctuation and
+ * a closing parenthesis with no opening one in the link stay outside, as in `(see app://x).`.
+ * One backward pass, so a long run of punctuation costs no more than its length.
+ */
+function appLinkTailLength(tail: string): number {
+  // A closing parenthesis is unmatched when no opening one inside the link is still open.
+  const unmatched = new Set<number>();
+  let open = 0;
+  for (let index = 0; index < tail.length; index++) {
+    if (tail[index] === "(") open++;
+    else if (tail[index] === ")") {
+      if (open > 0) open--;
+      else unmatched.add(index);
+    }
+  }
+  let end = tail.length;
+  while (end > 2 && (CLOSING_PUNCTUATION.includes(tail[end - 1]!) || unmatched.has(end - 1))) {
+    end--;
+  }
+  return end;
+}
+
+/** Finds `scheme://…` only where the host allows the whole link, so a rejected one hides no other. */
+function appLinkSchema(scheme: string): LinkifySchema {
+  return {
+    validate: (text, pos) => {
+      APP_LINK_TAIL.lastIndex = pos;
+      const tail = APP_LINK_TAIL.exec(text)?.[0];
+      if (!tail) return 0;
+      const length = appLinkTailLength(tail);
+      return matchesAppLink(`${scheme}:${tail.slice(0, length)}`, appLinks) ? length : 0;
+    },
+  };
+}
+
+function addAppLinkSchemes(linkify: LinkifyRules, links: readonly AppLink[]) {
+  for (const { scheme } of links) {
+    linkify.add(`${scheme.toLowerCase()}:`, appLinkSchema(scheme.toLowerCase()));
+  }
+}
+
+const linkifiers: LinkifyRules[] = [];
+
 function applyExplicitLinkRules(linkify: LinkifyRules) {
   linkify.set({ fuzzyLink: false });
   linkify.add("ftp:", null);
   linkify.add("//", null);
+  addAppLinkSchemes(linkify, appLinks);
+  linkifiers.push(linkify);
 }
 
 /**
- * Turn bare http(s) URLs and email addresses into links, as the web renderer's GFM autolinks
- * do. Bare domains stay text: fuzzy matching would also link file names like setup.py or
- * notes.md. ftp: and protocol-relative URLs stay text because sanitizeMarkdownUrl would not
- * open them.
+ * Turn bare http(s) URLs, email addresses and allowed app links into links, as the web
+ * renderer's GFM autolinks do for the first two. Bare domains stay text: fuzzy matching would
+ * also link file names like setup.py or notes.md. ftp: and protocol-relative URLs stay text
+ * because sanitizeMarkdownUrl would not open them.
  */
 export function linkifyExplicitUrls<T extends LinkifyParser>(parser: T): T {
   parser.set({ linkify: true });
@@ -209,19 +322,46 @@ export function linkifyExplicitUrls<T extends LinkifyParser>(parser: T): T {
   return parser;
 }
 
-const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
-applyExplicitLinkRules(plainTextLinkify);
-
 const protocolPattern = /^([a-z][a-z\d+.-]*):/i;
 const safeProtocols = new Set(["http", "https", "mailto", "tel"]);
 const appLinks: AppLink[] = [];
 
+const plainTextLinkify: ExplicitLinkify = new LinkifyIt();
+applyExplicitLinkRules(plainTextLinkify);
+
 /**
- * Lets links open places in apps the host trusts. Any other custom link stays text,
- * since it could launch whatever installed app claims its scheme.
+ * Lets links open places in apps the host trusts, and finds them written bare in a message.
+ * Any other custom link stays text, since it could launch whatever installed app claims its
+ * scheme.
  */
 export function allowAppLinks(links: readonly AppLink[]) {
   appLinks.push(...links);
+  for (const linkify of linkifiers) addAppLinkSchemes(linkify, links);
+}
+
+/** Where a bare allowed app link sits in text, for renderers whose autolinks know only the web. */
+export function appLinkMatches(text: string): { index: number; lastIndex: number; url: string }[] {
+  if (appLinks.length === 0) return [];
+  return (plainTextLinkify.match(text) ?? []).filter((match) =>
+    matchesAppLink(match.url, appLinks),
+  );
+}
+
+function decodedUrl(value: string): string {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * The app a link opens, when its label is just its address: it then reads "Open in {name}"
+ * instead, so a long app address never shows, or wraps, as text. An author's label stays.
+ */
+export function bareAppLinkName(text: string, href: string): string | undefined {
+  const address = (value: string) => decodedUrl(value.trim());
+  return address(text) === address(href) ? findAppLink(href, appLinks)?.name : undefined;
 }
 
 export type PlainTextPart =
@@ -230,7 +370,8 @@ export type PlainTextPart =
   | { type: "page"; value: string; pageId: string };
 
 // The link pageReply puts before a sent reply: `[title](page:<pageId>)`, title brackets escaped.
-const PLAIN_PAGE_LINK = /\[((?:\\[\\[\]]|[^\\[\]\n])*)\]\(page:([A-Za-z0-9_-]{1,64})\)/g;
+// The bound fits any escaped title and keeps unclosed brackets from rescanning the message.
+const PLAIN_PAGE_LINK = /\[((?:\\[\\[\]]|[^\\[\]\n]){0,400})\]\(page:([A-Za-z0-9_-]{1,64})\)/g;
 
 function appendPlainText(parts: PlainTextPart[], value: string) {
   if (!value) return;
@@ -445,62 +586,6 @@ export function markRemoteImageLoaded(href: string): void {
   loadedRemoteImages.add(href);
 }
 
-const SHORT_LINK_LABEL_MAX = 40;
-const SHORT_LINK_PATH_MIN = 12;
-// Control and format characters (bidi overrides, zero-width joiners and spaces, the BOM) that a
-// decoded path could use to disguise itself.
-const HIDDEN_PATH_CHARACTERS = /[\p{Cc}\p{Cf}]/gu;
-
-function httpUrl(href: string): URL | undefined {
-  try {
-    const url = new URL(href);
-    return url.protocol === "http:" || url.protocol === "https:" ? url : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function decodedUrl(value: string): string {
-  try {
-    return decodeURI(value);
-  } catch {
-    return value;
-  }
-}
-
-function comparableUrl(value: string): string {
-  return value
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/$/, "")
-    .toLowerCase();
-}
-
-/**
- * The words a link shows. An author's label stays as written; a bare URL (an autolink, or a
- * label that just repeats the address) shortens to host and path, like `x.com/elonmusk`. The
- * host is what tells a reader where the link goes, so it is never cut and stays in its ASCII
- * (punycode) form; only a long path is trimmed.
- */
-export function linkLabel(text: string, href: string): string {
-  const url = httpUrl(href);
-  // Some parsers show an autolink with its escapes decoded (`caf%C3%A9` as `café`), so a label
-  // that matches the decoded address is bare too.
-  const label = comparableUrl(text);
-  if (!url || (label !== comparableUrl(href) && label !== comparableUrl(decodedUrl(href)))) {
-    return text;
-  }
-  const host = url.host.replace(/^www\./i, "");
-  const path = decodedUrl(url.pathname.replace(/\/+$/, "")).replace(HIDDEN_PATH_CHARACTERS, "");
-  const room = Math.max(SHORT_LINK_LABEL_MAX - host.length, SHORT_LINK_PATH_MIN);
-  if (path.length <= room) return `${host}${path}`;
-  let end = room - 1;
-  const before = path.charCodeAt(end - 1);
-  const after = path.charCodeAt(end);
-  if (before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff) end--;
-  return `${host}${path.slice(0, end)}…`;
-}
-
 /**
  * The origin a link's site icon is looked up by, or undefined for links that get no icon. A link
  * to an app place shows the icon of the website the host named for that app.
@@ -583,36 +668,45 @@ function requestLinkFavicon(source: LinkFavicons, origin: string, key: string, a
   );
 }
 
+function faviconKey(source: LinkFavicons | null, origin: string) {
+  return JSON.stringify([source?.endpoint ?? "", origin]);
+}
+
+/** Counts a link to this origin as on screen until the returned release runs. */
+function showFaviconLink(key: string) {
+  mountedFaviconLinks.set(key, (mountedFaviconLinks.get(key) ?? 0) + 1);
+  return () => {
+    const left = (mountedFaviconLinks.get(key) ?? 1) - 1;
+    if (left > 0) {
+      mountedFaviconLinks.set(key, left);
+      return;
+    }
+    mountedFaviconLinks.delete(key);
+    const retry = busyFaviconRetries.get(key);
+    if (retry === undefined) return;
+    clearTimeout(retry);
+    busyFaviconRetries.delete(key);
+    pendingFavicons.delete(key);
+  };
+}
+
+function askForFavicon(source: LinkFavicons, origin: string, key: string) {
+  if (linkFavicons.has(key) || pendingFavicons.has(key)) return;
+  if (Date.now() - (failedFavicons.get(key) ?? -Infinity) < FAILED_FAVICON_RETRY_MS) return;
+  requestLinkFavicon(source, origin, key, 1);
+}
+
 /** The icon for a link once the API has one, and a way to drop an image that turns out unusable. */
 export function useLinkFavicon(href: string): { icon: string | null; unusable: () => void } {
   const source = useContext(LinkFaviconsContext);
   const paused = useContext(LinkFaviconsPausedContext);
   const origin = linkFaviconOrigin(href);
-  const key = JSON.stringify([source?.endpoint ?? "", origin]);
+  const key = faviconKey(source, origin ?? "");
   const snapshot = () => (origin ? (linkFavicons.get(key) ?? null) : null);
   const icon = useSyncExternalStore(subscribeLinkFavicons, snapshot, snapshot);
+  useEffect(() => (origin ? showFaviconLink(key) : undefined), [key, origin]);
   useEffect(() => {
-    if (!origin) return;
-    mountedFaviconLinks.set(key, (mountedFaviconLinks.get(key) ?? 0) + 1);
-    return () => {
-      const left = (mountedFaviconLinks.get(key) ?? 1) - 1;
-      if (left > 0) {
-        mountedFaviconLinks.set(key, left);
-        return;
-      }
-      mountedFaviconLinks.delete(key);
-      const retry = busyFaviconRetries.get(key);
-      if (retry === undefined) return;
-      clearTimeout(retry);
-      busyFaviconRetries.delete(key);
-      pendingFavicons.delete(key);
-    };
-  }, [key, origin]);
-  useEffect(() => {
-    if (!source || paused || !origin) return;
-    if (linkFavicons.has(key) || pendingFavicons.has(key)) return;
-    if (Date.now() - (failedFavicons.get(key) ?? -Infinity) < FAILED_FAVICON_RETRY_MS) return;
-    requestLinkFavicon(source, origin, key, 1);
+    if (source && !paused && origin) askForFavicon(source, origin, key);
   }, [source, paused, origin, key]);
   return {
     icon,
@@ -620,6 +714,44 @@ export function useLinkFavicon(href: string): { icon: string | null; unusable: (
       if (origin) setLinkFavicon(key, null);
     },
   };
+}
+
+/** The icons the API has for these links so far, by link. */
+export function useLinkFavicons(hrefs: readonly string[]): ReadonlyMap<string, string> {
+  const source = useContext(LinkFaviconsContext);
+  const paused = useContext(LinkFaviconsPausedContext);
+  const origins = [...new Set(hrefs.flatMap((href) => linkFaviconOrigin(href) ?? []))].sort();
+  const originList = JSON.stringify(origins);
+  // The joined icons are a string, so an unchanged answer keeps the same snapshot.
+  const snapshot = () =>
+    JSON.stringify(origins.map((origin) => linkFavicons.get(faviconKey(source, origin)) ?? null));
+  const icons = useSyncExternalStore(subscribeLinkFavicons, snapshot, snapshot);
+  useEffect(() => {
+    const shown: string[] = JSON.parse(originList);
+    const releases = shown.map((origin) => showFaviconLink(faviconKey(source, origin)));
+    return () => {
+      for (const release of releases) release();
+    };
+  }, [source, originList]);
+  useEffect(() => {
+    if (!source || paused) return;
+    for (const origin of JSON.parse(originList) as string[]) {
+      askForFavicon(source, origin, faviconKey(source, origin));
+    }
+  }, [source, paused, originList]);
+  return useMemo(() => {
+    const byOrigin = new Map<string, string>();
+    (JSON.parse(icons) as (string | null)[]).forEach((icon, index) => {
+      const origin = (JSON.parse(originList) as string[])[index];
+      if (icon && origin) byOrigin.set(origin, icon);
+    });
+    const byHref = new Map<string, string>();
+    for (const href of hrefs) {
+      const icon = byOrigin.get(linkFaviconOrigin(href) ?? "");
+      if (icon) byHref.set(href, icon);
+    }
+    return byHref;
+  }, [icons, originList, hrefs]);
 }
 
 export function closeUnterminatedFence(markdown: string): string {

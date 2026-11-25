@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -89,6 +89,7 @@ describe("catalog gaps", () => {
 
   it("writes every real translation back exactly as Lingui formats it", () => {
     for (const locale of readdirSync(LOCALES)) {
+      if (!statSync(join(LOCALES, locale)).isDirectory()) continue;
       const catalog = readFileSync(join(LOCALES, locale, "messages.po"), "utf8");
       const blanked = catalog
         .split("\n\n")

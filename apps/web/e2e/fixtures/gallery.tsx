@@ -1,62 +1,42 @@
 import { I18nProvider } from "@lingui/react";
-import type { MessageBlock, ThreadMessage } from "@rakazo/contracts";
-import { BOT_COLOR_LIST } from "@rakazo/contracts";
+import { BOT_COLOR_LIST, VISUAL_IMAGE_MIME_TYPE } from "@rakazo/contracts";
 import { instructionUpdateDiff } from "@rakazo/core";
-import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { Button } from "@rakazo/ui-web";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { bootstrapI18n, i18n } from "../../src/lib/i18n";
-import { queryClient } from "../../src/lib/query";
-import type { ResolvedAppearance } from "../../src/lib/ui-appearance";
-import { applyResolvedAppearance } from "../../src/lib/ui-appearance";
+import { bootstrapI18n, i18n } from "../../src/lib/locale/i18n";
+import type { ResolvedAppearance } from "../../src/lib/preferences/ui-appearance";
+import { applyResolvedAppearance } from "../../src/lib/preferences/ui-appearance";
+import { queryClient } from "../../src/lib/query/query";
 import "../../src/styles.css";
+import { IMAGE_SVG, SCREEN_SVG } from "./gallery-images";
+import type { Scenario } from "./gallery-messages";
+import { bot, maths, message, say, user } from "./gallery-messages";
+import { VISUAL_PHOTO, VISUAL_PHOTO_PLUS, VISUAL_SCENARIOS } from "./gallery-visuals";
 import { BOT, FixtureTranscript } from "./thread-fixture";
 
-// Every chat surface over fake data, so consistency can be checked without a backend.
-// State lives in the URL (?scenario=&theme=&width=&tools=) so any view can be linked.
-
+// Every chat surface over fake data; state lives in the URL (?scenario=&theme=&width=&tools=).
 const SCOUT = { botId: "bot-2", name: "Scout", color: botColor("green") };
 const LEDGER = { botId: "bot-3", name: "Ledger", color: botColor("red") };
+const INSTRUCTIONS_BEFORE = [
+  "Reply in English.",
+  "Sign off as the team, never by name.",
+  "Draft replies; ask before sending.",
+  "Flag invoices over 500.",
+  "Summarize long threads in bullets.",
+  "Skip newsletters.",
+  "Archive receipts after filing them.",
+  "Never share calendar details.",
+].join("\n");
+const INSTRUCTIONS_AFTER = INSTRUCTIONS_BEFORE.replace(
+  "Summarize long threads in bullets.",
+  "Keep summaries to one paragraph.",
+);
 
 function botColor(id: string) {
   return BOT_COLOR_LIST.find((color) => color.id === id)!.hex;
 }
-
-let seq = 0;
-function message(
-  role: ThreadMessage["role"],
-  blocks: MessageBlock[],
-  extra: Partial<ThreadMessage> = {},
-): ThreadMessage {
-  seq += 1;
-  return {
-    id: `message-${seq}`,
-    threadId: "thread-1",
-    seq,
-    role,
-    blocks,
-    ...(role === "bot" ? { botId: BOT.botId } : {}),
-    createdAt: new Date(Date.UTC(2026, 9, 26, 9, seq)).toISOString(),
-    ...extra,
-  };
-}
-const user = (text: string, extra?: Partial<ThreadMessage>) =>
-  message("user", [{ kind: "text", text }], extra);
-const bot = (blocks: MessageBlock[], extra?: Partial<ThreadMessage>) =>
-  message("bot", blocks, extra);
-const say = (text: string, extra?: Partial<ThreadMessage>) => bot([{ kind: "text", text }], extra);
-
-type Scenario = {
-  id: string;
-  label: string;
-  messages: ThreadMessage[];
-  running?: boolean;
-  bots?: GroupAvatarMember[];
-  /** Asks that render as no longer active instead of taking an answer. */
-  inactiveAsks?: string[];
-};
 
 const greeting = user("Can you get the Q3 report ready for Monday?");
 const reply = say(
@@ -190,6 +170,74 @@ const approvals: Scenario = {
   id: "approvals",
   label: "Approvals",
   messages: [
+    bot(
+      [
+        {
+          kind: "ask",
+          text: "Gmail",
+          approvalEffectId: "draft-effect",
+          status: "pending",
+          actions: [
+            { id: "allow", label: "Send" },
+            { id: "deny", label: "Discard" },
+          ],
+          outgoingDraft: {
+            source: "Gmail",
+            keys: { to: "recipient_email", subject: "subject", body: "body" },
+            values: {
+              kind: "email",
+              to: "sam@example.test",
+              subject: "Friday handoff",
+              body: "Hi Sam,\n\nThe report is ready for review. Could you take a look before Friday?\n\nThanks!",
+            },
+          },
+        },
+      ],
+      { runId: "draft-run" },
+    ),
+    // A tool's server asking mid-call; its text is the server's, so markdown stays literal.
+    bot([
+      {
+        kind: "tool_question",
+        question: {
+          source: "Tool gateway",
+          message: "Run **send_email** to sam@example.test?",
+          fields: [
+            { name: "approve", label: "Approve this call", required: true, type: "boolean" },
+            {
+              name: "reason",
+              label: "Reason",
+              description: "Shown in the audit log",
+              required: false,
+              type: "text",
+              maxLength: 200,
+            },
+            {
+              name: "scope",
+              label: "Scope",
+              required: true,
+              type: "choice",
+              options: [
+                { value: "once", label: "This call" },
+                { value: "session", label: "This session" },
+              ],
+            },
+          ],
+        },
+        status: "pending",
+        expiresAt: "2026-10-26T09:10:00.000Z",
+        publicKey: "gallery-key",
+      },
+    ]),
+    bot([
+      {
+        kind: "tool_question",
+        question: { source: "Tool gateway", message: "Delete the draft?", fields: [] },
+        status: "declined",
+        expiresAt: "2026-10-26T09:10:00.000Z",
+        publicKey: "gallery-key",
+      },
+    ]),
     bot([
       {
         kind: "ask",
@@ -262,14 +310,11 @@ const approvals: Scenario = {
         status: "pending",
         instructionUpdate: {
           botId: BOT.botId,
-          before: "Reply in English.",
-          after: "Reply in English. Keep summaries to one paragraph.",
+          before: INSTRUCTIONS_BEFORE,
+          after: INSTRUCTIONS_AFTER,
           reason: "You asked for shorter summaries.",
         },
-        detail: instructionUpdateDiff(
-          "Reply in English.",
-          "Reply in English. Keep summaries to one paragraph.",
-        ),
+        detail: instructionUpdateDiff(INSTRUCTIONS_BEFORE, INSTRUCTIONS_AFTER),
         detailFormat: "code",
         actions: [
           { id: "allow", label: "Apply" },
@@ -423,21 +468,19 @@ const working: Scenario = {
       {
         kind: "cloud_agent",
         agentId: "cloud-1",
-        review: "checking",
         title: "Fix flaky calendar test",
         status: "running",
         url: "https://example.test/agents/cloud-1",
         branch: "fix/calendar-test",
-        progress: "Checking the calendar export against the existing tests.",
       },
     ]),
+    say("The export landed. Its thread: t3code://threads/env-1/cloud-2"),
     bot([
       {
         kind: "cloud_agent",
         agentId: "cloud-2",
         title: "Add CSV export",
         status: "finished",
-        resultExcerpt: "Added CSV export and verified the downloaded file.",
         url: "https://example.test/agents/cloud-2",
         prUrl: "https://example.test/pull/42",
       },
@@ -505,6 +548,26 @@ const team: Scenario = {
     ]),
     bot([{ kind: "child_bot", botId: SCOUT.botId, name: SCOUT.name, status: "created" }]),
     bot([{ kind: "child_bot", botId: LEDGER.botId, name: LEDGER.name, status: "archived" }]),
+  ],
+};
+
+const routine = (
+  change: "created" | "updated" | "enabled" | "disabled" | "deleted",
+  name: string,
+) => message("system", [{ kind: "routine_event", change, name }]);
+const routines: Scenario = {
+  id: "routines",
+  label: "Routine changes",
+  messages: [
+    user("Remind me to stretch every morning."),
+    routine("created", "Morning stretch"),
+    say("Done. I'll remind you at 8:00 every day."),
+    routine("updated", "Morning stretch"),
+    routine("updated", "Morning stretch"),
+    routine("disabled", "Morning stretch"),
+    routine("enabled", "Morning stretch"),
+    say("Back on."),
+    routine("deleted", "Morning stretch"),
   ],
 };
 
@@ -674,6 +737,139 @@ const textStyles: Scenario = {
   ],
 };
 
+const embeds: Scenario = {
+  id: "embeds",
+  label: "Inline embeds",
+  messages: [
+    user("How did the quarter go?"),
+    bot(
+      [
+        {
+          kind: "visual",
+          title: "Quarter trend",
+          text: "Revenue rose each month, and September was the high.",
+          code: "export default () => null",
+        },
+      ],
+      { id: "visual-quarter", runId: "run-embeds" },
+    ),
+    bot(
+      [
+        {
+          kind: "image",
+          artifactId: "image-inline",
+          mimeType: "image/svg+xml",
+          name: "quarter.png",
+        },
+      ],
+      { id: "image-quarter", runId: "run-embeds" },
+    ),
+    say(
+      [
+        "Revenue climbed through the quarter.",
+        "",
+        "![Quarter trend](visual:visual-quarter)",
+        "",
+        "September is the high month.",
+        "",
+        "![Quarter](image:image-inline)",
+        "",
+        "The picture is the same rise.",
+      ].join("\n"),
+      { runId: "run-embeds" },
+    ),
+  ],
+};
+
+const MARS_DAY = "https://science.nasa.gov/mars/facts/";
+const MARS_YEAR = "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express";
+const MARS_RETURN = "https://www.space.com/mars-sample-return-plan";
+// The shapes of a live research answer: a "Site, date" run joined by "·" after the sentence, a
+// dated source in parentheses, and a saved web image that keeps the page it came from.
+const research: Scenario = {
+  id: "research",
+  label: "Research answer",
+  messages: [
+    user("How long is a day on Mars, and when do the samples come back?"),
+    bot(
+      [
+        {
+          kind: "image",
+          artifactId: "image-mars",
+          mimeType: "image/svg+xml",
+          name: "Jezero crater",
+          source: { url: MARS_DAY, site: "nasa" },
+        },
+      ],
+      { id: "image-mars", runId: "run-research" },
+    ),
+    bot(
+      [
+        {
+          kind: "text",
+          text: [
+            `A day on Mars lasts about 24 hours and 37 minutes [NASA](${MARS_DAY}). A year there is 687 Earth days. [NASA, 16 November](${MARS_DAY}) · [ESA](${MARS_YEAR})`,
+            "",
+            "![Jezero crater](image:image-mars)",
+            "",
+            `The sample return was cut back ([Space.com, 11 November 2026](${MARS_RETURN})).`,
+          ].join("\n"),
+        },
+        {
+          kind: "sources",
+          items: [
+            { url: MARS_DAY, title: "Mars Facts", site: "nasa" },
+            { url: MARS_YEAR, title: "Mars Express", site: "esa" },
+            { url: MARS_RETURN, title: "Mars sample return plan", site: "space" },
+          ],
+        },
+      ],
+      { runId: "run-research" },
+    ),
+  ],
+};
+
+const mediaRows: Scenario = {
+  id: "media-rows",
+  label: "Media rows",
+  messages: [
+    user("What's new, and is there a coat worth buying?"),
+    ...(
+      [
+        ["image-harbor", "harbor.png"],
+        ["image-market", "market.png"],
+        ["image-river", "river.png"],
+        ["image-coat", "coat.png"],
+      ] as const
+    ).map(([artifactId, name]) =>
+      bot([{ kind: "image", artifactId, mimeType: "image/svg+xml", name }], {
+        id: artifactId,
+        runId: "run-media",
+      }),
+    ),
+    say(
+      [
+        "- ![Harbor ferry](image:image-harbor) **Harbor ferry**",
+        "",
+        "  The evening boat is running again after the lock repair.",
+        "",
+        "- ![Market hall](image:image-market) **Market hall**",
+        "",
+        "  Saturday stalls open at eight, with the fish counter first.",
+        "",
+        "- ![River path](image:image-river) **River path**",
+        "",
+        "  The towpath is open from the bridge to the old mill.",
+        "",
+        "- ![Wool coat](image:image-coat) **Wool coat**",
+        "",
+        "  A heavy navy coat, lined, in the shop window. $128",
+      ].join("\n"),
+      { runId: "run-media" },
+    ),
+  ],
+};
+
 const SCENARIOS: Scenario[] = [
   conversation,
   textStyles,
@@ -682,19 +878,29 @@ const SCENARIOS: Scenario[] = [
   secrets,
   working,
   team,
+  routines,
   rich,
+  embeds,
+  mediaRows,
   calls,
+  research,
+  maths,
+  ...VISUAL_SCENARIOS,
 ];
-
-const IMAGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="480" height="320" fill="#d4d4d4"/><circle cx="160" cy="150" r="70" fill="#a3a3a3"/><rect x="250" y="90" width="150" height="120" rx="12" fill="#737373"/></svg>`;
-
-/** A browser on a sign-in page, as a computer card's still of the screen. */
-const SCREEN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" font-family="Helvetica,Arial,sans-serif"><rect width="1280" height="800" fill="#f5f5f7"/><rect width="1280" height="40" fill="#dfe1e5"/><rect x="12" y="8" width="240" height="32" rx="8" fill="#fff"/><text x="28" y="29" font-size="14" fill="#333">Sign in - Harbor Bookings</text><rect y="40" width="1280" height="48" fill="#fff"/><rect x="96" y="50" width="1088" height="28" rx="14" fill="#f1f3f4"/><text x="116" y="69" font-size="14" fill="#444">bookings.example.test/login</text><rect x="450" y="210" width="380" height="380" rx="16" fill="#fff" stroke="#e3e3e8"/><text x="482" y="262" font-size="26" font-weight="700" fill="#111">Welcome back</text><text x="482" y="290" font-size="15" fill="#666">Sign in to manage your reservations.</text><text x="482" y="334" font-size="13" fill="#444">Email</text><rect x="482" y="344" width="316" height="40" rx="8" fill="#fff" stroke="#ccc"/><text x="482" y="414" font-size="13" fill="#444">Password</text><rect x="482" y="424" width="316" height="40" rx="8" fill="#fff" stroke="#ccc"/><rect x="482" y="500" width="316" height="44" rx="8" fill="#2457f5"/><text x="640" y="528" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">Sign in</text><rect y="764" width="1280" height="36" fill="#1f2023"/><text x="1250" y="787" font-size="13" fill="#ccc" text-anchor="end">4:19 PM</text></svg>`;
 
 // The page has no API; answer the few reads cards make on mount with fake data.
 const realFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+  if (url.pathname === "/rpc/artifacts/getById" && input instanceof Request) {
+    const body = await input.clone().json();
+    const photo = [VISUAL_PHOTO, VISUAL_PHOTO_PLUS].find(({ id }) => id === body.json?.artifactId);
+    if (photo) {
+      return Response.json({
+        json: { contentBase64: photo.contentBase64, mimeType: VISUAL_IMAGE_MIME_TYPE },
+      });
+    }
+  }
   if (url.pathname === "/rpc/artifacts/get")
     return Response.json({
       json: { contentBase64: btoa(IMAGE_SVG), mimeType: "image/svg+xml" },

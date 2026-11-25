@@ -1,6 +1,7 @@
 import type { ColorTokens } from "@rakazo/ui-tokens";
 import { fontWeight, typeScale } from "@rakazo/ui-tokens";
 import { Platform, StyleSheet } from "react-native";
+import { MEDIA_ROW_NATIVE_PT } from "../media-row";
 
 const BLOCK_GAP = 8;
 const BODY_FONT_SIZE = typeScale.body.fontSize;
@@ -12,6 +13,7 @@ export const MARKER_COLUMN = 18;
 const TASK_BOX_SIZE = 14;
 const MARKER_GAP = 8;
 const LINK_TILE_SIZE = 18;
+const CITE_PILL_HEIGHT = 20;
 const minorHeading = {
   ...typeScale.secondary,
   fontWeight: fontWeight.semibold,
@@ -25,7 +27,6 @@ const codeText = {
   lineHeight: undefined,
 };
 
-// The library pads code blocks by 10 already.
 const codeBox = {
   borderWidth: 0,
   borderRadius: 10,
@@ -100,13 +101,20 @@ export function markdownStyles(palette: ColorTokens) {
     fence: {
       backgroundColor: palette.secondary,
       borderColor: palette.border,
+      overflow: "hidden",
       ...codeBox,
     },
     fence_code: {
       backgroundColor: "transparent",
+      padding: 10,
     },
     fence_header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
       backgroundColor: "transparent",
+      borderBottomWidth: 1,
       borderBottomColor: palette.border,
     },
     fence_token: codeText,
@@ -116,6 +124,7 @@ export function markdownStyles(palette: ColorTokens) {
       ...typeScale.body,
     },
     fence_language_label: {
+      fontSize: 11,
       color: palette.foreground,
       fontFamily: MONO_FONT,
     },
@@ -130,21 +139,21 @@ export function markdownStyles(palette: ColorTokens) {
       color: palette.faintForeground,
     },
     table: {
-      borderColor: palette.input,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 0,
+      borderRadius: 0,
     },
     tr: {
       borderColor: palette.input,
       borderBottomWidth: StyleSheet.hairlineWidth,
     },
     th: {
-      ...typeScale.caption,
+      ...typeScale.body,
       color: palette.foreground,
-      fontWeight: fontWeight.medium,
+      fontWeight: fontWeight.semibold,
     },
     td: {
-      ...typeScale.caption,
-      color: palette.mutedForeground,
+      ...typeScale.body,
+      color: palette.foreground,
     },
     bullet_list: {
       gap: BLOCK_GAP,
@@ -162,6 +171,9 @@ export function markdownStyles(palette: ColorTokens) {
     hr: {
       backgroundColor: palette.border,
       height: StyleSheet.hairlineWidth,
+    },
+    image: {
+      flex: 1,
     },
     // Custom keys. An image label outside a text node inherits no color, so it carries the body color.
     plain_text: {
@@ -211,6 +223,45 @@ export function markdownStyles(palette: ColorTokens) {
       textDecorationLine: "underline",
       textDecorationColor: palette.input,
     },
+    cite: {
+      backgroundColor: palette.muted,
+    },
+    cite_label: {
+      ...typeScale.footnote,
+      color: palette.foreground,
+      fontWeight: fontWeight.medium,
+      flexShrink: 1,
+    },
+    // The inline view's bottom sits on the baseline, which would lift the mark by the font's descent.
+    cite_punct: {
+      ...typeScale.body,
+      color: palette.foreground,
+      transform: [{ translateY: Math.round(BODY_FONT_SIZE * 0.25) }],
+    },
+    sources_row: {
+      color: palette.mutedForeground,
+      textDecorationLine: "none",
+    },
+    sources_pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 6,
+      marginTop: 8,
+      paddingLeft: 3,
+      paddingRight: 10,
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: palette.muted,
+    },
+    sources_mark: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      borderColor: palette.background,
+      overflow: "hidden",
+    },
     // A page named in a message keeps the text's colour; only a faint underline marks it.
     page_chip_title: {
       textDecorationLine: "underline",
@@ -227,8 +278,36 @@ export function markdownStyles(palette: ColorTokens) {
       alignItems: "flex-start",
       gap: 4,
     },
+    // A news or product row. The thumbnail crops; the copy takes the rest of the line.
+    media_row: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      width: "100%",
+    },
+    media_thumb: {
+      width: MEDIA_ROW_NATIVE_PT,
+      height: MEDIA_ROW_NATIVE_PT,
+      borderRadius: 12,
+      overflow: "hidden",
+      backgroundColor: palette.muted,
+    },
+    media_copy: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4,
+    },
+    media_divider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: palette.border,
+      marginTop: 12,
+      paddingTop: 12,
+    },
   });
 }
+
+/** The app's own styles for what Markdown draws with React Native views: code, diagrams and images. */
+export type FenceStyles = ReturnType<typeof markdownStyles>;
 
 export const layout = StyleSheet.create({
   wrap: {
@@ -335,5 +414,39 @@ export const layout = StyleSheet.create({
   linkIcon: {
     width: "100%",
     height: "100%",
+  },
+  // The capsule and the punctuation after it share one inline view, so the mark hugs the pill.
+  citeRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  // A citation: a capsule a little shorter than the line, lowered onto the text like a favicon.
+  citePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: 160,
+    height: CITE_PILL_HEIGHT,
+    paddingLeft: 3,
+    paddingRight: 8,
+    borderRadius: CITE_PILL_HEIGHT / 2,
+    transform: [{ translateY: (CITE_PILL_HEIGHT - BODY_FONT_SIZE * 0.7) / 2 }],
+  },
+  citeTile: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  sourcesMarks: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sourcesMarkOverlap: {
+    marginStart: -5,
+  },
+  sourcesTile: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
 });

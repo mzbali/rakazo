@@ -1,31 +1,61 @@
 import { useLingui } from "@lingui/react/macro";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
-import { visualFit } from "@rakazo/core";
+import { MAX_INLINE_VISUAL_HEIGHT, VISUAL_PREVIEW_HEIGHT, visualFit } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { Maximize2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLiveNearView } from "../../lib/live-previews";
-import { usePageDocument } from "../../lib/pages";
+import { usePageDocument } from "../../lib/pages/pages";
 import { PageFrame } from "../pages/PageFrame";
 
 type VisualBlock = Extract<MessageBlock, { kind: "visual" }>;
 
 /** The tallest a visual works in the chat; taller ones show their top and open whole. */
-const MAX_INLINE_HEIGHT = 640;
+const MAX_INLINE_HEIGHT = MAX_INLINE_VISUAL_HEIGHT;
 /** The space a visual holds before it reports its height, so the chat does not jump much. */
 const PLACEHOLDER_HEIGHT = 160;
 
 /**
- * A visual the bot drew in the chat. One that fits works in place, under the same rules as an
- * opened page, and opens whole only from its Expand button. A taller one draws its top inert and
- * opens whole on a click, where its controls work.
+ * The visual whole, as its own document so it scrolls with a scrollbar. Rendered only while the
+ * dialog is open, so a closed card runs one document hook.
+ */
+function OpenedVisual({
+  code,
+  title,
+  dialog,
+  images,
+}: {
+  code: string;
+  title: string;
+  dialog: HTMLDialogElement | null;
+  images?: ReadonlyArray<{ id: string }>;
+}) {
+  const viewer = usePageDocument(code, "background", false, 0, { inline: "full" });
+  if (viewer.document === null) return null;
+  return (
+    <div className="absolute inset-x-0" style={{ top: 56, bottom: 0 }}>
+      <PageFrame
+        portalContainer={dialog}
+        document={viewer.document}
+        title={title}
+        interactive
+        images={images}
+      />
+    </div>
+  );
+}
+
+/**
+ * A visual the bot drew in the chat. One that fits works in place at its own height, under the
+ * same rules as an opened page, with no full-screen control. A taller one draws its top inert
+ * and opens whole from its full-screen button, where its controls work.
  */
 export function VisualCard({ block }: { block: VisualBlock }) {
   const { t } = useLingui();
   const box = useRef<HTMLDivElement>(null);
   const live = useLiveNearView(box);
-  const viewer = usePageDocument(block.code, "card", false, 0, "card");
+  const viewer = usePageDocument(block.code, "background", false, 0, { inline: "card" });
   const [open, setOpen] = useState(false);
   // State rather than a ref: the link prompt portals into it, since a modal dialog makes the rest
   // of the page inert.
@@ -49,14 +79,17 @@ export function VisualCard({ block }: { block: VisualBlock }) {
   useEffect(() => {
     if (!live) setDrawn(false);
   }, [live]);
-  const shown = Math.min(height ?? PLACEHOLDER_HEIGHT, MAX_INLINE_HEIGHT);
+  const shown = Math.min(
+    height ?? PLACEHOLDER_HEIGHT,
+    fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
+  );
   const inline = fit === "inline";
   // An inline visual that grew past the card scrolls in its frame instead of fading out.
-  const clipped = !inline && height !== null && height > MAX_INLINE_HEIGHT;
+  const clipped = !inline && height !== null && height > shown;
   return (
     <div
       data-testid="visual-card"
-      className="relative w-full max-w-[561px] overflow-hidden rounded-[24px] bg-card ring-[0.5px] ring-border has-focus-visible:ring-2 has-focus-visible:ring-ring"
+      className="relative w-full overflow-hidden rounded-[24px] has-focus-visible:ring-2 has-focus-visible:ring-ring"
     >
       <div
         ref={box}
@@ -72,7 +105,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           onCancel={() => setOpen(false)}
           className={
             open
-              ? "fixed inset-0 m-auto h-[88dvh] max-h-none w-[94vw] max-w-[960px] overflow-hidden rounded-2xl border-0 bg-card p-0 text-foreground backdrop:bg-overlay"
+              ? "fixed inset-0 m-auto h-[88dvh] max-h-none w-[94vw] max-w-[960px] overflow-hidden rounded-2xl border-0 bg-background p-0 text-foreground backdrop:bg-overlay"
               : "relative m-0 block h-full w-full max-w-none border-0 bg-transparent p-0 text-foreground"
           }
         >
@@ -89,21 +122,31 @@ export function VisualCard({ block }: { block: VisualBlock }) {
               </Button>
             </header>
           ) : null}
-          {(live || open) && viewer.document !== null ? (
+          {live && viewer.document !== null ? (
             // Never taller than the card shows: the reported height is the content's, not the frame's.
+            // Kept mounted but hidden while the visual is open, so the chat copy does not reload.
             <div
-              inert={!inline && !open}
-              className="absolute inset-x-0"
-              style={open ? { top: 56, bottom: 0 } : { top: 0, height: shown }}
+              inert={!inline}
+              className={open ? "hidden" : "absolute inset-x-0"}
+              style={{ top: 0, height: shown }}
             >
               <PageFrame
                 portalContainer={dialog}
                 document={viewer.document}
                 title={block.title}
-                interactive={inline || open}
+                interactive={inline}
                 onHeight={onHeight}
+                images={block.images}
               />
             </div>
+          ) : null}
+          {open ? (
+            <OpenedVisual
+              code={block.code}
+              title={block.title}
+              dialog={dialog}
+              images={block.images}
+            />
           ) : null}
         </dialog>
         {drawn ? null : (
@@ -114,13 +157,13 @@ export function VisualCard({ block }: { block: VisualBlock }) {
           </div>
         )}
         {clipped && !open ? (
-          <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-card" />
+          <div className="absolute inset-x-0 bottom-0 h-[80px] bg-linear-to-b from-transparent to-background" />
         ) : null}
       </div>
       <span id={summaryId} hidden>
         {block.text}
       </span>
-      {inline ? (
+      {fit === "preview" && !open ? (
         <Button
           variant="secondary"
           size="icon-sm"
@@ -131,15 +174,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         >
           <Maximize2 />
         </Button>
-      ) : (
-        <button
-          type="button"
-          aria-label={t`Open ${block.title}`}
-          aria-describedby={summaryId}
-          onClick={() => setOpen(true)}
-          className="absolute inset-0 rounded-[24px] outline-none"
-        />
-      )}
+      ) : null}
     </div>
   );
 }

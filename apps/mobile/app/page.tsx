@@ -4,18 +4,26 @@ import type { PageDetail } from "@rakazo/contracts";
 import { pageCopyRequest, pageCopyResult, pageLinkRequest, pageReplyText } from "@rakazo/core";
 import { webTokensForAppearance } from "@rakazo/ui-tokens";
 import * as Clipboard from "expo-clipboard";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { NativeActionButton } from "../components/native-action-button";
-import { PageLoadFailure } from "../components/pages/page-load-failure";
-import { SandboxedHtmlPreview } from "../components/sandboxed-html-preview";
-import { currentApiBase } from "../lib/api";
-import { useMobileTokens, useResolvedAppearance } from "../lib/native";
-import { HEADER_CONTROL_SIZE } from "../lib/native-controls";
+import { SandboxedHtmlPreview } from "../components/media/sandboxed-html-preview";
+import { NativeActionButton } from "../components/native/native-action-button";
+import { currentApiBase } from "../lib/api/api";
+import { useMobileTokens, useResolvedAppearance } from "../lib/native/native";
+import { HEADER_CONTROL_SIZE } from "../lib/native/native-controls";
 import { usePageTapGate } from "../lib/page-tap-gate";
-import { getLatestPage, offerPageReply, pageChat, pageDocument, pageMessage } from "../lib/pages";
+import { PageLoadFailure } from "../lib/pages/page-load-failure";
+import {
+  getLatestPage,
+  offerPageReply,
+  pageActionAllowed,
+  pageChat,
+  pageDocument,
+  pageMessage,
+  pageTapStart,
+} from "../lib/pages/pages";
 
 type Loaded =
   | { status: "loading" }
@@ -35,6 +43,14 @@ export default function PageScreen() {
   const pageBackground = webTokensForAppearance(theme).background;
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusedOnce.current) setAttempt((count) => count + 1);
+      focusedOnce.current = true;
+    }, []),
+  );
+
   const gate = usePageTapGate();
   // iOS keeps the native glass button as it is; Android's bordered button becomes a card circle.
   const round =
@@ -136,13 +152,22 @@ export default function PageScreen() {
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
         />
         {loaded.status === "ready" ? (
-          <NativeActionButton
-            accessibilityLabel={t`Share`}
-            icon={{ ios: "square.and.arrow.up", android: "share-outline", size: 20 }}
-            prominence="secondary"
-            style={round}
-            onPress={() => router.push({ pathname: "/page-share", params: { pageId } })}
-          />
+          <View style={styles.actions}>
+            <NativeActionButton
+              accessibilityLabel={t`Review page`}
+              icon={{ ios: "bubble", android: "chatbubble-outline", size: 20 }}
+              prominence="secondary"
+              style={round}
+              onPress={() => router.push({ pathname: "/page-review", params: { pageId } })}
+            />
+            <NativeActionButton
+              accessibilityLabel={t`Share`}
+              icon={{ ios: "square.and.arrow.up", android: "share-outline", size: 20 }}
+              prominence="secondary"
+              style={round}
+              onPress={() => router.push({ pathname: "/page-share", params: { pageId } })}
+            />
+          </View>
         ) : null}
       </View>
     </View>
@@ -159,6 +184,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  actions: { flexDirection: "row", gap: 8 },
   round: {
     width: HEADER_CONTROL_SIZE,
     minHeight: HEADER_CONTROL_SIZE,

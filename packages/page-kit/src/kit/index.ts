@@ -7,8 +7,11 @@ import * as controls from "./controls.js";
 import * as data from "./data.js";
 import * as dataviz from "./dataviz.js";
 import * as diagram from "./diagram.js";
+import * as interact from "./interact.js";
 import * as layout from "./layout.js";
 import * as media from "./media.js";
+import * as practice from "./practice.js";
+import * as products from "./products.js";
 import * as text from "./text.js";
 import * as theme from "./theme.js";
 
@@ -19,8 +22,11 @@ const modules = {
   ...data,
   ...dataviz,
   ...diagram,
+  ...interact,
   ...layout,
   ...media,
+  ...practice,
+  ...products,
   ...text,
   ...theme,
 };
@@ -42,6 +48,8 @@ for (const name of [
   "Bars",
   "Pie",
   "Diagram",
+  "Timeline",
+  "Stages",
   "Grid",
   "ProsCons",
   "Columns",
@@ -51,7 +59,13 @@ for (const name of [
   "Heatmap",
   "CalendarHeatmap",
   "Venn",
+  "Rings",
   "Matrix2x2",
 ] as const) {
   layout.FIGURES.add(kit[name]);
+}
+
+// A section of only these, with its caption, is one card like a figure section.
+for (const name of ["Slider", "Result"] as const) {
+  layout.CONTROLS.add(kit[name]);
 }

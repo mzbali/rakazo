@@ -4,23 +4,20 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_CSS, DayView, MonthView, parseDay, WeekView } from "./calendar.js";
+import { HostBridgeContext } from "./host-bridge.js";
+import { Audio, aspectRatio, Gallery, Image, MEDIA_CSS, Video } from "./media.js";
 import {
-  Audio,
   Avatar,
   AvatarStack,
-  aspectRatio,
   CardCarousel,
   CardGrid,
-  Gallery,
-  Image,
   initials,
   PhotoStrip,
   ProductCard,
   ProductRows,
   RatingSummary,
-  Video,
   WatchCard,
-} from "./media.js";
+} from "./products.js";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -54,6 +51,32 @@ const all = (selector: string) => [...host.querySelectorAll<HTMLElement>(selecto
 const click = (element: Element | null) => act(() => (element as HTMLElement).click());
 
 describe("media", () => {
+  it("marks responsive stored photos for the comparison grid and keeps their captions", () => {
+    render(
+      <>
+        <Image src="rakazo-image:first" caption="Blend Mini" />
+        <Image src="rakazo-image:second" width={96} />
+        <Image src={PNG} />
+      </>,
+    );
+    expect(all("figure[data-stored-photo]")).toHaveLength(1);
+    expect(q("figure[data-stored-photo] figcaption")?.textContent).toBe("Blend Mini");
+    expect(all("figure")[1]?.style.maxWidth).toBe("96px");
+    const full = MEDIA_CSS.match(
+      /\[data-inline\] \.rk-grid:has\(>\.rk-figure\[data-stored-photo\]:only-child\)\{[^}]*\}/,
+    )?.[0];
+    expect(full).toContain("grid-template-columns:minmax(0,1fr)");
+    const cell = MEDIA_CSS.match(
+      /\[data-inline\] \.rk-grid>\.rk-figure\[data-stored-photo\] \.rk-picture\{[^}]*\}/,
+    )?.[0];
+    expect(cell).toContain("aspect-ratio:3/2");
+    expect(cell).toContain("width:100%");
+    expect(MEDIA_CSS).toContain(
+      '[data-inline] .rk-grid>.rk-figure[data-stored-photo] .rk-picture img:not([data-fit="cover"]){object-fit:contain}',
+    );
+    expect(MEDIA_CSS).not.toContain("width:96px");
+  });
+
   it("shows only embedded pictures and sound, never a network address", () => {
     render(
       <>
@@ -68,13 +91,14 @@ describe("media", () => {
     expect(host.querySelector("img, video, audio, figure")).toBeNull();
     render(
       <>
-        <Image src={PNG} alt="Harbour" caption="At dusk" ratio="16/9" />
+        <Image src={PNG} alt="Harbour" caption="At dusk" ratio="16/9" fit="cover" />
         <Video src={WEBM} alt="Clip" />
         <Audio src={WAV} alt="Tone" caption="One second" />
         <Video src="blob:null/1234" alt="Made here" />
       </>,
     );
     expect(q<HTMLImageElement>("img")!.alt).toBe("Harbour");
+    expect(q<HTMLImageElement>("img")!.dataset.fit).toBe("cover");
     expect(q("figcaption")!.textContent).toBe("At dusk");
     expect(all("video").map((video) => video.getAttribute("aria-label"))).toEqual([
       "Clip",
@@ -118,6 +142,103 @@ describe("media", () => {
     });
     expect(q('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("draws a picture the host resolves by id, and a missing one stays blank", async () => {
+    const asked: string[] = [];
+    const bridge = {
+      openLink: () => {},
+      copy: () => Promise.resolve(false),
+      image: (id: string) => {
+        asked.push(id);
+        return Promise.resolve(id === "art-1" ? PNG : null);
+      },
+    };
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <HostBridgeContext.Provider value={bridge}>
+          <ProductCard title="Aeroblend" image="rakazo-image:art-1" price="$49" />
+          <Image src="rakazo-image:missing" alt="Gone" />
+          <Image src="https://example.com/a.png" alt="remote" />
+        </HostBridgeContext.Provider>,
+      );
+    });
+    // Only the ids the visual carried were asked; a network address still never renders.
+    expect(asked).toEqual(["art-1", "missing"]);
+    const images = all("img");
+    expect(images).toHaveLength(1);
+    expect(images[0]!.getAttribute("src")).toBe(PNG);
+    expect(images[0]!.getAttribute("alt")).toBe("Aeroblend");
+    act(() => root.unmount());
+  });
+
+  it("asks its parent frame for an id and accepts only a data URI back", async () => {
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <>
+          <Image src="RaKaZo-ImAgE:Art-7" alt="Blender" />
+          <Image src="rakazo-image:art-8" alt="Poisoned" />
+        </>,
+      );
+    });
+    expect(posted).toEqual([
+      { type: "rakazo-page:image", id: "Art-7" },
+      { type: "rakazo-page:image", id: "art-8" },
+    ]);
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            type: "rakazo-page:image-data",
+            id: "art-8",
+            src: "https://evil.example/pixel.png",
+          },
+        }),
+      );
+    });
+    // An answer that is not an embedded picture draws nothing.
+    expect(q("img")).toBeNull();
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "rakazo-page:image-data", id: "Art-7", src: PNG },
+        }),
+      );
+    });
+    const drawn = all("img");
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]!.getAttribute("src")).toBe(PNG);
+    expect(drawn[0]!.getAttribute("alt")).toBe("Blender");
+    act(() => root.unmount());
+  });
+
+  it("shows an embedded picture without asking the host, and a video poster an id resolves", async () => {
+    const asked: string[] = [];
+    const bridge = {
+      openLink: () => {},
+      copy: () => Promise.resolve(false),
+      image: (id: string) => {
+        asked.push(id);
+        return Promise.resolve(id === "still-1" ? PNG : null);
+      },
+    };
+    const root = createRoot(host.appendChild(document.createElement("div")));
+    await act(async () => {
+      root.render(
+        <HostBridgeContext.Provider value={bridge}>
+          <Image src={PNG} alt="Embedded" />
+          <Video src="https://example.com/a.webm" poster="rakazo-image:still-1" alt="Clip" />
+        </HostBridgeContext.Provider>,
+      );
+    });
+    expect(asked).toEqual(["still-1"]);
+    const frame = q('[role="img"]')!;
+    expect(frame.getAttribute("aria-label")).toBe("Clip");
+    await act(async () => {});
+    expect(q('[role="img"] img')!.getAttribute("src")).toBe(PNG);
+    act(() => root.unmount());
   });
 
   it("keeps a gallery to eight photos and moves its marker with the dots and arrow keys", () => {
@@ -238,7 +359,7 @@ describe("cards and people", () => {
     render(<ProductCard {...item} />);
     expect(q(".rk-card-title")!.textContent).toBe("Linen shirt");
     expect(q(".rk-badge")!.textContent).toBe("New");
-    expect(q(".rk-card-price")!.textContent).toBe("$48 · Free returns");
+    expect(q(".rk-card-price")!.textContent).toBe("$48 Free returns");
     expect(q(".rk-store")!.getAttribute("aria-label")).toBe(
       "Northwind, rated 4.6 out of 5 from 1,214 ratings",
     );

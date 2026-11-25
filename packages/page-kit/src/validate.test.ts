@@ -1,8 +1,9 @@
 import { PAGE_SOURCE_MAX_BYTES } from "@rakazo/contracts";
+import { MAX_INLINE_VISUAL_HEIGHT } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { pageViewerCode } from "./compile.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "./components.js";
-import { checkPageSource, PAGE_KIT_GUIDE } from "./validate.js";
+import { checkPageSource, PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./validate.js";
 
 const page = (body: string) => `${body}\nexport default App;\n`;
 
@@ -13,6 +14,32 @@ describe("checkPageSource", () => {
     );
     // It also carries the viewer code, compiled once here for the save to keep.
     expect(checkPageSource(example)).toEqual({ ok: true, code: pageViewerCode(example) });
+  });
+
+  it("teaches a chat visual to explain in place, and a page to nest sets", () => {
+    expect(VISUAL_GUIDE).toMatch(/^# Visuals/);
+    expect(VISUAL_GUIDE).toContain("works in place");
+    expect(VISUAL_GUIDE).not.toContain("opens it full size");
+    expect(VISUAL_GUIDE).toContain('No "drag me"');
+    expect(VISUAL_GUIDE).toContain("<Venn nested");
+    expect(VISUAL_GUIDE).toContain("lead with the pick");
+    expect(VISUAL_GUIDE).toContain("prefilled with the figures");
+    expect(VISUAL_GUIDE).toContain("A one-line question gets one line");
+    expect(VISUAL_GUIDE).toContain("at most one Callout");
+    expect(VISUAL_GUIDE).toContain(`about ${MAX_INLINE_VISUAL_HEIGHT} pixels`);
+    expect(VISUAL_GUIDE).toContain(
+      '<Image src="rakazo-image:1" alt="Description" caption="Name" />',
+    );
+    expect(VISUAL_GUIDE).toContain("Put a Grid with one or two Images in a Section");
+    expect(VISUAL_GUIDE).toContain("omit fixed sizes");
+    expect(VISUAL_GUIDE).toContain("Put the comparison Table directly in a Section");
+    expect(VISUAL_GUIDE).not.toContain("<Picture");
+    expect(PAGE_KIT_GUIDE).not.toMatch(/Bars \{[^}]*emphasis/);
+    expect(PAGE_KIT_GUIDE).not.toMatch(/Columns \{[^}]*emphasis/);
+    expect(PAGE_KIT_GUIDE).toContain("Quiz {questions:");
+    expect(PAGE_KIT_GUIDE).toContain("Flashcards {cards:");
+    expect(PAGE_KIT_GUIDE).toContain("nested?");
+    expect(PAGE_KIT_GUIDE).toContain("one set inside another a nested Venn");
   });
 
   it("documents every component and helper the kit gives a page", () => {
@@ -53,6 +80,10 @@ describe("checkPageSource", () => {
     [
       "SVG and HTML elements with inline styles and handler functions",
       "const App = () => <Page title='t'><div style={{ display: 'grid' }} onClick={() => {}}><svg viewBox='0 0 10 10'><defs><linearGradient id='g'><stop offset='0' /></linearGradient></defs><path d='M0 0h10' /><circle r='2'><animate attributeName='r' /></circle><text>x</text></svg><img src='data:image/png;base64,AA==' alt='' /></div></Page>;",
+    ],
+    [
+      "a caption under a picture",
+      "const App = () => <Section title='P inside NP'><Venn nested sets={[{label: 'NP'}, {label: 'P'}]} /><Caption>P is inside NP.</Caption></Section>;",
     ],
     [
       "the structure, text and math components and the theme hook",
@@ -114,6 +145,11 @@ describe("checkPageSource", () => {
       "an unknown component",
       "function App() {\n  return <Page title='t'>\n    <Card />\n  </Page>;\n}",
       "line 3: <Card> is not a kit component",
+    ],
+    [
+      "a Picture tag where a stored photo belongs",
+      "const App = () => <Picture src='rakazo-image:1' />;",
+      'line 1: <Picture> is not a kit component. Use <Image src="rakazo-image:1" /> for a show_visual photo.',
     ],
     [
       "an unknown member component",

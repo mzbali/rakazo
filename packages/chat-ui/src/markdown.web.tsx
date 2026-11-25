@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent, ReactNode, RefObject } from "react";
+import type { CSSProperties, MouseEvent, ReactElement, ReactNode, RefObject } from "react";
 import {
   Component,
   createContext,
@@ -19,7 +19,12 @@ import { unified } from "unified";
 import type { HastNode } from "./table-utils";
 import "./markdown.web.css";
 import "./markdown-table.css";
-import { droppedTableHtmlText } from "@rakazo/contracts";
+import { droppedTableHtmlText, linkLabel } from "@rakazo/contracts";
+import {
+  citationGroupIndex,
+  preparedCitationMarkdown,
+  showSourcesRow,
+} from "@rakazo/core/answer-sources";
 import { cssVariableName, pageIconBars } from "@rakazo/ui-tokens";
 import {
   AlertDialog,
@@ -33,18 +38,23 @@ import {
   CopyTextFallback,
   useCopyText,
 } from "@rakazo/ui-web";
-import { CheckIcon, CopyIcon, GlobeIcon, ImageIcon } from "./icons";
+import { CheckIcon, CopyIcon, ImageIcon } from "./icons";
 import type { ChatMarkdownProps } from "./markdown";
 import {
+  appLinkMatches,
+  bareAppLinkName,
+  CitationGroupsContext,
   closeUnterminatedFence,
   inlineMarkdownImageSrc,
   isProseFence,
   LinkFaviconsPausedContext,
   linkFaviconOrigin,
-  linkLabel,
+  MarkdownEmbedContext,
+  markdownEmbed,
   markdownLinkDisplayParts,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
+  markdownMentionAdded,
   markdownMentionId,
   markdownPageId,
   markRemoteImageLoaded,
@@ -53,14 +63,29 @@ import {
   remoteImageRenders,
   remoteMarkdownImage,
   sanitizeMarkdownUrl,
-  useLinkFavicon,
+  VisualsContext,
 } from "./markdown";
+import { CitationPill, LinkFavicon, SourcesRow } from "./markdown-citations.web";
 import { useMarkdownCopy } from "./markdown-copy";
 import { useMarkdownLinkCopy, useMarkdownLinkTrust } from "./markdown-link-prompt";
+import type { HastLike } from "./markdown-media-row.web";
+import {
+  hastPieces,
+  MediaRow,
+  MediaRowHostContext,
+  mediaListClass,
+  restAfterOpeningImage,
+  withClass,
+} from "./markdown-media-row.web";
 import { MarkdownTable, MarkdownTableSourceContext } from "./markdown-table";
+import { MathSpan } from "./math/math.web";
+import { MATH_CLASS, remarkMath } from "./math/remark-math";
+import { openingMediaImage } from "./media-row";
 import { isMermaidFence, mermaidSvgImage } from "./mermaid";
 import { useMermaidSvg } from "./mermaid.web";
 import { PAGE_ICON } from "./page-icon";
+import { VISUAL_FENCE_LANGUAGE } from "./visual/visual-draw";
+import { VisualFence } from "./visual/visual-fence.web";
 
 function preserveSkippedTableText() {
   return (tree: HastNode) => {
@@ -176,11 +201,44 @@ function MermaidDiagram({ source, fallback }: { source: string; fallback: ReactN
   );
 }
 
+/** A ```ui fence: the visual the bot described, with the code block kept where it cannot draw. */
+function UiFence({
+  source,
+  streaming,
+  fallback,
+}: {
+  source: string;
+  streaming: boolean;
+  fallback: ReactNode;
+}) {
+  const { open, dialog } = useExternalLinkOpener();
+  const [, copy] = useCopyText();
+  const bridge = useMemo(
+    () => ({
+      openLink: (url: string) => {
+        const safe = sanitizeMarkdownUrl(url);
+        if (safe) open(safe);
+      },
+      copy,
+      // A ui fence carries no pictures, so a stray picture id never resolves.
+      image: () => Promise.resolve(null),
+    }),
+    [open, copy],
+  );
+  return (
+    <>
+      <VisualFence source={source} streaming={streaming} bridge={bridge} fallback={fallback} />
+      {dialog}
+    </>
+  );
+}
+
 function MarkdownPre({
   node,
   ...props
 }: React.ComponentPropsWithoutRef<"pre"> & { node?: MarkdownHast }) {
   const streamingSource = useContext(StreamingSourceContext);
+  const visuals = useContext(VisualsContext);
   const diagram = mermaidFenceSource(node);
   // Prose an author wrote in a fence reads as prose; code keeps the monospaced font.
   const prose = diagram === undefined && isProseFence(fenceLanguage(node));
@@ -188,6 +246,16 @@ function MarkdownPre({
   const codeBlock = (
     <CodeBlock {...props} copyable={/\S/.test(codeText(codeElement(node)))} prose={prose} />
   );
+  // Unlike a diagram, a visual draws from the open fence, so it fills in while the reply streams.
+  if (visuals && fenceLanguage(node) === VISUAL_FENCE_LANGUAGE) {
+    return (
+      <UiFence
+        source={codeText(codeElement(node))}
+        streaming={streamingSource !== undefined}
+        fallback={codeBlock}
+      />
+    );
+  }
   if (diagram === undefined) return codeBlock;
   // Parser offsets identify the fence inside quotes and lists too. Inspect the original source,
   // since a display-only closing fence must never trigger a diagram render.
@@ -197,7 +265,7 @@ function MarkdownPre({
     const fence = start === undefined ? "" : streamingSource.slice(start, end);
     const opening = fence.match(/^(`{3,}|~{3,})/);
     const lastLine = fence.slice(fence.lastIndexOf("\n") + 1);
-    const closing = lastLine.match(/^(?:[ \t]*>[ \t]?)*[ \t]*(`{3,}|~{3,})[ \t]*$/);
+    const closing = lastLine.match(/^(?:[ \t]*>)*[ \t]*(`{3,}|~{3,})[ \t]*$/);
     if (
       !fence.includes("\n") ||
       !opening?.[1] ||
@@ -445,12 +513,29 @@ function RemoteImageButton({
   );
 }
 
-function MarkdownImage({ src = "", alt, title }: { src?: string; alt?: string; title?: string }) {
+function MarkdownImage({
+  src = "",
+  alt,
+  title,
+  frame,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+  frame?: "thumbnail";
+}) {
   const enclosingLink = useContext(InsideLinkContext);
   const loadRemote = useContext(RemoteImagesContext);
+  const resolveEmbed = useContext(MarkdownEmbedContext);
+  const embed = markdownEmbed(src, alt);
   const remote = remoteMarkdownImage(src);
   // Bumping this redraws after a tap. Whether the image shows is read from the current URL.
   const [, setRevision] = useState(0);
+  if (embed) {
+    const resolved = resolveEmbed?.(frame && embed.kind === "image" ? { ...embed, frame } : embed);
+    if (resolved) return resolved;
+    return alt || "";
+  }
   const rejectedLink = enclosingLink === "rejected";
   if (inlineMarkdownImageSrc(src)) {
     return <img src={src} alt={alt ?? ""} title={title} loading="lazy" />;
@@ -527,32 +612,6 @@ function hastHasImage(node: MarkdownHast | undefined): boolean {
   return (node?.children ?? []).some((child) => child.tagName === "img" || hastHasImage(child));
 }
 
-function LinkFavicon({ href }: { href: string }) {
-  const { icon, unusable } = useLinkFavicon(href);
-  return (
-    <span
-      aria-hidden="true"
-      className={icon ? "rk-chat-link-tile rk-chat-link-tile-icon" : "rk-chat-link-tile"}
-    >
-      {icon ? (
-        <img
-          src={icon}
-          alt=""
-          draggable={false}
-          onLoad={(event) => {
-            // A 1×1 image is a tracking pixel, not an icon.
-            const image = event.currentTarget;
-            if (image.naturalWidth <= 1 || image.naturalHeight <= 1) unusable();
-          }}
-          onError={unusable}
-        />
-      ) : (
-        <GlobeIcon />
-      )}
-    </span>
-  );
-}
-
 /** A link to a website, drawn with its site icon before the label. */
 function WebsiteLink({
   href,
@@ -573,13 +632,46 @@ function WebsiteLink({
   );
 }
 
+/**
+ * The words a link with a site icon shows: the author's label, a bare address shortened, or for
+ * a bare app link "Open in {app}", so its address never shows, or wraps, as text.
+ */
+function useLinkLabel() {
+  const { openIn } = useMarkdownLinkCopy();
+  return useCallback(
+    (text: string, href: string) => {
+      const app = bareAppLinkName(text, href);
+      return app ? openIn(app) : linkLabel(text, href);
+    },
+    [openIn],
+  );
+}
+
+/**
+ * "Open in {app}" with the app's icon, for a card's link to a place in an app. Nothing shows
+ * for a link the host does not allow.
+ */
+export function AppLinkPill({ href }: { href: string }) {
+  const label = useLinkLabel();
+  if (!bareAppLinkName(href, href)) return null;
+  return <WebsiteLink href={href}>{label(href, href)}</WebsiteLink>;
+}
+
 function MarkdownAnchor({
   node,
   ...props
 }: React.ComponentPropsWithoutRef<"a"> & { node?: MarkdownHast }) {
   const loadRemote = useContext(RemoteImagesContext);
   const { renderMention, onOpenPage: openPage } = useContext(InlineChipsContext);
+  const groups = useContext(CitationGroupsContext);
+  const openLink = useContext(ConfirmLinkContext);
+  const label = useLinkLabel();
   const href = typeof props.href === "string" ? props.href : "";
+  const cited = citationGroupIndex(href);
+  if (cited !== undefined) {
+    const group = groups[cited];
+    return group ? <CitationPill group={group} onOpen={openLink} /> : <span>{props.children}</span>;
+  }
   const pageId = markdownPageId(href);
   if (pageId) {
     return (
@@ -591,7 +683,10 @@ function MarkdownAnchor({
   const mentionId = markdownMentionId(href);
   if (mentionId) {
     const name = hastText(node) ?? "";
-    return renderMention?.(mentionId, name) ?? <span>{props.children}</span>;
+    const chip = renderMention?.(mentionId, name);
+    // An added name isn't in the message text, so a selection must not carry it into a quote.
+    if (chip && markdownMentionAdded(href)) return <span className="select-none">{chip}</span>;
+    return chip ?? <span>{props.children}</span>;
   }
   const image = href ? soleRemoteImage(node) : undefined;
   if (image && !remoteImageRenders(image.href, loadRemote, false)) {
@@ -603,7 +698,7 @@ function MarkdownAnchor({
   const link =
     opens && linkFaviconOrigin(href) && !hastHasImage(node) ? (
       <WebsiteLink {...props} href={href}>
-        {text === undefined ? props.children : linkLabel(text, href)}
+        {text === undefined ? props.children : label(text, href)}
       </WebsiteLink>
     ) : opens ? (
       <ConfirmableAnchor {...props} />
@@ -682,14 +777,84 @@ export function PageIcon({ className }: { className?: string }) {
   );
 }
 
+function MarkdownParagraph({ node, children }: { node?: unknown; children?: ReactNode }) {
+  const element = node as HastLike | undefined;
+  const inMediaItem = useContext(MediaRowHostContext);
+  const opening = openingMediaImage(hastPieces(element, false));
+  if (opening && inMediaItem) return <p>{restAfterOpeningImage(element, children)}</p>;
+  if (opening) {
+    return (
+      <MediaRow thumb={<MarkdownImage src={opening.src} alt={opening.alt} frame="thumbnail" />}>
+        {restAfterOpeningImage(element, children)}
+      </MediaRow>
+    );
+  }
+  const content = (element?.children ?? []).filter(
+    (child) => child.type !== "text" || (child.value ?? "").trim() !== "",
+  );
+  const only = content.length === 1 ? content[0] : undefined;
+  const src = typeof only?.properties?.src === "string" ? only.properties.src : undefined;
+  if (only?.tagName === "img" && markdownEmbed(src)) {
+    return <div className="rk-chat-embed">{children}</div>;
+  }
+  return <p>{children}</p>;
+}
+
 const components: Components = {
   a: MarkdownAnchor,
+  // A paragraph that is only an embed becomes a div, so the card is not nested in a p.
+  // One that opens with an image and continues becomes a media row.
+  p(props) {
+    return <MarkdownParagraph node={props.node}>{props.children}</MarkdownParagraph>;
+  },
+  // Consecutive media rows drop their bullets. Later paragraphs of the item stay beside the thumb.
+  // A tight list puts the image straight in the item; a loose one wraps it in a paragraph.
+  li({ node, children, ...props }) {
+    const element = node as HastLike | undefined;
+    const opening = openingMediaImage(hastPieces(element, true));
+    if (!opening) return <li {...props}>{children}</li>;
+    const tight = element?.children?.some((child) => child.tagName === "img");
+    return (
+      <li {...props} className={withClass(props.className, "rk-chat-media-item")}>
+        <MediaRowHostContext.Provider value={true}>
+          <MediaRow thumb={<MarkdownImage src={opening.src} alt={opening.alt} frame="thumbnail" />}>
+            {tight ? restAfterOpeningImage(element, children) : children}
+          </MediaRow>
+        </MediaRowHostContext.Provider>
+      </li>
+    );
+  },
+  ul({ node, children, ...props }) {
+    const media = mediaListClass(node as HastLike | undefined);
+    return (
+      <ul {...props} className={withClass(props.className, media)}>
+        {children}
+      </ul>
+    );
+  },
+  ol({ node, children, ...props }) {
+    const media = mediaListClass(node as HastLike | undefined);
+    return (
+      <ol {...props} className={withClass(props.className, media)}>
+        {children}
+      </ol>
+    );
+  },
   img({ node: _node, src, alt, title }) {
     return (
       <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} title={title} />
     );
   },
   pre: MarkdownPre,
+  span({ node: _node, className, children, ...props }) {
+    return className?.split(" ").includes(MATH_CLASS) && typeof children === "string" ? (
+      <MathSpan key={`${className}:${children}`} tex={children} className={className} />
+    ) : (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    );
+  },
   table({ node, children, ...props }) {
     return (
       <MarkdownTable node={node} tableProps={props}>
@@ -730,6 +895,7 @@ export function LinkifiedText({
   onOpenPage?: (pageId: string) => void;
 }) {
   const { request, dialog } = useExternalLinkConfirm();
+  const label = useLinkLabel();
   return (
     <ConfirmLinkContext.Provider value={request}>
       {plainTextLinkParts(children).map((part, index) =>
@@ -741,7 +907,7 @@ export function LinkifiedText({
           </PageChip>
         ) : linkFaviconOrigin(part.href) ? (
           <WebsiteLink key={index} href={part.href} className="rk-chat-link-in-bubble">
-            {linkLabel(part.value, part.href)}
+            {label(part.value, part.href)}
           </WebsiteLink>
         ) : (
           <ConfirmableAnchor key={index} href={part.href} className="underline">
@@ -754,14 +920,85 @@ export function LinkifiedText({
   );
 }
 
-const remarkPlugins = [remarkGfm];
+type MdastNode = { type: string; value?: string; url?: string; children?: MdastNode[] };
+
+/** GFM autolinks find only web and mail addresses; this finds bare links to allowed apps. */
+function remarkAppLinks() {
+  return (tree: MdastNode) => {
+    const walk = (node: MdastNode) => {
+      if (!node.children || node.type === "link" || node.type === "linkReference") return;
+      node.children = node.children.flatMap((child) => {
+        if (child.type !== "text" || !child.value) {
+          walk(child);
+          return [child];
+        }
+        const text = child.value;
+        const parts: MdastNode[] = [];
+        let cursor = 0;
+        for (const match of appLinkMatches(text)) {
+          if (match.index > cursor)
+            parts.push({ type: "text", value: text.slice(cursor, match.index) });
+          const value = text.slice(match.index, match.lastIndex);
+          parts.push({ type: "link", url: match.url, children: [{ type: "text", value }] });
+          cursor = match.lastIndex;
+        }
+        if (cursor === 0) return [child];
+        if (cursor < text.length) parts.push({ type: "text", value: text.slice(cursor) });
+        return parts;
+      });
+    };
+    walk(tree);
+  };
+}
+
+const remarkPlugins = [remarkGfm, remarkMath, remarkAppLinks];
 const rehypePlugins = [preserveSkippedTableText];
 
 // MarkdownImage decides what an image source may do, so it receives the source as written.
 function urlTransform(url: string, key: string) {
-  return key === "src" || markdownMentionId(url) || markdownPageId(url)
+  return key === "src" ||
+    markdownMentionId(url) ||
+    markdownPageId(url) ||
+    citationGroupIndex(url) !== undefined
     ? url
     : (sanitizeMarkdownUrl(url, true) ?? "");
+}
+
+function renderMarkdown(source: string) {
+  return ReactMarkdown({
+    children: source,
+    components,
+    remarkPlugins,
+    rehypePlugins,
+    skipHtml: true,
+    urlTransform,
+  });
+}
+
+// Parsing is most of the cost of drawing a message, and opening a chat again draws every message
+// again. The output depends only on the source, so finished text is parsed once. The cache is
+// bounded by total text, and long documents are not kept.
+const renderedSources = new Map<string, ReactElement>();
+const RENDERED_TEXT_LIMIT = 2_000_000;
+const CACHED_SOURCE_LIMIT = 50_000;
+let renderedTextLength = 0;
+
+function renderFinishedMarkdown(source: string) {
+  if (source.length > CACHED_SOURCE_LIMIT) return renderMarkdown(source);
+  let rendered = renderedSources.get(source);
+  if (rendered) {
+    renderedSources.delete(source);
+  } else {
+    rendered = renderMarkdown(source);
+    renderedTextLength += source.length;
+  }
+  renderedSources.set(source, rendered);
+  for (const oldest of renderedSources.keys()) {
+    if (renderedTextLength <= RENDERED_TEXT_LIMIT) break;
+    renderedSources.delete(oldest);
+    renderedTextLength -= oldest.length;
+  }
+  return rendered;
 }
 
 const MarkdownBlock = memo(function MarkdownBlock({
@@ -775,15 +1012,7 @@ const MarkdownBlock = memo(function MarkdownBlock({
   return (
     <StreamingSourceContext.Provider value={streaming ? source : undefined}>
       <MarkdownTableSourceContext.Provider value={parsed}>
-        <ReactMarkdown
-          components={components}
-          remarkPlugins={remarkPlugins}
-          rehypePlugins={rehypePlugins}
-          skipHtml
-          urlTransform={urlTransform}
-        >
-          {parsed}
-        </ReactMarkdown>
+        {streaming ? renderMarkdown(parsed) : renderFinishedMarkdown(parsed)}
       </MarkdownTableSourceContext.Provider>
     </StreamingSourceContext.Provider>
   );
@@ -843,60 +1072,78 @@ export const ChatMarkdown = memo(function ChatMarkdown({
   streaming = false,
   renderMention,
   onOpenPage,
+  sources,
+  sourcesRow = false,
+  visuals = false,
 }: ChatMarkdownProps) {
   const { request, dialog } = useExternalLinkConfirm();
+  const prepared = useMemo(
+    () => preparedCitationMarkdown(children, sources, streaming),
+    [children, sources, streaming],
+  );
+  const showRow = !streaming && sourcesRow && !!sources && showSourcesRow(sources.length);
   // A streamed reply stays split once it finishes, so its blocks are not drawn again.
   const [split, setSplit] = useState(streaming);
   if (streaming && !split) setSplit(true);
   const previousSplit = useRef<SplitSource | undefined>(undefined);
   const blocks = useMemo(() => {
     if (!split) return undefined;
-    previousSplit.current = splitSource(children, previousSplit.current);
+    previousSplit.current = splitSource(prepared.markdown, previousSplit.current);
     return previousSplit.current.blocks;
-  }, [children, split]);
+  }, [prepared.markdown, split]);
 
   const inlineChips = useMemo(() => ({ renderMention, onOpenPage }), [renderMention, onOpenPage]);
   return (
     <ConfirmLinkContext.Provider value={request}>
-      <InlineChipsContext.Provider value={inlineChips}>
-        <div
-          className={streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"}
-        >
-          <LinkFaviconsPausedContext.Provider value={streaming}>
-            <PlainTextOnFailure text={children}>
-              {blocks ? (
-                blocks.map((block, index) => (
-                  <Fragment key={block.key}>
-                    {/* The line break react-markdown puts between blocks, so the DOM matches. */}
-                    {index > 0 ? "\n" : null}
-                    <MarkdownBlock
-                      source={block.source}
-                      streaming={streaming && index === blocks.length - 1}
-                    />
-                  </Fragment>
-                ))
-              ) : (
-                <MarkdownBlock source={children} streaming={streaming} />
-              )}
-            </PlainTextOnFailure>
-          </LinkFaviconsPausedContext.Provider>
-          {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
-        </div>
-      </InlineChipsContext.Provider>
+      <CitationGroupsContext.Provider value={prepared.groups}>
+        <InlineChipsContext.Provider value={inlineChips}>
+          <VisualsContext.Provider value={visuals}>
+            <div
+              className={
+                streaming ? "rk-chat-markdown rk-chat-markdown-streaming" : "rk-chat-markdown"
+              }
+            >
+              <LinkFaviconsPausedContext.Provider value={streaming}>
+                <PlainTextOnFailure text={children}>
+                  {blocks ? (
+                    blocks.map((block, index) => (
+                      <Fragment key={block.key}>
+                        {/* The line break react-markdown puts between blocks, so the DOM matches. */}
+                        {index > 0 ? "\n" : null}
+                        <MarkdownBlock
+                          source={block.source}
+                          streaming={streaming && index === blocks.length - 1}
+                        />
+                      </Fragment>
+                    ))
+                  ) : (
+                    <MarkdownBlock source={prepared.markdown} streaming={streaming} />
+                  )}
+                </PlainTextOnFailure>
+              </LinkFaviconsPausedContext.Provider>
+              {streaming ? <span aria-hidden="true" className="rk-chat-markdown-cursor" /> : null}
+              {showRow && sources ? <SourcesRow items={sources} onOpen={request} /> : null}
+            </div>
+          </VisualsContext.Provider>
+        </InlineChipsContext.Provider>
+      </CitationGroupsContext.Provider>
       {dialog}
     </ConfirmLinkContext.Provider>
   );
 });
 
-export type { ChatMarkdownProps, LinkFavicons } from "./markdown";
+export type { ChatMarkdownProps, LinkFavicons, MarkdownEmbed } from "./markdown";
 export {
   allowAppLinks,
   LinkFaviconsContext,
+  MarkdownEmbedContext,
+  markdownEmbed,
   RemoteImagesContext,
   useLinkFavicon,
   withBlockMentions,
 } from "./markdown";
 export { allowedAppLink } from "./markdown.js";
+export { LinkFavicon } from "./markdown-citations.web";
 export type { MarkdownCopy } from "./markdown-copy";
 export { defaultMarkdownCopy, MarkdownCopyProvider } from "./markdown-copy";
 export { MarkdownLinkPromptProvider } from "./markdown-link-prompt";

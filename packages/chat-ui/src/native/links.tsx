@@ -1,11 +1,11 @@
-import type { ASTNode, MarkdownStyleMap } from "@ronradtke/react-native-markdown-display";
-import type { ReactNode } from "react";
-import { createContext, useCallback, useContext } from "react";
+import { linkLabel } from "@rakazo/contracts";
+import type { ColorTokens } from "@rakazo/ui-tokens";
+import { useCallback, useContext } from "react";
 import type { StyleProp, TextStyle, ViewStyle } from "react-native";
-import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Linking, Text, View } from "react-native";
 import {
+  bareAppLinkName,
   LinkFaviconsContext,
-  linkFaviconOrigin,
   markdownLinkNeedsPrompt,
   markdownLinkSite,
   sanitizeMarkdownUrl,
@@ -16,7 +16,6 @@ import {
   useMarkdownLinkCopy,
   useMarkdownLinkTrust,
 } from "../markdown-link-prompt";
-import { astHasImage, enclosingLink } from "./ast";
 import { layout } from "./styles";
 
 // Keeps the site icon on the line of the label's first word.
@@ -29,10 +28,15 @@ export const POP_ISOLATE = "\u2069";
 async function openSafeLink(url: string) {
   const safeUrl = sanitizeMarkdownUrl(url);
   if (!safeUrl) return;
-  if (await Linking.canOpenURL(safeUrl)) await Linking.openURL(safeUrl);
+  // Android compares schemes case-sensitively when asked whether one can open; apps register
+  // theirs in lower case.
+  const target = safeUrl.replace(/^[^:]+/, (scheme) => scheme.toLowerCase());
+  try {
+    if (await Linking.canOpenURL(target)) await Linking.openURL(target);
+  } catch {
+    // The app went away between the check and the launch; the tap simply does nothing.
+  }
 }
-
-export const OpenLinkContext = createContext<(url: string) => void>(() => undefined);
 
 /** Opens a link the way a chat link opens: through the prompt unless it is in-app or trusted. */
 export function useNativeLinkConfirm() {
@@ -79,102 +83,126 @@ export function useNativeLinkConfirm() {
   );
 }
 
-export function NativeLink({
-  block = false,
+/** The site's icon on its plate, or the globe when it has none. */
+export function FaviconTile({
   href,
-  ...props
+  plate,
+  style,
 }: {
-  block?: boolean;
   href: string;
-  children?: ReactNode;
-  style?: StyleProp<TextStyle> | StyleProp<ViewStyle>;
-  accessibilityLabel?: string;
+  plate: StyleProp<ViewStyle>;
+  style?: StyleProp<ViewStyle>;
 }) {
-  const open = useContext(OpenLinkContext);
-  const onPress = (event: { defaultPrevented?: boolean }) => {
-    if (!event.defaultPrevented) open(href);
-  };
-  return block ? (
-    <Pressable
-      {...props}
-      style={props.style as StyleProp<ViewStyle>}
-      accessibilityRole="link"
-      onPress={onPress}
-    />
-  ) : (
+  const { icon, unusable } = useLinkFavicon(href);
+  const globe = useContext(LinkFaviconsContext)?.globe;
+  return (
+    <View style={[layout.linkTile, style, icon ? plate : undefined]}>
+      {icon ? (
+        <Image
+          source={{ uri: icon }}
+          style={layout.linkIcon}
+          resizeMode="contain"
+          onLoad={(event) => {
+            // A 1×1 image is a tracking pixel, not an icon.
+            const { width, height } = event.nativeEvent.source;
+            if (width <= 1 || height <= 1) unusable();
+          }}
+          onError={unusable}
+        />
+      ) : (
+        globe
+      )}
+    </View>
+  );
+}
+
+/**
+ * The words a link with a site icon shows: the author's label, a bare address shortened, or for
+ * a bare app link "Open in {app}", so its address never shows, or wraps, as text.
+ */
+export function useLinkLabel() {
+  const { openIn } = useMarkdownLinkCopy();
+  return useCallback(
+    (text: string, href: string) => {
+      const app = bareAppLinkName(text, href);
+      return app ? openIn(app) : linkLabel(text, href);
+    },
+    [openIn],
+  );
+}
+
+/** A link drawn with its site icon before its label; `text` is the label as written. */
+export function IconLink({
+  href,
+  text,
+  style,
+  labelStyle,
+  plate,
+  open,
+}: {
+  href: string;
+  text: string;
+  style: StyleProp<TextStyle>;
+  labelStyle: StyleProp<TextStyle>;
+  plate: StyleProp<ViewStyle>;
+  open: (url: string) => void;
+}) {
+  const label = useLinkLabel();
+  const shown = label(text, href);
+  return (
     <Text
-      {...props}
-      style={props.style as StyleProp<TextStyle>}
       accessibilityRole="link"
-      onPress={onPress}
+      accessibilityLabel={shown}
+      style={style}
+      onPress={() => open(href)}
+    >
+      <LinkFavicon href={href} plate={plate} />
+      {WORD_JOINER}
+      {ISOLATE}
+      <Text style={labelStyle}>{shown}</Text>
+      {POP_ISOLATE}
+    </Text>
+  );
+}
+
+/**
+ * "Open in {app}" with the app's icon, for a card's link to a place in an app. It opens the way
+ * a chat link does. Nothing shows for a link the host does not allow.
+ */
+export function AppLinkPill({
+  href,
+  tokens,
+}: {
+  href: string;
+  tokens: Pick<ColorTokens, "foreground" | "input" | "faviconPlate">;
+}) {
+  const open = useNativeLinkConfirm();
+  if (!bareAppLinkName(href, href)) return null;
+  return (
+    <IconLink
+      open={open}
+      href={href}
+      text={href}
+      style={{ color: tokens.foreground, fontWeight: "500" }}
+      labelStyle={{
+        color: tokens.foreground,
+        fontWeight: "500",
+        textDecorationLine: "underline",
+        textDecorationColor: tokens.input,
+      }}
+      plate={{ backgroundColor: tokens.faviconPlate, padding: 2 }}
     />
   );
 }
 
-export function linkHost(href: string): string {
-  try {
-    return new URL(href).host || href;
-  } catch {
-    return href;
-  }
-}
-
-/**
- * An inline link drawn with its site icon: a website, or an app place the host gave an icon.
- * Other links keep the plain link style.
- */
-export function isWebsiteLink(node: ASTNode): boolean {
-  const href = sanitizeMarkdownUrl(node.attributes.href ?? "");
-  return node.type === "link" && Boolean(href && linkFaviconOrigin(href)) && !astHasImage(node);
-}
-
 export function LinkFavicon({ href, plate }: { href: string; plate: StyleProp<ViewStyle> }) {
-  const { icon, unusable } = useLinkFavicon(href);
-  const globe = useContext(LinkFaviconsContext)?.globe;
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={layout.linkMarker}
     >
-      <View style={[layout.linkTile, icon ? plate : undefined]}>
-        {icon ? (
-          <Image
-            source={{ uri: icon }}
-            style={layout.linkIcon}
-            resizeMode="contain"
-            onLoad={(event) => {
-              // A 1×1 image is a tracking pixel, not an icon.
-              const { width, height } = event.nativeEvent.source;
-              if (width <= 1 || height <= 1) unusable();
-            }}
-            onError={unusable}
-          />
-        ) : (
-          globe
-        )}
-      </View>
+      <FaviconTile href={href} plate={plate} />
     </View>
   );
-}
-
-export function textStyleForParents(
-  inherited: unknown,
-  parents: readonly ASTNode[],
-  styleMap: MarkdownStyleMap,
-) {
-  if (!inherited || typeof inherited !== "object" || Array.isArray(inherited)) return undefined;
-  const style = { ...(inherited as Record<string, unknown>) };
-  const linkParent = enclosingLink(parents);
-  if (linkParent && isWebsiteLink(linkParent)) {
-    // The label style sets medium weight, but bold inside a label stays bold.
-    const label = StyleSheet.flatten(styleMap.website_link_label) ?? {};
-    return { ...style, ...label, fontWeight: style.fontWeight ?? label.fontWeight };
-  }
-  if (!linkParent || sanitizeMarkdownUrl(linkParent.attributes.href ?? "")) return style;
-  const linkStyle = StyleSheet.flatten(styleMap.link) ?? {};
-  const bodyStyle = StyleSheet.flatten(styleMap.body) ?? {};
-  if (style.textDecorationLine === linkStyle.textDecorationLine) delete style.textDecorationLine;
-  if (style.color === linkStyle.color) style.color = bodyStyle.color;
-  return style;
 }

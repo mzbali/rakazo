@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot } from "./helpers";
+import { captureScreenshot } from "./helpers/helpers";
 
 // Tall enough that each scenario's transcript fits without scrolling inside the chat pane.
 test.use({ viewport: { width: 1280, height: 2200 } });
@@ -14,6 +14,34 @@ test("gallery keeps a paginated call closed and its follow-up visible", async ({
   await expect(page.getByText("Here is the deployment checklist.", { exact: true })).toBeVisible();
   await expect(call.getByText("Here is the deployment checklist.")).toHaveCount(0);
   await captureScreenshot(page, testInfo, "paginated-call-marker");
+});
+
+test("gallery shows a tool's question as plain text with its form", async ({ page }, testInfo) => {
+  await page.goto("/e2e/fixtures/gallery.html?scenario=approvals&theme=light");
+  const [open, declined] = await page.getByTestId("tool-question-card").all();
+  await expect(open!.getByText("Run **send_email** to sam@example.test?")).toBeVisible();
+  await expect(open!.getByRole("checkbox", { name: "Approve this call" })).toBeVisible();
+  await expect(open!.getByRole("textbox", { name: "Reason" })).toBeVisible();
+  await expect(open!.getByText("This call", { exact: true })).toBeVisible();
+  await expect(open!.getByRole("button", { name: "Accept" })).toBeEnabled();
+  await expect(open!.getByRole("button", { name: "Decline" })).toBeEnabled();
+  await expect(declined!.getByText("Declined", { exact: true })).toBeVisible();
+  await open!.scrollIntoViewIfNeeded();
+  await captureScreenshot(page, testInfo, "tool-question-card");
+});
+
+test("gallery shows routine changes as small rows", async ({ page }, testInfo) => {
+  await page.goto("/e2e/fixtures/gallery.html?scenario=routines&theme=light");
+  const rows = page.getByTestId("routine-event-row");
+  await expect(rows).toHaveText([
+    'Created routine "Morning stretch"',
+    'Updated routine "Morning stretch"',
+    'Updated routine "Morning stretch"',
+    'Disabled routine "Morning stretch"',
+    'Enabled routine "Morning stretch"',
+    'Deleted routine "Morning stretch"',
+  ]);
+  await captureScreenshot(page, testInfo, "routine-change-rows");
 });
 
 test("gallery renders every chat scenario in both themes", async ({ page }, testInfo) => {
@@ -34,6 +62,47 @@ test("gallery renders every chat scenario in both themes", async ({ page }, test
         await dark.click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByTestId("gallery-frame")).not.toBeEmpty();
+      if (label === "Research answer") {
+        await expect(page.getByRole("button", { name: "nasa", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "nasa +1", exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "2 sources", exact: true })).toBeVisible();
+      }
+      if (label === "Working") {
+        // A bare app link in prose is drawn as a pill.
+        await expect(page.locator("a.rk-chat-link", { hasText: "Open in T3" })).toHaveCount(1);
+        await expect(page.getByText("t3code://", { exact: false })).toHaveCount(0);
+      }
+      if (label === "Inline embeds") {
+        await expect(page.getByText("Revenue climbed through the quarter.")).toBeVisible();
+        await expect(page.getByText("September is the high month.")).toBeVisible();
+        await expect(page.getByText("The picture is the same rise.")).toBeVisible();
+        await expect
+          .poll(() =>
+            page
+              .locator('img[alt="quarter.png"]')
+              .evaluate((image: HTMLImageElement) => image.naturalWidth),
+          )
+          .toBeGreaterThan(0);
+      }
+      if (label === "Media rows") {
+        await expect(
+          page.getByText("The evening boat is running again after the lock repair."),
+        ).toBeVisible();
+        await expect(
+          page.getByText("Saturday stalls open at eight, with the fish counter first."),
+        ).toBeVisible();
+        await expect(
+          page.getByText("The towpath is open from the bridge to the old mill."),
+        ).toBeVisible();
+        await expect(page.getByText("$128")).toBeVisible();
+        await expect
+          .poll(() =>
+            page
+              .locator('img[alt="harbor.png"]')
+              .evaluate((image: HTMLImageElement) => image.naturalWidth),
+          )
+          .toBeGreaterThan(0);
+      }
       if (label === "Rich content") {
         // Both load after mount and fall back quietly, so wait for the real content.
         await expect(page.locator("svg[class^='plot-']")).toBeVisible();

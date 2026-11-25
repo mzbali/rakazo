@@ -35,6 +35,9 @@ be loopback or resolve to private addresses (a Compose service name, an RFC1918 
 address, or a `.internal` name such as Railway's private network); Rakazo pins the resolved
 address for every request. Space members use the saved connection without seeing its key.
 
+A self-hosted Supermemory server must be v0.0.9 or later; run `supermemory-server upgrade` on
+older servers.
+
 For [Honcho](https://github.com/plastic-labs/honcho), enable `AUTH_USE_AUTH` on the Honcho
 server and use an admin JWT from its `scripts/generate_jwt.py --admin` as the key, so each Space
 gets its own workspace. A workspace-scoped JWT works when you enter that workspace. Honcho needs
@@ -68,6 +71,12 @@ client's allowed redirect URIs. The client is stored encrypted with the server's
 credentials and survives **Disconnect**; switching to a different client drops the current grant.
 On first use the client is bound to the authorization server the MCP server pointed to, and Rakazo
 refuses to send it anywhere else afterwards. Replacing the client clears the binding.
+
+Other providers register clients themselves but only for redirect addresses they know, plus the
+loopback addresses desktop apps use, and refuse `<your web origin>/mcp/oauth/callback` with
+`invalid_redirect_uri`. Connect those from the desktop app: it signs in on a loopback address
+instead and reads the result from its own sign-in window. A browser and the mobile app cannot,
+and show the provider's refusal.
 
 Stdio MCP servers can use OAuth too. They do not authorize themselves (the MCP spec has them
 read credentials from the environment), so Rakazo runs the flow for them. They are off unless
@@ -106,8 +115,10 @@ variables. Any other `npx` form (local paths, git and tarball URLs, unknown `npx
 refused. `npx` is the only supported package launcher: other package managers and runners
 (`npm`, `pnpm`, `yarn`, `bun`, `bunx`, `deno`, `uv`, `uvx`, `pipx` and the like) are refused
 even when allowlisted. To run a server from another ecosystem, install it on the host and
-allowlist its binary. An allowlisted interpreter or shell (`node`, `python`, `sh`) runs any
-code passed in its arguments, so allowlist it only where that is acceptable. Each server runs as one process per user in each of the API and worker,
+allowlist its binary. To run a server that lives on another machine, allowlist `ssh`, which the
+app image includes, and launch the server through it. An allowlisted interpreter or shell
+(`node`, `python`, `sh`) runs any code passed in its arguments, and `ssh` runs local commands
+through options such as `ProxyCommand`, so allowlist these only where that is acceptable. Each server runs as one process per user in each of the API and worker,
 shared by that user's bots, and stops after `MCP_STDIO_IDLE_MS` (default 900000, 15 minutes)
 without use. When a server fails to start, the reason (including the end of its stderr, with
 credentials redacted) appears on the server in **Settings**, and its bots are told it is
@@ -139,6 +150,15 @@ alternative managed connector provider: set `PIPEDREAM_CLIENT_ID`, `PIPEDREAM_CL
 `PIPEDREAM_PROJECT_ID` and `PIPEDREAM_ENVIRONMENT` (`development` or `production`). Set them on the
 API and worker.
 
+A call on a shared mailbox is refused when the Outlook sign-in does not request the matching
+`.Shared` permission, and a connection made through Composio's default Outlook setup has been seen
+to lack it. To let a bot read or send from one, create an Outlook auth config in the Composio
+dashboard that lists the defaults plus the `.Shared` variants you need (`Mail.Read.Shared`,
+`Mail.ReadWrite.Shared`, `Mail.Send.Shared`), and make it the config new Outlook connections use. The
+person's account also needs Full Access to the mailbox in Exchange, and a tenant admin may need to
+consent to the `.Shared` permissions. A new config affects new connections only, so people connected
+before the change must disconnect and reconnect Outlook.
+
 `INTEGRATIONS_CATALOG_URL` points API connector search at an
 [integrations.sh](https://integrations.sh/)-compatible catalog, such as a mirror you host. Give the
 base URL; Rakazo appends `api/search`.
@@ -157,17 +177,28 @@ Webhooks arrive at `/api/v1/messaging/webhook/<provider>`.
 | Platform                    | Settings                                                                                                                                                                                           |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | iMessage and SMS (Sendblue) | `SENDBLUE_API_KEY_ID`, `SENDBLUE_API_SECRET`, `SENDBLUE_SIGNING_SECRET`, `SENDBLUE_PHONE_NUMBER`                                                                                                   |
-| WhatsApp Business Cloud     | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`                                                                                                |
-| Telegram                    | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET_TOKEN`                                                                                                                                              |
+| WhatsApp Business Cloud     | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; optional `WHATSAPP_API_URL`, `WHATSAPP_BOT_USERNAME`                                          |
+| Telegram                    | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET_TOKEN`; `TELEGRAM_GROUPS=off` for direct chats only                                                                                                 |
 | iMessage (Photon)           | `PHOTON_PROJECT_ID`, `PHOTON_PROJECT_SECRET`; `PHOTON_WEBHOOK_SECRET` to receive by webhook instead of the stream; more projects as `PHOTON_PROJECT_ID_<NAME>` plus `PHOTON_PROJECT_SECRET_<NAME>` |
 | Feishu/Lark                 | `LARK_APP_ID`, `LARK_APP_SECRET`, `LARK_VERIFICATION_TOKEN`; `LARK_ENCRYPT_KEY` when event encryption is on; `LARK_DOMAIN` (`feishu`, the default, or `lark`)                                      |
 | Microsoft Teams             | `TEAMS_APP_ID`, `TEAMS_APP_PASSWORD`, `TEAMS_APP_TENANT_ID` (single-tenant, direct messages only)                                                                                                  |
 | Slack                       | See below                                                                                                                                                                                          |
 
+### WhatsApp Business Cloud
+
+Use an operator-owned business number and the direct adapter. See the
+[WhatsApp launch runbook](./hosted-whatsapp-launch.md) for registration, token permissions,
+webhook setup, current regional AI restrictions and service-window limits. Credentials alone do
+not establish eligibility. Proactive template reminders are not implemented.
+
 ### Telegram
 
-Telegram is webhook-only: Telegram sends the secret in `X-Telegram-Bot-Api-Secret-Token`, and the
-worker never long-polls. An extra bot named `<NAME>` (letters and digits) uses the provider
+Telegram sends its webhook secret in `X-Telegram-Bot-Api-Secret-Token`. The receiving API
+uses automatic transport selection and can poll when no webhook is registered; workers never
+poll. Register the hosted webhook before starting multiple API instances. Linking destinations
+come from the authenticated bot identity, never a configured username.
+See the [hosted Telegram runbook](./hosted-telegram.md) for operator registration and acceptance.
+An extra bot named `<NAME>` (letters and digits) uses the provider
 `telegram-<name>` and the webhook `/api/v1/messaging/webhook/telegram-<name>`; see
 [settings with names you choose](./self-host-configuration.md#settings-with-names-you-choose).
 Telegram groups use personal group linking, like iMessage: each linked member approves their own
@@ -177,6 +208,9 @@ receives group messages that mention it. Broadcast channel posts never start run
 can run side by side, allowing one person to link a different Rakazo bot through each.
 
 ### iMessage through Photon
+
+This connection uses the Stable Spectrum API, not Photon 2.0 Beta credentials. See the
+[hosted iMessage/SMS runbook](./hosted-imessage-sms.md) for adapter limits and operator checks.
 
 Photon receives messages over an outbound stream from the API, so it works without a public URL.
 To use webhooks instead, set `PHOTON_WEBHOOK_SECRET`. Each additional project uses
@@ -313,33 +347,11 @@ T3 Code's approval lasts 30 days and cannot be renewed. Once it lapses or is rev
 
 The address from step 1 goes through T3 Connect and is public HTTPS. A direct private address, such as a Tailscale one, needs `MCP_ALLOW_PRIVATE_ENDPOINT=true` on the API and worker. That setting is deployment-wide: it lets every user's MCP servers reach private addresses.
 
-A launch runs in a new worktree of an unarchived T3 Code project, branched from that project's current checkout. The bot names the project with `project` (its title, repository name or folder name, matched without regard to case, so a project called "Mac" for the owner's Mac setup work is just `project: "Mac"`), with `repository` (matched on the project's Git remote), or with `projectId`. A name that matches no project or several is refused with the project names so the bot can choose. A launch that names none is refused too, unless it sets `scratch: true` for work that belongs to no project, which uses a scratch folder. A final message longer than 12,000 characters reaches the bot as its first 8,000 and last 3,500. Agents use T3 Code's default model or, with none set, the first model of a provider that can run. Images are not supported. Rakazo sends a follow-up only after the agent's run ends; it waits behind a turn started in T3 Code itself. Cancel stops only the agent's current run, or removes a follow-up that has not started. When another run starts on the thread right after the agent's run finishes, as when T3 Code continues on its own, the card follows that run. A follow-up T3 Code holds instead of starting, as after a stopped or failed worktree setup, a provider failure or **Stop** in T3 Code, ends the card as failed after about a minute and is removed from T3 Code's queue where the connection's access allows it. A T3 Code version without the tools Rakazo uses fails the card.
+A launch with a repository runs in a new worktree of the unarchived T3 Code project whose Git remote matches it, branched from that project's current checkout; a repository with no matching project is rejected. A launch without one uses a scratch folder. Agents use T3 Code's default model or, with none set, the first model of a provider that can run. Images are not supported. Rakazo sends a follow-up only after the agent's run ends; it waits behind a turn started in T3 Code itself. Cancel stops only the agent's current run, or removes a follow-up that has not started. When another run starts on the thread right after the agent's run finishes, as when T3 Code continues on its own, the card follows that run. A follow-up T3 Code holds instead of starting, as after a stopped or failed worktree setup, a provider failure or **Stop** in T3 Code, ends the card as failed after about a minute and is removed from T3 Code's queue where the connection's access allows it. A T3 Code version without the tools Rakazo uses fails the card.
 
-The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, `cloud_agent_cancel`, and `cloud_agent_report`. A saved Allow for `cloud_agent_launch` matches the tool name and skips the card, including a wake or a turn that already read outside content. Without that rule, a turn the owner did not start, or one outside content entered, still asks, and Never ask refuses it, so another bot's message or an email cannot start work. Reply and cancel follow the existing action-approval rules and auto-review policy.
-
-A bot runs at most two cloud agents at once; later launches wait as `queued` and start in order when one finishes. `requestKey` names one agreed request, so launching it again returns the same agent. When another bot's request or question started the turn, the agent records that bot, and `cloud_agent_report` sends it the verdict once. Finishing is not acceptance: only the report records a verdict. A verdict other than `accepted` must carry an `ownerQuestion`, a short decision for the owner with the reviewer's recommendation, which the asking bot receives with the verdict and the job helper ends its result with. A failed wake is retried up to three times.
+The tools are `cloud_agent_launch`, `cloud_agent_status`, `cloud_agent_reply`, and `cloud_agent_cancel`. All three mutations participate in the existing action-approval rules and auto-review policy. As with other consequential tools, an empty rule set and disabled auto-review permit execution by default.
 
 Launch accepts a prompt, optional repository, images, and `openPr`. Raw environment variables are intentionally unsupported: passing secrets through model-generated tool arguments would persist them in ordinary history. Configure remote environment secrets directly with the provider.
-
-### Enable T3 Code
-
-T3 Code threads can be cloud agents through the T3 MCP server a Space already connects to. Configure the API and worker with:
-
-```dotenv
-CLOUD_AGENT_PROVIDER=t3
-CLOUD_AGENT_SPACE_ID=example-space-id
-CLOUD_AGENT_MCP_SERVER=t3
-```
-
-`CLOUD_AGENT_MCP_SERVER` is the connection's slug. The tools are offered only to bots whose assignment to that server allows its thread tools, and every call goes through that bot's connection. It needs a T3 Code server with `t3_thread_events`, which reports run and question status, holds unread events through pruning, and says when history is missing. A question or approval shows the agent as needing input and wakes the bot once per request; the bot answers questions with `cloud_agent_reply`, and approvals stay with the owner in T3. Only agents launched this way are tracked; threads started in T3 directly are not.
-
-To pick models by quota, set `CLOUD_AGENT_MODEL_ROUTES` to JSON listing models per kind of work, best first (`hard`, `normal`, `simple`, `ui`), each `{ "instanceId", "model", "options"? }`. A launch that passes `workKind` and no `modelSelection` takes the first model whose instance has quota; a T3 that does not report quota counts every model as available. When every model is out, or the named model is, the launch waits for the earliest reset (between one minute and six hours per attempt) and the agent's note says so. Unset or invalid JSON turns routing off.
-
-### Job threads
-
-By default every cloud-agent wake (a finished run, a question, an approval) runs in the bot's own chat, so each one pays for that chat's whole context. Set `CLOUD_AGENT_JOB_THREADS=1` to run them in a hidden helper thread per agent instead, created on the agent's first wake and reused after. The helper starts from the job record (the agent's title, launch brief, status, links, verdict, and its scoped goal when it has one), not from the chat, and may use `cloud_agent_status`, `cloud_agent_report`, `cloud_agent_reply` and `cloud_agent_cancel` for that agent. The chat gets one card that the helper's result settles, and the bot's own chat runs only if the helper leaves a question or approval open. A helper cannot ask the owner for approval, so `cloud_agent_reply` and `cloud_agent_cancel` run there only where the owner's rules already allow them. Wake deduplication, stale-wake cancelling and retries work as before. Scoped-goal continuation turns still run in the bot's chat. Agents launched while the setting is off keep waking the chat.
-
-Job cards show a finished pull request's check result and screenshots from GitHub. Public repositories need nothing. For private repositories set `CLOUD_AGENT_GITHUB_TOKEN` to a fine-grained, read-only token on the API and worker; it is sent only to `api.github.com` and never logged or shown to clients. Grant it the repositories' Metadata, Pull requests, Actions and Contents read permissions (the CI result comes from GitHub Actions workflow runs). With a token, checks of a running job are read every two minutes instead of five.
 
 ### Recovery
 

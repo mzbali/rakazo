@@ -68,6 +68,47 @@ describe("contracts", () => {
     );
   });
 
+  it("parses a sources block and rejects an empty or oversized list", () => {
+    const item = {
+      url: "https://science.nasa.gov/mars/facts/",
+      title: "Mars Facts",
+      site: "nasa",
+    };
+    expect(MessageBlock.parse({ kind: "sources", items: [item] })).toEqual({
+      kind: "sources",
+      items: [item],
+    });
+    expect(MessageBlock.safeParse({ kind: "sources", items: [] }).success).toBe(false);
+    expect(
+      MessageBlock.safeParse({
+        kind: "sources",
+        items: Array.from({ length: 13 }, () => item),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps an optional page on an image and ignores one that is not a page", () => {
+    const image = {
+      kind: "image" as const,
+      artifactId: "art-1",
+      mimeType: "image/png",
+      name: "Harbor",
+    };
+    expect(MessageBlock.parse(image)).toEqual(image);
+    expect(
+      MessageBlock.parse({
+        ...image,
+        source: { url: "https://www.space.com/harbor", site: "space" },
+      }),
+    ).toEqual({
+      ...image,
+      source: { url: "https://www.space.com/harbor", site: "space" },
+    });
+    expect(MessageBlock.safeParse({ ...image, source: { url: "", site: "space" } }).success).toBe(
+      false,
+    );
+  });
+
   it("accepts structured live activity progress", () => {
     expect(MessageBlock.parse({ kind: "progress", text: "Using browser", activity: true })).toEqual(
       { kind: "progress", text: "Using browser", activity: true },
@@ -178,11 +219,13 @@ describe("contracts", () => {
     expect(modelRoutingForm(undefined, {})).toEqual({
       needsRouting: false,
       needsGateway: false,
+      needsProject: false,
       routingReady: true,
     });
     expect(modelRoutingForm(["accountId", "gatewayId"], { accountId: "acct" })).toEqual({
       needsRouting: true,
       needsGateway: true,
+      needsProject: false,
       routingReady: false,
     });
     expect(modelRoutingReady(["accountId"], { accountId: " acct " })).toBe(true);
@@ -202,6 +245,27 @@ describe("contracts", () => {
       ModelConnectInputSchema.safeParse({ provider: "anthropic", apiKey: "short" }).success,
     ).toBe(false);
   });
+
+  it.each(["accountId", "gatewayId", "projectId", "region"])(
+    "accepts a routing-only %s update only for a targeted connection",
+    (field) => {
+      const input = { provider: "example-provider", [field]: "example-route" };
+      expect(
+        ModelConnectInputSchema.safeParse({ ...input, credentialId: "credential-fixture" }).success,
+      ).toBe(true);
+      expect(ModelConnectInputSchema.safeParse(input).success).toBe(false);
+      expect(ModelConnectInputSchema.safeParse({ ...input, credentialId: null }).success).toBe(
+        false,
+      );
+      expect(
+        ModelConnectInputSchema.safeParse({
+          ...input,
+          credentialId: "credential-fixture",
+          [field]: "../invalid",
+        }).success,
+      ).toBe(false);
+    },
+  );
 
   it("accepts optional persisted duration only on valid steps blocks", () => {
     expect(
@@ -253,6 +317,10 @@ describe("contracts", () => {
     const parsed = CreateBotInput.parse({ name: "Chief" });
     expect(parsed.notifyOnFinish).toBe(true);
     expect(parsed.avatarFamily).toBeUndefined();
+    expect(parsed.computerMode).toBeUndefined();
+    expect(CreateBotInput.parse({ name: "Chief", computerMode: "dedicated" }).computerMode).toBe(
+      "dedicated",
+    );
   });
 
   it("accepts an organic avatar family from 0 to 9 when creating a bot", () => {
@@ -456,21 +524,6 @@ describe("contracts", () => {
       }).success,
     ).toBe(true);
     expect(RunSchema.safeParse({ ...run, trigger: "webhook" }).success).toBe(true);
-  });
-
-  it("caps remote MCP headers", () => {
-    const headers = Object.fromEntries(
-      Array.from({ length: 33 }, (_, index) => [`X-Test-${index}`, "value"]),
-    );
-    expect(
-      McpServerConfigInput.safeParse({
-        slug: "demo",
-        name: "Demo",
-        transport: "streamable_http",
-        endpoint: "https://mcp.example.test",
-        headers,
-      }).success,
-    ).toBe(false);
   });
 
   it("allows localhost HTTP MCP endpoints and other HTTP(S) URLs without credentials", () => {

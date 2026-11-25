@@ -41,6 +41,9 @@ export function Bars({ element, surface }: { element: VisualElement; surface: Su
   const max = Math.max(0, ...values.map(Math.abs));
   const palette = surface.palette;
   if (standsAsColumns(bars) && surface.width > 0) {
+    // The web kit inks the longest column's value; emphasis picks another, or "none" for all.
+    const asked = element.props.emphasis as number | "none" | undefined;
+    const chosen = asked === undefined ? values.map(Math.abs).indexOf(max) : asked;
     const width = surface.width;
     const height = 220;
     const baseline = height - 28;
@@ -66,7 +69,7 @@ export function Bars({ element, surface }: { element: VisualElement; surface: Su
                 x={center(index)}
                 y={top - 8}
                 fontSize={17}
-                fontWeight="600"
+                fontWeight={chosen === "none" || chosen === index ? "700" : "600"}
                 fill={palette.foreground}
                 textAnchor="middle"
               >

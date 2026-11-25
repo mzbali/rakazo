@@ -1,7 +1,7 @@
 import { DIAGRAM_ICON_NAMES, parseVisualFence, VISUAL_TAGS } from "@rakazo/core/visual-fence";
 import { describe, expect, it } from "vitest";
 import { userTurnInstructions } from "./run-instructions.prompt.js";
-import { SHOW_VISUAL_INSTRUCTION } from "./show-visual.prompt.js";
+import { SHOW_VISUAL_BRIEF, SHOW_VISUAL_INSTRUCTION } from "./show-visual.prompt.js";
 import { VISUAL_FENCE_INSTRUCTION, visualFencesAllowed } from "./visual-fence.prompt.js";
 
 const parts = {
@@ -97,17 +97,26 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain("<Venn nested");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Stages groups=");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Checklist interactive collapsible");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("two and four focused visuals");
     expect(SHOW_VISUAL_INSTRUCTION).not.toContain('{"help": true}');
     expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });
 
-  it("does not name show_visual in the fence when that tool is off", () => {
-    const text = userTurnInstructions({
+  it("tells a channel that cannot draw what its reader actually gets", () => {
+    expect(SHOW_VISUAL_BRIEF).not.toContain("It works in the chat");
+    expect(SHOW_VISUAL_BRIEF).toContain("only its title and summary");
+    expect(SHOW_VISUAL_BRIEF).toContain("do not tell the reader to open it");
+  });
+
+  it("names show_visual in the fence only when that tool is offered", () => {
+    const offered = userTurnInstructions({ ...parts, visualFences: true }).join("\n");
+    expect(offered).toContain("show_visual, not a fence");
+    const off = userTurnInstructions({
       ...parts,
       visualFences: true,
       disabledBuiltinTools: new Set(["show_visual"]),
     }).join("\n");
-    expect(text).toContain("fenced block");
-    expect(text).not.toContain("show_visual");
+    expect(off).toContain("fenced block");
+    expect(off).not.toContain("show_visual");
   });
 });

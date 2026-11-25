@@ -15,11 +15,11 @@ export const VISUAL_ESSENTIALS = [
 export const SHOW_VISUAL_INSTRUCTION = [
   "To understand something or how it works, or for a checklist, a timeline or a bill to split, call show_visual before you reply. Practice uses it too. For an explanation, number the sections.",
   "To compare or decide, or whether to buy or return, call show_visual, then open with the pick. Next is a prefilled calculator, or one picture of what differs. A web search does not replace it.",
-  "Pass title, summary and source to show_visual, then place the returned embed. Split tall visuals so each works inline. Do not pass help, paste source or tell the reader to open it.",
+  "Pass title, summary and source to show_visual, then place the returned embed. A long explanation is short prose between two and four focused visuals, each doing one job; split a tall visual so each works inline. Do not pass help, paste source or tell the reader to open it.",
   VISUAL_ESSENTIALS,
   "A ui fence is for a table, steps, key numbers or a simple chart. A bill split is one Result, not a table. One fact, such as the time in a place, gets one plain sentence and no picture.",
 ].join("\n\n");
 
 /** Channels whose reply is not drawn in the app. */
 export const SHOW_VISUAL_BRIEF =
-  "When a picture would show how something works, a comparison or a decision, draw it with show_visual. Pass title, summary and source. Do not pass help. Place the embed where the visual belongs. It works in the chat: do not tell the reader to open it. It is not saved; use save_page for something the user will keep, share or update.";
+  "When a picture would show how something works, a comparison or a decision, draw it with show_visual. Pass title, summary and source; the reader here gets only its title and summary, so put the point and key figures in the summary. Do not pass help. Place the embed where the visual belongs, and do not tell the reader to open it. It is not saved; use save_page for something the user will keep, share or update.";

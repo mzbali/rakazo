@@ -8,7 +8,7 @@ A page is JSX source whose default export is a React component. It renders in an
 - Exactly one \`export default\` (your top component). Helper components and data objects in the same file are fine.
 - Do not name your own component after a kit component (Page, Status, Table, Rows...): it replaces the kit's in the whole file, so using that kit component inside it renders itself forever, and the check refuses it. Call it StatusPage, BotTable and so on.
 - Gather data first and keep it in one object at the top. Write figures already formatted ("$12,400", "4.8%") and write plain characters, not HTML escapes ("<800ms", not "&lt;800ms").
-- Plain HTML and SVG elements (div, span, svg, path, rect, circle, text, linearGradient, animate...) with style={{...}} are allowed for custom visuals; take colours from useTheme() so they match both themes. script, style, iframe, object, embed and foreignObject are not allowed, and handlers are functions, never strings. Images are data: URIs only, or rakazo-image:<n> when show_visual fetched them (see Media).
+- Plain HTML and SVG elements (div, span, svg, path, rect, circle, text, linearGradient, animate...) with style={{...}} are allowed for custom visuals; take colours from useTheme() so they match both themes. script, style, iframe, object, embed and foreignObject are not allowed, and handlers are functions, never strings. Images are data: URIs, rakazo-image:<n> for fetched ones, or image:<id> for one saved in this chat (see Media).
 - Save with save_page {title, source}. To change it later, pass the pageId you got back with edits [{find, replace}] (all apply or none do) or the whole new source; pass only pageId to read the current source.
 
 ## Design rules
@@ -96,7 +96,7 @@ Keep each control's value in useState. A control placed straight in a Section or
 - ReplyButton {label, reply?}: puts reply (or the label), up to 300 characters, in the chat's message box for the reader to send. It is inactive where there is no chat, such as a shared page.
 
 ### Media
-Use data: URIs for media, or a local blob: for audio and video. For fetched photos, pass images: [{url, alt}] to show_visual (max 4). Use <Image src="rakazo-image:1" alt="Description" caption="Name" />, counting from 1. Retry without failed photos.
+Use data: URIs for media, or a local blob: for audio and video. For fetched photos, pass images: [{url, alt}] to show_visual (max 4). Use <Image src="rakazo-image:1" alt="Description" caption="Name" />, counting from 1. A photo saved in this chat is src="image:<id>", no images entry. Retry without failed photos.
 - Image {src, alt, caption?, fit?: "cover" | "contain", width?, height?, ratio?: number | "16/9"}: click to enlarge.
 - Gallery {photos: [{src, alt}], height?}: up to 8 photos the reader swipes or steps through.
 - PhotoStrip {items: [{image, alt?, title?, price?, note?, href?}], tileWidth?, imageHeight?}: a sideways row of small cards.

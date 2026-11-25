@@ -18,9 +18,11 @@ vi.mock("./runs/assembly/run-context.js", async (importActual) => ({
 }));
 
 const fetchVisualImage = vi.fn();
+const encodeVisualImage = vi.fn();
 vi.mock("./web/visual-image.js", async (importActual) => ({
   ...(await importActual<typeof import("./web/visual-image.js")>()),
   fetchVisualImage: (...args: unknown[]) => fetchVisualImage(...args),
+  encodeVisualImage: (...args: unknown[]) => encodeVisualImage(...args),
 }));
 
 const storeVisualImage = vi.fn();
@@ -97,6 +99,7 @@ describe("show_visual", () => {
     publishMessage.mockReset();
     publishMessage.mockResolvedValue({ id: "message-1" });
     fetchVisualImage.mockReset();
+    encodeVisualImage.mockReset();
     storeVisualImage.mockReset();
     discard.mockClear();
     runTainted = false;
@@ -221,6 +224,118 @@ describe("show_visual", () => {
       ["abc123"],
     );
     expect(JSON.stringify(block)).not.toContain("abc123");
+  });
+
+  describe("picture sources", () => {
+    const withSrc = (src: string) => `export default () => <Image src="${src}" alt="Photo" />;`;
+    const NEWS =
+      'export default () => <NewsRows items={[{ title: "Talks", image: "image:cmww7334z001907mozkv61o4q", alt: "Talks" }]} />;';
+
+    it("never reports shown for a source the viewer cannot load", async () => {
+      for (const src of ["https://cdn.example.com/a.png", "/a.png", "blob:abc", "file:///a.png"]) {
+        const result = await show({ title: "Photo", summary: "x", source: withSrc(src) });
+        expect(result.shown).toBeUndefined();
+        expect(result.error).toMatch(/cannot load/);
+        expect(result.error).toContain("image:<id>");
+      }
+      const news = await show({
+        title: "News",
+        summary: "x",
+        source: NEWS.replace("image:cmww7334z001907mozkv61o4q", "https://cdn.example.com/a.jpg"),
+      });
+      expect(news.shown).toBeUndefined();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("accepts a data: image and leaves other props that are not pictures alone", async () => {
+      const source = `export default () => <><Image src="data:image/png;base64,AAAA" alt="Dot" /><Audio src="data:audio/mpeg;base64,AAAA" alt="Tone" /><ProductCard title="Mixer" href="https://shop.example.com/a" /></>;`;
+      const result = await show({ title: "Mixed", summary: "x", source });
+      expect(result.shown).toBe(true);
+    });
+
+    describe("saved in this chat", () => {
+      const ID = "cmww7334z001907mozkv61o4q";
+      const row = (extra: Record<string, unknown> = {}) => ({
+        id: ID,
+        spaceId: "space-1",
+        groupId: null,
+        name: "storm.png",
+        mimeType: "image/png",
+        storageKey: "blob-saved",
+        ...extra,
+      });
+      const deps = (rows: unknown[]) => {
+        const findMany = vi.fn(async () => rows);
+        return {
+          findMany,
+          deps: {
+            prisma: { artifact: { findMany } },
+            artifacts: { get: vi.fn(async () => new Uint8Array([9, 9])) },
+          },
+        };
+      };
+      const ready = () => {
+        encodeVisualImage.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+        storeVisualImage.mockResolvedValue({ id: "visual-copy", discard });
+      };
+
+      it("copies the saved picture into a visual-owned one, checked against this Space", async () => {
+        ready();
+        const { findMany, deps: d } = deps([row()]);
+        const result = await show({ title: "News", summary: "x", source: NEWS }, [], { deps: d });
+        expect(result.shown).toBe(true);
+        expect(findMany).toHaveBeenCalledWith({ where: { id: { in: [ID] }, spaceId: "space-1" } });
+        const block = postedBlock();
+        expect(block.code).toContain('"rakazo-image:visual-copy"');
+        expect(block.code).not.toContain(ID);
+        expect(block.images).toEqual([{ id: "visual-copy", alt: "storm.png", size: 3 }]);
+        expect(MessageBlock.safeParse(block).success).toBe(true);
+        expect(fetchVisualImage).not.toHaveBeenCalled();
+      });
+
+      it("refuses an id that is missing, in another thread, or not a plain image", async () => {
+        ready();
+        for (const rows of [
+          [],
+          [row({ groupId: "other-group" })],
+          [row({ mimeType: "application/pdf" })],
+          [row({ mimeType: "image/png;profile=step-screenshot" })],
+          [row({ mimeType: "image/webp;profile=visual-image" })],
+          [row({ mimeType: "image/svg+xml" })],
+        ]) {
+          const result = await show({ title: "News", summary: "x", source: NEWS }, [], {
+            deps: deps(rows).deps,
+          });
+          expect(result.shown).toBeUndefined();
+          expect(result.error).toMatch(/not an image saved in this chat/);
+        }
+        expect(storeVisualImage).not.toHaveBeenCalled();
+        expect(publishMessage).not.toHaveBeenCalled();
+      });
+
+      it("refuses bytes that are not a usable picture", async () => {
+        encodeVisualImage.mockResolvedValue(null);
+        const result = await show({ title: "News", summary: "x", source: NEWS }, [], {
+          deps: deps([row()]).deps,
+        });
+        expect(result.error).toMatch(/not a usable picture/);
+        expect(publishMessage).not.toHaveBeenCalled();
+      });
+
+      it("discards a fetched picture when a saved one in the same call is refused", async () => {
+        fetchVisualImage.mockResolvedValue({ bytes: new Uint8Array([1]) });
+        storeVisualImage.mockResolvedValue({ id: "fetched-copy", discard });
+        const source = `export default () => <><Image src="rakazo-image:1" alt="A" /><Image src="image:${ID}" alt="B" /></>;`;
+        const result = await show(
+          { title: "Two", summary: "x", source, images: IMAGES.slice(0, 1) },
+          [],
+          { deps: deps([]).deps },
+        );
+        expect(result.error).toMatch(/not an image saved in this chat/);
+        expect(discard).toHaveBeenCalledTimes(1);
+        expect(publishMessage).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("with images", () => {

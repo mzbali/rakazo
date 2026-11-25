@@ -3,7 +3,12 @@ import { MAX_INLINE_VISUAL_HEIGHT } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { pageViewerCode } from "./compile.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "./components.js";
-import { checkPageSource, PAGE_KIT_GUIDE, VISUAL_GUIDE } from "./validate.js";
+import {
+  checkPageSource,
+  PAGE_KIT_GUIDE,
+  VISUAL_GUIDE,
+  visualImageReferences,
+} from "./validate.js";
 
 const page = (body: string) => `${body}\nexport default App;\n`;
 
@@ -503,5 +508,23 @@ describe("checkPageSource", () => {
         ),
       ).toEqual({ ok: true, code: expect.any(String) });
     });
+  });
+});
+
+describe("visualImageReferences", () => {
+  it("sorts picture sources into fetched, saved and unloadable ones", () => {
+    const code = `export default () => <><Image src="rakazo-image:2" /><Image src="image:abc_123" /><Image src="https://x.test/a.png" /><Image src="data:image/png;base64,AA" /></>;`;
+    const checked = checkPageSource(code);
+    if (!checked.ok) throw new Error("source should pass the page check");
+    const found = visualImageReferences(checked.code);
+    expect(found.places).toEqual([2]);
+    expect(found.saved).toEqual(["abc_123"]);
+    expect(found.unsupported).toEqual(["https://x.test/a.png"]);
+    const placed = found.replace(
+      (place) => `fetched-${place}`,
+      (id) => `copy-${id}`,
+    );
+    expect(placed).toContain("rakazo-image:fetched-2");
+    expect(placed).toContain("rakazo-image:copy-abc_123");
   });
 });

@@ -3,7 +3,7 @@ import { parse } from "sucrase/dist/parser/index.js";
 import { IdentifierRole } from "sucrase/dist/parser/tokenizer/index.js";
 import { TokenType } from "sucrase/dist/parser/tokenizer/types.js";
 
-type Reference = { start: number; end: number; place: number };
+type Reference = { start: number; end: number; place?: number; saved?: string };
 const IMAGE_SOURCE_KEYS = new Set(["src", "image", "poster"]);
 const COMPONENT_IMAGE_PROPS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["Image", new Set(["src"])],
@@ -15,19 +15,32 @@ const COMPONENT_IMAGE_PROPS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
  * Find literal image sources after JSX becomes props. The same keys are used in data
  * objects for Gallery, PhotoStrip, ProductRows and NewsRows. ProductCard also takes a photos array
  * of source strings. Values elsewhere, including text children and captions, are untouched.
+ * A source is a data:image URI, rakazo-image:<n> (a fetched picture) or image:<artifactId> (a
+ * picture already saved in the chat); any other literal one cannot draw and is returned in
+ * unsupported.
  */
 export function visualImageReferences(code: string) {
   const { tokens } = parse(code, false, false, false);
   const references: Reference[] = [];
+  const unsupported = new Set<string>();
   let malformed = false;
   function read(index: number) {
     const token = tokens[index]!;
     if (token.type !== TokenType.string) return;
     const source = code.slice(token.start + 1, token.end - 1);
-    if (!/^rakazo-image:/i.test(source)) return;
-    const digits = /^rakazo-image:(\d+)$/i.exec(source)?.[1];
-    if (!digits) malformed = true;
-    else references.push({ start: token.start + 1, end: token.end - 1, place: Number(digits) });
+    const start = token.start + 1;
+    const end = token.end - 1;
+    if (/^rakazo-image:/i.test(source)) {
+      const digits = /^rakazo-image:(\d+)$/i.exec(source)?.[1];
+      if (!digits) malformed = true;
+      else references.push({ start, end, place: Number(digits) });
+      return;
+    }
+    const saved = /^image:([A-Za-z0-9_-]{1,64})$/.exec(source)?.[1];
+    if (saved) references.push({ start, end, saved });
+    else if (source.trim() && !/^data:image\/[a-z0-9.+-]+[;,]/i.test(source)) {
+      unsupported.add(source.length > 60 ? `${source.slice(0, 57)}...` : source);
+    }
   }
 
   const components = new Map<number, string>();
@@ -71,12 +84,16 @@ export function visualImageReferences(code: string) {
   }
   return {
     malformed,
-    places: [...new Set(references.map(({ place }) => place))],
-    replace(idAt: (place: number) => string) {
+    unsupported: [...unsupported],
+    places: [...new Set(references.flatMap(({ place }) => (place === undefined ? [] : [place])))],
+    saved: [...new Set(references.flatMap(({ saved }) => (saved === undefined ? [] : [saved])))],
+    /** The stored id each reference becomes: idAt for a fetched place, savedAt for a saved id. */
+    replace(idAt: (place: number) => string, savedAt: (artifactId: string) => string = () => "") {
       let previous = 0;
       const parts: string[] = [];
-      for (const { start, end, place } of references) {
-        parts.push(code.slice(previous, start), `rakazo-image:${idAt(place)}`);
+      for (const { start, end, place, saved } of references) {
+        const id = place === undefined ? savedAt(saved!) : idAt(place);
+        parts.push(code.slice(previous, start), `rakazo-image:${id}`);
         previous = end;
       }
       return parts.join("") + code.slice(previous);

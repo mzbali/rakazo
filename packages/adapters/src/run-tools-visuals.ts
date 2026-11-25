@@ -2,7 +2,10 @@ import type { MessageBlock } from "@rakazo/contracts";
 import {
   PageTitleSchema,
   pageSourceBytes,
+  storedImageMimeType,
   VISUAL_CODE_MAX_BYTES,
+  VISUAL_IMAGE_ALT_MAX_LENGTH,
+  VISUAL_IMAGE_MAX_COUNT,
   VISUAL_SUMMARY_MAX_LENGTH,
 } from "@rakazo/contracts";
 import type { VisualImageArg } from "@rakazo/core";
@@ -22,7 +25,7 @@ import { publishMessage } from "./runs/assembly/run-messages.js";
 import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
 import type { ToolCall, ToolHandlers } from "./runs/tools/run-tool-gate.js";
 import { storeVisualImage, VISUAL_IMAGE_ARTIFACT_ID_LENGTH } from "./storage/thread-artifacts.js";
-import { fetchVisualImage } from "./web/visual-image.js";
+import { encodeVisualImage, fetchVisualImage } from "./web/visual-image.js";
 
 /** The summary is one paragraph of plain text: every run of whitespace folds into a space. */
 function summaryText(value: unknown): string | null {
@@ -32,7 +35,8 @@ function summaryText(value: unknown): string | null {
 }
 
 type CarriedImage = {
-  place: number;
+  /** A fetched picture's place in images, or the saved artifact id it was copied from. */
+  place: number | string;
   id: string;
   alt: string;
   size: number;
@@ -57,6 +61,68 @@ async function imageUrlGate(ctx: RunContext) {
       trustedSites.has(site);
     return outboundSiteGate({ site, trusted, rules }) === "allow";
   };
+}
+
+function visualImageOwner(ctx: RunContext, call: ToolCall) {
+  return {
+    spaceId: ctx.run.spaceId,
+    userId: ctx.run.userId,
+    botId: ctx.bot.id,
+    groupId: ctx.thread.groupId ?? undefined,
+    runId: ctx.runId,
+    operationId: call.executionId,
+  };
+}
+
+/**
+ * Copy each picture the chat already holds (image:<id>, from save_web_images or an attachment)
+ * into a visual-owned picture. The id must be an image in this Space and this thread; it is
+ * re-encoded like a fetched one, so what the visual keeps is a small WebP of the same size limits.
+ */
+async function carrySavedImages(
+  ctx: RunContext,
+  call: ToolCall,
+  ids: string[],
+  carried: CarriedImage[],
+): Promise<string | undefined> {
+  if (ids.length === 0) return;
+  const artifacts = ctx.deps.artifacts;
+  if (!artifacts)
+    return "Image storage is not configured, so the visual was not shown. Call without images.";
+  if (isBackgroundRunTrigger(ctx.run.trigger))
+    return "A background run's visual is never shown, so its pictures are not copied. Call without images.";
+  const rows = await ctx.deps.prisma.artifact.findMany({
+    where: { id: { in: ids }, spaceId: ctx.run.spaceId },
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const sourceBytes = [];
+  for (const id of ids) {
+    const row = byId.get(id);
+    const here = row && (row.groupId === null || row.groupId === (ctx.thread.groupId ?? null));
+    if (!row || !here || !storedImageMimeType(row.mimeType) || row.mimeType.includes(";")) {
+      return `image:${id} is not an image saved in this chat; nothing was shown. Use an image:<id> from save_web_images or an image attached here, or pass its url in images.`;
+    }
+    const bytes = await artifacts.get(row.storageKey, ctx.context);
+    const resolved = await encodeVisualImage(bytes);
+    if (!resolved) {
+      return `image:${id} is not a usable picture; nothing was shown. Drop it and call again.`;
+    }
+    sourceBytes.push({ id, alt: row.name, bytes: resolved.bytes });
+  }
+  const owner = visualImageOwner(ctx, call);
+  const stored = await Promise.allSettled(
+    sourceBytes.map(async ({ id, alt, bytes }) => ({
+      place: id,
+      alt: alt.slice(0, VISUAL_IMAGE_ALT_MAX_LENGTH),
+      ...(await storeVisualImage({ prisma: ctx.deps.prisma, artifacts }, owner, { bytes })),
+      size: bytes.byteLength,
+    })),
+  );
+  for (const result of stored) {
+    if (result.status === "fulfilled") carried.push(result.value);
+  }
+  const failed = stored.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
 }
 
 /**
@@ -84,14 +150,7 @@ async function carryImages(
       return fetchVisualImage(image.url, { allowUrl, signal: ctx.context.signal });
     }),
   );
-  const owner = {
-    spaceId: ctx.run.spaceId,
-    userId: ctx.run.userId,
-    botId: ctx.bot.id,
-    groupId: ctx.thread.groupId ?? undefined,
-    runId: ctx.runId,
-    operationId: call.executionId,
-  };
+  const owner = visualImageOwner(ctx, call);
   const ready = [];
   for (const [index, result] of fetched.entries()) {
     const { place, alt } = wanted[index]!;
@@ -157,11 +216,19 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   }
   const images = visualImageArgs(args.images);
   if (typeof images === "string") return { error: images };
-  const { places, malformed, replace } = visualImageReferences(code);
+  const { places, saved, unsupported, malformed, replace } = visualImageReferences(code);
   if (malformed) {
     return {
       error: "A picture src must be rakazo-image:<its 1-based place in images>.",
     };
+  }
+  if (unsupported.length > 0) {
+    return {
+      error: `The viewer cannot load ${unsupported.map((source) => `"${source}"`).join(", ")}; nothing was shown. A picture src is rakazo-image:<n> for a url in images, image:<id> for a picture saved in this chat, or a data: URI. Fix it and call again.`,
+    };
+  }
+  if (places.length + saved.length > VISUAL_IMAGE_MAX_COUNT) {
+    return { error: `Show at most ${VISUAL_IMAGE_MAX_COUNT} pictures per visual.` };
   }
   const outOfList = places.find((place) => place < 1 || place > images.length);
   if (outOfList !== undefined) {
@@ -190,7 +257,12 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
     };
   }
   const maxId = "x".repeat(VISUAL_IMAGE_ARTIFACT_ID_LENGTH);
-  const placedBytes = pageSourceBytes(replace(() => maxId));
+  const placedBytes = pageSourceBytes(
+    replace(
+      () => maxId,
+      () => maxId,
+    ),
+  );
   if (placedBytes > VISUAL_CODE_MAX_BYTES) {
     return {
       error: `The visual is ${placedBytes} bytes compiled with its pictures; the limit is ${VISUAL_CODE_MAX_BYTES}. Show less, or build a page with save_page.`,
@@ -200,14 +272,19 @@ async function showVisual(ctx: RunContext, call: ToolCall) {
   const carried: CarriedImage[] = [];
   let published = false;
   try {
-    const error = await carryImages(ctx, call, places, images, carried);
+    const error =
+      (await carryImages(ctx, call, places, images, carried)) ??
+      (await carrySavedImages(ctx, call, saved, carried));
     if (error) return { error };
     const ids = new Map(carried.map(({ place, id }) => [place, id]));
     const block: MessageBlock = {
       kind: "visual",
       title: title.data,
       text: summary,
-      code: replace((place) => ids.get(place)!),
+      code: replace(
+        (place) => ids.get(place)!,
+        (artifactId) => ids.get(artifactId)!,
+      ),
       ...(carried.length
         ? { images: carried.map(({ id, alt, size }) => ({ id, alt, size })) }
         : {}),

@@ -1,5 +1,5 @@
 import type { PageSectionAnchor } from "@rakazo/contracts";
-import { PageSectionOccurrence } from "@rakazo/contracts";
+import { PageSectionOccurrence, VISUAL_IMAGE_MAX_COUNT } from "@rakazo/contracts";
 
 // Same policy as the web preview: nothing loads from the network, so a script
 // cannot send what it reads to a remote image or font URL.
@@ -90,6 +90,52 @@ export function pageReplyText(text: unknown): string | null {
   if (typeof text !== "string") return null;
   const clean = text.replace(/\s+/g, " ").trim();
   return clean && clean.length <= 300 ? clean : null;
+}
+
+const IMAGE_REQUEST_MESSAGE = "rakazo-page:image";
+const IMAGE_DATA_MESSAGE = "rakazo-page:image-data";
+/** An artifact id is a short generated token: letters, digits and hyphens, never a URL. */
+const PAGE_IMAGE_ID = /^[a-z0-9-]{1,64}$/i;
+
+/**
+ * A picture the frame asked the host to load, but only when the message this frame draws carries
+ * that id: the sandbox never sees bytes for anything else, and never a URL. Hosts pass their own
+ * message's image list, so a guess at another message's id answers nothing.
+ */
+export function pageImageRequest(
+  data: unknown,
+  carried: ReadonlyArray<{ id: string }> | undefined,
+): { id: string } | null {
+  if (!data || typeof data !== "object") return null;
+  const { type, id } = data as { type?: unknown; id?: unknown };
+  if (type !== IMAGE_REQUEST_MESSAGE || typeof id !== "string") return null;
+  if (!PAGE_IMAGE_ID.test(id)) return null;
+  return carried?.some((image) => image.id === id) ? { id } : null;
+}
+
+/** The answer a frame's image request waits for: the bytes as a data URI, or null when it has none. */
+export function pageImageResult(id: string, src: string | null) {
+  return { type: IMAGE_DATA_MESSAGE, id, src };
+}
+
+/**
+ * Each document gets one download and one reply per carried id. The frame's own bridge shares
+ * that reply among all consumers; repeated requests have no work to do, even after it arrives.
+ */
+export function createPageImageResponder(load: (id: string) => Promise<string | null>) {
+  const requested = new Set<string>();
+  return (
+    data: unknown,
+    carried: ReadonlyArray<{ id: string }> | undefined,
+    answer: (message: object) => void,
+  ): boolean => {
+    const image = pageImageRequest(data, carried);
+    if (!image) return false;
+    if (requested.has(image.id) || requested.size >= VISUAL_IMAGE_MAX_COUNT) return true;
+    requested.add(image.id);
+    void load(image.id).then((src) => answer(pageImageResult(image.id, src)));
+    return true;
+  };
 }
 
 /** A page's copy buttons send at most this much; the kit refuses longer text before asking. */

@@ -33,6 +33,18 @@ export function stepScreenshotMimeType(imageType: AttachmentImageMimeType): stri
 export function isStepScreenshotMimeType(mimeType: string): boolean {
   return mimeType.endsWith(STEP_SCREENSHOT_PROFILE);
 }
+/**
+ * A picture a chat visual shows. Kept out of every file list, search and version history like a
+ * kept screenshot, but readable by the visual's host, which answers its frame with the bytes.
+ */
+export const VISUAL_IMAGE_MIME_TYPE = "image/webp;profile=visual-image";
+export function isVisualImageMimeType(mimeType: string): boolean {
+  return mimeType === VISUAL_IMAGE_MIME_TYPE;
+}
+/** The plain image type a stored visual picture draws as; undefined for anything else. */
+export function storedVisualImageMimeType(mimeType: string): "image/webp" | undefined {
+  return isVisualImageMimeType(mimeType) ? "image/webp" : undefined;
+}
 /** The image type a kept screenshot, or an image attachment, shows as; else undefined. */
 export function storedImageMimeType(mimeType: string): AttachmentImageMimeType | undefined {
   const type = mimeType.endsWith(STEP_SCREENSHOT_PROFILE)

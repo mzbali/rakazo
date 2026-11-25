@@ -3,6 +3,7 @@ import { useNativeLinkConfirm } from "@rakazo/chat-ui/native";
 import type { MessageBlock } from "@rakazo/contracts";
 import type { VisualFit } from "@rakazo/core";
 import {
+  createPageImageResponder,
   MAX_INLINE_VISUAL_HEIGHT,
   pageCopyRequest,
   pageCopyResult,
@@ -19,6 +20,7 @@ import { HEADER_CONTROL_SIZE } from "../../lib/native/native-controls";
 import { usePageTapGate } from "../../lib/page-tap-gate";
 import { loadPageRuntime } from "../../lib/pages/page-runtime";
 import { pageDocumentWith, pageMessage, visualHeight } from "../../lib/pages/pages";
+import { visualImageSrc } from "../../lib/pages/visual-images";
 import { SandboxedHtmlPreview } from "../media/sandboxed-html-preview";
 import { NativeActionButton } from "../native/native-action-button";
 
@@ -108,6 +110,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
     [sheet, runtime, block.code, theme, errorTitle, tokens.background],
   );
 
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [inline]);
   const shown = Math.min(
     height ?? PLACEHOLDER_HEIGHT,
     fit === "preview" ? VISUAL_PREVIEW_HEIGHT : MAX_INLINE_HEIGHT,
@@ -124,6 +127,7 @@ export function VisualCard({ block }: { block: VisualBlock }) {
         // Never taller than the card shows: the reported height is the content's, not the frame's.
         <View style={{ height: shown }}>
           <SandboxedHtmlPreview
+            key={inline}
             html={inline}
             background={tokens.background}
             // Classified inline, then grown by its own controls: scroll the card rather than
@@ -136,6 +140,8 @@ export function VisualCard({ block }: { block: VisualBlock }) {
             onMessage={(data, answer) => {
               const next = visualHeight(data);
               if (next === null) {
+                // A picture is a read of the message's own data, not an action: no tap is needed.
+                if (answerImage(pageMessage(data), block.images, answer)) return;
                 if (live) actions.act(data, answer);
                 return;
               }
@@ -207,14 +213,18 @@ function VisualSheet({
   const { t } = useLingui();
   const tokens = useMobileTokens();
   const actions = useVisualActions();
+  const answerImage = useMemo(() => createPageImageResponder(visualImageSrc), [document]);
   return (
     <View style={[styles.sheet, { backgroundColor: tokens.background }]}>
       <View style={[styles.sheet, { paddingTop: HEADER_CONTROL_SIZE + 12 }]} {...actions.touch}>
         {document ? (
           <SandboxedHtmlPreview
+            key={document}
             html={document}
             background={tokens.background}
-            onMessage={actions.act}
+            onMessage={(data, answer) => {
+              if (!answerImage(pageMessage(data), block.images, answer)) actions.act(data, answer);
+            }}
           />
         ) : (
           <Text style={[styles.sheetSummary, { color: tokens.mutedForeground }]}>{block.text}</Text>

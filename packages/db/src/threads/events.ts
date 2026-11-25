@@ -5,6 +5,7 @@ import {
   hasThinkingActivityMarker,
   STEP_SCREENSHOT_MIME_TYPES,
   ThreadActivityPayloadSchema,
+  VISUAL_IMAGE_MIME_TYPE,
 } from "@rakazo/contracts";
 import {
   BACKGROUND_HELPER_TRIGGER,
@@ -162,7 +163,7 @@ export interface ClearThreadInput {
 export interface ClearThreadResult {
   event: ProductEvent;
   cancelledRunIds: string[];
-  /** Stored files of the cleared replies' kept screenshots, for the caller to remove. */
+  /** Stored files of the cleared replies' kept screenshots and visual images, for the caller to remove. */
   removedStorageKeys: string[];
   historyCompactionGeneration: number;
 }
@@ -352,22 +353,22 @@ export async function clearThread(
     });
     const helperThreadIds = helperThreads.map((thread) => thread.id);
     const cleared = { OR: [{ threadId: input.threadId }, { threadId: { in: helperThreadIds } }] };
-    // A reply's kept screenshots belong to its messages, so they go with them.
+    // A reply's kept screenshots and pictures belong to its messages, so they go with them.
     const clearedRuns = await tx.message.findMany({
       where: { ...cleared, runId: { not: null } },
       select: { runId: true },
       distinct: ["runId"],
     });
-    const screenshots = await tx.artifact.findMany({
+    const keptMedia = await tx.artifact.findMany({
       where: {
         spaceId: input.spaceId,
-        mimeType: { in: STEP_SCREENSHOT_MIME_TYPES },
+        mimeType: { in: [...STEP_SCREENSHOT_MIME_TYPES, VISUAL_IMAGE_MIME_TYPE] },
         runId: { in: clearedRuns.flatMap((message) => (message.runId ? [message.runId] : [])) },
       },
       select: { id: true, storageKey: true },
     });
-    if (screenshots.length > 0)
-      await tx.artifact.deleteMany({ where: { id: { in: screenshots.map((row) => row.id) } } });
+    if (keptMedia.length > 0)
+      await tx.artifact.deleteMany({ where: { id: { in: keptMedia.map((row) => row.id) } } });
     await tx.message.deleteMany({ where: cleared });
     await tx.event.deleteMany({ where: cleared });
     await tx.thread.updateMany({
@@ -413,7 +414,7 @@ export async function clearThread(
       userId: thread.userId,
       cancelledRunIds: runIds,
       historyCompactionGeneration: thread.historyCompactionGeneration,
-      removedStorageKeys: screenshots.map((row) => row.storageKey),
+      removedStorageKeys: keptMedia.map((row) => row.storageKey),
     };
   }, THREAD_LOCK_TRANSACTION_OPTIONS);
   await notifyRealtime(realtime, committed.event.threadId, committed.event.seq);

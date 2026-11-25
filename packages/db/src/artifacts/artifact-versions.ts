@@ -1,13 +1,21 @@
-import { MCP_APP_MIME_TYPE, STEP_SCREENSHOT_MIME_TYPES } from "@rakazo/contracts";
+import {
+  MCP_APP_MIME_TYPE,
+  STEP_SCREENSHOT_MIME_TYPES,
+  VISUAL_IMAGE_MIME_TYPE,
+} from "@rakazo/contracts";
 import type { PrismaClient } from "../database/client.js";
 import { Prisma } from "../database/client.js";
 import { isUniqueViolation } from "../database/prisma-errors.js";
 
 /**
- * Files people and bots see. An MCP app's HTML is kept as an artifact only for its chat card, and
- * a reply's kept screenshot only for the bot's later turns.
+ * Files people and bots see. An MCP app's HTML, a chat visual's pictures and a reply's kept
+ * screenshot are kept as artifacts only for the cards that show them.
  */
-export const HIDDEN_ARTIFACT_MIME_TYPES = [MCP_APP_MIME_TYPE, ...STEP_SCREENSHOT_MIME_TYPES];
+export const HIDDEN_ARTIFACT_MIME_TYPES = [
+  MCP_APP_MIME_TYPE,
+  VISUAL_IMAGE_MIME_TYPE,
+  ...STEP_SCREENSHOT_MIME_TYPES,
+];
 export const LISTED_ARTIFACT = {
   mimeType: { notIn: HIDDEN_ARTIFACT_MIME_TYPES },
 } satisfies Prisma.ArtifactWhereInput;

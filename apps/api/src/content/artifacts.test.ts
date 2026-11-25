@@ -1,5 +1,6 @@
 import type { ArtifactStore } from "@rakazo/adapter-kit";
 import type { Actor } from "@rakazo/contracts";
+import { VISUAL_IMAGE_MIME_TYPE } from "@rakazo/contracts";
 import { attachmentComputerPath } from "@rakazo/core";
 import { deferred, flush } from "@rakazo/core/test-async";
 import type { PrismaClient } from "@rakazo/db";
@@ -1038,4 +1039,39 @@ describe("a reply's kept screenshot", () => {
         mimeType: { notIn: expect.arrayContaining(["image/png;profile=step-screenshot"]) },
       });
   });
+});
+
+it("keeps visual photos readable by id but rejects file history and removal", async () => {
+  const row = {
+    id: "photo-1",
+    botId: "bot-1",
+    groupId: null,
+    runId: "run-1",
+    storageKey: "stored-photo",
+    name: "visual-image.webp",
+    description: null,
+    mimeType: VISUAL_IMAGE_MIME_TYPE,
+    size: 3,
+    version: 1,
+    createdAt: new Date(),
+  };
+  const findFirst = vi.fn(async ({ where }: { where: { mimeType?: { notIn: string[] } } }) =>
+    where.mimeType?.notIn.includes(row.mimeType) ? null : row,
+  );
+  const findMany = vi.fn(async () => []);
+  const remove = vi.fn();
+  const get = vi.fn(async () => new Uint8Array([1, 2, 3]));
+  const prisma = { artifact: { findFirst, findMany } } as unknown as PrismaClient;
+  const artifacts = { get, remove } as unknown as ArtifactStore;
+  await expect(
+    getSpaceArtifactById({ prisma, artifacts }, actor, { artifactId: row.id }),
+  ).resolves.toMatchObject({ mimeType: VISUAL_IMAGE_MIME_TYPE, contentBase64: "AQID" });
+  await expect(
+    listArtifactVersions({ prisma }, actor, { familyId: row.id }),
+  ).rejects.toBeInstanceOf(IsolationError);
+  await expect(
+    deleteArtifactFamily({ prisma, artifacts }, actor, { familyId: row.id }),
+  ).rejects.toBeInstanceOf(IsolationError);
+  expect(findMany).not.toHaveBeenCalled();
+  expect(remove).not.toHaveBeenCalled();
 });

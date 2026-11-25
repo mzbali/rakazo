@@ -3,6 +3,9 @@ import {
   PAGE_TITLE_MAX_LENGTH,
   pageSourceBytes,
   VISUAL_CODE_MAX_BYTES,
+  VISUAL_IMAGE_ALT_MAX_LENGTH,
+  VISUAL_IMAGE_MAX_COUNT,
+  VISUAL_IMAGE_STORED_MAX_BYTES,
   VISUAL_SUMMARY_MAX_LENGTH,
 } from "../artifacts/pages.js";
 import {
@@ -365,6 +368,22 @@ export const MessageBlock = z.discriminatedUnion("kind", [
       .string()
       .max(VISUAL_CODE_MAX_BYTES, { abort: true })
       .refine((code) => pageSourceBytes(code) <= VISUAL_CODE_MAX_BYTES),
+    /**
+     * Pictures the bot fetched for this visual. The code names each one by its id, and the host
+     * resolves only the ids this list carries, answering its frame with the stored bytes as a
+     * data URI: the sandboxed viewer still loads nothing from the network.
+     */
+    images: z
+      .array(
+        z.strictObject({
+          id: Id,
+          alt: z.string().max(VISUAL_IMAGE_ALT_MAX_LENGTH),
+          /** Stored bytes, so a host can bound what it answers without reading the artifact. */
+          size: z.number().int().positive().max(VISUAL_IMAGE_STORED_MAX_BYTES),
+        }),
+      )
+      .max(VISUAL_IMAGE_MAX_COUNT)
+      .optional(),
   }),
   z.object({
     /**

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import type {
   AdapterContext,
@@ -16,6 +16,7 @@ import {
   HISTORY_ATTACHMENTS_PER_RESPONSE,
   MCP_APP_MIME_TYPE,
   stepScreenshotMimeType,
+  VISUAL_IMAGE_MIME_TYPE,
 } from "@rakazo/contracts";
 import {
   attachmentComputerPath,
@@ -442,6 +443,16 @@ async function storeHiddenArtifact(
   input: HiddenArtifactOwner,
   file: { name: string; mimeType: string; bytes: Uint8Array },
 ): Promise<string> {
+  const stored = await writeHiddenArtifact(deps, input, file);
+  return stored.id;
+}
+
+async function writeHiddenArtifact(
+  deps: { prisma: PrismaClient; artifacts: ArtifactStore },
+  input: HiddenArtifactOwner,
+  file: { name: string; mimeType: string; bytes: Uint8Array },
+  id?: string,
+) {
   const hash = createHash("sha256").update(file.bytes).digest("hex");
   const owner = {
     spaceId: input.spaceId,
@@ -449,11 +460,13 @@ async function storeHiddenArtifact(
     botId: input.botId,
     groupId: input.groupId ?? null,
   };
-  const existing = await deps.prisma.artifact.findFirst({
-    where: { ...owner, hash, mimeType: file.mimeType },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
+  if (!id) {
+    const existing = await deps.prisma.artifact.findFirst({
+      where: { ...owner, hash, mimeType: file.mimeType },
+      select: { id: true },
+    });
+    if (existing) return { id: existing.id };
+  }
   const name = file.name.slice(0, ARTIFACT_NAME_MAX_LENGTH);
   const context = {
     operationId: input.operationId,
@@ -472,6 +485,7 @@ async function storeHiddenArtifact(
     .create({
       data: {
         ...owner,
+        ...(id ? { id } : {}),
         runId: input.runId,
         name,
         mimeType: file.mimeType,
@@ -481,10 +495,16 @@ async function storeHiddenArtifact(
       },
     })
     .catch(async (error) => {
-      await deps.artifacts.remove(stored.id, context).catch(() => undefined);
+      await bestEffort("uncommitted hidden artifact", deps.artifacts.remove(stored.id, context));
       throw error;
     });
-  return row.id;
+  return {
+    id: row.id,
+    async discard() {
+      await deps.artifacts.remove(stored.id, context);
+      await deps.prisma.artifact.deleteMany({ where: { id: row.id } });
+    },
+  };
 }
 
 /** Keeps an MCP app's HTML as a hidden artifact, so its chat card can load it later. */
@@ -497,6 +517,27 @@ export function storeMcpAppHtml(
     mimeType: MCP_APP_MIME_TYPE,
     bytes: new TextEncoder().encode(input.html),
   });
+}
+
+export const VISUAL_IMAGE_ARTIFACT_ID_LENGTH = 36;
+
+/** A visual owns its pictures so discarding a failed post cannot break another visual. */
+export async function storeVisualImage(
+  deps: { prisma: PrismaClient; artifacts: ArtifactStore },
+  input: HiddenArtifactOwner,
+  image: { bytes: Uint8Array },
+) {
+  const stored = await writeHiddenArtifact(
+    deps,
+    input,
+    {
+      name: "visual-image.webp",
+      mimeType: VISUAL_IMAGE_MIME_TYPE,
+      bytes: image.bytes,
+    },
+    randomUUID(),
+  );
+  return { id: stored.id, discard: stored.discard! };
 }
 
 /**

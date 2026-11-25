@@ -106,6 +106,13 @@ describe("the ui fence instructions", () => {
     expect(SHOW_VISUAL_INSTRUCTION).toContain("Checklist interactive collapsible");
     expect(SHOW_VISUAL_INSTRUCTION).toContain("two and four focused visuals");
     expect(SHOW_VISUAL_INSTRUCTION).not.toContain('{"help": true}');
+    expect(SHOW_VISUAL_INSTRUCTION).toContain(
+      '<Image src="rakazo-image:1" alt="Photo" caption="Name" />',
+    );
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Use Grid with 1 or 2 columns");
+    expect(SHOW_VISUAL_INSTRUCTION).toContain("Omit fixed sizes");
+    expect(SHOW_VISUAL_INSTRUCTION).not.toContain("<Picture");
+    expect(SHOW_VISUAL_INSTRUCTION).not.toContain("give a picture src");
     expect(withFences).not.toContain("only for what a ui fence cannot draw");
   });
 

@@ -11,6 +11,7 @@ import { DATAVIZ_CSS } from "./dataviz-styles.js";
 import { INTERACT_CSS } from "./interact.js";
 import { MEDIA_CSS } from "./media.js";
 import { PRACTICE_CSS } from "./practice.js";
+import { PRODUCTS_CSS } from "./products.js";
 import { TEXT_KIT_CSS } from "./text.js";
 
 // Print is always light: paper has no dark mode, and shadows print as grey smudges.
@@ -129,6 +130,10 @@ body{font-size:1rem}
 .rk-table-scroll{min-width:0;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;--rk-fade-start:${pageKitPalette.shared.mask};--rk-fade-end:${pageKitPalette.shared.mask};-webkit-mask-image:linear-gradient(to right,var(--rk-fade-start),${pageKitPalette.shared.mask} 2.5rem,${pageKitPalette.shared.mask} calc(100% - 2.5rem),var(--rk-fade-end));mask-image:linear-gradient(to right,var(--rk-fade-start),${pageKitPalette.shared.mask} 2.5rem,${pageKitPalette.shared.mask} calc(100% - 2.5rem),var(--rk-fade-end))}
 .rk-table-scroll[data-fade-start]{--rk-fade-start:transparent}
 .rk-table-scroll[data-fade-end]{--rk-fade-end:transparent}
+[data-inline] :is(.rk-section[data-card] .rk-section[data-card],.rk-section:has(>.rk-grid)>.rk-grid>.rk-section[data-card]):has(>.rk-table-wrap){padding:0;border:0;border-radius:0}
+[data-inline] .rk-table-scroll{mask-image:none;-webkit-mask-image:none}
+[data-inline] .rk-table-scroll[data-fade-start] tr>:first-child:not([colspan]),[data-inline] .rk-table-scroll[data-fade-end] tr>:first-child:not([colspan]){position:sticky;inset-inline-start:0;z-index:1;background:var(--background)}
+[data-inline] .rk-table-scroll[data-long] thead tr>:first-child{z-index:2}
 .rk-table-scroll[data-long]{max-height:34rem;overflow-y:auto}
 .rk-table-box:has(.rk-table-scroll:focus-visible){outline:2px solid var(--ring);outline-offset:2px}
 .rk-table-scroll:focus-visible{outline:0}
@@ -265,4 +270,4 @@ const RHYTHM_CSS = `
 .rk-section>.rk-section-head+.rk-section-fold:not([data-open]){margin-top:0}
 `;
 
-export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${INTERACT_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;
+export const PAGE_STYLES = `${renderTokensCss()}\n${KIT_CSS}\n${TEXT_KIT_CSS}\n${DATAVIZ_CSS}\n${CONTROLS_CSS}\n${INTERACT_CSS}\n${PRACTICE_CSS}\n${MEDIA_CSS}\n${PRODUCTS_CSS}\n${CALENDAR_CSS}\n${RHYTHM_CSS}`;

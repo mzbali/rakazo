@@ -76,7 +76,69 @@ const CUTS: [string, number][] = [
 
 const big = `<Visual summary="Too big">${'<Callout lead="x">filler text</Callout>'.repeat(1100)}</Visual>`;
 
+// A stored raster fixture for the gallery artifact reader.
+export const VISUAL_PHOTO = {
+  id: "blender-photo",
+  contentBase64:
+    "UklGRpIBAABXRUJQVlA4IIYBAACQDwCdASqgAHgAPm02lkekIyIhKHtoaIANiWlu3V9rSaRLmQLVoNwQEliaw28We05t6+JG1iWm8OILmrulYKfLKM9RkiykinWJeAFItPzu88mP3oSVs+Z/RhZ9gkzPj0jJ8eoGIGl3bwCThJdjjlTiYx9oNsrZaNHN/nFJfNaCSxNYcPAAAP73bFOwGIYAIBVFn+AHIhpFQ2iVGat1ev9qAC21+mrYCHklqnXkB9n9xiU0oDsF17loz4PgE31XeH1MLPHPFZsMS+wTHE+QiVSokp6X/tU9KgPNfGBruQ4fpDSV8VqjnEhKdbVB5nE9Lvm6OXrgSr5TBzYEmkOveKhAdQuYY1ANdOjuFEob4E4/w99I4m60NN3+J51f+UnknVgZiIToca2tVj8/LCFJGDE5ud3ad/O81r6Xb5Mykz4dSje00dCFF+i1ubF3GJHPcucBA/CixlX0dlzPDQKRbYK9+4xrV7nt7C9UGKAcN9qvSx3oqCCbjrMXkj4+Lb2Y1ijJvEAAAAA=",
+};
+
+export const VISUAL_PHOTO_PLUS = {
+  id: "blender-plus-photo",
+  contentBase64:
+    "UklGRvQBAABXRUJQVlA4IOgBAAAwEACdASqgAHgAPm02lUekI6IhKTyIIIANiWlu3V96qc+gZQPA2qEfpo9jIT8dlRxDFFJNQp/BsDHc9kEu3VqMAG/NlUCfUbEZKbtSEC9mGI0n0p7nQUJAJ7in+PdThPFyGgM9DQgrczvx0NjU8RsF31kvU64Q348HCa1H0RoAe9r+U/jVWpn/lTgA/vdHWx3MkACJ/3+v8a+TV9my4lwRhok1BKVEbXpl6ltwL8SJ11fXGxMFCi5KfQhN9vnJ1qyRJ2/q5rRALYp216Rag7WTCOxK4vKnZkB4vXvAVMNXLihhqAr3CcD9Zcr5rthio6UZDqjXdXvGz/aSn2ebkVN3Uw7sbdSgaunxW8RL4VxpsoQYsVAwjqz6+xn7K43Gl/3m3szMXXHSr4jzSGATEXmpl14t5rregKQodMwPHiGdRh92e2miuC0uAkkABZqzqYfzt+ZOoHtAJyFXZ1WfHE2os8FtolQRw1Jz69YjJrp97led2J6/XloYO4oFcCAb0rK8l0tRLrr8CdxsCvWmBc5kUIMuXhvraKfUyq7pGrLB5SCONetw863wB1BfW/IbG07f6eWKpsZd2vgLdLEl6AhnNSwl6/g9eoLyo8qLj8BIc1bz+Yg9E341OWJXsZF45RPpaPFAAAAAAA==",
+};
+
 export const VISUAL_SCENARIOS: VisualScenario[] = [
+  {
+    id: "visual-photos",
+    label: "Product photos",
+    messages: [
+      row("user", [{ kind: "text", text: "Compare the two countertop blenders." }]),
+      row("bot", [
+        {
+          kind: "visual",
+          title: "Countertop blenders",
+          text: "The Blend Mini costs £49 and the Blend Plus costs £69.",
+          code: `exports.default = () => React.createElement(Section, {heading: "Countertop blenders"},
+          React.createElement(Grid, {columns: 2},
+            React.createElement(Image, {src: "rakazo-image:${VISUAL_PHOTO.id}", alt: "Blend Mini blender", caption: "Blend Mini"}),
+            React.createElement(Image, {src: "rakazo-image:${VISUAL_PHOTO_PLUS.id}", alt: "Blend Plus blender", caption: "Blend Plus"})),
+          React.createElement(Grid, {columns: 1},
+            React.createElement(Section, null,
+              React.createElement(Table, {
+                columns: ["Feature", "Blend Mini", "Blend Plus", "Typical use"],
+                rows: [["Price", "£49", "£69", "Daily"], ["Jar material", "Polycarbonate", "Borosilicate", "Smoothies"]]
+              })))
+        );`,
+          images: [
+            { id: VISUAL_PHOTO.id, alt: "Blend Mini blender", size: 410 },
+            { id: VISUAL_PHOTO_PLUS.id, alt: "Blend Plus blender", size: 508 },
+          ],
+        },
+      ]),
+    ],
+  },
+  {
+    id: "visual-camera-table",
+    label: "Camera comparison",
+    messages: [
+      row("user", [{ kind: "text", text: "Compare the two cameras." }]),
+      row("bot", [
+        {
+          kind: "visual",
+          title: "Camera comparison",
+          text: "Two compact cameras side by side.",
+          code: `exports.default = () => React.createElement(Section, {heading: "Camera comparison"},
+          React.createElement(Table, {
+            columns: ["", "Fujifilm X100V", "Ricoh GR III"],
+            rows: [["Sensor", "26.1 MP APS-C", "24.2 MP APS-C"], ["Lens (35mm equiv.)", "35mm f/2", "28mm f/2.8"], ["Viewfinder", "Hybrid optical/electronic", "None (rear screen only)"], ["Stabilisation", "None", "3-axis in-body"]]
+          })
+        );`,
+        },
+      ]),
+    ],
+  },
   { id: "visual-nce", label: "Visual: NCE", messages: [ask, answer(fenced(NCE_FENCE))] },
   ...CUTS.map(([id, at]) => ({
     id: `visual-${id}`,

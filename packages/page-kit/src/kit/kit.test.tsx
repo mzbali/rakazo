@@ -360,6 +360,13 @@ describe("page kit", () => {
     expect(classes).toContain('<span class="rk-word">NP-complete</span>');
     expect(classes).toContain('<th scope="col">Class</th>');
     expect(classes).toContain("<td>P</td>");
+    // A slash joins two words, so a long pair may wrap after it instead of widening the column.
+    const pair = html(<Table columns={["Finder"]} rows={[["Hybrid optical/electronic"]]} />);
+    expect(pair).toContain("optical/<wbr/>electronic");
+    expect(pair).not.toContain('<span class="rk-word">optical/electronic</span>');
+    const specs = html(<Table columns={["Sensor", "Lens"]} rows={[["APS-C", "28mm f/2.8"]]} />);
+    expect(specs).toContain('<span class="rk-word">APS-C</span>');
+    expect(specs).toContain('<span class="rk-word">f/2.8</span>');
   });
 
   it("renders table sort controls only for columns with headers", () => {

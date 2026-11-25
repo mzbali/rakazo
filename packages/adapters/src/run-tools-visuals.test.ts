@@ -1,10 +1,33 @@
-import { MessageBlock, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
+import { MessageBlock, pageSourceBytes, VISUAL_CODE_MAX_BYTES } from "@rakazo/contracts";
+import { checkPageSource } from "@rakazo/page-kit/validate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { VISUAL_ESSENTIALS } from "./runs/assembly/show-visual.prompt.js";
+import * as storage from "./storage/thread-artifacts.js";
 
 const publishMessage = vi.fn();
 vi.mock("./runs/assembly/run-messages.js", async (importActual) => ({
   ...(await importActual<typeof import("./runs/assembly/run-messages.js")>()),
   publishMessage: (...args: unknown[]) => publishMessage(...args),
+}));
+
+// The images path reads the run's taint state and trust loaders; both are controlled per test.
+let runTainted = false;
+vi.mock("./runs/assembly/run-context.js", async (importActual) => ({
+  ...(await importActual<typeof import("./runs/assembly/run-context.js")>()),
+  isRunTainted: () => Promise.resolve(runTainted),
+}));
+
+const fetchVisualImage = vi.fn();
+vi.mock("./web/visual-image.js", async (importActual) => ({
+  ...(await importActual<typeof import("./web/visual-image.js")>()),
+  fetchVisualImage: (...args: unknown[]) => fetchVisualImage(...args),
+}));
+
+const storeVisualImage = vi.fn();
+const discard = vi.fn(async () => {});
+vi.mock("./storage/thread-artifacts.js", async (importActual) => ({
+  ...(await importActual<typeof import("./storage/thread-artifacts.js")>()),
+  storeVisualImage: (...args: unknown[]) => storeVisualImage(...args),
 }));
 
 const { visualTools } = await import("./run-tools-visuals.js");
@@ -17,23 +40,66 @@ const FLOW = [
   "export default Flow;",
 ].join("\n");
 
-const context = (secrets: string[] = []) =>
+const PRODUCTS = [
+  "const Picks = () => (",
+  '  <CardGrid label="Blenders">',
+  '    <ProductCard title="Aeroblend" price="$49" image="rakazo-image:1" href="https://shop.example.com/a" />',
+  '    <ProductCard title="Mixwell" price="$59" image="rakazo-image:2" href="https://shop.example.com/b" />',
+  "  </CardGrid>",
+  ");",
+  "export default Picks;",
+].join("\n");
+
+const IMAGES = [
+  { url: "https://cdn.example.com/aeroblend.png", alt: "Aeroblend box" },
+  { url: "https://cdn.example.com/mixwell.png", alt: "Mixwell box" },
+];
+
+const context = (secrets: string[] = [], extra: Record<string, unknown> = {}) =>
   ({
-    deps: {},
-    run: { id: "run-1", spaceId: "space-1", threadId: "t-1", botId: "bot-1", trigger: "user" },
+    deps: { artifacts: {}, prisma: {} },
+    context: { signal: new AbortController().signal },
+    run: {
+      id: "run-1",
+      spaceId: "space-1",
+      threadId: "t-1",
+      botId: "bot-1",
+      trigger: "user",
+      userId: "user-1",
+    },
+    bot: { id: "bot-1" },
+    thread: { id: "t-1", groupId: null },
+    runId: "run-1",
     secrets,
+    trust: {
+      searchResultUrls: new Set<string>(),
+      pageImageUrls: new Map<string, string>(),
+      loadApprovalRules: async () => [],
+      loadTrustedSites: async () => new Set<string>(),
+    },
+    ...extra,
   }) as never;
 
 const call = (args: Record<string, unknown>) =>
-  ({ args, finish: (result: unknown) => result }) as never;
+  ({ args, executionId: "exec-1", finish: (result: unknown) => result }) as never;
 
-const show = (args: Record<string, unknown>, secrets?: string[]) =>
-  visualTools.show_visual!(context(secrets), call(args)) as Promise<Record<string, unknown>>;
+const show = (args: Record<string, unknown>, secrets?: string[], extra?: Record<string, unknown>) =>
+  visualTools.show_visual!(context(secrets, extra), call(args)) as Promise<Record<string, unknown>>;
+
+/** The block the tool would post, as the publish call received it. */
+function postedBlock() {
+  const [, , , blocks] = publishMessage.mock.calls[0]!;
+  return blocks[0] as Record<string, unknown>;
+}
 
 describe("show_visual", () => {
   beforeEach(() => {
     publishMessage.mockReset();
     publishMessage.mockResolvedValue({ id: "message-1" });
+    fetchVisualImage.mockReset();
+    storeVisualImage.mockReset();
+    discard.mockClear();
+    runTainted = false;
   });
 
   it("posts the checked, compiled visual with its summary as its own message", async () => {
@@ -110,9 +176,25 @@ describe("show_visual", () => {
       { title: `Key ${secret}`, summary: "x", source: FLOW },
       { title: "Flow", summary: `The key is ${secret}.`, source: FLOW },
       { title: "Flow", summary: "x", source: FLOW.replace("Bot reply", secret) },
+      {
+        title: "Flow",
+        summary: "x",
+        source: PRODUCTS,
+        images: [{ url: `https://cdn.example.com/x.png?key=${secret}`, alt: "X" }, IMAGES[1]],
+      },
+      {
+        title: "Flow",
+        summary: "x",
+        source: PRODUCTS,
+        images: [
+          { url: "https://cdn.example.com/x.png", alt: secret },
+          { url: "https://cdn.example.com/y.png", alt: "Y" },
+        ],
+      },
     ]) {
       expect((await show(args, [secret])).error).toMatch(/secret/);
     }
+    expect(fetchVisualImage).not.toHaveBeenCalled();
     expect(publishMessage).not.toHaveBeenCalled();
   });
 
@@ -123,5 +205,349 @@ describe("show_visual", () => {
     );
     expect(block).toMatchObject({ kind: "visual", code: "x" });
     expect(JSON.stringify(block)).not.toContain("abc123");
+  });
+
+  it("redacts the alt text of a visual's pictures too", () => {
+    const [block] = redactBlocks(
+      [
+        {
+          kind: "visual",
+          title: "Picks",
+          text: "x",
+          code: "x",
+          images: [{ id: "art-1", alt: "token abc123", size: 3 }],
+        },
+      ],
+      ["abc123"],
+    );
+    expect(JSON.stringify(block)).not.toContain("abc123");
+  });
+
+  describe("with images", () => {
+    const fetchesPictures = () => {
+      fetchVisualImage.mockImplementation(async () => ({
+        bytes: new Uint8Array([1, 2, 3]),
+      }));
+      storeVisualImage.mockImplementation(async () => ({ id: "artifact-1", discard }));
+    };
+
+    it("publishes the turn instruction photo example in one call", async () => {
+      fetchesPictures();
+      const example = VISUAL_ESSENTIALS.match(/<Image src="rakazo-image:1" [^>]+>/)?.[0];
+      expect(example).toBeDefined();
+      const result = await show({
+        title: "Pick",
+        summary: "One blender.",
+        source: `export default () => ${example};`,
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.shown).toBe(true);
+      expect(postedBlock().code).toContain('src: "rakazo-image:artifact-1"');
+    });
+
+    it("fetches the named pictures and ships ids, alt text and sizes, never bytes or urls", async () => {
+      fetchesPictures();
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: PRODUCTS,
+        images: IMAGES,
+      });
+      expect(result.shown).toBe(true);
+      expect(discard).not.toHaveBeenCalled();
+      expect(publishMessage).toHaveBeenCalledTimes(1);
+      const block = postedBlock();
+      expect(block.code).toContain('image: "rakazo-image:artifact-1"');
+      expect(block.code).not.toContain("rakazo-image:1");
+      expect(JSON.stringify(block)).not.toContain("cdn.example.com");
+      expect(block.images).toEqual([
+        { id: "artifact-1", alt: "Aeroblend box", size: 3 },
+        { id: "artifact-1", alt: "Mixwell box", size: 3 },
+      ]);
+      expect(MessageBlock.safeParse(block).success).toBe(true);
+      // Stored under the thread's own space, bot and run, with the call's execution id.
+      const [deps, owner] = storeVisualImage.mock.calls[0]!;
+      expect(deps).toMatchObject({ prisma: {}, artifacts: {} });
+      expect(owner).toMatchObject({
+        spaceId: "space-1",
+        userId: "user-1",
+        botId: "bot-1",
+        runId: "run-1",
+        operationId: "exec-1",
+      });
+    });
+
+    it("rewrites image sources case-insensitively and leaves visible text alone", async () => {
+      fetchesPictures();
+      const source = `export default () => <><Text>rakazo-image:9</Text>
+        <Image src={'RaKaZo-ImAgE:1'} alt="rakazo-image:1" />
+        <Video src="rakazo-image:8" poster="RAKAZO-IMAGE:1" />
+        <Gallery photos={[{ src: "RAKAZO-IMAGE:1" }]} />
+        <ProductCard title="rakazo-image:1" photos={["RAKAZO-IMAGE:1"]} />
+      </>;`;
+      const result = await show({
+        title: "Picks",
+        summary: "One blender.",
+        source,
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.shown).toBe(true);
+      expect(postedBlock().code).toContain('"rakazo-image:9"');
+      expect(postedBlock().code).toContain('src: "rakazo-image:8"');
+      expect(postedBlock().code).toContain('alt: "rakazo-image:1"');
+      expect(postedBlock().code).toContain('title: "rakazo-image:1"');
+      expect(String(postedBlock().code).match(/rakazo-image:artifact-1/g)).toHaveLength(4);
+      expect(storeVisualImage).toHaveBeenCalledTimes(1);
+    });
+
+    it("checks the expanded size before fetching or storing pictures", async () => {
+      const source = 'export default () => <><Image src="rakazo-image:1" /><Text>FILL</Text></>;';
+      const compiled = checkPageSource(source);
+      if (!compiled.ok) throw new Error("Invalid test source");
+      const filler = "x".repeat(VISUAL_CODE_MAX_BYTES - pageSourceBytes(compiled.code) + 4);
+      const result = await show({
+        title: "Picks",
+        summary: "One blender.",
+        source: source.replace("FILL", filler),
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.error).toContain("compiled with its pictures");
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(storeVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("discards a successful write if another write fails", async () => {
+      fetchesPictures();
+      storeVisualImage.mockRejectedValueOnce(new Error("Storage failed"));
+      await expect(
+        show({ title: "Picks", summary: "Two blenders.", source: PRODUCTS, images: IMAGES }),
+      ).rejects.toThrow("Storage failed");
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(["cancelled", "throws"])(
+      "discards every new image when publication is %s",
+      async (outcome) => {
+        fetchesPictures();
+        if (outcome === "throws") publishMessage.mockRejectedValueOnce(new Error("Write failed"));
+        else publishMessage.mockResolvedValueOnce(null);
+        const result = show({
+          title: "Picks",
+          summary: "Two blenders.",
+          source: PRODUCTS,
+          images: IMAGES,
+        });
+        if (outcome === "throws") await expect(result).rejects.toThrow("Write failed");
+        else
+          await expect(result).resolves.toMatchObject({
+            error: expect.stringContaining("was not posted"),
+          });
+        expect(discard).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it("removes only the rows and blobs of the failed post, even for the same image bytes", async () => {
+      fetchesPictures();
+      const { storeVisualImage: writeImage } = await vi.importActual<typeof storage>(
+        "./storage/thread-artifacts.js",
+      );
+      storeVisualImage.mockImplementation(writeImage);
+      const rows = new Map<string, string>();
+      const blobs = new Set<string>();
+      let nextKey = 0;
+      const deps = {
+        prisma: {
+          artifact: {
+            findFirst: async () => {
+              const [id] = rows.keys();
+              return id ? { id } : null;
+            },
+            create: async ({ data }: { data: { id: string; storageKey: string } }) => {
+              rows.set(data.id, data.storageKey);
+              return { id: data.id };
+            },
+            deleteMany: async ({ where }: { where: { id: string } }) => {
+              rows.delete(where.id);
+            },
+          },
+        },
+        artifacts: {
+          put: async () => {
+            const id = `blob-${++nextKey}`;
+            blobs.add(id);
+            return { id };
+          },
+          remove: async (id: string) => {
+            blobs.delete(id);
+          },
+        },
+      };
+      const args = {
+        title: "Picks",
+        summary: "One blender.",
+        source: 'export default () => <Image src="rakazo-image:1" />;',
+        images: IMAGES.slice(0, 1),
+      };
+      await expect(show(args, [], { deps })).resolves.toMatchObject({ shown: true });
+      const firstRows = [...rows];
+      expect(firstRows).toHaveLength(1);
+      expect(firstRows[0]![0]).toHaveLength(storage.VISUAL_IMAGE_ARTIFACT_ID_LENGTH);
+
+      publishMessage.mockResolvedValueOnce(null);
+      await expect(show(args, [], { deps })).resolves.toMatchObject({ error: expect.any(String) });
+      expect(nextKey).toBe(2);
+      expect([...rows]).toEqual(firstRows);
+      expect([...blobs]).toEqual(["blob-1"]);
+    });
+
+    it("names the picture that failed and shows nothing, even when others loaded", async () => {
+      fetchesPictures();
+      fetchVisualImage.mockRejectedValueOnce(new Error("Request failed: HTTP 404"));
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: PRODUCTS,
+        images: IMAGES,
+      });
+      expect(result.shown).toBeUndefined();
+      expect(result.error).toContain("rakazo-image:1");
+      expect(result.error).toContain("HTTP 404");
+      expect(result.error).toContain("Nothing was shown");
+      expect(publishMessage).not.toHaveBeenCalled();
+      expect(storeVisualImage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a picture the source names but images does not carry", async () => {
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: PRODUCTS,
+        images: IMAGES.slice(0, 1),
+      });
+      expect(result.error).toContain("rakazo-image:2");
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a malformed or zero picture reference", async () => {
+      const malformed = await show({
+        title: "Picks",
+        summary: "x.",
+        source: PRODUCTS.replace('image="rakazo-image:1"', 'image="rakazo-image:1.webp"'),
+        images: IMAGES,
+      });
+      expect(malformed.error).toMatch(/rakazo-image:/);
+      const zero = await show({
+        title: "Picks",
+        summary: "x.",
+        source: PRODUCTS.replace('image="rakazo-image:1"', 'image="rakazo-image:0"'),
+        images: IMAGES,
+      });
+      expect(zero.error).toContain("rakazo-image:0");
+      expect(zero.error).toContain("Number pictures from 1");
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("points an unrecognized Picture tag to the supported photo component", async () => {
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: 'export default () => <Picture src="rakazo-image:1" />;',
+        images: IMAGES,
+      });
+      expect(result.problems).toEqual([expect.stringContaining('<Image src="rakazo-image:1" />')]);
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses images the source never shows, rather than dropping them silently", async () => {
+      const result = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: FLOW,
+        images: IMAGES,
+      });
+      expect(result.error).toContain('<Image src="rakazo-image:1" />');
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses more pictures than the visual may carry, and a bad images list", async () => {
+      const many = IMAGES.concat([
+        { url: "https://cdn.example.com/c.png", alt: "C" },
+        { url: "https://cdn.example.com/d.png", alt: "D" },
+        { url: "https://cdn.example.com/e.png", alt: "E" },
+      ]);
+      const result = await show({ title: "Picks", summary: "x.", source: PRODUCTS, images: many });
+      expect(result.error).toMatch(/at most 4 images/i);
+      const shape = await show({ title: "Picks", summary: "x.", source: PRODUCTS, images: "nope" });
+      expect(shape.error).toMatch(/list of \{url, alt\}/);
+      const missingAlt = await show({
+        title: "Picks",
+        summary: "x.",
+        source: PRODUCTS,
+        images: [{ url: "https://cdn.example.com/a.png" }],
+      });
+      expect(missingAlt.error).toMatch(/needs alt text/);
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a background run's pictures, and a run with no artifact storage", async () => {
+      const background = await show(
+        { title: "Picks", summary: "x.", source: PRODUCTS, images: IMAGES },
+        [],
+        {
+          run: {
+            id: "run-1",
+            spaceId: "space-1",
+            threadId: "t-1",
+            botId: "bot-1",
+            trigger: "tickets",
+            userId: "user-1",
+          },
+        },
+      );
+      expect(background.error).toMatch(/background run/i);
+      const unconfigured = await show(
+        { title: "Picks", summary: "x.", source: PRODUCTS, images: IMAGES },
+        [],
+        { deps: {} },
+      );
+      expect(unconfigured.error).toMatch(/Image storage is not configured/);
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+      expect(publishMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a tainted run's picture on a site it was not given, and allows one it was", async () => {
+      runTainted = true;
+      fetchesPictures();
+      const refused = await show({
+        title: "Picks",
+        summary: "Two blenders.",
+        source: PRODUCTS,
+        images: IMAGES,
+      });
+      expect(refused.error).toContain("rakazo-image:1");
+      expect(refused.error).toMatch(/not approved for this run/);
+      expect(fetchVisualImage).not.toHaveBeenCalled();
+
+      // A site is its registrable domain, as it is for a fetch the owner approved.
+      const trusted = await show(
+        { title: "Picks", summary: "Two blenders.", source: PRODUCTS, images: IMAGES },
+        [],
+        {
+          trust: {
+            searchResultUrls: new Set(["https://cdn.example.com/aeroblend.png"]),
+            pageImageUrls: new Map(),
+            loadApprovalRules: async () => [],
+            loadTrustedSites: async () => new Set(["example.com"]),
+          },
+        },
+      );
+      expect(trusted.shown).toBe(true);
+      expect(publishMessage).toHaveBeenCalledTimes(1);
+    });
   });
 });

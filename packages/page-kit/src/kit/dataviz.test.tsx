@@ -1126,6 +1126,7 @@ describe("data display", () => {
     vi.spyOn(window, "getComputedStyle").mockReturnValue({ direction } as CSSStyleDeclaration);
     const container = mount(<Table columns={["Name"]} rows={[["Alpha"]]} />);
     const scroll = container.querySelector<HTMLDivElement>(".rk-table-scroll")!;
+    expect(scroll.tabIndex).toBe(0);
     const edges = () => [
       scroll.hasAttribute("data-fade-start"),
       scroll.hasAttribute("data-fade-end"),
@@ -1200,6 +1201,38 @@ describe("data display", () => {
       expect(scroll.hasAttribute("data-fade-end")).toBe(true);
     },
   );
+
+  it("recomputes scroll edges when the table inside the scrollport changes size", () => {
+    let scrollWidth = 100;
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(() => scrollWidth);
+    const watched: { update: () => void; targets: Element[] }[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        entry: { update: () => void; targets: Element[] };
+        constructor(update: () => void) {
+          this.entry = { update, targets: [] };
+          watched.push(this.entry);
+        }
+        observe(target: Element) {
+          this.entry.targets.push(target);
+        }
+        disconnect() {}
+      },
+    );
+    const container = mount(<Table columns={["Name", "Note"]} rows={[["Alpha", "ok"]]} />);
+    const scroll = container.querySelector<HTMLDivElement>(".rk-table-scroll")!;
+    const table = container.querySelector("table")!;
+    expect(scroll.hasAttribute("data-fade-end")).toBe(false);
+    expect(scroll.hasAttribute("tabindex")).toBe(false);
+    // The scrollport keeps its box while a long value widens the table inside it.
+    expect(watched.at(-1)!.targets).toContain(table);
+    scrollWidth = 300;
+    act(() => watched.at(-1)!.update());
+    expect(scroll.hasAttribute("data-fade-end")).toBe(true);
+    expect(scroll.tabIndex).toBe(0);
+  });
 
   it("cleans up a removed table and observes its replacement", () => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);

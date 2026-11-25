@@ -34,6 +34,8 @@ export interface SafeWebFetchOptions {
   truncate?: boolean;
   /** Refuse any hop, redirects included, whose port is not listed. */
   allowedPorts?: readonly number[];
+  /** The caller’s outbound policy, applied before resolving every hop. */
+  allowUrl?: (url: string) => boolean;
   /**
    * Test seam for dispatcher teardown. Defaults to `dispatcher.close()`.
    * Always raced against the shared operation deadline.
@@ -134,6 +136,7 @@ export async function fetchSafeWebBytes(
       redirectsRemaining: options.maxRedirects ?? MAX_REDIRECTS,
       truncate: options.truncate ?? false,
       allowedPorts: options.allowedPorts,
+      allowUrl: options.allowUrl,
     }),
   );
 }
@@ -239,10 +242,14 @@ async function followRedirects(
     redirectsRemaining: number;
     truncate: boolean;
     allowedPorts?: readonly number[];
+    allowUrl?: SafeWebFetchOptions["allowUrl"];
   },
 ): Promise<SafeWebResponse<Uint8Array>> {
   if (state.signal.aborted) {
     throw abortError(state.signal);
+  }
+  if (state.allowUrl && !state.allowUrl(rawUrl)) {
+    throw new Error("the destination is not approved for this run");
   }
   const validated = await assertSafeWebUrl(rawUrl, state.resolve, state.signal, state.allowedPorts);
   // Race fetch against the deadline — injected fetch may ignore init.signal.

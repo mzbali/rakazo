@@ -13,6 +13,15 @@ export const PAGE_SOURCE_MAX_BYTES = 256 * 1024;
 export const VISUAL_CODE_MAX_BYTES = 32 * 1024;
 /** A visual's summary: the plain-text point of it, shown wherever the visual cannot be drawn. */
 export const VISUAL_SUMMARY_MAX_LENGTH = 500;
+/**
+ * The most pictures one visual may carry. Each is fetched from the web by show_visual and kept
+ * as an artifact, so the message itself still travels with ids only.
+ */
+export const VISUAL_IMAGE_MAX_COUNT = 4;
+/** Alt text kept beside each image id in the visual's message. */
+export const VISUAL_IMAGE_ALT_MAX_LENGTH = 200;
+/** The most bytes one stored visual image may be, so the host's answer to its frame stays small. */
+export const VISUAL_IMAGE_STORED_MAX_BYTES = 512 * 1024;
 
 export function pageSourceBytes(source: string): number {
   return new TextEncoder().encode(source).byteLength;

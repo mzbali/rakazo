@@ -220,6 +220,8 @@ function UiFence({
         if (safe) open(safe);
       },
       copy,
+      // A ui fence carries no pictures, so a stray picture id never resolves.
+      image: () => Promise.resolve(null),
     }),
     [open, copy],
   );

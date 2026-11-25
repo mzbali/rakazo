@@ -28,3 +28,18 @@ it("sizes a column to its longest word instead of breaking the word", () => {
   expect(word).toContain("white-space:nowrap");
   expect(word).toContain("overflow-wrap:normal");
 });
+
+it("uses the enclosing visual card and pins leading cells only during horizontal overflow", () => {
+  expect(PAGE_STYLES).toContain(
+    "[data-inline] :is(.rk-section[data-card] .rk-section[data-card],.rk-section:has(>.rk-grid)>.rk-grid>.rk-section[data-card]):has(>.rk-table-wrap){padding:0;border:0;border-radius:0}",
+  );
+  expect(PAGE_STYLES).toContain(
+    "[data-inline] .rk-table-scroll{mask-image:none;-webkit-mask-image:none}",
+  );
+  expect(PAGE_STYLES).toContain(
+    "[data-inline] .rk-table-scroll[data-fade-start] tr>:first-child:not([colspan]),[data-inline] .rk-table-scroll[data-fade-end] tr>:first-child:not([colspan]){position:sticky;inset-inline-start:0;z-index:1;background:var(--background)}",
+  );
+  expect(PAGE_STYLES).not.toContain(
+    "[data-inline] .rk-table-scroll tr>:first-child{position:sticky",
+  );
+});

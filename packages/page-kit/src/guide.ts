@@ -8,7 +8,7 @@ A page is JSX source whose default export is a React component. It renders in an
 - Exactly one \`export default\` (your top component). Helper components and data objects in the same file are fine.
 - Do not name your own component after a kit component (Page, Status, Table, Rows...): it replaces the kit's in the whole file, so using that kit component inside it renders itself forever, and the check refuses it. Call it StatusPage, BotTable and so on.
 - Gather data first and keep it in one object at the top. Write figures already formatted ("$12,400", "4.8%") and write plain characters, not HTML escapes ("<800ms", not "&lt;800ms").
-- Plain HTML and SVG elements (div, span, svg, path, rect, circle, text, linearGradient, animate...) with style={{...}} are allowed for custom visuals; take colours from useTheme() so they match both themes. script, style, iframe, object, embed and foreignObject are not allowed, and handlers are functions, never strings. Images are data: URIs only.
+- Plain HTML and SVG elements (div, span, svg, path, rect, circle, text, linearGradient, animate...) with style={{...}} are allowed for custom visuals; take colours from useTheme() so they match both themes. script, style, iframe, object, embed and foreignObject are not allowed, and handlers are functions, never strings. Images are data: URIs only, or rakazo-image:<n> when show_visual fetched them (see Media).
 - Save with save_page {title, source}. To change it later, pass the pageId you got back with edits [{find, replace}] (all apply or none do) or the whole new source; pass only pageId to read the current source.
 
 ## Design rules
@@ -96,7 +96,7 @@ Keep each control's value in useState. A control placed straight in a Section or
 - ReplyButton {label, reply?}: puts reply (or the label), up to 300 characters, in the chat's message box for the reader to send. It is inactive where there is no chat, such as a shared page.
 
 ### Media
-Pictures, sound and video must be embedded as data: URIs (a blob: the page makes itself also works for sound and video); web addresses never load and the component is left out.
+Use data: URIs for media, or a local blob: for audio and video. For fetched photos, pass images: [{url, alt}] to show_visual (max 4). Use <Image src="rakazo-image:1" alt="Description" caption="Name" />, counting from 1. Retry without failed photos.
 - Image {src, alt, caption?, fit?: "cover" | "contain", width?, height?, ratio?: number | "16/9"}: click to enlarge.
 - Gallery {photos: [{src, alt}], height?}: up to 8 photos the reader swipes or steps through.
 - PhotoStrip {items: [{image, alt?, title?, price?, note?, href?}], tileWidth?, imageHeight?}: a sideways row of small cards.
@@ -162,7 +162,7 @@ export const VISUAL_GUIDE = `# Visuals
 
 A visual is a small piece of page-kit JSX drawn in the chat. Place the embed show_visual returns where it belongs. It is not saved; show a new one to change it. For something the user will keep, share or update, use save_page.
 
-- Call show_visual {title, summary, source}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
+- Call show_visual {title, summary, source, images?}. summary is one or two plain sentences with the point and the key figures: the user reads it where the visual cannot be drawn, and you see it later.
 - It draws at message width, up to about 2400 pixels tall, and a visual that fits works in place, controls included. Keep it to one idea. A phone is about 340 pixels across, so a Diagram of more than two steps reads better vertical. Never tell the reader to open it full size.
 - Skip the Page wrapper. A Section heading names it, and caption is the one line inside the card, under the picture. Size custom SVG with a viewBox and width "100%", and take colours from useTheme(). Never use vh: the frame grows to fit.
 - The compiled visual must stay under 32 KB. Put larger work in a page.
@@ -173,7 +173,7 @@ One idea per visual. A long answer is short numbered prose between two and four 
 Plain labels ("Number of elements", "Polynomial"). No "drag me", and no instruction to tap or open. One caption line inside the card, under the picture. Monochrome. success and danger only where the colour is the meaning, such as polynomial against exponential. A grid or board is custom SVG from useTheme(). One set inside another is <Venn nested sets={[{label: "NP"}, {label: "P", tone: "success"}]} />. A flow of named boxes is a Diagram.
 
 - A concept: show_visual for each picture, and for one control where moving it changes a variable and shows the point. A ui fence is for a table, steps or a few numbers.
-- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options.
+- Comparison: open with the finding. Put exact values in a table and show the key difference with horizontal Bars. For a buying decision, lead with the pick and add a calculator prefilled with the figures available. Put Choices radio for missing preferences in a separate visual. Use ProductRows for linked options. Put a Grid with one or two Images in a Section. Use short captions and omit fixed sizes. Put the comparison Table directly in a Section.
 - Mix: Pie with a centred total and expandable notes, StackedBars showShares, then ColumnSeries for changes across periods.
 - Trend: Metrics, LineChart with a relevant peak and target, a month Slider and jump buttons, then a compact table.
 - Before/after location: Metrics, Rings with both markers, horizontal Bars, adjustable savings and a route table.

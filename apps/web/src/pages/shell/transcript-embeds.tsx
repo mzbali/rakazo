@@ -23,7 +23,7 @@ export function TranscriptEmbeds({
     (embed: MarkdownEmbed) => {
       const found = embedTarget(messages, embed);
       if (!found) return null;
-      if (found.kind === "visual") return <VisualCard block={found.block} />;
+      if (found.kind === "visual") return <VisualCard key={found.messageId} block={found.block} />;
       if (found.kind === "image") {
         return (
           <ArtifactImage

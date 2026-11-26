@@ -41,7 +41,7 @@ const RAKAZO_DOCS: ReadonlyArray<readonly [topics: string, url: string]> = [
 export const RAKAZO_DOCS_URLS = RAKAZO_DOCS.map(([, url]) => url);
 
 /** One catalog of answer shapes: what each kind of question is drawn with, and where its photos come from. */
-const VISUAL_ANSWERS_BODY = `Pick the shape below that matches the question, then draw it with show_visual (one Section per visual). Open with the answer or pick in one plain sentence; the visual carries the detail. Facts you did not find, you do not draw: leave a field out rather than invent it.
+const VISUAL_ANSWERS_BODY = `Pick the shape below that matches the question, then draw it with show_visual (one Section per visual), never a ui fence. Places, products, news and anything current: web_search and web_fetch first for the facts and photos, even when you think you know. Open with the answer or pick in one plain sentence; the visual carries the detail. Facts you did not find, you do not draw: leave a field out rather than invent it.
 
 Photos: fetch a page with web_fetch, then pass the images it returned as images=[{url, alt}] (max 4) and place them with src="rakazo-image:1", counting from 1. A picture already in this chat is src="image:<id>" with no images entry. No picture found: leave image out. Never write a URL in src.
 
@@ -59,7 +59,7 @@ Shapes
 - Weather, sports, finance: lead with the most time-sensitive fact and its as-of time (SourceStamp). Metrics for today, Columns for the days ahead; a price LineChart with a line on why it moved. Scores, standings, money options, rates: Table with the leader or best row marked (emphasis, tone), Metrics for the headline figure. Event dates: Upcoming.
 - Who someone is, or a film or show (poster, rating, where to stream): <Image> then Properties or RatingSummary, then a short Timeline.
 - Packing, documents, to-do: <Checklist interactive sections />. A process with branches: Steps, and Stages groups for the "if" routes.
-- By region or country: Table with the region first, or Bars.
+- By region or country: rows or a Table with the flag beside each place name (🇮🇹 Italy), or Bars.
 
 Sources are small chips (NewsRows sources, ProductCard store), never a wall of links. Follow-up choices are ReplyButton, not a list in prose. A needless visual is a failure too. Plain text, no visual: a single fact or yes or no, the time, a definition in a line, feelings, personal talk, quick chat. If unsure between a visual and one sentence, write the sentence.`;
 

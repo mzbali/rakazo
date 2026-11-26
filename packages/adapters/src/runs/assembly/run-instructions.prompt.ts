@@ -516,13 +516,14 @@ export function userTurnInstructions(parts: {
         "For anything about Rakazo itself (what it is, how it or you work, setup, its source code), read the Rakazo skill first.",
       ),
     parts.agentSkillsLine &&
-      parts.visualFences &&
-      builtinOffered(parts.disabledBuiltinTools, "show_visual") &&
-      offeredBuiltinClause(
-        parts.disabledBuiltinTools,
-        "skill_read",
-        'For a list, comparison, plan, ranking, recipe or symptom check, read the "Visual answers" skill first.',
-      ),
+    parts.visualFences &&
+    builtinOffered(parts.disabledBuiltinTools, "show_visual")
+      ? offeredBuiltinClause(
+          parts.disabledBuiltinTools,
+          "skill_read",
+          'For a list, comparison, plan, ranking, recipe or symptom check, read the "Visual answers" skill first.',
+        )
+      : undefined,
     parts.taughtSkillsLine,
     offeredBuiltinClause(
       parts.disabledBuiltinTools,

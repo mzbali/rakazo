@@ -10,6 +10,7 @@ export const nl: Messages = {
   none: "geen",
   noValue: "Geen waarde",
   comparison: "Vergelijking",
+  bestValue: "Beste",
   other: "Overig",
   total: "Totaal",
   part: "deel {n}",

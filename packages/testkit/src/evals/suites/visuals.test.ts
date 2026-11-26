@@ -58,6 +58,7 @@ const CHECKLIST = `export default () => <Section><Checklist interactive sections
 const PHOTOS = `export default () => <Section><Image src="rakazo-image:1" alt="Camera" /><Image src="rakazo-image:2" alt="Camera" /></Section>;`;
 const NEWS = `export default () => <Section><NewsRows items={[{label: "France", title: "T", image: "rakazo-image:1"}]} /><Upcoming items={[{date: "2027-03-04", title: "Vote"}]} /></Section>;`;
 const NEWS_TABLE = `export default () => <Section><Table columns={["Country"]} rows={[["France"]]} /></Section>;`;
+const COMPARE = `export default () => <Section><Compare items={[{title: "A", image: "rakazo-image:1"}, {title: "B", image: "rakazo-image:2"}]} rows={[{label: "Battery", values: ["24 h", "18 h"], best: 0}]} /></Section>;`;
 const PROSE_ONLY = `export default () => <Section><Text>Words</Text></Section>;`;
 
 const definition = (id: string): VisualCase => VISUAL_DEFINITIONS.find((d) => d.id === id)!;
@@ -155,6 +156,40 @@ describe("gradeVisuals", () => {
     ]);
   });
 
+  it("wants a phone comparison drawn with Compare, not a table", () => {
+    const phones = definition("shape-phones");
+    const call = visual(COMPARE, "succeeded", {
+      images: [
+        { url: "https://images.example/a.jpg", alt: "A" },
+        { url: "https://images.example/b.jpg", alt: "B" },
+      ],
+    });
+    expect(failed(gradeVisuals(phones, evidence([call])))).toEqual([]);
+    expect(failed(gradeVisuals(phones, evidence([visual(NEWS_TABLE)])))).toEqual([
+      "uses Compare",
+      "first call passes photos and places them",
+      "first call places at least 2 photos",
+    ]);
+  });
+
+  it("wants a photo over every compared phone, not just one", () => {
+    const phones = definition("shape-phones");
+    const onePhoto = visual(COMPARE.replace('"rakazo-image:2"', '""'), "succeeded", {
+      images: [{ url: "https://images.example/a.jpg", alt: "A" }],
+    });
+    expect(failed(gradeVisuals(phones, evidence([onePhoto])))).toContain(
+      "first call places at least 2 photos",
+    );
+  });
+
+  it("keeps a plain fact plain", () => {
+    const capital = definition("plain-capital");
+    expect(failed(gradeVisuals(capital, evidence([])))).toEqual([]);
+    expect(failed(gradeVisuals(capital, evidence([visual(PROSE_ONLY)])))).toEqual([
+      "show_visual succeeds 0 times",
+    ]);
+  });
+
   it("asks for two to four visuals on an explainer", () => {
     const explainer = definition("explainer-p-vs-np");
     expect(failed(gradeVisuals(explainer, evidence([visual(CALCULATOR)])))).toEqual([
@@ -234,7 +269,17 @@ describe("visuals suite", () => {
     const ids = VISUAL_DEFINITIONS.map((d) => d.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(VISUAL_DEFINITIONS.map((d) => d.category))).toEqual(
-      new Set(["explainer", "decision", "money", "component", "data", "photos", "news", "plain"]),
+      new Set([
+        "explainer",
+        "decision",
+        "money",
+        "component",
+        "data",
+        "photos",
+        "news",
+        "shape",
+        "plain",
+      ]),
     );
     expect(VISUALS_EVAL_CASES).toHaveLength(ids.length);
   });

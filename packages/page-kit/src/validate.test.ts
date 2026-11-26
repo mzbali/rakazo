@@ -311,6 +311,24 @@ describe("checkPageSource", () => {
     expect(VISUAL_GUIDE).toContain("News or current events");
   });
 
+  it("accepts the comparison pattern and finds its photo references", () => {
+    const source = page(
+      `const App = () => (
+  <Section heading="Phones">
+    <Compare items={[{ title: "A", image: "rakazo-image:1", note: "£799" }, { title: "B", image: "image:art_2" }]} rows={[{ label: "Battery", values: ["24 h", "22 h"], best: 0 }]} />
+  </Section>
+);`,
+    );
+    const checked = checkPageSource(source);
+    expect(checked).toEqual({ ok: true, code: expect.any(String) });
+    expect(VISUAL_GUIDE).toContain("Compare {items:");
+    if (checked.ok) {
+      const found = visualImageReferences(checked.code);
+      expect(found.places).toEqual([1]);
+      expect(found.saved).toEqual(["art_2"]);
+    }
+  });
+
   it("rejects a component named like a kit component that uses that component inside itself", () => {
     const result = checkPageSource(
       'export default function Status() {\n  return <Page title="t"><Status tone="success">Up</Status></Page>;\n}\n',

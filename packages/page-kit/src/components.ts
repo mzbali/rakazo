@@ -73,6 +73,7 @@ export const PAGE_KIT_COMPONENTS = [
   "ProductCard",
   "ProductRows",
   "NewsRows",
+  "Compare",
   "Upcoming",
   "RatingSummary",
   "WatchCard",

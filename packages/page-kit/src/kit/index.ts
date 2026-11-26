@@ -3,6 +3,7 @@ import type { PageHelperName, PageKitComponentName } from "../components.js";
 import { PAGE_HELPERS, PAGE_KIT_COMPONENTS } from "../components.js";
 import * as calendar from "./calendar.js";
 import * as charts from "./charts.js";
+import * as compare from "./compare.js";
 import * as controls from "./controls.js";
 import * as data from "./data.js";
 import * as dataviz from "./dataviz.js";
@@ -19,6 +20,7 @@ import * as theme from "./theme.js";
 const modules = {
   ...calendar,
   ...charts,
+  ...compare,
   ...controls,
   ...data,
   ...dataviz,

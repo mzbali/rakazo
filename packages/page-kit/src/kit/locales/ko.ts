@@ -10,6 +10,7 @@ export const ko: Messages = {
   none: "없음",
   noValue: "값 없음",
   comparison: "비교",
+  bestValue: "최고",
   other: "기타",
   total: "합계",
   part: "부분 {n}",

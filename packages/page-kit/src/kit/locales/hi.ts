@@ -10,6 +10,7 @@ export const hi: Messages = {
   none: "कोई नहीं",
   noValue: "कोई मान नहीं",
   comparison: "तुलना",
+  bestValue: "सर्वश्रेष्ठ",
   other: "अन्य",
   total: "कुल",
   part: "भाग {n}",

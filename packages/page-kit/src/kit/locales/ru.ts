@@ -10,6 +10,7 @@ export const ru: Messages = {
   none: "нет",
   noValue: "Нет значения",
   comparison: "Сравнение",
+  bestValue: "Лучшее",
   other: "Другое",
   total: "Итого",
   part: "часть {n}",

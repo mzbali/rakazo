@@ -10,6 +10,7 @@ export const th: Messages = {
   none: "ไม่มี",
   noValue: "ไม่มีค่า",
   comparison: "การเปรียบเทียบ",
+  bestValue: "ดีที่สุด",
   other: "อื่น ๆ",
   total: "รวม",
   part: "ส่วนที่ {n}",

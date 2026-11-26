@@ -10,6 +10,7 @@ export const fr: Messages = {
   none: "aucune",
   noValue: "Aucune valeur",
   comparison: "Comparaison",
+  bestValue: "Meilleur",
   other: "Autres",
   total: "Total",
   part: "partie {n}",

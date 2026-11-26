@@ -22,6 +22,24 @@ const parts = {
   replyGuidance: "",
 };
 
+describe("the Visual answers pointer", () => {
+  const pointer = 'read the "Visual answers" skill first';
+  const text = (extra: Record<string, unknown>) =>
+    userTurnInstructions({ ...parts, agentSkillsLine: "Agent skills", ...extra }).join("\n");
+
+  it("goes only to app chats that can open the skill and draw a visual", () => {
+    expect(text({ visualFences: true })).toContain(pointer);
+    expect(text({ visualFences: false })).not.toContain(pointer);
+    expect(text({ visualFences: true, agentSkillsLine: undefined })).not.toContain(pointer);
+    expect(
+      text({ visualFences: true, disabledBuiltinTools: new Set(["skill_read"]) }),
+    ).not.toContain(pointer);
+    expect(
+      text({ visualFences: true, disabledBuiltinTools: new Set(["show_visual"]) }),
+    ).not.toContain(pointer);
+  });
+});
+
 describe("the ui fence instructions", () => {
   it("go to runs whose reply shows in the app, and not to chat-app channels", () => {
     expect(userTurnInstructions({ ...parts, visualFences: true })).toContain(

@@ -10,6 +10,7 @@ export const zhCN: Messages = {
   none: "无",
   noValue: "无数值",
   comparison: "对比",
+  bestValue: "最佳",
   other: "其他",
   total: "合计",
   part: "部分 {n}",

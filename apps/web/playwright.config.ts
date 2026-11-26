@@ -1,5 +1,8 @@
+import { globSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { isRealSandboxProvider } from "./e2e/helpers/helpers";
+import { parseShard, planShards } from "./server/e2e-shards";
 
 const webPort = Number(process.env.WEB_PORT ?? 5173);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${webPort}`;
@@ -66,21 +69,41 @@ const nightlySpecs = [
   "ui-appearance",
   "ui-locale",
 ];
+const ignoredNames = [...(skipNightly ? nightlySpecs : []), ...(skipHeavy ? heavySpecs : [])];
+const ignoredSpecs = ignoredNames.map((name) => `**/${name}.spec.ts`);
+
+// CI sets E2E_SHARD (like 2/6) to run one shard. Whole files go to shards by their recorded
+// durations (e2e/spec-durations.json) rather than Playwright's --shard, which splits by test count.
+const e2eShard = process.env.E2E_SHARD ? parseShard(process.env.E2E_SHARD) : undefined;
+const shardFiles = (() => {
+  if (!e2eShard) return undefined;
+  const e2eDir = path.join(import.meta.dirname, "e2e");
+  const files = globSync("**/*.spec.ts", { cwd: e2eDir })
+    .map((file) => file.split(path.sep).join("/"))
+    .filter((file) => !ignoredNames.includes(path.basename(file, ".spec.ts")));
+  const durations = JSON.parse(readFileSync(path.join(e2eDir, "spec-durations.json"), "utf8"));
+  return planShards(files, durations, e2eShard.total)[e2eShard.current - 1];
+})();
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // GitHub Actions shards the suite; each shard writes a blob that the merge job turns into one report.
 const reporters = [
   ...(process.env.CI ? ([["github"]] as const) : []),
   ["list"] as const,
   process.env.GITHUB_ACTIONS
-    ? (["blob", { outputDir: "../../blob-report" }] as const)
+    ? ([
+        "blob",
+        {
+          outputDir: "../../blob-report",
+          fileName: e2eShard ? `report-${e2eShard.current}.zip` : undefined,
+        },
+      ] as const)
     : (["html", { open: "never", outputFolder: "../../playwright-report" }] as const),
 ];
 
-const ignoredSpecs = [...(skipNightly ? nightlySpecs : []), ...(skipHeavy ? heavySpecs : [])].map(
-  (name) => `**/${name}.spec.ts`,
-);
-
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: shardFiles?.map((file) => new RegExp(`/e2e/${escapeRegExp(file)}$`)),
   testIgnore: ignoredSpecs.length ? ignoredSpecs : undefined,
   grepInvert: skipNightly ? /@nightly/ : undefined,
   forbidOnly: Boolean(process.env.CI),

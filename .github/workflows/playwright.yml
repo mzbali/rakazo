@@ -127,10 +127,11 @@ jobs:
       - name: Run Playwright tests
         id: playwright_tests
         env:
-          SHARD: ${{ matrix.shard }}/6
+          # Splits files by recorded duration (apps/web/e2e/spec-durations.json), not test count.
+          E2E_SHARD: ${{ matrix.shard }}/6
           E2E_SKIP_NIGHTLY: ${{ !inputs.nightly && '1' || '' }}
           E2E_SKIP_HEAVY: "1"
-        run: pnpm test:e2e -- --shard="$SHARD"
+        run: pnpm test:e2e
       - name: Upload shard results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

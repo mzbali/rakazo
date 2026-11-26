@@ -23,6 +23,19 @@ function render(element: ReactElement) {
 const all = (selector: string) => [...host.querySelectorAll<HTMLElement>(selector)];
 
 describe("Compare", () => {
+  it("keeps each value under its own product when an untitled item is left out", () => {
+    render(
+      <Compare
+        items={[{ title: "" }, { title: "Phone B" }, {}, { title: "Phone D" }]}
+        rows={[{ label: "Battery", values: ["1 h", "2 h", "3 h", "4 h"], best: 3 }]}
+      />,
+    );
+    expect(all("thead th").map((head) => head.textContent)).toEqual(["Phone B", "Phone D"]);
+    const cells = all("tbody td");
+    expect(cells.map((cell) => cell.firstChild?.textContent)).toEqual(["2 h", "4 h"]);
+    expect(cells.map((cell) => cell.hasAttribute("data-best"))).toEqual([false, true]);
+  });
+
   it("heads each column with its photo and name, then lists each spec under its label", () => {
     render(
       <Compare

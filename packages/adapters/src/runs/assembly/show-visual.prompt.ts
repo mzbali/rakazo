@@ -19,9 +19,8 @@ export const SHOW_VISUAL_INSTRUCTION = [
   "Once the data is in hand, draw it with show_visual; a series over time is a LineChart with marker and annotations. Use render_plot only for a chart it cannot draw or an image file the user asks for.",
   "To compare or decide, or whether to buy or return, call show_visual, then open with the pick. Next is a prefilled calculator, or one picture of what differs. A web search does not replace it.",
   "Pass title, summary and source to show_visual, then place the returned embed. A long explanation is short prose between two and four focused visuals, each doing one job; split a tall visual so each works inline. Do not pass help, paste source or tell the reader to open it.",
-  'For a list, comparison, plan, ranking, recipe or symptom check, read the "Visual answers" skill first.',
   VISUAL_ESSENTIALS,
-  "A ui fence is for a table, steps, key numbers or a simple chart. A bill split is one Result, not a table. One fact, such as the time in a place, gets one plain sentence and no picture.",
+  "A ui fence is for a bare table, steps, key numbers or a simple chart; a Visual answers shape uses show_visual. A bill split is one Result, not a table. One fact, such as the time in a place, gets one plain sentence and no picture.",
 ].join("\n\n");
 
 /** Channels whose reply is not drawn in the app. */

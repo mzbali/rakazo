@@ -14,8 +14,11 @@ const MAX_ITEMS = 4;
  */
 export function Compare({ items, rows }: { items?: CompareItem[]; rows?: CompareRow[] }) {
   const words = useWords();
+  // Each column keeps its item's index, so a row's values and best still match it when an
+  // untitled item before it is left out.
   const columns = objectItems(items)
-    .filter((item) => text(item.title))
+    .map((item, original) => ({ item, original }))
+    .filter(({ item }) => text(item.title))
     .slice(0, MAX_ITEMS);
   if (columns.length === 0) return null;
   const specs = objectItems(rows).filter((row) => text(row.label));
@@ -24,7 +27,7 @@ export function Compare({ items, rows }: { items?: CompareItem[]; rows?: Compare
       <table className="rk-compare" data-columns={columns.length}>
         <thead>
           <tr>
-            {columns.map((item, index) => {
+            {columns.map(({ item }, index) => {
               const src = imageSource(item.image);
               const note = text(item.note);
               return (
@@ -52,11 +55,11 @@ export function Compare({ items, rows }: { items?: CompareItem[]; rows?: Compare
                 </th>
               </tr>
               <tr>
-                {columns.map((_, index) => {
-                  const value = text(values[index]);
-                  const isBest = value !== "" && best.has(index);
+                {columns.map(({ original }) => {
+                  const value = text(values[original]);
+                  const isBest = value !== "" && best.has(original);
                   return (
-                    <td key={index} data-best={isBest || undefined}>
+                    <td key={original} data-best={isBest || undefined}>
                       {value || "–"}
                       {isBest ? (
                         <span className="rk-visually-hidden">{`, ${words.t("bestValue")}`}</span>

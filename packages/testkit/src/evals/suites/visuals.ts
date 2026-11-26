@@ -92,6 +92,8 @@ const VisualCaseSchema = z
     beyondLayout: z.literal(true).optional(),
     /** The first show_visual call passes photos and places them with rakazo-image. */
     firstCallPhotos: z.literal(true).optional(),
+    /** The first show_visual call places at least this many photos (one per compared product). */
+    minPhotos: z.number().int().min(1).optional(),
     /** Failed show_visual calls allowed before the first success; leave out for none. */
     failuresAllowed: z.number().int().min(0).optional(),
   })
@@ -106,6 +108,8 @@ export type VisualUse = {
   components: string[];
   plotted: boolean;
   firstCallPhotos: boolean;
+  /** Photos the first call passes and places; 0 when it places them wrongly or passes none. */
+  firstCallPhotoCount: number;
 };
 
 const sourceOf = (args: Record<string, unknown>) =>
@@ -132,6 +136,10 @@ export function visualUse(evidence: Evidence): VisualUse {
           PLOT_LIBRARIES.some((library) => String(call.args.command ?? "").includes(library))),
     ),
     firstCallPhotos: first !== undefined && placesEveryPhoto(first),
+    firstCallPhotoCount:
+      first !== undefined && placesEveryPhoto(first)
+        ? (visualImageArgs(first.images) as unknown[]).length
+        : 0,
   };
 }
 
@@ -185,6 +193,11 @@ export function gradeVisuals(definition: VisualCase, evidence: Evidence): Criter
     });
   if (definition.firstCallPhotos)
     criteria.push({ id: "first call passes photos and places them", pass: use.firstCallPhotos });
+  if (definition.minPhotos)
+    criteria.push({
+      id: `first call places at least ${definition.minPhotos} photos`,
+      pass: use.firstCallPhotoCount >= definition.minPhotos,
+    });
   return criteria;
 }
 
@@ -594,6 +607,7 @@ export const VISUAL_DEFINITIONS: VisualCase[] = [
     visuals: { min: 1, max: 2 },
     allComponents: ["Compare"],
     firstCallPhotos: true,
+    minPhotos: 2,
     failuresAllowed: 2,
   },
   {
@@ -618,6 +632,7 @@ export const VISUAL_DEFINITIONS: VisualCase[] = [
     sources: places,
     visuals: { min: 1, max: 2 },
     anyComponent: ["ProductCard", "ProductRows"],
+    firstCallPhotos: true,
     failuresAllowed: 2,
   },
   {

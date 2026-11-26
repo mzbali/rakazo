@@ -168,7 +168,18 @@ describe("gradeVisuals", () => {
     expect(failed(gradeVisuals(phones, evidence([visual(NEWS_TABLE)])))).toEqual([
       "uses Compare",
       "first call passes photos and places them",
+      "first call places at least 2 photos",
     ]);
+  });
+
+  it("wants a photo over every compared phone, not just one", () => {
+    const phones = definition("shape-phones");
+    const onePhoto = visual(COMPARE.replace('"rakazo-image:2"', '""'), "succeeded", {
+      images: [{ url: "https://images.example/a.jpg", alt: "A" }],
+    });
+    expect(failed(gradeVisuals(phones, evidence([onePhoto])))).toContain(
+      "first call places at least 2 photos",
+    );
   });
 
   it("keeps a plain fact plain", () => {

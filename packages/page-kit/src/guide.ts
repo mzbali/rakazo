@@ -112,7 +112,7 @@ Dates are "YYYY-MM-DD"; times are hours as numbers (13.5 is 1:30 PM). Mark an ev
 - ProductCard {title, href?, image?, price?, note?, badge?, store?, rating?, reviews?, compact?}: put several in a CardGrid {label?} (a grid) or CardCarousel {label?} (a row that scrolls on phones).
 - ProductRows {items: [same fields]}: products as one list card. RatingSummary {rating: 0 to 5, reviews?}.
 - NewsRows {items: [{title, summary?, label?, image?, alt?, sources?: [{name, href?}]}]}: a news list straight on the answer, one story a row: photo left (image is rakazo-image:<n>), then label (a country or topic), headline, summary and a source chip ("Reuters +1"). Upcoming {items: [{date: "YYYY-MM-DD", title, detail?, sources?}]}: what is next, each with a date tile (day and month, weekday).
-- Compare {items: [{title, image?, alt?, note?}], rows: [{label, values: [one per item], best?: index | [index]}]}: 2 to 4 products side by side, each column headed by its photo (image is rakazo-image:<n> or image:<id>) and name, then each spec as a label over its values; best marks the winning value of a row.
+- Compare {items: [{title, image?, alt?, note?}], rows: [{label, values: [one per item], best?: index | [index]}]}: 2 to 4 products side by side, each column headed by its photo (in show_visual, image is rakazo-image:<n> or image:<id>) and name, then each spec as a label over its values; best marks the winning value of a row.
 - WatchCard {title, detail?, label?, reply}: offers to have the bot keep watch, through the chat like ReplyButton.
 - Avatar {name, size?, neutral?} and AvatarStack {people: [name or {name}], max?, label?}: initials in a circle; extra people fold into "+N".
 
